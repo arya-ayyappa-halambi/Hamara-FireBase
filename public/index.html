@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AegisDB Developer Dashboard 🛡️</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      safelist: [
+        'bg-slate-800', 'border-slate-700', 'text-blue-400',
+        'bg-emerald-950/80', 'border-emerald-800', 'text-emerald-100', 'text-emerald-400',
+        'bg-red-950/80', 'border-red-800', 'text-red-100', 'text-red-400',
+        'bg-amber-950/80', 'border-amber-800', 'text-amber-100', 'text-amber-400',
+        'toast-enter', 'toast-exit'
+      ],
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+              900: '#312e81',
+            },
+            darkbg: '#0f172a',
+            darkcard: '#1e293b',
+          }
+        }
+      }
+    }
+  </script>
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    .glass {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 3px;
+    }
+    .toast-enter {
+      animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .toast-exit {
+      animation: slideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes slideIn {
+      from { transform: translateY(100%); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    @keyframes slideOut {
+      from { transform: translateY(0); opacity: 1; }
+      to { transform: translateY(100%); opacity: 0; }
+    }
+  </style>
+</head>
+<body class="bg-darkbg text-slate-100 min-h-screen font-sans flex flex-col custom-scrollbar overflow-x-hidden relative">
+
+  <!-- ========================================== -->
+  <!-- AUTH SCREEN (Shown if not logged in)       -->
+  <!-- ========================================== -->
+  <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-darkbg to-black">
+    <div class="w-full max-w-md space-y-8 relative">
+      <!-- Logo / Header -->
+      <div class="text-center space-y-2">
+        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-xl shadow-brand-500/20">
+          <i class="fa-solid fa-shield-halved text-white text-3xl"></i>
+        </div>
+        <h1 class="text-3xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent mt-4">AegisDB</h1>
+        <p class="text-sm text-slate-400">Firebase-like BaaS Engine</p>
+      </div>
+
+      <!-- Auth Form Container -->
+      <div class="glass rounded-3xl p-8 space-y-6 shadow-2xl relative overflow-hidden">
+        <!-- Decoration -->
+        <div class="absolute -top-10 -right-10 w-32 h-32 bg-brand-500/10 rounded-full blur-2xl"></div>
+        <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl"></div>
+
+        <!-- Auth Tabs (Login / Register toggle) -->
+        <div class="flex p-1 bg-slate-900/50 rounded-xl relative z-10 border border-slate-800">
+          <button id="authLoginTabBtn" class="flex-1 py-2 text-sm font-medium rounded-lg bg-brand-600 text-white shadow transition-all duration-200">Login</button>
+          <button id="authRegisterTabBtn" class="flex-1 py-2 text-sm font-medium rounded-lg text-slate-400 hover:text-white transition-all duration-200">Register</button>
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm" class="space-y-4 relative z-10">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Email Address</label>
+            <div class="relative">
+              <i class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+              <input type="email" id="loginEmail" required placeholder="alice@aegis.dev" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Password</label>
+            <div class="relative">
+              <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+              <input type="password" id="loginPassword" required placeholder="••••••••••••" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-brand-500 focus:ring-1 focus:ring-brand-500 focus:outline-none transition-all">
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-brand-600 hover:bg-brand-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-brand-600/30 flex justify-center items-center group mt-2">
+            <span>Sign In</span>
+            <i class="fa-solid fa-arrow-right ml-2 opacity-70 group-hover:translate-x-1 transition-transform"></i>
+          </button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="registerForm" class="space-y-4 relative z-10 hidden">
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Full Name</label>
+            <div class="relative">
+              <i class="fa-regular fa-user absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+              <input type="text" id="regName" required placeholder="Alice Smith" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Email Address</label>
+            <div class="relative">
+              <i class="fa-regular fa-envelope absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+              <input type="email" id="regEmail" required placeholder="alice@aegis.dev" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Password</label>
+            <div class="relative">
+              <i class="fa-solid fa-lock absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500"></i>
+              <input type="password" id="regPassword" required placeholder="••••••••••••" class="w-full bg-slate-900/50 border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 focus:outline-none transition-all">
+            </div>
+          </div>
+          <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-emerald-600/30 flex justify-center items-center group mt-2">
+            <span>Create Account</span>
+            <i class="fa-solid fa-arrow-right ml-2 opacity-70 group-hover:translate-x-1 transition-transform"></i>
+          </button>
+        </form>
+      </div>
+      
+      <div class="text-center text-xs text-slate-500">
+        Secure Zero-Config Engine • Multi-Tenant
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ========================================== -->
+  <!-- MAIN DASHBOARD (Shown if logged in)        -->
+  <!-- ========================================== -->
+  <div id="app-dashboard" class="flex-1 flex flex-col hidden min-h-screen">
+    <!-- Top Navigation Header -->
+    <header class="glass sticky top-0 z-40 px-6 py-4 flex items-center justify-between border-b border-slate-700/50">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-brand-500/20">
+          <i class="fa-solid fa-shield-halved text-white text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-wide bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">AegisDB Dashboard</h1>
+          <p class="text-xs text-slate-400">Firebase-like BaaS Engine • Multi-Tenant • API Keys • Realtime WS</p>
+        </div>
+      </div>
+
+      <!-- Right Controls: Connection & Active User -->
+      <div class="flex items-center space-x-4 text-xs">
+        <div id="wsStatusBadge" class="px-3 py-1.5 rounded-full glass border border-slate-700 flex items-center space-x-2">
+          <span id="wsStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+          <span id="wsStatusText" class="text-slate-400 font-medium">WS Disconnected</span>
+        </div>
+
+        <div id="userBadge" class="hidden px-3 py-1.5 rounded-full glass border border-brand-500/30 text-slate-300 flex items-center space-x-2">
+          <i class="fa-solid fa-circle-user text-brand-400 text-sm"></i>
+          <span id="userEmailText" class="font-medium">Not Logged In</span>
+        </div>
+
+        <button id="logoutBtn" class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 font-medium transition cursor-pointer">
+          <i class="fa-solid fa-right-from-bracket mr-1"></i> Logout
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 relative z-10">
+
+      <!-- Sidebar / Navigation Tabs (Left 3 cols) -->
+      <aside class="lg:col-span-3 space-y-4">
+        <nav class="glass rounded-2xl p-2 space-y-1">
+          <button data-tab="projects" class="nav-tab w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 text-sm font-medium transition bg-brand-600 text-white">
+            <i class="fa-solid fa-cubes text-lg"></i>
+            <span>Projects & API Keys</span>
+          </button>
+          <button data-tab="db" class="nav-tab w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800/50">
+            <i class="fa-solid fa-database text-lg"></i>
+            <span>Dynamic DB Engine</span>
+          </button>
+          <button data-tab="realtime" class="nav-tab w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800/50">
+            <i class="fa-solid fa-bolt text-lg"></i>
+            <span>Real-Time Streams</span>
+          </button>
+          <button data-tab="storage" class="nav-tab w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800/50">
+            <i class="fa-solid fa-folder-closed text-lg"></i>
+            <span>Biometric Storage</span>
+          </button>
+          <button data-tab="hoster" class="nav-tab w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-slate-400 hover:text-white hover:bg-slate-800/50">
+            <i class="fa-solid fa-box text-lg"></i>
+            <span>Hoster Container</span>
+          </button>
+          
+          <div id="adminNavDivider" class="h-px bg-slate-800 my-2 hidden"></div>
+          
+          <button data-tab="admin" id="adminTabBtn" class="nav-tab hidden w-full text-left px-4 py-3 rounded-xl flex items-center space-x-3 text-sm font-medium transition text-rose-400 hover:text-rose-300 hover:bg-rose-950/40">
+            <i class="fa-solid fa-user-shield text-lg"></i>
+            <span>Super Admin Portal</span>
+          </button>
+        </nav>
+
+        <!-- Active JWT Token Card -->
+        <div class="glass rounded-2xl p-4 text-xs space-y-2">
+          <div class="flex items-center justify-between text-slate-400 font-semibold uppercase tracking-wider">
+            <span>Access JWT</span>
+            <button id="refreshTokenBtn" class="text-brand-400 hover:underline">Refresh</button>
+          </div>
+          <div id="jwtTokenDisplay" class="bg-darkbg p-2.5 rounded-lg text-slate-400 font-mono text-[11px] break-all max-h-24 overflow-y-auto border border-slate-800">
+            No JWT access token loaded.
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Content Area (Right 9 cols) -->
+      <section class="lg:col-span-9 space-y-6">
+
+        <!-- TAB: PROJECTS & API KEYS -->
+        <div id="tab-projects" class="tab-content block space-y-6">
+          <div class="glass rounded-2xl p-6 space-y-6 border-t-2 border-brand-500/50">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-layer-group text-brand-400"></i>
+                  <span>Project Overview</span>
+                </h2>
+                <p class="text-sm text-slate-400 mt-1">Manage isolated database instances and generate API Keys</p>
+              </div>
+              <button id="refreshProjectsBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-4 py-2 rounded-xl border border-slate-700 transition">
+                <i class="fa-solid fa-rotate-right mr-1"></i> Refresh
+              </button>
+            </div>
+
+            <!-- Create Project Form -->
+            <div class="bg-darkbg p-5 rounded-xl border border-slate-800">
+              <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">Create New Project</h3>
+              <div class="flex flex-col md:flex-row items-stretch space-y-3 md:space-y-0 md:space-x-3">
+                <input type="text" id="newProjectName" placeholder="e.g., Production E-Commerce Backend" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-4 py-2.5 text-sm text-white focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500">
+                <button id="createProjectBtn" class="bg-brand-600 hover:bg-brand-500 text-white font-medium px-6 py-2.5 rounded-xl text-sm shadow-md whitespace-nowrap transition flex justify-center items-center">
+                  <i class="fa-solid fa-plus mr-2"></i> Create Instance
+                </button>
+              </div>
+            </div>
+
+            <!-- API Usage Instructions -->
+            <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 text-sm">
+              <div class="flex items-start space-x-3">
+                <i class="fa-solid fa-circle-info text-blue-400 mt-0.5"></i>
+                <div class="text-slate-300">
+                  <span class="font-medium text-white">How to connect your app:</span> Use the Project API Key in the <code class="bg-slate-800 px-1.5 py-0.5 rounded text-blue-300 border border-slate-700">x-aegis-api-key</code> HTTP header for all requests to the <code class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400 border border-slate-700">/api/v1/db</code> endpoints.
+                </div>
+              </div>
+            </div>
+
+            <!-- Project List -->
+            <div>
+              <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-800 pb-2">Your Projects</h3>
+              <div id="projectsListContainer" class="grid grid-cols-1 gap-4">
+                <p class="text-sm text-slate-500 italic py-4 text-center">Loading projects...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: DYNAMIC DATABASE ENGINE -->
+        <div id="tab-db" class="tab-content hidden space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+            <!-- Left: Collection Manager (4 cols) -->
+            <div class="md:col-span-4 space-y-4">
+              <div class="glass rounded-2xl p-5 space-y-4">
+                <h3 class="text-sm font-bold text-white flex items-center justify-between">
+                  <span>Collections</span>
+                  <button id="refreshCollectionsBtn" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-rotate-right"></i></button>
+                </h3>
+                <div class="flex space-x-2">
+                  <input type="text" id="newColName" placeholder="sensors" class="flex-1 w-full bg-darkbg border border-slate-700 rounded-xl px-3 py-2 text-sm text-white focus:border-indigo-500 focus:outline-none">
+                  <button id="createColBtn" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition">Create</button>
+                </div>
+                <div id="collectionsList" class="space-y-2 max-h-96 overflow-y-auto custom-scrollbar pt-2">
+                  <p class="text-xs text-slate-500 italic">No collections loaded.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Document Manager & JSON Editor (8 cols) -->
+            <div class="md:col-span-8 space-y-4">
+              <!-- Insert Document Card -->
+              <div class="glass rounded-2xl p-5 space-y-3">
+                <h3 class="text-sm font-bold text-white flex items-center justify-between">
+                  <span>Insert Document (<span id="activeColName" class="text-indigo-400">select a collection</span>)</span>
+                </h3>
+                <textarea id="docJsonInput" rows="3" class="w-full bg-darkbg border border-slate-700 rounded-xl p-3 text-sm font-mono text-emerald-300 focus:border-indigo-500 focus:outline-none" placeholder='{ "device": "sensor-01", "temp": 24.5, "active": true }'></textarea>
+                <div class="flex justify-end">
+                  <button id="insertDocBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2 rounded-xl text-sm font-medium shadow-md transition">
+                    <i class="fa-solid fa-plus mr-1"></i> Insert Document
+                  </button>
+                </div>
+              </div>
+
+              <!-- Documents View & Filter -->
+              <div class="glass rounded-2xl p-5 space-y-3">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-sm font-bold text-white">Documents</h3>
+                  <button id="queryDocsBtn" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition">
+                    <i class="fa-solid fa-magnifying-glass mr-1"></i> Fetch Data
+                  </button>
+                </div>
+                <div id="documentsContainer" class="space-y-3 max-h-80 overflow-y-auto custom-scrollbar pr-1">
+                  <p class="text-xs text-slate-500 italic p-4 text-center">Select a collection and fetch documents.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: REAL-TIME WEBSOCKET STREAMS -->
+        <div id="tab-realtime" class="tab-content hidden space-y-4">
+          <div class="glass rounded-2xl p-6 space-y-5">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-bolt text-amber-400"></i>
+                  <span>Live Database Change Stream Feed</span>
+                </h2>
+                <p class="text-sm text-slate-400 mt-1">Subscribed change events broadcast in real-time</p>
+              </div>
+              <div class="flex space-x-2">
+                <button id="connectWsBtn" class="bg-amber-600 hover:bg-amber-500 text-white px-4 py-2 rounded-xl text-sm font-medium transition">Connect WS</button>
+                <button id="clearWsLogBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-medium border border-slate-700 transition">Clear</button>
+              </div>
+            </div>
+
+            <!-- Subscription Controls -->
+            <div class="flex items-center space-x-3 bg-darkbg p-4 rounded-xl border border-slate-800">
+              <input type="text" id="wsSubCollectionName" placeholder="Collection Name to Subscribe (e.g., users)" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-amber-500 transition">
+              <button id="wsSubBtn" class="bg-brand-600 hover:bg-brand-500 text-white px-5 py-2 rounded-lg text-sm font-medium transition shadow-md">Subscribe</button>
+            </div>
+
+            <!-- Event Activity Log Terminal -->
+            <div id="wsActivityLog" class="bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 h-[28rem] overflow-y-auto custom-scrollbar border border-slate-800 space-y-2 shadow-inner">
+              <div class="text-slate-500 italic">[SYS] Ready. Connect WebSocket and subscribe to a collection to view change stream frames...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: BIOMETRIC ASSET STORAGE -->
+        <div id="tab-storage" class="tab-content hidden space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+
+            <!-- File Upload Form (5 cols) -->
+            <div class="md:col-span-5 space-y-4">
+              <div class="glass rounded-2xl p-6 space-y-5">
+                <div>
+                  <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i>
+                    <span>Upload Biometric Asset</span>
+                  </h2>
+                  <p class="text-xs text-slate-400 mt-1">Store images with SHA-256 integrity</p>
+                </div>
+                <form id="uploadAssetForm" class="space-y-4">
+                  <div class="border-2 border-dashed border-slate-700 hover:border-emerald-500 rounded-xl p-8 text-center cursor-pointer transition bg-darkbg/50 group">
+                    <input type="file" id="assetFileInput" required accept="image/*" class="hidden">
+                    <label for="assetFileInput" class="cursor-pointer space-y-3 block">
+                      <div class="w-12 h-12 mx-auto rounded-full bg-slate-800 group-hover:bg-emerald-900/30 flex items-center justify-center transition">
+                        <i class="fa-solid fa-image text-2xl text-slate-400 group-hover:text-emerald-400 transition"></i>
+                      </div>
+                      <p id="fileLabelText" class="text-sm text-slate-300 font-medium">Click to select image</p>
+                      <p class="text-[11px] text-slate-500">PNG, JPG, WEBP • Max: 10MB</p>
+                    </label>
+                  </div>
+                  <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-3 rounded-xl text-sm transition shadow-lg shadow-emerald-600/30">
+                    Upload Asset
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Asset Gallery / List (7 cols) -->
+            <div class="md:col-span-7 space-y-4">
+              <div class="glass rounded-2xl p-6 space-y-4">
+                <div class="flex items-center justify-between">
+                  <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                    <i class="fa-solid fa-images text-indigo-400"></i>
+                    <span>Stored Assets</span>
+                  </h2>
+                  <button id="refreshAssetsBtn" class="text-slate-400 hover:text-white text-xs px-3 py-1.5 bg-slate-800 rounded-lg border border-slate-700 transition"><i class="fa-solid fa-rotate-right mr-1"></i> Refresh</button>
+                </div>
+                <div id="assetsContainer" class="space-y-3 max-h-[28rem] overflow-y-auto custom-scrollbar pr-2">
+                  <p class="text-sm text-slate-500 italic text-center py-8">No biometric assets uploaded.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: HOSTER DEPLOYMENTS -->
+        <div id="tab-hoster" class="tab-content hidden space-y-6">
+          <div class="glass rounded-2xl p-6 space-y-4 border-t-2 border-cyan-500/50">
+            <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div>
+                <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-server text-cyan-400"></i>
+                  <span>Active Project Deployments</span>
+                </h2>
+                <p class="text-sm text-slate-400 mt-1">Containerized / Process-based application hosting</p>
+              </div>
+              <button id="refreshDeploymentsBtn" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm px-4 py-2 rounded-xl border border-slate-700 transition shadow-sm">
+                <i class="fa-solid fa-rotate-right mr-1"></i> Refresh List
+              </button>
+            </div>
+            <div id="deploymentsContainer" class="space-y-4 max-h-96 overflow-y-auto custom-scrollbar pt-2">
+              <p class="text-sm text-slate-500 italic text-center py-8">No project deployments active.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: SUPER ADMIN PORTAL -->
+        <div id="tab-admin" class="tab-content hidden space-y-6">
+          <div class="glass rounded-2xl p-8 space-y-8 border-t-2 border-rose-500">
+            <div class="flex items-center justify-between">
+              <div>
+                <h2 class="text-xl font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-user-shield text-rose-400 text-2xl"></i>
+                  <span>Super Admin Portal</span>
+                </h2>
+                <p class="text-sm text-slate-400 mt-1">Platform-wide telemetry, resource metrics, and rate limit tuning</p>
+              </div>
+              <button id="refreshAdminStatsBtn" class="bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 text-sm px-4 py-2 rounded-xl transition shadow-sm">
+                <i class="fa-solid fa-rotate-right mr-1"></i> Refresh Metrics
+              </button>
+            </div>
+
+            <!-- Telemetry Metric Cards Grid -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div class="bg-darkbg p-5 rounded-2xl border border-slate-800 flex flex-col items-center justify-center text-center">
+                <div class="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center mb-2">
+                  <i class="fa-solid fa-users text-blue-400 text-lg"></i>
+                </div>
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Total Users</div>
+                <div id="statTotalUsers" class="text-3xl font-bold text-white mt-1">0</div>
+              </div>
+              <div class="bg-darkbg p-5 rounded-2xl border border-slate-800 flex flex-col items-center justify-center text-center">
+                <div class="w-10 h-10 rounded-full bg-purple-500/10 flex items-center justify-center mb-2">
+                  <i class="fa-solid fa-cubes text-purple-400 text-lg"></i>
+                </div>
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Projects</div>
+                <div id="statTotalProjects" class="text-3xl font-bold text-purple-400 mt-1">0</div>
+              </div>
+              <div class="bg-darkbg p-5 rounded-2xl border border-slate-800 flex flex-col items-center justify-center text-center">
+                <div class="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center mb-2">
+                  <i class="fa-solid fa-database text-indigo-400 text-lg"></i>
+                </div>
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Cols / Docs</div>
+                <div id="statTotalDocs" class="text-3xl font-bold text-indigo-400 mt-1">0 / 0</div>
+              </div>
+              <div class="bg-darkbg p-5 rounded-2xl border border-slate-800 flex flex-col items-center justify-center text-center">
+                <div class="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center mb-2">
+                  <i class="fa-solid fa-microchip text-emerald-400 text-lg"></i>
+                </div>
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Heap / Uptime</div>
+                <div id="statSystemHealth" class="text-xl font-bold text-emerald-400 mt-1">0 MB</div>
+              </div>
+            </div>
+
+            <!-- Dynamic Rate Limit Tuning Form -->
+            <div class="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 space-y-5">
+              <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-gauge-high text-amber-400"></i>
+                  <span>Live Rate Limit Configuration</span>
+                </h3>
+                <span class="text-[10px] bg-rose-500/20 text-rose-300 px-2 py-0.5 rounded uppercase font-bold tracking-wider">Admin Only</span>
+              </div>
+              
+              <form id="rateLimitForm" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label class="block text-slate-400 text-xs font-medium mb-1.5 ml-1">Auth Limit (requests / 15 mins)</label>
+                  <div class="relative">
+                    <i class="fa-solid fa-shield text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    <input type="number" id="authLimitInput" value="10" required class="w-full bg-darkbg border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition">
+                  </div>
+                </div>
+                <div>
+                  <label class="block text-slate-400 text-xs font-medium mb-1.5 ml-1">API Limit (requests / 15 mins)</label>
+                  <div class="relative">
+                    <i class="fa-solid fa-network-wired text-slate-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    <input type="number" id="apiLimitInput" value="100" required class="w-full bg-darkbg border border-slate-700 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500 transition">
+                  </div>
+                </div>
+                <div class="md:col-span-2 pt-2">
+                  <button type="submit" class="bg-rose-600 hover:bg-rose-500 text-white font-medium px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-rose-600/30 transition flex items-center">
+                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Apply Settings Live
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+      </section>
+    </main>
+
+    <!-- Footer Banner -->
+    <footer class="glass mt-auto py-4 px-6 text-center text-xs text-slate-500 border-t border-slate-800 z-40 relative">
+      <div class="flex justify-center items-center space-x-2">
+        <i class="fa-solid fa-shield-halved text-slate-600"></i>
+        <span>AegisDB BaaS Engine &copy; 2026 • Secure & Multi-Tenant</span>
+      </div>
+    </footer>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-[100] flex flex-col space-y-3 pointer-events-none"></div>
+
+  <!-- Application Logic JS -->
+  <script src="/app.js"></script>
+</body>
+</html>

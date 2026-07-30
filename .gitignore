@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment secrets
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Phase 2 — biometric uploads (runtime artefacts, not source)
+uploads/biometrics/
+
+# Phase 3 — hoster runtime directories
+workspaces/        # extracted project files for hosted deployments
+uploads/projects/  # temporary zip files (deleted after extraction)
+
+# Phase 4 — SQLite database file
+aegis.db*
