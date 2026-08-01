@@ -49,3 +49,35 @@ export async function deleteProject(req: Request, res: Response, next: NextFunct
     } as ApiResponse<null>);
   } catch (err) { next(err); }
 }
+
+export async function updateProject(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const updated = projectService.updateProject(ownerId, req.params.id, req.body);
+    res.status(200).json({
+      success: true,
+      message: 'Project updated.',
+      data: updated,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function getAuthConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const { id } = req.params;
+    const project = projectService.getProjectById(id, ownerId);
+    if (!project) throw new AppError('Project not found.', 404);
+    res.status(200).json({ success: true, data: project.authConfig });
+  } catch (err) { next(err); }
+}
+
+export async function updateAuthConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const { id } = req.params;
+    const { authConfig } = req.body;
+    projectService.updateAuthConfig(id, ownerId, authConfig);
+    res.status(200).json({ success: true, message: 'Auth config updated successfully.' });
+  } catch (err) { next(err); }
+}

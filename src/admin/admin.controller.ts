@@ -19,6 +19,30 @@ export async function getStats(_req: Request, res: Response, next: NextFunction)
   } catch (err) { next(err); }
 }
 
+export async function getUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const users = await adminService.getUsers();
+    res.status(200).json({
+      success: true,
+      message: 'Users retrieved.',
+      data: users,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function updateUserLimits(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { apiLimit, readLimit, writeLimit, lockoutMinutes, resetLockout } = req.body;
+    await adminService.updateUserLimits(id, apiLimit, readLimit, writeLimit, lockoutMinutes, resetLockout);
+    res.status(200).json({
+      success: true,
+      message: 'User limits updated successfully.',
+      data: null,
+    } as ApiResponse<null>);
+  } catch (err) { next(err); }
+}
+
 export async function updateRateLimits(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const config = adminService.updateRateLimits(req.body);

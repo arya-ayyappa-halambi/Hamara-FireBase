@@ -42,8 +42,9 @@ export async function uploadAsset(req: Request, res: Response, next: NextFunctio
 
     const ownerId = getOwnerId(req);
     const linkedCollectionId = req.body.linkedCollectionId as string | undefined;
+    const projectId = req.project?.id || req.body.projectId;
 
-    const meta = saveAssetMetadata(ownerId, req.file, linkedCollectionId);
+    const meta = saveAssetMetadata(ownerId, req.file, linkedCollectionId, projectId);
 
     res.status(201).json({
       success: true,

@@ -8,6 +8,7 @@
 
 import { Router } from 'express';
 import { authenticateApiKeyOrJwt } from '../middleware/apikey.middleware';
+import { apiLimiter } from '../middleware/rateLimit.middleware';
 import { uploadProjectMiddleware } from './hoster.service';
 import * as controller from './hoster.controller';
 
@@ -15,6 +16,7 @@ const router = Router();
 
 // All hoster routes accept API Key or Bearer token
 router.use(authenticateApiKeyOrJwt);
+router.use(apiLimiter);
 
 // ── Project deployment ─────────────────────────────────────────────────────────
 // POST   /api/v1/hoster/deploy

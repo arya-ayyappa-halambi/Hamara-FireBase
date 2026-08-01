@@ -12,7 +12,7 @@
 - **Multi-Tenant Architecture**: Firebase-style Projects and API Keys for isolating database environments and securely interacting with the SDK.
 - **Biometric Asset Storage**: A dedicated storage layer for securely handling, verifying (SHA-256 integrity), and serving biometric and media assets.
 - **Project Hoster**: A container orchestration layer (with Docker & Node Process adapters) to dynamically deploy your applications.
-- **Super Admin Portal**: Platform-wide telemetry, resource monitoring, and dynamic rate-limit tuning (requests/15 min).
+- **Super Admin Portal**: Platform-wide telemetry, resource monitoring, dynamic rate-limit tuning, per-user monthly usage quotas (reads/writes/API), and dynamic penalty lockouts.
 - **Glassmorphic Web Dashboard**: A premium, Tailwind-powered Vanilla JS dashboard for managing projects, executing queries, testing WebSockets, and viewing logs in real-time.
 
 ---

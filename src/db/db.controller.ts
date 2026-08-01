@@ -7,6 +7,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { dbStore } from './db.service';
+import { userStore } from '../store/user.store';
 import { AppError, ApiResponse } from '../types/auth.types';
 import {
   Collection,
@@ -17,12 +18,79 @@ import {
   DocumentValue,
 } from '../types/db.types';
 
-// ── Helper: extract verified ownerId ──────────────────────────────────────────
-
 function getOwnerId(req: Request): string {
   const sub = req.user?.sub;
   if (!sub) throw new AppError('Authentication context missing.', 401);
   return sub;
+}
+
+// ── Helper: Check Rate Limits & Lockout ───────────────────────────────────────
+
+async function checkLimitsAndLockout(ownerId: string, operation: 'read' | 'write'): Promise<void> {
+  const users = await userStore.getAllUsers();
+  const owner = users.find(u => u.id === ownerId) as any;
+  if (!owner) return;
+  
+  const now = new Date();
+  
+  // 1. Check Monthly Reset
+  if (owner.billingMonthStart) {
+    const monthStart = new Date(owner.billingMonthStart);
+    // If it's a new calendar month (or 30 days passed). Here we do calendar month.
+    if (now.getMonth() !== monthStart.getMonth() || now.getFullYear() !== monthStart.getFullYear()) {
+      userStore.resetMonthlyLimits(ownerId);
+      owner.readsCount = 0;
+      owner.writesCount = 0;
+      owner.lockedUntil = undefined;
+    }
+  } else {
+    // initialize billing month start
+    userStore.resetMonthlyLimits(ownerId);
+    owner.readsCount = 0;
+    owner.writesCount = 0;
+  }
+  
+  // 2. Check Lockout
+  if (owner.lockedUntil && new Date(owner.lockedUntil) > now) {
+    throw new AppError(`You are locked out until ${new Date(owner.lockedUntil).toISOString()} due to exceeding your limits.`, 429);
+  }
+  
+  // 3. Check Current Limits
+  if (operation === 'read' && (owner.readsCount ?? 0) >= (owner.readLimit ?? Infinity)) {
+    userStore.applyLockout(ownerId, owner.lockoutMinutes || 1440);
+    throw new AppError(`Read limit exceeded for this month. You have been locked out for ${owner.lockoutMinutes || 1440} minutes.`, 429);
+  }
+  
+  if (operation === 'write' && (owner.writesCount ?? 0) >= (owner.writeLimit ?? Infinity)) {
+    userStore.applyLockout(ownerId, owner.lockoutMinutes || 1440);
+    throw new AppError(`Write limit exceeded for this month. You have been locked out for ${owner.lockoutMinutes || 1440} minutes.`, 429);
+  }
+}
+
+// ── Helper: Evaluate Security Rules ───────────────────────────────────────────
+
+function checkRules(collection: Collection, operation: 'read' | 'write', req: Request): void {
+  // If this is a client using an API Key, enforce rules.
+  // If it's a dashboard user (JWT), they have full access to their own resources.
+  const isApiKey = req.user?.email?.startsWith('api-key::');
+  if (!isApiKey) return;
+
+  // Default to allowing access if no rules are defined (backwards compatibility)
+  let rulesObj: { read?: boolean; write?: boolean } = { read: true, write: true };
+  
+  if (collection.rules) {
+    try {
+      rulesObj = JSON.parse(collection.rules);
+    } catch (e) {
+      // Invalid rules syntax fails closed
+      rulesObj = { read: false, write: false };
+    }
+  }
+
+  const allowed = rulesObj[operation] === true;
+  if (!allowed) {
+    throw new AppError(`Permission denied by collection security rules for operation: ${operation}.`, 403);
+  }
 }
 
 // ── Helper: parse query-string filter ────────────────────────────────────────
@@ -87,6 +155,18 @@ export async function getCollection(req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 }
 
+export async function updateCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const patch = {
+      description: req.body.description,
+      schema: req.body.schema,
+      rules: req.body.rules,
+    };
+    const collection = dbStore.updateCollection(getOwnerId(req), req.params.name, patch);
+    res.status(200).json({ success: true, message: 'Collection updated.', data: collection } as ApiResponse<Collection>);
+  } catch (err) { next(err); }
+}
+
 export async function deleteCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     dbStore.deleteCollection(getOwnerId(req), req.params.name);
@@ -101,7 +181,13 @@ export async function insertDocument(req: Request, res: Response, next: NextFunc
     if (!req.body.data || typeof req.body.data !== 'object' || Array.isArray(req.body.data)) {
       throw new AppError('Request body must contain a "data" object.', 400);
     }
-    const doc = dbStore.insertDocument(getOwnerId(req), req.params.name, req.body.data);
+    const ownerId = getOwnerId(req);
+    await checkLimitsAndLockout(ownerId, 'write');
+    const coll = dbStore.getCollection(ownerId, req.params.name);
+    checkRules(coll, 'write', req);
+    
+    const doc = dbStore.insertDocument(ownerId, req.params.name, req.body.data);
+    userStore.incrementTelemetry(ownerId, 'write');
     res.status(201).json({ success: true, message: 'Document inserted.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
 }
@@ -115,14 +201,26 @@ export async function queryDocuments(req: Request, res: Response, next: NextFunc
       sortBy:    req.query.sortBy  ? String(req.query.sortBy)  : undefined,
       sortOrder: req.query.sortOrder === 'desc' ? 'desc' : 'asc',
     };
-    const result = dbStore.queryDocuments(getOwnerId(req), req.params.name, opts);
+    const ownerId = getOwnerId(req);
+    await checkLimitsAndLockout(ownerId, 'read');
+    const coll = dbStore.getCollection(ownerId, req.params.name);
+    checkRules(coll, 'read', req);
+    
+    const result = dbStore.queryDocuments(ownerId, req.params.name, opts);
+    userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Documents retrieved.', data: result } as ApiResponse<QueryResult>);
   } catch (err) { next(err); }
 }
 
 export async function getDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const doc = dbStore.getDocument(getOwnerId(req), req.params.name, req.params.id);
+    const ownerId = getOwnerId(req);
+    await checkLimitsAndLockout(ownerId, 'read');
+    const coll = dbStore.getCollection(ownerId, req.params.name);
+    checkRules(coll, 'read', req);
+    
+    const doc = dbStore.getDocument(ownerId, req.params.name, req.params.id);
+    userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Document retrieved.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
 }
@@ -132,14 +230,26 @@ export async function updateDocument(req: Request, res: Response, next: NextFunc
     if (!req.body.data || typeof req.body.data !== 'object' || Array.isArray(req.body.data)) {
       throw new AppError('Request body must contain a "data" object with fields to patch.', 400);
     }
-    const doc = dbStore.updateDocument(getOwnerId(req), req.params.name, req.params.id, req.body.data);
+    const ownerId = getOwnerId(req);
+    await checkLimitsAndLockout(ownerId, 'write');
+    const coll = dbStore.getCollection(ownerId, req.params.name);
+    checkRules(coll, 'write', req);
+    
+    const doc = dbStore.updateDocument(ownerId, req.params.name, req.params.id, req.body.data);
+    userStore.incrementTelemetry(ownerId, 'write');
     res.status(200).json({ success: true, message: 'Document updated.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
 }
 
 export async function deleteDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    dbStore.deleteDocument(getOwnerId(req), req.params.name, req.params.id);
+    const ownerId = getOwnerId(req);
+    await checkLimitsAndLockout(ownerId, 'write');
+    const coll = dbStore.getCollection(ownerId, req.params.name);
+    checkRules(coll, 'write', req);
+    
+    dbStore.deleteDocument(ownerId, req.params.name, req.params.id);
+    userStore.incrementTelemetry(ownerId, 'write');
     res.status(200).json({ success: true, message: 'Document deleted.', data: null } as ApiResponse<null>);
   } catch (err) { next(err); }
 }

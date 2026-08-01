@@ -10,6 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { v4 as uuidv4 } from 'uuid';
+import Ajv from 'ajv';
 import { AppError } from '../types/auth.types';
 import {
   Collection,
@@ -24,6 +25,8 @@ import {
 } from '../types/db.types';
 import { getDb } from './sqlite.connection';
 import { wsService } from '../realtime/websocket.service';
+
+const ajv = new Ajv({ strict: false });
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -106,13 +109,23 @@ class SqliteDbStore {
   // ── Collections ────────────────────────────────────────────────────────────
 
   createCollection(ownerId: string, dto: CreateCollectionDto): Collection {
-    const { name, description = '' } = dto;
+    const { name, description = '', schema = null, rules = null } = dto;
 
     if (!COLLECTION_NAME_REGEX.test(name)) {
       throw new AppError(
         'Collection name must start with a letter, and contain only letters, numbers, underscores, or hyphens (2–64 chars).',
         400,
       );
+    }
+
+    // Validate schema format if provided
+    if (schema) {
+      try {
+        const parsedSchema = JSON.parse(schema);
+        ajv.compile(parsedSchema); // Check if it's a valid JSON schema
+      } catch (e: any) {
+        throw new AppError(`Invalid JSON Schema: ${e.message}`, 400);
+      }
     }
 
     const db = getDb();
@@ -126,15 +139,17 @@ class SqliteDbStore {
       name,
       description,
       ownerId,
+      schema: schema || undefined,
+      rules: rules || undefined,
       documentCount: 0,
       createdAt: now,
       updatedAt: now,
     };
 
     db.prepare(`
-      INSERT INTO collections (ownerId, name, description, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(ownerId, name, description, now, now);
+      INSERT INTO collections (ownerId, name, description, schema, rules, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(ownerId, name, description, schema, rules, now, now);
 
     return meta;
   }
@@ -142,12 +157,12 @@ class SqliteDbStore {
   listCollections(ownerId: string): Collection[] {
     const db = getDb();
     const rows = db.prepare(`
-      SELECT c.name, c.description, c.ownerId, c.createdAt, c.updatedAt,
+      SELECT c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt,
              COUNT(d.id) as documentCount
       FROM collections c
       LEFT JOIN documents d ON c.ownerId = d.ownerId AND c.name = d.collectionName
       WHERE c.ownerId = ?
-      GROUP BY c.name, c.description, c.ownerId, c.createdAt, c.updatedAt
+      GROUP BY c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt
       ORDER BY c.createdAt ASC
     `).all(ownerId) as (Collection & { documentCount: number })[];
 
@@ -157,12 +172,12 @@ class SqliteDbStore {
   getCollection(ownerId: string, name: string): Collection {
     const db = getDb();
     const row = db.prepare(`
-      SELECT c.name, c.description, c.ownerId, c.createdAt, c.updatedAt,
+      SELECT c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt,
              COUNT(d.id) as documentCount
       FROM collections c
       LEFT JOIN documents d ON c.ownerId = d.ownerId AND c.name = d.collectionName
       WHERE c.ownerId = ? AND c.name = ?
-      GROUP BY c.name, c.description, c.ownerId, c.createdAt, c.updatedAt
+      GROUP BY c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt
     `).get(ownerId, name) as Collection | undefined;
 
     if (!row) {
@@ -170,6 +185,34 @@ class SqliteDbStore {
     }
 
     return row;
+  }
+
+  updateCollection(ownerId: string, name: string, patch: { description?: string; schema?: string; rules?: string }): Collection {
+    const existing = this.getCollection(ownerId, name);
+    const db = getDb();
+
+    if (patch.schema !== undefined) {
+      if (patch.schema) {
+        try {
+          const parsedSchema = JSON.parse(patch.schema);
+          ajv.compile(parsedSchema);
+        } catch (e: any) {
+          throw new AppError(`Invalid JSON Schema: ${e.message}`, 400);
+        }
+      }
+    }
+
+    const newDescription = patch.description !== undefined ? patch.description : existing.description;
+    const newSchema = patch.schema !== undefined ? patch.schema : existing.schema;
+    const newRules = patch.rules !== undefined ? patch.rules : existing.rules;
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE collections SET description = ?, schema = ?, rules = ?, updatedAt = ?
+      WHERE ownerId = ? AND name = ?
+    `).run(newDescription, newSchema, newRules, now, ownerId, name);
+
+    return this.getCollection(ownerId, name);
   }
 
   deleteCollection(ownerId: string, name: string): void {
@@ -190,8 +233,15 @@ class SqliteDbStore {
       }
     }
 
-    // Ensure collection exists
-    this.getCollection(ownerId, collectionName);
+    // Ensure collection exists and validate schema
+    const coll = this.getCollection(ownerId, collectionName);
+    if (coll.schema) {
+      const validate = ajv.compile(JSON.parse(coll.schema));
+      const valid = validate(data);
+      if (!valid) {
+        throw new AppError(`Schema validation failed: ${ajv.errorsText(validate.errors)}`, 400);
+      }
+    }
 
     const now = new Date().toISOString();
     const docId = uuidv4();
@@ -296,12 +346,30 @@ class SqliteDbStore {
       }
     }
 
+    const coll = this.getCollection(ownerId, collectionName);
     const existing = this.getDocument(ownerId, collectionName, docId);
+    
+    // Create candidate document to validate
+    const candidateData = {
+      ...existing,
+      ...patch,
+    };
+    
+    // Remove internal fields for validation
+    const { _id, _ownerId, _createdAt, _updatedAt, ...validationData } = candidateData;
+
+    if (coll.schema) {
+      const validate = ajv.compile(JSON.parse(coll.schema));
+      const valid = validate(validationData);
+      if (!valid) {
+        throw new AppError(`Schema validation failed: ${ajv.errorsText(validate.errors)}`, 400);
+      }
+    }
+
     const now = new Date().toISOString();
 
     const updated: Document = {
-      ...existing,
-      ...patch,
+      ...candidateData,
       _id: existing._id,
       _ownerId: existing._ownerId,
       _createdAt: existing._createdAt,

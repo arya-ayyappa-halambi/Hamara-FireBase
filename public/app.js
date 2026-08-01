@@ -202,25 +202,13 @@ function switchTab(tabTarget) {
 
   tabs.forEach((t) => {
     t.classList.remove('bg-brand-600', 'text-white');
-    
-    // Preserve custom hover colors for admin tab vs others
-    if (t.id === 'adminTabBtn') {
-      t.classList.remove('text-rose-100', 'bg-rose-900/60');
-      t.classList.add('text-rose-400', 'hover:text-rose-300', 'hover:bg-rose-950/40');
-    } else {
-      t.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/50');
-    }
+    t.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/50');
   });
 
   const activeTab = document.querySelector(`.nav-tab[data-tab="${tabTarget}"]`);
   if (activeTab) {
-    if (tabTarget === 'admin') {
-      activeTab.classList.add('bg-rose-900/80', 'text-rose-100');
-      activeTab.classList.remove('text-rose-400', 'hover:text-rose-300', 'hover:bg-rose-950/40');
-    } else {
-      activeTab.classList.add('bg-brand-600', 'text-white');
-      activeTab.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/50');
-    }
+    activeTab.classList.add('bg-brand-600', 'text-white');
+    activeTab.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/50');
   }
 
   document.querySelectorAll('.tab-content').forEach((c) => c.classList.add('hidden', 'opacity-0'));
@@ -239,6 +227,7 @@ function switchTab(tabTarget) {
     if (tabTarget === 'storage') loadAssets();
     if (tabTarget === 'hoster') loadDeployments();
     if (tabTarget === 'realtime') initWebSocket();
+    if (tabTarget === 'auth') loadAuthConfig();
     if (tabTarget === 'admin') loadAdminStats();
   }
 }
@@ -249,6 +238,47 @@ function setupTabNavigation() {
     tab.addEventListener('click', () => {
       const tabTarget = tab.getAttribute('data-tab');
       switchTab(tabTarget);
+    });
+  });
+}
+
+function setupDbSubTabs() {
+  const tabBtns = ['data', 'rules', 'tester'];
+  
+  tabBtns.forEach(tab => {
+    const btn = document.getElementById(`dbTabBtn-${tab}`);
+    if (!btn) return;
+    
+    btn.addEventListener('click', () => {
+      // Reset all buttons
+      tabBtns.forEach(t => {
+        const b = document.getElementById(`dbTabBtn-${t}`);
+        if (b) {
+          b.classList.remove('text-blue-400', 'border-blue-400');
+          b.classList.add('text-slate-400', 'border-transparent');
+        }
+        
+        const view = document.getElementById(`dbView-${t}`);
+        if (view) {
+          view.classList.add('hidden');
+          view.classList.remove('flex');
+        }
+      });
+      
+      // Activate clicked button
+      btn.classList.add('text-blue-400', 'border-blue-400');
+      btn.classList.remove('text-slate-400', 'border-transparent');
+      
+      // Show corresponding view
+      const activeView = document.getElementById(`dbView-${tab}`);
+      if (activeView) {
+        activeView.classList.remove('hidden');
+        if (tab === 'rules') {
+           activeView.classList.add('flex'); // Rules is flex-col
+        } else if (tab === 'data') {
+           activeView.classList.add('flex'); // Data is flex
+        }
+      }
     });
   });
 }
@@ -287,6 +317,11 @@ function setupAuthHandlers() {
     
     registerForm.classList.remove('hidden');
     loginForm.classList.add('hidden');
+  });
+
+  document.getElementById('demoCredsBtn')?.addEventListener('click', () => {
+    document.getElementById('loginEmail').value = 'admin@aegis.dev';
+    document.getElementById('loginPassword').value = 'AdminPass123!';
   });
 
   document.getElementById('registerForm')?.addEventListener('submit', async (e) => {
@@ -373,9 +408,14 @@ async function loadProjects() {
             </div>
             <span>${p.name}</span>
           </div>
-          <button class="delete-proj-btn text-red-400 hover:bg-red-500/10 px-2 py-1.5 rounded-lg transition text-xs font-medium" data-projid="${p.id}">
-            <i class="fa-solid fa-trash mr-1.5"></i> Delete
-          </button>
+          <div class="flex space-x-2">
+            <button class="toggle-limits-btn text-amber-400 hover:bg-amber-500/10 px-2 py-1.5 rounded-lg transition text-xs font-medium" data-projid="${p.id}">
+              <i class="fa-solid fa-gear mr-1.5"></i> Limits
+            </button>
+            <button class="delete-proj-btn text-red-400 hover:bg-red-500/10 px-2 py-1.5 rounded-lg transition text-xs font-medium" data-projid="${p.id}">
+              <i class="fa-solid fa-trash mr-1.5"></i> Delete
+            </button>
+          </div>
         </div>
         
         <div class="bg-slate-900 rounded-lg p-3 border border-slate-700/50 space-y-2">
@@ -386,12 +426,28 @@ async function loadProjects() {
            <div class="flex items-center justify-between text-xs">
              <span class="text-slate-500">API Key Hash</span>
              <div class="flex items-center space-x-2">
-               <span class="text-emerald-400 font-mono truncate max-w-[150px] sm:max-w-xs">${p.apiKeyHash}</span>
+               <span class="text-emerald-400 font-mono overflow-hidden text-ellipsis whitespace-nowrap max-w-[150px] sm:max-w-[200px] block" title="${p.apiKeyHash}">${p.apiKeyHash}</span>
                <button class="copy-key-btn text-slate-400 hover:text-white hover:bg-slate-700 p-1 rounded transition" data-keyhash="${p.apiKeyHash}" title="Copy Hash">
                  <i class="fa-solid fa-copy"></i>
                </button>
              </div>
            </div>
+        </div>
+
+        <div id="limits-proj-${p.id}" class="hidden mt-2 p-3 bg-slate-900 rounded-lg border border-slate-800 space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+             <div>
+               <label class="text-[10px] text-slate-400 uppercase">Max Asset Size (Bytes)</label>
+               <input type="number" id="maxAsset-${p.id}" value="${p.maxAssetSizeBytes}" class="w-full bg-darkbg border border-slate-700 rounded p-1.5 text-xs text-white">
+             </div>
+             <div>
+               <label class="text-[10px] text-slate-400 uppercase">Max Storage (Bytes)</label>
+               <input type="number" id="maxStorage-${p.id}" value="${p.maxStorageBytes}" class="w-full bg-darkbg border border-slate-700 rounded p-1.5 text-xs text-white">
+             </div>
+          </div>
+          <div class="flex justify-end">
+            <button class="save-limits-btn bg-brand-600 hover:bg-brand-500 text-white px-3 py-1.5 rounded text-xs transition" data-projid="${p.id}">Save Limits</button>
+          </div>
         </div>
 
         <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-800 text-center">
@@ -414,6 +470,25 @@ async function loadProjects() {
         </div>
       </div>
     `).join('');
+    
+    // Update Global Project Selector Dropdown
+    const dropdownList = document.getElementById('globalProjectsList');
+    if (dropdownList) {
+      dropdownList.innerHTML = projects.map(p => `
+        <div class="px-3 py-2 hover:bg-[#3c3c3c] cursor-pointer text-sm text-slate-300 transition global-project-item" data-projid="${p.id}" data-projname="${p.name}">
+          ${p.name}
+        </div>
+      `).join('');
+      
+      document.querySelectorAll('.global-project-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+           e.stopPropagation();
+           const name = item.getAttribute('data-projname');
+           document.getElementById('globalActiveProjectName').textContent = name;
+           document.getElementById('projectSelectorDropdown').classList.add('hidden');
+        });
+      });
+    }
 
     // Delete Handlers
     document.querySelectorAll('.delete-proj-btn').forEach((btn) => {
@@ -427,6 +502,34 @@ async function loadProjects() {
           } catch (err) {
             showToast(`Error deleting project: ${err.message}`, 'error');
           }
+        }
+      });
+    });
+
+    // Toggle Limits Handler
+    document.querySelectorAll('.toggle-limits-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const id = btn.getAttribute('data-projid');
+        const div = document.getElementById(`limits-proj-${id}`);
+        div.classList.toggle('hidden');
+      });
+    });
+
+    // Save Limits Handler
+    document.querySelectorAll('.save-limits-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const id = btn.getAttribute('data-projid');
+        const maxAssetSizeBytes = parseInt(document.getElementById(`maxAsset-${id}`).value, 10);
+        const maxStorageBytes = parseInt(document.getElementById(`maxStorage-${id}`).value, 10);
+        
+        try {
+          await apiRequest(`/api/v1/projects/${encodeURIComponent(id)}`, 'PATCH', {
+            maxAssetSizeBytes, maxStorageBytes
+          });
+          showToast('Project limits updated.', 'success');
+          loadProjects();
+        } catch (err) {
+          showToast(`Error updating limits: ${err.message}`, 'error');
         }
       });
     });
@@ -473,6 +576,28 @@ function setupProjectHandlers() {
      showToast('Refreshing project list...', 'info');
      loadProjects();
   });
+  
+  // Global Project Dropdown Toggle
+  document.getElementById('projectSelectorDropdownBtn')?.addEventListener('click', (e) => {
+     const dropdown = document.getElementById('projectSelectorDropdown');
+     if (dropdown) {
+        dropdown.classList.toggle('hidden');
+     }
+  });
+  
+  // Close dropdown on click outside
+  document.addEventListener('click', (e) => {
+     const btn = document.getElementById('projectSelectorDropdownBtn');
+     const dropdown = document.getElementById('projectSelectorDropdown');
+     if (btn && dropdown && !btn.contains(e.target)) {
+        dropdown.classList.add('hidden');
+     }
+  });
+  
+  // Create project modal open (redirects to top of page for now since the input is there)
+  document.getElementById('openCreateProjectModalBtn')?.addEventListener('click', () => {
+     document.getElementById('newProjectName')?.focus();
+  });
 }
 
 // ── Database Engine Handlers ──────────────────────────────────────────────────
@@ -514,8 +639,7 @@ async function loadCollections() {
             await apiRequest(`/api/v1/db/collections/${encodeURIComponent(name)}`, 'DELETE');
             if (state.activeCollection === name) {
                state.activeCollection = null;
-               document.getElementById('activeColName').textContent = 'select a collection';
-               document.getElementById('documentsContainer').innerHTML = '<p class="text-xs text-slate-500 italic p-4 text-center">Select a collection and fetch documents.</p>';
+               document.getElementById('documentsContainer').innerHTML = '<p class="text-xs text-slate-500 italic p-4 text-center">Select a collection.</p>';
             }
             showToast(`Collection "${name}" deleted.`, 'success');
             loadCollections();
@@ -532,43 +656,66 @@ async function loadCollections() {
 
 function selectCollection(name) {
   state.activeCollection = name;
-  document.getElementById('activeColName').textContent = name;
   loadCollections();
   fetchDocuments();
+  loadCollectionSettings(name);
+}
+
+async function loadCollectionSettings(name) {
+  if (!name) return;
+  try {
+    const res = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(name)}`);
+    document.getElementById('colSchemaInput').value = res.schema || '';
+    document.getElementById('colRulesInput').value = res.rules || '';
+    document.getElementById('rulesActiveCol').textContent = name;
+  } catch (err) {
+    console.error('Failed to load collection settings', err);
+  }
 }
 
 async function fetchDocuments() {
   const container = document.getElementById('documentsContainer');
+  const fieldsList = document.getElementById('fieldsList');
+  const activeDocIdText = document.getElementById('activeDocIdText');
+  
+  fieldsList.innerHTML = '<p class="text-xs text-slate-500 italic p-4 text-center">Select a document.</p>';
+  activeDocIdText.textContent = '';
+  
   if (!state.activeCollection) {
-    container.innerHTML = '<p class="text-sm text-amber-500 italic p-4 text-center bg-amber-950/20 rounded-lg border border-amber-900/30">Select a collection first.</p>';
+    container.innerHTML = '<p class="text-sm text-amber-500 italic p-4 text-center">Select a collection first.</p>';
     return;
   }
 
   try {
     const result = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents`);
     if (!result.documents || result.documents.length === 0) {
-      container.innerHTML = '<p class="text-sm text-slate-500 italic p-4 text-center">Collection is empty. Insert a document above!</p>';
+      container.innerHTML = '<p class="text-xs text-slate-500 italic p-4 text-center">Collection is empty.</p>';
       return;
     }
 
-    container.innerHTML = result.documents.map((doc) => `
-      <div class="bg-darkbg p-3 rounded-xl border border-slate-800 space-y-2">
-        <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono border-b border-slate-800 pb-2">
-          <span>ID: <span class="text-slate-300">${doc._id}</span></span>
-          <button class="delete-doc-btn text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition font-sans flex items-center" data-docid="${doc._id}">
-            <i class="fa-solid fa-trash mr-1.5"></i> Delete
-          </button>
+    container.innerHTML = result.documents.map((doc) => {
+      const { _id } = doc;
+      
+      return `
+      <div class="border-b border-darkborder hover:bg-[#2a2a2a] cursor-pointer transition p-2 flex justify-between items-center group" onclick='selectDocument(${JSON.stringify(doc).replace(/'/g, "&#39;")})'>
+        <div class="flex flex-col overflow-hidden">
+          <span class="text-xs font-mono text-slate-300 truncate">${_id}</span>
         </div>
-        <pre class="text-xs text-emerald-400 font-mono overflow-x-auto p-2 bg-slate-950/50 rounded-lg">${JSON.stringify(doc, null, 2)}</pre>
+        <button class="delete-doc-btn opacity-0 group-hover:opacity-100 text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition text-xs ml-2 shrink-0" data-docid="${_id}">
+          <i class="fa-solid fa-trash"></i>
+        </button>
       </div>
-    `).join('');
+      `;
+    }).join('');
 
     document.querySelectorAll('.delete-doc-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', async (e) => {
+        e.stopPropagation();
         const id = btn.getAttribute('data-docid');
         if (confirm(`Delete document "${id}"?`)) {
           try {
             await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents/${encodeURIComponent(id)}`, 'DELETE');
+            showToast('Document deleted', 'success');
             fetchDocuments();
           } catch (err) {
             showToast(`Error: ${err.message}`, 'error');
@@ -581,14 +728,38 @@ async function fetchDocuments() {
   }
 }
 
+window.selectDocument = function(doc) {
+  const { _id, _ownerId, _createdAt, _updatedAt, ...dataFields } = doc;
+  document.getElementById('activeDocIdText').textContent = _id;
+  const fieldsList = document.getElementById('fieldsList');
+  
+  const rows = Object.entries(dataFields).map(([k, v]) => `
+    <div class="border-b border-darkborder/50 last:border-0 hover:bg-slate-800/30 p-2 flex flex-col">
+      <span class="text-[11px] font-medium text-slate-400">${k}</span>
+      <span class="text-xs text-emerald-300 font-mono break-all mt-1">${typeof v === 'object' ? JSON.stringify(v) : v}</span>
+    </div>
+  `).join('');
+
+  fieldsList.innerHTML = rows || '<p class="text-xs text-slate-500 italic p-4 text-center">No custom fields.</p>';
+}
+
 function setupDbHandlers() {
-  document.getElementById('createColBtn')?.addEventListener('click', async () => {
+  document.getElementById('developTestBtn')?.addEventListener('click', () => {
+     document.getElementById('dbTabBtn-tester')?.click();
+  });
+  
+  document.getElementById('createColBtn')?.addEventListener('click', () => {
+     document.getElementById('newColInputContainer')?.classList.toggle('hidden');
+  });
+  
+  document.getElementById('submitNewColBtn')?.addEventListener('click', async () => {
     const input = document.getElementById('newColName');
     const name = input.value.trim();
     if (!name) return showToast('Enter collection name.', 'warning');
     try {
       await apiRequest('/api/v1/db/collections', 'POST', { name });
       input.value = '';
+      document.getElementById('newColInputContainer')?.classList.add('hidden');
       selectCollection(name);
       showToast(`Collection "${name}" created.`, 'success');
     } catch (err) {
@@ -596,13 +767,19 @@ function setupDbHandlers() {
     }
   });
 
-  document.getElementById('insertDocBtn')?.addEventListener('click', async () => {
+  document.getElementById('insertDocBtn')?.addEventListener('click', () => {
+     if (!state.activeCollection) return showToast('Select a collection first.', 'warning');
+     document.getElementById('newDocInputContainer')?.classList.toggle('hidden');
+  });
+
+  document.getElementById('submitNewDocBtn')?.addEventListener('click', async () => {
     if (!state.activeCollection) return showToast('Select a collection first.', 'warning');
     const input = document.getElementById('docJsonInput');
     try {
       const data = JSON.parse(input.value);
       await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents`, 'POST', { data });
-      input.value = ''; // clear only on success
+      input.value = '{"field": "value"}'; // clear only on success
+      document.getElementById('newDocInputContainer')?.classList.add('hidden');
       fetchDocuments();
       showToast('Document inserted.', 'success');
     } catch (err) {
@@ -610,8 +787,75 @@ function setupDbHandlers() {
     }
   });
 
+  document.getElementById('saveColSettingsBtn')?.addEventListener('click', async () => {
+    if (!state.activeCollection) return;
+    const schemaStr = document.getElementById('colSchemaInput').value.trim();
+    const rulesStr = document.getElementById('colRulesInput').value.trim();
+    
+    // basic validation
+    try {
+      if (schemaStr) JSON.parse(schemaStr);
+      if (rulesStr) JSON.parse(rulesStr);
+    } catch (e) {
+      return showToast('Invalid JSON in schema or rules.', 'error');
+    }
+
+    try {
+      await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}`, 'PATCH', {
+        schema: schemaStr || null,
+        rules: rulesStr || null
+      });
+      showToast('Collection settings saved.', 'success');
+    } catch (err) {
+      showToast(`Error: ${err.message}`, 'error');
+    }
+  });
+
+  document.getElementById('runApiTestBtn')?.addEventListener('click', async () => {
+    const apiKey = document.getElementById('apiTestKey').value.trim();
+    const method = document.getElementById('apiTestMethod').value;
+    const col = document.getElementById('apiTestCol').value.trim();
+    const bodyStr = document.getElementById('apiTestBody').value.trim();
+    const resElem = document.getElementById('apiTestResponse');
+
+    if (!apiKey || !col) {
+      resElem.textContent = 'Please provide an API Key and Collection Name.';
+      return;
+    }
+
+    let payload = undefined;
+    if (method === 'POST') {
+      try {
+        payload = JSON.parse(bodyStr);
+      } catch (e) {
+        resElem.textContent = 'Invalid JSON body for POST request.';
+        return;
+      }
+    }
+
+    resElem.textContent = 'Sending request...';
+
+    try {
+      const response = await fetch(`/api/v1/db/collections/${encodeURIComponent(col)}/documents`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'x-aegis-api-key': apiKey
+        },
+        body: payload ? JSON.stringify({ data: payload }) : undefined
+      });
+
+      const data = await response.json();
+      resElem.textContent = `Status: ${response.status} ${response.statusText}\n\n${JSON.stringify(data, null, 2)}`;
+    } catch (err) {
+      resElem.textContent = `Network Error: ${err.message}`;
+    }
+  });
+
   document.getElementById('refreshCollectionsBtn')?.addEventListener('click', loadCollections);
   document.getElementById('queryDocsBtn')?.addEventListener('click', fetchDocuments);
+  
+  setupDbSubTabs();
 }
 
 // ── Real-Time WebSockets Engine ───────────────────────────────────────────────
@@ -846,7 +1090,10 @@ function setupHosterHandlers() {
 
 async function loadAdminStats() {
   try {
-    const stats = await apiRequest('/api/v1/admin/stats');
+    const [stats, usersRes] = await Promise.all([
+       apiRequest('/api/v1/admin/stats'),
+       apiRequest('/api/v1/admin/users')
+    ]);
     
     // Animate numbers
     animateValue("statTotalUsers", 0, stats.totalUsers, 500);
@@ -854,6 +1101,37 @@ async function loadAdminStats() {
     
     document.getElementById('statTotalDocs').textContent = `${stats.totalCollections} / ${stats.totalDocuments}`;
     document.getElementById('statSystemHealth').textContent = `${stats.memoryUsageMb} MB`;
+    
+    // Render users table
+    const tableBody = document.getElementById('adminUsersTableBody');
+    if (tableBody && usersRes) {
+       tableBody.innerHTML = usersRes.map(u => `
+         <tr class="hover:bg-[#3c3c3c] transition">
+           <td class="px-4 py-3 font-medium text-white flex items-center">
+             ${u.email}
+             ${u.isSuperAdmin ? '<span class="ml-2 text-[10px] bg-brand-500/20 text-brand-400 px-1.5 py-0.5 rounded uppercase font-bold">Admin</span>' : ''}
+           </td>
+           <td class="px-4 py-3 text-slate-400">${u.projectCount || 0}</td>
+           <td class="px-4 py-3 text-slate-400">
+             ${u.readsCount || 0} / ${u.readLimit || '∞'}
+           </td>
+           <td class="px-4 py-3 text-slate-400">
+             ${u.writesCount || 0} / ${u.writeLimit || '∞'}
+           </td>
+           <td class="px-4 py-3">${u.apiLimit} / 15m</td>
+           <td class="px-4 py-3 text-slate-400">${new Date(u.createdAt).toLocaleDateString()}</td>
+           <td class="px-4 py-3 font-mono text-slate-400 text-[10px]">${u.id}</td>
+           <td class="px-4 py-3">
+             <button onclick="openEditUserLimitsModal('${u.id}', ${u.apiLimit}, ${u.readLimit || 50000}, ${u.writeLimit || 20000}, ${u.lockoutMinutes || 1440})" class="px-2 py-1 bg-darkborder hover:bg-[#3c3c3c] border border-darkborder rounded text-white text-xs flex items-center gap-2 transition">
+               Edit Limits
+               <i class="fa-solid fa-pen text-slate-500 text-[10px]"></i>
+             </button>
+           </td>
+           <td class="px-4 py-3 text-slate-400">${new Date(u.createdAt).toLocaleDateString()}</td>
+           <td class="px-4 py-3 font-mono text-slate-400 text-[10px]">${u.id}</td>
+         </tr>
+       `).join('');
+    }
   } catch (err) {
     showToast(`Admin Error: ${err.message}`, 'error');
   }
@@ -878,6 +1156,77 @@ function animateValue(id, start, end, duration) {
 function setupAdminHandlers() {
   document.getElementById('refreshAdminStatsBtn')?.addEventListener('click', loadAdminStats);
 
+  // Global function for the onclick attribute
+  window.openEditUserLimitsModal = function(userId, apiLimit, readLimit, writeLimit, lockoutMinutes) {
+    document.getElementById('editLimitsUserId').value = userId;
+    document.getElementById('editApiLimit').value = apiLimit;
+    document.getElementById('editReadLimit').value = readLimit;
+    document.getElementById('editWriteLimit').value = writeLimit;
+    document.getElementById('editLockoutMinutes').value = lockoutMinutes;
+    document.getElementById('editUserLimitsModal').classList.remove('hidden');
+  };
+
+  const closeEditLimits = () => {
+    document.getElementById('editUserLimitsModal').classList.add('hidden');
+  };
+
+  document.getElementById('closeEditUserLimitsBtn')?.addEventListener('click', closeEditLimits);
+  document.getElementById('cancelEditUserLimitsBtn')?.addEventListener('click', closeEditLimits);
+
+  document.getElementById('saveUserLimitsBtn')?.addEventListener('click', async () => {
+    const userId = document.getElementById('editLimitsUserId').value;
+    const apiLimit = parseInt(document.getElementById('editApiLimit').value, 10);
+    const readLimit = parseInt(document.getElementById('editReadLimit').value, 10);
+    const writeLimit = parseInt(document.getElementById('editWriteLimit').value, 10);
+    const lockoutMinutes = parseInt(document.getElementById('editLockoutMinutes').value, 10);
+    const resetLockout = document.getElementById('editResetLockout').checked;
+
+    if (!isNaN(apiLimit) && !isNaN(readLimit) && !isNaN(writeLimit) && !isNaN(lockoutMinutes)) {
+      try {
+        const res = await fetch(`${state.baseUrl}/api/v1/admin/users/${userId}/limits`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.accessToken}`
+          },
+          body: JSON.stringify({ apiLimit, readLimit, writeLimit, lockoutMinutes, resetLockout })
+        });
+        const json = await res.json();
+        if (json.success) {
+          showToast('User limits updated!', 'success');
+          closeEditLimits();
+          loadAdminStats(); // refresh the table
+        } else {
+          showToast('Failed to update limit: ' + json.message, 'error');
+        }
+      } catch (err) {
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+  });
+
+  document.getElementById('addUserBtn')?.addEventListener('click', async () => {
+    const email = prompt('Enter email for the new user:');
+    if (!email) return;
+    const password = prompt('Enter password for the new user:');
+    if (!password) return;
+    const isSuperAdmin = confirm('Make this user a Super Admin?');
+
+    try {
+      const res = await fetch('/api/v1/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, isSuperAdmin })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message);
+      showToast('User created successfully!', 'success');
+      loadAdminStats(); // Refresh user list
+    } catch (err) {
+      showToast(`Error creating user: ${err.message}`, 'error');
+    }
+  });
+
   document.getElementById('rateLimitForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const authLimit = parseInt(document.getElementById('authLimitInput').value, 10);
@@ -892,6 +1241,40 @@ function setupAdminHandlers() {
   });
 }
 
+function setupAuthSubTabs() {
+  const tabBtns = ['signin', 'templates'];
+  
+  tabBtns.forEach(tab => {
+    const btn = document.getElementById(`authTabBtn-${tab}`);
+    if (!btn) return;
+    
+    btn.addEventListener('click', () => {
+      tabBtns.forEach(t => {
+        const b = document.getElementById(`authTabBtn-${t}`);
+        if (b) {
+          b.classList.remove('text-blue-400', 'border-blue-400');
+          b.classList.add('text-slate-400', 'border-transparent');
+        }
+        
+        const view = document.getElementById(`authView-${t}`);
+        if (view) {
+          view.classList.add('hidden');
+          view.classList.remove('block');
+        }
+      });
+      
+      btn.classList.add('text-blue-400', 'border-blue-400');
+      btn.classList.remove('text-slate-400', 'border-transparent');
+      
+      const targetView = document.getElementById(`authView-${tab}`);
+      if (targetView) {
+        targetView.classList.remove('hidden');
+        targetView.classList.add('block');
+      }
+    });
+  });
+}
+
 // ── Initialization ────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -903,7 +1286,120 @@ document.addEventListener('DOMContentLoaded', () => {
   setupStorageHandlers();
   setupHosterHandlers();
   setupAdminHandlers();
+  setupAuthSubTabs();
 
   // Initial state check
   updateAuthUI();
+});
+
+// ── Auth Config Management ───────────────────────────────────────────────────
+
+let currentAuthConfig = { email: false, google: false, github: false, apple: false };
+
+async function loadAuthConfig() {
+  if (!state.activeProject) {
+    showToast('Select a project from the top dropdown to view its Auth Config.', 'error');
+    return;
+  }
+  try {
+    const res = await fetch(`${state.baseUrl}/api/v1/projects/${state.activeProject.id}/auth-config`, {
+      headers: { 'Authorization': `Bearer ${state.accessToken}` }
+    });
+    const json = await res.json();
+    if (json.success && json.data) {
+      currentAuthConfig = { ...currentAuthConfig, ...json.data };
+    }
+    renderAuthConfig();
+  } catch (err) {
+    showToast(`Error loading auth config: ${err.message}`, 'error');
+  }
+}
+
+function renderAuthConfig() {
+  const providers = ['email', 'google', 'github', 'apple'];
+  providers.forEach(p => {
+    const toggleEl = document.getElementById(`authToggle-${p}`);
+    const knobEl = document.getElementById(`authKnob-${p}`);
+    if (toggleEl && knobEl) {
+      if (currentAuthConfig[p]) {
+        toggleEl.classList.remove('bg-slate-600');
+        toggleEl.classList.add('bg-brand-500');
+        knobEl.classList.remove('translate-x-0');
+        knobEl.classList.add('translate-x-4');
+      } else {
+        toggleEl.classList.remove('bg-brand-500');
+        toggleEl.classList.add('bg-slate-600');
+        knobEl.classList.remove('translate-x-4');
+        knobEl.classList.add('translate-x-0');
+      }
+    }
+  });
+
+  const tmplVerify = document.getElementById('templateVerification');
+  const tmplReset = document.getElementById('templateReset');
+  if (tmplVerify) tmplVerify.value = currentAuthConfig.templates?.verification || '';
+  if (tmplReset) tmplReset.value = currentAuthConfig.templates?.reset || '';
+}
+
+window.toggleAuthProvider = async function(provider) {
+  if (!state.activeProject) {
+    showToast('Please select a project first.', 'error');
+    return;
+  }
+  
+  const newState = !currentAuthConfig[provider];
+  const newConfig = { ...currentAuthConfig, [provider]: newState };
+  
+  // Optimistic UI update
+  currentAuthConfig = newConfig;
+  renderAuthConfig();
+  
+  try {
+    const res = await fetch(`${state.baseUrl}/api/v1/projects/${state.activeProject.id}/auth-config`, {
+      method: 'PATCH',
+      headers: { 
+        'Authorization': `Bearer ${state.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ authConfig: newConfig })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    showToast(`${provider} authentication ${newState ? 'enabled' : 'disabled'}.`, 'success');
+  } catch (err) {
+    // Revert optimistic update on error
+    currentAuthConfig[provider] = !newState;
+    renderAuthConfig();
+    showToast(`Error updating auth config: ${err.message}`, 'error');
+  }
+}
+
+document.getElementById('saveTemplatesBtn')?.addEventListener('click', async () => {
+  if (!state.activeProject) return;
+  
+  const tmplVerify = document.getElementById('templateVerification').value;
+  const tmplReset = document.getElementById('templateReset').value;
+  
+  const newConfig = { 
+    ...currentAuthConfig, 
+    templates: { verification: tmplVerify, reset: tmplReset }
+  };
+  
+  try {
+    const res = await fetch(`${state.baseUrl}/api/v1/projects/${state.activeProject.id}/auth-config`, {
+      method: 'PATCH',
+      headers: { 
+        'Authorization': `Bearer ${state.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ authConfig: newConfig })
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    
+    currentAuthConfig = newConfig;
+    showToast('Templates saved successfully.', 'success');
+  } catch (err) {
+    showToast(`Error saving templates: ${err.message}`, 'error');
+  }
 });

@@ -111,10 +111,16 @@ class SqliteAssetStore {
   save(meta: AssetMetadata): AssetMetadata {
     const db = getDb();
     db.prepare(`
-      INSERT INTO assets (id, ownerId, originalName, storedName, mimeType, sizeBytes, absolutePath, uploadedAt, linkedCollectionId)
-      VALUES (@id, @ownerId, @originalName, @storedName, @mimeType, @sizeBytes, @absolutePath, @uploadedAt, @linkedCollectionId)
-    `).run({ ...meta, linkedCollectionId: meta.linkedCollectionId ?? null });
+      INSERT INTO assets (id, ownerId, originalName, storedName, mimeType, sizeBytes, absolutePath, uploadedAt, projectId, linkedCollectionId)
+      VALUES (@id, @ownerId, @originalName, @storedName, @mimeType, @sizeBytes, @absolutePath, @uploadedAt, @projectId, @linkedCollectionId)
+    `).run({ ...meta, projectId: meta.projectId ?? null, linkedCollectionId: meta.linkedCollectionId ?? null });
     return meta;
+  }
+
+  getTotalSizeForProject(projectId: string): number {
+    const db = getDb();
+    const row = db.prepare('SELECT SUM(sizeBytes) as total FROM assets WHERE projectId = ?').get(projectId) as any;
+    return row.total || 0;
   }
 
   findById(ownerId: string, assetId: string): AssetMetadata {
@@ -158,7 +164,25 @@ export function saveAssetMetadata(
   ownerId: string,
   file: Express.Multer.File,
   linkedCollectionId?: string,
+  projectId?: string
 ): PublicAssetMetadata {
+
+  if (projectId) {
+    const db = getDb();
+    const project = db.prepare('SELECT maxAssetSizeBytes, maxStorageBytes FROM projects WHERE id = ?').get(projectId) as any;
+    if (project) {
+      if (file.size > project.maxAssetSizeBytes) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        throw new AppError(`File exceeds project's max asset size limit of ${project.maxAssetSizeBytes} bytes.`, 400);
+      }
+      const totalSize = assetStore.getTotalSizeForProject(projectId);
+      if (totalSize + file.size > project.maxStorageBytes) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        throw new AppError(`Uploading this file would exceed the project's max storage limit of ${project.maxStorageBytes} bytes.`, 400);
+      }
+    }
+  }
+
   const meta: AssetMetadata = {
     id: uuidv4(),
     ownerId,
@@ -168,6 +192,7 @@ export function saveAssetMetadata(
     sizeBytes: file.size,
     absolutePath: file.path,
     uploadedAt: new Date().toISOString(),
+    projectId,
     linkedCollectionId,
   };
   assetStore.save(meta);

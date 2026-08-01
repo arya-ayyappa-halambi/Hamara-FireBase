@@ -15,6 +15,7 @@ export interface AssetMetadata {
   sizeBytes: number;
   absolutePath: string;   // full path on disk (never exposed externally)
   uploadedAt: string;     // ISO-8601
+  projectId?: string;     // associated project
   linkedCollectionId?: string; // optional link to a DB collection name
 }
 

@@ -19,6 +19,21 @@ export interface UserStore {
 
   /** Persist a new user record. Throws if the email already exists. */
   create(user: User): Promise<User>;
+
+  /** Fetch all users (omitting sensitive data) */
+  getAllUsers(): Promise<Omit<User, 'passwordHash'>[]>;
+
+  /** Increment reads or writes count for a user */
+  incrementTelemetry(userId: string, type: 'read' | 'write'): void;
+
+  /** Update user API rate limit */
+  updateUserLimits(userId: string, apiLimit: number, readLimit: number, writeLimit: number, lockoutMinutes: number, resetLockout?: boolean): void;
+  
+  /** Apply lockout penalty */
+  applyLockout(userId: string, lockoutMinutes: number): void;
+  
+  /** Reset monthly limits */
+  resetMonthlyLimits(userId: string): void;
 }
 
 // ── SQLite Implementation ──────────────────────────────────────────────────────
@@ -28,15 +43,27 @@ interface RawUserRow {
   email: string;
   name: string;
   passwordHash: string;
+  isSuperAdmin: number;
   createdAt: string;
   updatedAt: string;
+  apiLimit: number;
+  readLimit: number;
+  writeLimit: number;
+  readsCount: number;
+  writesCount: number;
+  lockoutMinutes: number;
+  lockedUntil: string | null;
+  billingMonthStart: string | null;
 }
 
 function mapRowToUser(row: RawUserRow): User {
   return {
     ...row,
+    isSuperAdmin: Boolean(row.isSuperAdmin),
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
+    lockedUntil: row.lockedUntil ? new Date(row.lockedUntil) : undefined,
+    billingMonthStart: row.billingMonthStart ? new Date(row.billingMonthStart) : undefined,
   };
 }
 
@@ -69,10 +96,10 @@ class SqliteUserStore implements UserStore {
     const db = getDb();
     try {
       const stmt = db.prepare(`
-        INSERT INTO users (id, email, name, passwordHash, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, email, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `);
-      stmt.run(record.id, record.email, record.name, record.passwordHash, createdAtStr, updatedAtStr);
+      stmt.run(record.id, record.email, record.name, record.passwordHash, record.isSuperAdmin ? 1 : 0, createdAtStr, updatedAtStr);
       return record;
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
@@ -87,6 +114,50 @@ class SqliteUserStore implements UserStore {
     const db = getDb();
     const row = db.prepare('SELECT COUNT(*) as count FROM users').get() as { count: number };
     return row.count;
+  }
+
+  async getAllUsers(): Promise<Omit<User, 'passwordHash'>[]> {
+    const db = getDb();
+    const rows = db.prepare('SELECT id, email, name, isSuperAdmin, createdAt, updatedAt, apiLimit, readLimit, writeLimit, readsCount, writesCount, lockoutMinutes, lockedUntil, billingMonthStart FROM users ORDER BY createdAt DESC').all() as RawUserRow[];
+    
+    // We also need project count for each user
+    const usersWithProjects = rows.map(row => {
+      const user = mapRowToUser(row) as any;
+      const projCount = db.prepare('SELECT COUNT(*) as count FROM projects WHERE ownerId = ?').get(row.id) as any;
+      user.projectCount = projCount.count;
+      return user;
+    });
+    return usersWithProjects;
+  }
+
+  incrementTelemetry(userId: string, type: 'read' | 'write'): void {
+    const db = getDb();
+    if (type === 'read') {
+      db.prepare('UPDATE users SET readsCount = readsCount + 1 WHERE id = ?').run(userId);
+    } else {
+      db.prepare('UPDATE users SET writesCount = writesCount + 1 WHERE id = ?').run(userId);
+    }
+  }
+
+  applyLockout(userId: string, lockoutMinutes: number): void {
+    const db = getDb();
+    const lockedUntil = new Date(Date.now() + lockoutMinutes * 60000).toISOString();
+    db.prepare('UPDATE users SET lockedUntil = ? WHERE id = ?').run(lockedUntil, userId);
+  }
+
+  resetMonthlyLimits(userId: string): void {
+    const db = getDb();
+    const now = new Date().toISOString();
+    db.prepare('UPDATE users SET readsCount = 0, writesCount = 0, lockedUntil = NULL, billingMonthStart = ? WHERE id = ?').run(now, userId);
+  }
+
+  updateUserLimits(userId: string, apiLimit: number, readLimit: number, writeLimit: number, lockoutMinutes: number, resetLockout?: boolean): void {
+    const db = getDb();
+    if (resetLockout) {
+      db.prepare('UPDATE users SET apiLimit = ?, readLimit = ?, writeLimit = ?, lockoutMinutes = ?, lockedUntil = NULL WHERE id = ?').run(apiLimit, readLimit, writeLimit, lockoutMinutes, userId);
+    } else {
+      db.prepare('UPDATE users SET apiLimit = ?, readLimit = ?, writeLimit = ?, lockoutMinutes = ? WHERE id = ?').run(apiLimit, readLimit, writeLimit, lockoutMinutes, userId);
+    }
   }
 }
 

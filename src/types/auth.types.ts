@@ -49,6 +49,14 @@ export interface User {
   isSuperAdmin?: boolean;
   createdAt: Date;
   updatedAt: Date;
+  apiLimit?: number;
+  readLimit?: number;
+  writeLimit?: number;
+  readsCount?: number;
+  writesCount?: number;
+  lockoutMinutes?: number;
+  lockedUntil?: Date;
+  billingMonthStart?: Date;
 }
 
 /** Refresh token record persisted in SQLite. */

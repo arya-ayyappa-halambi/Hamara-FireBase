@@ -72,6 +72,8 @@ export interface Collection {
   description: string;
   ownerId: string;
   documentCount: number;
+  schema?: string;     // JSON Schema string (optional)
+  rules?: string;      // Security Rules JSON string (optional)
   createdAt: string;   // ISO-8601
   updatedAt: string;   // ISO-8601
 }
@@ -81,6 +83,14 @@ export interface Collection {
 export interface CreateCollectionDto {
   name: string;        // alphanumeric + underscores + hyphens, 2–64 chars
   description?: string;
+  schema?: string;
+  rules?: string;
+}
+
+export interface UpdateCollectionDto {
+  description?: string;
+  schema?: string;
+  rules?: string;
 }
 
 export interface InsertDocumentDto {

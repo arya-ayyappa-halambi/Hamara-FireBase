@@ -8,6 +8,9 @@ export interface Project {
   ownerId: string;
   name: string;
   apiKeyHash: string;
+  maxAssetSizeBytes: number;
+  maxStorageBytes: number;
+  authConfig: string | null;
   createdAt: string;
   updatedAt: string;
 }

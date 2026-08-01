@@ -28,6 +28,7 @@ function createRateLimitHandler(customMessage: string) {
 export const authLimiter = rateLimit({
   windowMs: rateLimitConfig.authWindowMinutes * 60 * 1000,
   limit: () => rateLimitConfig.authLimit,
+  validate: { xForwardedForHeader: false, default: true, ip: false },
   standardHeaders: true,
   legacyHeaders: false,
   handler: createRateLimitHandler(
@@ -37,10 +38,19 @@ export const authLimiter = rateLimit({
 
 export const apiLimiter = rateLimit({
   windowMs: rateLimitConfig.apiWindowMinutes * 60 * 1000,
-  limit: () => rateLimitConfig.apiLimit,
+  limit: (req: Request | any) => {
+    if (req.user && req.user.apiLimit) {
+      return req.user.apiLimit;
+    }
+    return rateLimitConfig.apiLimit;
+  },
+  keyGenerator: (req: Request | any) => {
+    return req.user?.id || req.ip || 'unknown';
+  },
+  validate: { xForwardedForHeader: false, default: true, ip: false },
   standardHeaders: true,
   legacyHeaders: false,
   handler: createRateLimitHandler(
-    'Too many API requests from this IP. Please try again after 15 minutes.',
+    'Too many API requests. Please try again later.',
   ),
 });

@@ -12,6 +12,7 @@
 
 import { Router } from 'express';
 import { authenticateApiKeyOrJwt } from '../middleware/apikey.middleware';
+import { apiLimiter } from '../middleware/rateLimit.middleware';
 import { uploadMiddleware } from './storage.service';
 import {
   uploadAsset,

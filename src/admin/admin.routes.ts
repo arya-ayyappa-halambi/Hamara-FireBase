@@ -6,14 +6,18 @@
 import { Router } from 'express';
 import { authenticateJwt } from '../middleware/auth.middleware';
 import { requireSuperAdmin } from '../middleware/admin.middleware';
-import { getStats, updateRateLimits } from './admin.controller';
+import { getStats, getUsers, updateRateLimits, updateUserLimits } from './admin.controller';
+import { apiLimiter } from '../middleware/rateLimit.middleware';
 
 const router = Router();
 
-router.use(authenticateJwt);
-router.use(requireSuperAdmin);
+// Only allow Super Admins
+router.use(authenticateJwt, requireSuperAdmin);
+router.use(apiLimiter);
 
 router.get('/stats', getStats);
+router.get('/users', getUsers);
+router.patch('/users/:id/limits', updateUserLimits);
 router.patch('/rate-limits', updateRateLimits);
 
 export default router;

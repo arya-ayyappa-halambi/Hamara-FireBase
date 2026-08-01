@@ -35,6 +35,9 @@ export class ProjectService {
       apiKeyHash,
       createdAt: now,
       updatedAt: now,
+      maxAssetSizeBytes: 10485760,
+      maxStorageBytes: 1073741824,
+      authConfig: null,
     };
 
     return { project, rawApiKey };
@@ -63,6 +66,9 @@ export class ProjectService {
       apiKeyHash: r.apiKeyHash,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt,
+      maxAssetSizeBytes: r.maxAssetSizeBytes,
+      maxStorageBytes: r.maxStorageBytes,
+      authConfig: r.authConfig ? JSON.parse(r.authConfig) : null,
       collectionCount: Number(r.collectionCount || 0),
       documentCount: Number(r.documentCount || 0),
       assetCount: Number(r.assetCount || 0),
@@ -77,9 +83,29 @@ export class ProjectService {
     const db = getDb();
     const row = db.prepare(`
       SELECT * FROM projects WHERE apiKeyHash = ?
-    `).get(apiKeyHash) as Project | undefined;
+    `).get(apiKeyHash) as any;
 
-    return row;
+    if (!row) return undefined;
+    return {
+      ...row,
+      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null
+    };
+  }
+
+  /**
+   * Find project by ID and Owner ID.
+   */
+  getProjectById(projectId: string, ownerId: string): Project | undefined {
+    const db = getDb();
+    const row = db.prepare(`
+      SELECT * FROM projects WHERE id = ? AND ownerId = ?
+    `).get(projectId, ownerId) as any;
+
+    if (!row) return undefined;
+    return {
+      ...row,
+      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null
+    };
   }
 
   /**
@@ -100,6 +126,45 @@ export class ProjectService {
       db.prepare('DELETE FROM deployments WHERE projectId = ? AND ownerId = ?').run(projectId, ownerId);
       db.prepare('DELETE FROM projects WHERE id = ? AND ownerId = ?').run(projectId, ownerId);
     })();
+  }
+
+  /**
+   * Update project auth configuration.
+   */
+  updateAuthConfig(projectId: string, ownerId: string, authConfig: any): void {
+    const db = getDb();
+    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
+    if (!proj) throw new AppError('Project not found.', 404);
+    
+    db.prepare('UPDATE projects SET authConfig = ?, updatedAt = ? WHERE id = ?').run(
+      JSON.stringify(authConfig),
+      new Date().toISOString(),
+      projectId
+    );
+  }
+
+  /**
+   * Update project limits or other settings.
+   */
+  updateProject(ownerId: string, projectId: string, patch: Partial<Project>): Project {
+    const db = getDb();
+    
+    const proj = db.prepare('SELECT * FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId) as Project | undefined;
+    if (!proj) {
+      throw new AppError(`Project "${projectId}" not found.`, 404);
+    }
+
+    const maxAssetSizeBytes = patch.maxAssetSizeBytes ?? proj.maxAssetSizeBytes ?? 10485760; // 10MB default
+    const maxStorageBytes = patch.maxStorageBytes ?? proj.maxStorageBytes ?? 1073741824; // 1GB default
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE projects 
+      SET maxAssetSizeBytes = ?, maxStorageBytes = ?, updatedAt = ?
+      WHERE id = ? AND ownerId = ?
+    `).run(maxAssetSizeBytes, maxStorageBytes, now, projectId, ownerId);
+
+    return { ...proj, maxAssetSizeBytes, maxStorageBytes, updatedAt: now };
   }
 }
 

@@ -47,8 +47,20 @@ export function initSqlite(): void {
       passwordHash TEXT NOT NULL,
       isSuperAdmin INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL,
-      updatedAt TEXT NOT NULL
+      updatedAt TEXT NOT NULL,
+      apiLimit INTEGER DEFAULT 100,
+      readLimit INTEGER DEFAULT 50000,
+      writeLimit INTEGER DEFAULT 20000,
+      readsCount INTEGER DEFAULT 0,
+      writesCount INTEGER DEFAULT 0,
+      lockoutMinutes INTEGER DEFAULT 1440,
+      lockedUntil TEXT,
+      billingMonthStart TEXT
     );
+
+    -- Run migrations for existing users table
+    PRAGMA table_info(users);
+
 
     -- 2. Projects Table
     CREATE TABLE IF NOT EXISTS projects (
@@ -56,6 +68,9 @@ export function initSqlite(): void {
       ownerId TEXT NOT NULL,
       name TEXT NOT NULL,
       apiKeyHash TEXT UNIQUE NOT NULL,
+      maxAssetSizeBytes INTEGER NOT NULL DEFAULT 10485760, -- 10MB default
+      maxStorageBytes INTEGER NOT NULL DEFAULT 1073741824, -- 1GB default
+      authConfig TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
       FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE CASCADE
@@ -70,6 +85,8 @@ export function initSqlite(): void {
       name TEXT NOT NULL,
       projectId TEXT,
       description TEXT DEFAULT '',
+      schema TEXT,
+      rules TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
       PRIMARY KEY (ownerId, name),
@@ -157,6 +174,53 @@ export function initSqlite(): void {
       // Already exists
     }
   });
+
+  // Schema & Rules migration for collections
+  try {
+    db.exec(`ALTER TABLE collections ADD COLUMN schema TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE collections ADD COLUMN rules TEXT;`);
+  } catch {}
+
+  // Project storage limits migration
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN maxAssetSizeBytes INTEGER NOT NULL DEFAULT 10485760;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN maxStorageBytes INTEGER NOT NULL DEFAULT 1073741824;`);
+  } catch {}
+
+  // User telemetry migration
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN apiLimit INTEGER DEFAULT 100;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN readLimit INTEGER DEFAULT 50000;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN writeLimit INTEGER DEFAULT 20000;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN readsCount INTEGER DEFAULT 0;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN writesCount INTEGER DEFAULT 0;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN lockoutMinutes INTEGER DEFAULT 1440;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN lockedUntil TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN billingMonthStart TEXT;`);
+  } catch {}
+  
+  // Project Auth Config
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN authConfig TEXT;`);
+  } catch {}
 
   // Seed Super Admin Account if absent
   seedSuperAdminSync(db);

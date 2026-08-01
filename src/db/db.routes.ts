@@ -16,17 +16,22 @@ import {
   getDocument,
   updateDocument,
   deleteDocument,
+  updateCollection,
 } from './db.controller';
+
+import { apiLimiter } from '../middleware/rateLimit.middleware';
 
 const router = Router();
 
 // Apply API Key / JWT auth to ALL routes in this router
 router.use(authenticateApiKeyOrJwt);
+router.use(apiLimiter);
 
 // ── Collection Routes ─────────────────────────────────────────────────────────
 router.post(  '/collections',       createCollection);
 router.get(   '/collections',       listCollections);
 router.get(   '/collections/:name', getCollection);
+router.patch( '/collections/:name', updateCollection);
 router.delete('/collections/:name', deleteCollection);
 
 // ── Document Routes ───────────────────────────────────────────────────────────

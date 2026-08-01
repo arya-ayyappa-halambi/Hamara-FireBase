@@ -6,8 +6,16 @@
 import { getDb } from '../db/sqlite.connection';
 import { rateLimitConfig } from '../middleware/rateLimit.middleware';
 import { AdminSystemStats, UpdateRateLimitDto } from '../types/project.types';
+import { userStore } from '../store/user.store';
 
 export class AdminService {
+  async getUsers() {
+    return userStore.getAllUsers();
+  }
+
+  async updateUserLimits(userId: string, apiLimit: number, readLimit: number, writeLimit: number, lockoutMinutes: number, resetLockout?: boolean) {
+    userStore.updateUserLimits(userId, apiLimit, readLimit, writeLimit, lockoutMinutes, resetLockout);
+  }
   /**
    * Retrieve platform-wide metrics and system status.
    */
