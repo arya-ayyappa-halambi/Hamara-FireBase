@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  aegisdb:
+    build: .
+    container_name: aegisdb
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      # Important: Define a strong secret in production
+      - JWT_SECRET=your_super_secret_key_change_this_in_production
+      # DB_PATH is set in Dockerfile to /app/data/aegis.db
+    volumes:
+      - aegis-data:/app/data
+      - aegis-uploads:/app/uploads
+    restart: unless-stopped
+
+volumes:
+  aegis-data:
+    name: aegisdb_data
+  aegis-uploads:
+    name: aegisdb_uploads

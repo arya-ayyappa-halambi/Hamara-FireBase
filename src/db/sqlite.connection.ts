@@ -9,7 +9,7 @@ import argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
-const DB_PATH = path.resolve(process.cwd(), 'aegis.db');
+const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'aegis.db');
 
 let dbInstance: Database.Database | null = null;
 
