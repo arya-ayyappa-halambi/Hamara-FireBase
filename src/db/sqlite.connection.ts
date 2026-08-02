@@ -152,12 +152,29 @@ export function initSqlite(): void {
       userId TEXT NOT NULL,
       tokenHash TEXT UNIQUE NOT NULL,
       expiresAt TEXT NOT NULL,
+      isRevoked INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL,
       FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
     );
 
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(tokenHash);
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(userId);
+
+    -- 8. Project End-Users Table (Firebase-style Auth)
+    CREATE TABLE IF NOT EXISTS project_users (
+      id TEXT PRIMARY KEY,
+      projectId TEXT NOT NULL,
+      email TEXT NOT NULL,
+      passwordHash TEXT,
+      provider TEXT NOT NULL DEFAULT 'email',
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      lastLoginAt TEXT,
+      FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+      UNIQUE(projectId, email)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_project_users_project ON project_users(projectId);
   `);
 
   // Column migration check for isSuperAdmin if users table existed previously

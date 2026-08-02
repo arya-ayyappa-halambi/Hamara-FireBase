@@ -16,12 +16,13 @@ import 'dotenv/config'; // must be first — loads .env before anything else rea
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 
-import authRouter    from './auth/auth.routes';
-import dbRouter      from './db/db.routes';
-import storageRouter from './storage/storage.routes';
-import hosterRouter  from './hoster/hoster.routes';
-import projectRouter from './project/project.routes';
-import adminRouter   from './admin/admin.routes';
+import authRouter        from './auth/auth.routes';
+import dbRouter          from './db/db.routes';
+import storageRouter     from './storage/storage.routes';
+import projectAuthRouter from './project-auth/project-auth.routes';
+import hosterRouter      from './hoster/hoster.routes';
+import projectRouter     from './project/project.routes';
+import adminRouter       from './admin/admin.routes';
 import { globalErrorHandler, notFoundHandler } from './middleware/error.middleware';
 import { authLimiter, apiLimiter } from './middleware/rateLimit.middleware';
 import { ensureUploadDir }   from './storage/storage.service';
@@ -94,6 +95,7 @@ function createApp(): Application {
 
   // ── API Routes ───────────────────────────────────────────────────────────
   app.use('/api/v1/auth',     authLimiter, authRouter);
+  app.use('/api/v1/project-auth', projectAuthRouter);
   app.use('/api/v1/projects', projectRouter);
   app.use('/api/v1/db',       dbRouter);
   app.use('/api/v1/storage',  storageRouter);

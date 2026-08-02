@@ -12,6 +12,8 @@ const state = {
   refreshToken: localStorage.getItem('aegis_refresh_token') || null,
   user: JSON.parse(localStorage.getItem('aegis_user') || 'null'),
   activeCollection: null,
+  activeDocumentId: null,
+  activeDocumentData: null,
   activeProject: null,
   ws: null,
   wsSubscriptions: new Set(),
@@ -752,6 +754,8 @@ async function fetchDocuments() {
 
 window.selectDocument = function(doc) {
   const { _id, _ownerId, _createdAt, _updatedAt, ...dataFields } = doc;
+  state.activeDocumentId = _id;
+  state.activeDocumentData = dataFields;
   document.getElementById('activeDocIdText').textContent = _id;
   const fieldsList = document.getElementById('fieldsList');
   
@@ -786,6 +790,35 @@ function setupDbHandlers() {
       showToast(`Collection "${name}" created.`, 'success');
     } catch (err) {
       showToast(`Error: ${err.message}`, 'error');
+    }
+  });
+
+  document.getElementById('addFieldBtn')?.addEventListener('click', async () => {
+    if (!state.activeCollection || !state.activeDocumentId || !state.activeDocumentData) {
+      return showToast('Select a document first.', 'warning');
+    }
+
+    const fieldKey = prompt('Enter new field name:');
+    if (!fieldKey) return;
+    
+    const fieldValueStr = prompt('Enter field value (JSON format or raw string):');
+    if (fieldValueStr === null) return;
+    
+    let fieldValue = fieldValueStr;
+    try {
+      fieldValue = JSON.parse(fieldValueStr);
+    } catch (e) {
+      // Treat as string
+    }
+    
+    const updatedData = { ...state.activeDocumentData, [fieldKey]: fieldValue };
+    
+    try {
+      const res = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents/${encodeURIComponent(state.activeDocumentId)}`, 'PATCH', { data: updatedData });
+      showToast('Field added successfully.', 'success');
+      selectDocument(res.data);
+    } catch (err) {
+      showToast(`Error adding field: ${err.message}`, 'error');
     }
   });
 
@@ -1343,7 +1376,8 @@ function renderAuthConfig() {
     const toggleEl = document.getElementById(`authToggle-${p}`);
     const knobEl = document.getElementById(`authKnob-${p}`);
     if (toggleEl && knobEl) {
-      if (currentAuthConfig[p]) {
+      const isEnabled = currentAuthConfig[p]?.enabled === true || currentAuthConfig[p] === true;
+      if (isEnabled) {
         toggleEl.classList.remove('bg-slate-600');
         toggleEl.classList.add('bg-brand-500');
         knobEl.classList.remove('translate-x-0');
@@ -1369,10 +1403,79 @@ window.toggleAuthProvider = async function(provider) {
     return;
   }
   
-  const newState = !currentAuthConfig[provider];
-  const newConfig = { ...currentAuthConfig, [provider]: newState };
+  const isEnabled = currentAuthConfig[provider]?.enabled === true || currentAuthConfig[provider] === true;
   
-  // Optimistic UI update
+  // If we are enabling an OAuth provider (not email)
+  if (!isEnabled && provider !== 'email') {
+    const modal = document.getElementById('oauthModal');
+    const title = document.getElementById('oauthModalTitle');
+    const secretContainer = document.getElementById('oauthSecretContainer');
+    const clientIdInput = document.getElementById('oauthClientId');
+    const clientSecretInput = document.getElementById('oauthClientSecret');
+    
+    title.textContent = `Configure ${provider.charAt(0).toUpperCase() + provider.slice(1)}`;
+    clientIdInput.value = currentAuthConfig[provider]?.clientId || '';
+    clientSecretInput.value = currentAuthConfig[provider]?.clientSecret || '';
+    
+    if (provider === 'github') {
+      secretContainer.classList.remove('hidden');
+    } else {
+      secretContainer.classList.add('hidden');
+    }
+    
+    modal.classList.remove('hidden');
+    
+    const saveHandler = async () => {
+      const clientId = clientIdInput.value.trim();
+      const clientSecret = clientSecretInput.value.trim();
+      
+      if (!clientId) {
+        showToast('Client ID is required.', 'warning');
+        return;
+      }
+      
+      const newConfig = { 
+        ...currentAuthConfig, 
+        [provider]: { enabled: true, clientId, clientSecret }
+      };
+      
+      await saveAuthConfig(provider, newConfig, true);
+      
+      modal.classList.add('hidden');
+      cleanupModal();
+    };
+    
+    const cancelHandler = () => {
+      modal.classList.add('hidden');
+      cleanupModal();
+    };
+    
+    const cleanupModal = () => {
+      document.getElementById('oauthModalSaveBtn').removeEventListener('click', saveHandler);
+      document.getElementById('oauthModalCancelBtn').removeEventListener('click', cancelHandler);
+    };
+    
+    document.getElementById('oauthModalSaveBtn').addEventListener('click', saveHandler);
+    document.getElementById('oauthModalCancelBtn').addEventListener('click', cancelHandler);
+    return;
+  }
+  
+  // For email, or turning OFF an OAuth provider
+  let newState;
+  if (provider === 'email') {
+    newState = !isEnabled;
+  } else {
+    newState = { ...(currentAuthConfig[provider] || {}), enabled: false };
+  }
+  
+  const newConfig = { ...currentAuthConfig, [provider]: newState };
+  await saveAuthConfig(provider, newConfig, !isEnabled);
+}
+
+async function saveAuthConfig(provider, newConfig, isEnabling) {
+  const oldConfig = { ...currentAuthConfig };
+  
+  // Optimistic update
   currentAuthConfig = newConfig;
   renderAuthConfig();
   
@@ -1387,10 +1490,9 @@ window.toggleAuthProvider = async function(provider) {
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
-    showToast(`${provider} authentication ${newState ? 'enabled' : 'disabled'}.`, 'success');
+    showToast(`${provider} authentication ${isEnabling ? 'enabled' : 'disabled'}.`, 'success');
   } catch (err) {
-    // Revert optimistic update on error
-    currentAuthConfig[provider] = !newState;
+    currentAuthConfig = oldConfig;
     renderAuthConfig();
     showToast(`Error updating auth config: ${err.message}`, 'error');
   }
