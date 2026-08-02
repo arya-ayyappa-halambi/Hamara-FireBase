@@ -83,14 +83,15 @@ export function initSqlite(): void {
     CREATE TABLE IF NOT EXISTS collections (
       ownerId TEXT NOT NULL,
       name TEXT NOT NULL,
-      projectId TEXT,
+      projectId TEXT NOT NULL,
       description TEXT DEFAULT '',
       schema TEXT,
       rules TEXT,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
-      PRIMARY KEY (ownerId, name),
-      FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE CASCADE
+      PRIMARY KEY (ownerId, projectId, name),
+      FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE
     );
 
     -- 4. Documents Table
@@ -98,14 +99,14 @@ export function initSqlite(): void {
       id TEXT PRIMARY KEY,
       ownerId TEXT NOT NULL,
       collectionName TEXT NOT NULL,
-      projectId TEXT,
+      projectId TEXT NOT NULL,
       data TEXT NOT NULL,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
-      FOREIGN KEY (ownerId, collectionName) REFERENCES collections(ownerId, name) ON DELETE CASCADE
+      FOREIGN KEY (ownerId, projectId, collectionName) REFERENCES collections(ownerId, projectId, name) ON DELETE CASCADE
     );
 
-    CREATE INDEX IF NOT EXISTS idx_docs_owner_coll ON documents(ownerId, collectionName);
+    CREATE INDEX IF NOT EXISTS idx_docs_owner_proj_coll ON documents(ownerId, projectId, collectionName);
 
     -- 5. Assets Table (Biometric storage)
     CREATE TABLE IF NOT EXISTS assets (

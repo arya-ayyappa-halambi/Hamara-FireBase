@@ -108,7 +108,7 @@ function sortDocuments(docs: Document[], sortBy: string, order: 'asc' | 'desc'):
 class SqliteDbStore {
   // ── Collections ────────────────────────────────────────────────────────────
 
-  createCollection(ownerId: string, dto: CreateCollectionDto): Collection {
+  createCollection(ownerId: string, projectId: string, dto: CreateCollectionDto): Collection {
     const { name, description = '', schema = null, rules = null } = dto;
 
     if (!COLLECTION_NAME_REGEX.test(name)) {
@@ -129,9 +129,9 @@ class SqliteDbStore {
     }
 
     const db = getDb();
-    const existing = db.prepare('SELECT 1 FROM collections WHERE ownerId = ? AND name = ?').get(ownerId, name);
+    const existing = db.prepare('SELECT 1 FROM collections WHERE ownerId = ? AND projectId = ? AND name = ?').get(ownerId, projectId, name);
     if (existing) {
-      throw new AppError(`Collection "${name}" already exists.`, 409);
+      throw new AppError(`Collection "${name}" already exists in this project.`, 409);
     }
 
     const now = new Date().toISOString();
@@ -147,38 +147,38 @@ class SqliteDbStore {
     };
 
     db.prepare(`
-      INSERT INTO collections (ownerId, name, description, schema, rules, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(ownerId, name, description, schema, rules, now, now);
+      INSERT INTO collections (ownerId, projectId, name, description, schema, rules, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(ownerId, projectId, name, description, schema, rules, now, now);
 
     return meta;
   }
 
-  listCollections(ownerId: string): Collection[] {
+  listCollections(ownerId: string, projectId: string): Collection[] {
     const db = getDb();
     const rows = db.prepare(`
       SELECT c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt,
              COUNT(d.id) as documentCount
       FROM collections c
-      LEFT JOIN documents d ON c.ownerId = d.ownerId AND c.name = d.collectionName
-      WHERE c.ownerId = ?
+      LEFT JOIN documents d ON c.ownerId = d.ownerId AND c.projectId = d.projectId AND c.name = d.collectionName
+      WHERE c.ownerId = ? AND c.projectId = ?
       GROUP BY c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt
       ORDER BY c.createdAt ASC
-    `).all(ownerId) as (Collection & { documentCount: number })[];
+    `).all(ownerId, projectId) as (Collection & { documentCount: number })[];
 
     return rows;
   }
 
-  getCollection(ownerId: string, name: string): Collection {
+  getCollection(ownerId: string, projectId: string, name: string): Collection {
     const db = getDb();
     const row = db.prepare(`
       SELECT c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt,
              COUNT(d.id) as documentCount
       FROM collections c
-      LEFT JOIN documents d ON c.ownerId = d.ownerId AND c.name = d.collectionName
-      WHERE c.ownerId = ? AND c.name = ?
+      LEFT JOIN documents d ON c.ownerId = d.ownerId AND c.projectId = d.projectId AND c.name = d.collectionName
+      WHERE c.ownerId = ? AND c.projectId = ? AND c.name = ?
       GROUP BY c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt
-    `).get(ownerId, name) as Collection | undefined;
+    `).get(ownerId, projectId, name) as Collection | undefined;
 
     if (!row) {
       throw new AppError(`Collection "${name}" not found.`, 404);
@@ -187,8 +187,8 @@ class SqliteDbStore {
     return row;
   }
 
-  updateCollection(ownerId: string, name: string, patch: { description?: string; schema?: string; rules?: string }): Collection {
-    const existing = this.getCollection(ownerId, name);
+  updateCollection(ownerId: string, projectId: string, name: string, patch: { description?: string; schema?: string; rules?: string }): Collection {
+    const existing = this.getCollection(ownerId, projectId, name);
     const db = getDb();
 
     if (patch.schema !== undefined) {
@@ -209,15 +209,15 @@ class SqliteDbStore {
 
     db.prepare(`
       UPDATE collections SET description = ?, schema = ?, rules = ?, updatedAt = ?
-      WHERE ownerId = ? AND name = ?
-    `).run(newDescription, newSchema, newRules, now, ownerId, name);
+      WHERE ownerId = ? AND projectId = ? AND name = ?
+    `).run(newDescription, newSchema, newRules, now, ownerId, projectId, name);
 
-    return this.getCollection(ownerId, name);
+    return this.getCollection(ownerId, projectId, name);
   }
 
-  deleteCollection(ownerId: string, name: string): void {
+  deleteCollection(ownerId: string, projectId: string, name: string): void {
     const db = getDb();
-    const info = db.prepare('DELETE FROM collections WHERE ownerId = ? AND name = ?').run(ownerId, name);
+    const info = db.prepare('DELETE FROM collections WHERE ownerId = ? AND projectId = ? AND name = ?').run(ownerId, projectId, name);
     if (info.changes === 0) {
       throw new AppError(`Collection "${name}" not found.`, 404);
     }
@@ -225,7 +225,7 @@ class SqliteDbStore {
 
   // ── Documents ──────────────────────────────────────────────────────────────
 
-  insertDocument(ownerId: string, collectionName: string, data: DocumentObject): Document {
+  insertDocument(ownerId: string, projectId: string, collectionName: string, data: DocumentObject): Document {
     // Guard against reserved system field injection
     for (const key of Object.keys(data)) {
       if (key.startsWith('_')) {
@@ -234,7 +234,7 @@ class SqliteDbStore {
     }
 
     // Ensure collection exists and validate schema
-    const coll = this.getCollection(ownerId, collectionName);
+    const coll = this.getCollection(ownerId, projectId, collectionName);
     if (coll.schema) {
       const validate = ajv.compile(JSON.parse(coll.schema));
       const valid = validate(data);
@@ -249,6 +249,7 @@ class SqliteDbStore {
       ...data,
       _id: docId,
       _ownerId: ownerId,
+      _projectId: projectId,
       _createdAt: now,
       _updatedAt: now,
     };
@@ -257,13 +258,13 @@ class SqliteDbStore {
 
     db.transaction(() => {
       db.prepare(`
-        INSERT INTO documents (id, ownerId, collectionName, data, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(docId, ownerId, collectionName, JSON.stringify(doc), now, now);
+        INSERT INTO documents (id, ownerId, projectId, collectionName, data, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(docId, ownerId, projectId, collectionName, JSON.stringify(doc), now, now);
 
       db.prepare(`
-        UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND name = ?
-      `).run(now, ownerId, collectionName);
+        UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?
+      `).run(now, ownerId, projectId, collectionName);
     })();
 
     wsService.broadcastChange(ownerId, collectionName, 'document:inserted', doc);
@@ -271,9 +272,9 @@ class SqliteDbStore {
     return doc;
   }
 
-  queryDocuments(ownerId: string, collectionName: string, opts: QueryOptions = {}): QueryResult {
+  queryDocuments(ownerId: string, projectId: string, collectionName: string, opts: QueryOptions = {}): QueryResult {
     // Ensure collection exists
-    this.getCollection(ownerId, collectionName);
+    this.getCollection(ownerId, projectId, collectionName);
 
     const {
       filter,
@@ -288,8 +289,8 @@ class SqliteDbStore {
 
     const db = getDb();
     const rows = db.prepare(`
-      SELECT data FROM documents WHERE ownerId = ? AND collectionName = ?
-    `).all(ownerId, collectionName) as { data: string }[];
+      SELECT data FROM documents WHERE ownerId = ? AND projectId = ? AND collectionName = ?
+    `).all(ownerId, projectId, collectionName) as { data: string }[];
 
     let docs: Document[] = rows.map((r) => JSON.parse(r.data));
 
@@ -318,13 +319,13 @@ class SqliteDbStore {
     };
   }
 
-  getDocument(ownerId: string, collectionName: string, docId: string): Document {
-    this.getCollection(ownerId, collectionName);
+  getDocument(ownerId: string, projectId: string, collectionName: string, docId: string): Document {
+    this.getCollection(ownerId, projectId, collectionName);
 
     const db = getDb();
     const row = db.prepare(`
-      SELECT data FROM documents WHERE id = ? AND ownerId = ? AND collectionName = ?
-    `).get(docId, ownerId, collectionName) as { data: string } | undefined;
+      SELECT data FROM documents WHERE id = ? AND ownerId = ? AND projectId = ? AND collectionName = ?
+    `).get(docId, ownerId, projectId, collectionName) as { data: string } | undefined;
 
     if (!row) {
       throw new AppError(`Document "${docId}" not found in collection "${collectionName}".`, 404);
@@ -335,6 +336,7 @@ class SqliteDbStore {
 
   updateDocument(
     ownerId: string,
+    projectId: string,
     collectionName: string,
     docId: string,
     patch: DocumentObject,
@@ -346,8 +348,8 @@ class SqliteDbStore {
       }
     }
 
-    const coll = this.getCollection(ownerId, collectionName);
-    const existing = this.getDocument(ownerId, collectionName, docId);
+    const coll = this.getCollection(ownerId, projectId, collectionName);
+    const existing = this.getDocument(ownerId, projectId, collectionName, docId);
     
     // Create candidate document to validate
     const candidateData = {
@@ -356,7 +358,7 @@ class SqliteDbStore {
     };
     
     // Remove internal fields for validation
-    const { _id, _ownerId, _createdAt, _updatedAt, ...validationData } = candidateData;
+    const { _id, _ownerId, _projectId, _createdAt, _updatedAt, ...validationData } = candidateData;
 
     if (coll.schema) {
       const validate = ajv.compile(JSON.parse(coll.schema));
@@ -372,6 +374,7 @@ class SqliteDbStore {
       ...candidateData,
       _id: existing._id,
       _ownerId: existing._ownerId,
+      _projectId: existing._projectId || projectId,
       _createdAt: existing._createdAt,
       _updatedAt: now,
     };
@@ -379,12 +382,12 @@ class SqliteDbStore {
     const db = getDb();
     db.transaction(() => {
       db.prepare(`
-        UPDATE documents SET data = ?, updatedAt = ? WHERE id = ? AND ownerId = ? AND collectionName = ?
-      `).run(JSON.stringify(updated), now, docId, ownerId, collectionName);
+        UPDATE documents SET data = ?, updatedAt = ? WHERE id = ? AND ownerId = ? AND projectId = ? AND collectionName = ?
+      `).run(JSON.stringify(updated), now, docId, ownerId, projectId, collectionName);
 
       db.prepare(`
-        UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND name = ?
-      `).run(now, ownerId, collectionName);
+        UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?
+      `).run(now, ownerId, projectId, collectionName);
     })();
 
     wsService.broadcastChange(ownerId, collectionName, 'document:updated', updated);
@@ -392,14 +395,14 @@ class SqliteDbStore {
     return updated;
   }
 
-  deleteDocument(ownerId: string, collectionName: string, docId: string): void {
-    this.getDocument(ownerId, collectionName, docId);
+  deleteDocument(ownerId: string, projectId: string, collectionName: string, docId: string): void {
+    this.getDocument(ownerId, projectId, collectionName, docId);
     const now = new Date().toISOString();
 
     const db = getDb();
     db.transaction(() => {
-      db.prepare('DELETE FROM documents WHERE id = ? AND ownerId = ? AND collectionName = ?').run(docId, ownerId, collectionName);
-      db.prepare('UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND name = ?').run(now, ownerId, collectionName);
+      db.prepare('DELETE FROM documents WHERE id = ? AND ownerId = ? AND projectId = ? AND collectionName = ?').run(docId, ownerId, projectId, collectionName);
+      db.prepare('UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?').run(now, ownerId, projectId, collectionName);
     })();
 
     wsService.broadcastChange(ownerId, collectionName, 'document:deleted', { _id: docId });

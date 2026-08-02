@@ -24,6 +24,14 @@ function getOwnerId(req: Request): string {
   return sub;
 }
 
+function getProjectId(req: Request): string {
+  const projectId = req.project?.id || req.headers['x-aegis-project-id'];
+  if (!projectId || typeof projectId !== 'string') {
+    throw new AppError('Project context missing. Ensure API key or x-aegis-project-id header is provided.', 400);
+  }
+  return projectId;
+}
+
 // ── Helper: Check Rate Limits & Lockout ───────────────────────────────────────
 
 async function checkLimitsAndLockout(ownerId: string, operation: 'read' | 'write'): Promise<void> {
@@ -133,7 +141,8 @@ function parseFilter(raw: unknown): FilterExpression | undefined {
 export async function createCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
-    const collection = dbStore.createCollection(ownerId, {
+    const projectId = getProjectId(req);
+    const collection = dbStore.createCollection(ownerId, projectId, {
       name: req.body.name,
       description: req.body.description,
     });
@@ -143,14 +152,14 @@ export async function createCollection(req: Request, res: Response, next: NextFu
 
 export async function listCollections(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const collections = dbStore.listCollections(getOwnerId(req));
+    const collections = dbStore.listCollections(getOwnerId(req), getProjectId(req));
     res.status(200).json({ success: true, message: 'Collections retrieved.', data: collections } as ApiResponse<Collection[]>);
   } catch (err) { next(err); }
 }
 
 export async function getCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const collection = dbStore.getCollection(getOwnerId(req), req.params.name);
+    const collection = dbStore.getCollection(getOwnerId(req), getProjectId(req), req.params.name);
     res.status(200).json({ success: true, message: 'Collection retrieved.', data: collection } as ApiResponse<Collection>);
   } catch (err) { next(err); }
 }
@@ -162,14 +171,14 @@ export async function updateCollection(req: Request, res: Response, next: NextFu
       schema: req.body.schema,
       rules: req.body.rules,
     };
-    const collection = dbStore.updateCollection(getOwnerId(req), req.params.name, patch);
+    const collection = dbStore.updateCollection(getOwnerId(req), getProjectId(req), req.params.name, patch);
     res.status(200).json({ success: true, message: 'Collection updated.', data: collection } as ApiResponse<Collection>);
   } catch (err) { next(err); }
 }
 
 export async function deleteCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    dbStore.deleteCollection(getOwnerId(req), req.params.name);
+    dbStore.deleteCollection(getOwnerId(req), getProjectId(req), req.params.name);
     res.status(200).json({ success: true, message: `Collection "${req.params.name}" deleted.`, data: null } as ApiResponse<null>);
   } catch (err) { next(err); }
 }
@@ -182,11 +191,24 @@ export async function insertDocument(req: Request, res: Response, next: NextFunc
       throw new AppError('Request body must contain a "data" object.', 400);
     }
     const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
-    const coll = dbStore.getCollection(ownerId, req.params.name);
+    
+    let coll;
+    try {
+      coll = dbStore.getCollection(ownerId, projectId, req.params.name);
+    } catch (err: any) {
+      if (err instanceof AppError && err.statusCode === 404) {
+        // Implicitly create collection if it doesn't exist
+        coll = dbStore.createCollection(ownerId, projectId, { name: req.params.name });
+      } else {
+        throw err;
+      }
+    }
+    
     checkRules(coll, 'write', req);
     
-    const doc = dbStore.insertDocument(ownerId, req.params.name, req.body.data);
+    const doc = dbStore.insertDocument(ownerId, projectId, req.params.name, req.body.data);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(201).json({ success: true, message: 'Document inserted.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
@@ -202,11 +224,12 @@ export async function queryDocuments(req: Request, res: Response, next: NextFunc
       sortOrder: req.query.sortOrder === 'desc' ? 'desc' : 'asc',
     };
     const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'read');
-    const coll = dbStore.getCollection(ownerId, req.params.name);
+    const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'read', req);
     
-    const result = dbStore.queryDocuments(ownerId, req.params.name, opts);
+    const result = dbStore.queryDocuments(ownerId, projectId, req.params.name, opts);
     userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Documents retrieved.', data: result } as ApiResponse<QueryResult>);
   } catch (err) { next(err); }
@@ -215,11 +238,12 @@ export async function queryDocuments(req: Request, res: Response, next: NextFunc
 export async function getDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'read');
-    const coll = dbStore.getCollection(ownerId, req.params.name);
+    const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'read', req);
     
-    const doc = dbStore.getDocument(ownerId, req.params.name, req.params.id);
+    const doc = dbStore.getDocument(ownerId, projectId, req.params.name, req.params.id);
     userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Document retrieved.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
@@ -231,11 +255,12 @@ export async function updateDocument(req: Request, res: Response, next: NextFunc
       throw new AppError('Request body must contain a "data" object with fields to patch.', 400);
     }
     const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
-    const coll = dbStore.getCollection(ownerId, req.params.name);
+    const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'write', req);
     
-    const doc = dbStore.updateDocument(ownerId, req.params.name, req.params.id, req.body.data);
+    const doc = dbStore.updateDocument(ownerId, projectId, req.params.name, req.params.id, req.body.data);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(200).json({ success: true, message: 'Document updated.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
@@ -244,12 +269,14 @@ export async function updateDocument(req: Request, res: Response, next: NextFunc
 export async function deleteDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
-    const coll = dbStore.getCollection(ownerId, req.params.name);
+    const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'write', req);
     
-    dbStore.deleteDocument(ownerId, req.params.name, req.params.id);
+    dbStore.deleteDocument(ownerId, projectId, req.params.name, req.params.id);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(200).json({ success: true, message: 'Document deleted.', data: null } as ApiResponse<null>);
   } catch (err) { next(err); }
 }
+

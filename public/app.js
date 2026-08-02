@@ -12,6 +12,7 @@ const state = {
   refreshToken: localStorage.getItem('aegis_refresh_token') || null,
   user: JSON.parse(localStorage.getItem('aegis_user') || 'null'),
   activeCollection: null,
+  activeProject: null,
   ws: null,
   wsSubscriptions: new Set(),
 };
@@ -65,6 +66,10 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
   const headers = {};
   if (state.accessToken) {
     headers['Authorization'] = `Bearer ${state.accessToken}`;
+  }
+  
+  if (state.activeProject) {
+    headers['x-aegis-project-id'] = state.activeProject.id;
   }
 
   if (body && !isFormData) {
@@ -484,8 +489,25 @@ async function loadProjects() {
         item.addEventListener('click', (e) => {
            e.stopPropagation();
            const name = item.getAttribute('data-projname');
+           const id = item.getAttribute('data-projid');
+           
+           state.activeProject = { id, name };
            document.getElementById('globalActiveProjectName').textContent = name;
            document.getElementById('projectSelectorDropdown').classList.add('hidden');
+           
+           // Reload active tab
+           const activeTab = document.querySelector('.nav-tab.bg-brand-600');
+           if (activeTab) {
+             const tab = activeTab.getAttribute('data-tab');
+             if (tab === 'auth') loadAuthConfig();
+             if (tab === 'db') {
+                state.activeCollection = null; // reset selected collection
+                document.getElementById('documentsContainer').innerHTML = '<p class="text-xs text-slate-500 italic p-4 text-center">Select a collection.</p>';
+                loadCollections();
+             }
+             if (tab === 'storage') loadAssets();
+             if (tab === 'hoster') loadDeployments();
+           }
         });
       });
     }

@@ -12,6 +12,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { AppError, JwtPayload } from '../types/auth.types';
+import { getDb } from '../db/sqlite.connection';
 
 // ── Token Extractor ───────────────────────────────────────────────────────────
 
@@ -57,10 +58,18 @@ export function authenticateJwt(req: Request, _res: Response, next: NextFunction
 
   try {
     const decoded = jwt.verify(token, secret) as JwtPayload;
+    
+    // Verify user actually exists in DB (protects against ghost tokens after DB resets)
+    const db = getDb();
+    const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get(decoded.sub);
+    if (!userExists) {
+      return next(new AppError('User not found. Please log in again.', 401));
+    }
+
     req.user = decoded;
     next();
-  } catch (err) {
+  } catch (error) {
     // Re-throw JWT-specific errors so globalErrorHandler can map them correctly
-    next(err);
+    next(error);
   }
 }
