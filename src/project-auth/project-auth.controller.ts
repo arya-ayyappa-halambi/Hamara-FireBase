@@ -3,13 +3,31 @@ import { projectAuthService } from './project-auth.service';
 import { AppError } from '../types/auth.types';
 
 function getResolvedProjectId(req: Request): string {
+  // 1. Set securely by api-key middleware
   if (req.project && req.project.id) {
     return req.project.id;
   }
-  if (req.body.projectId) {
-    return req.body.projectId;
+  
+  // 2. Used by Dashboard (Admin JWT)
+  const headerProjId = req.headers['x-aegis-project-id'] as string;
+  const bodyProjId = req.body.projectId as string;
+  const projectId = headerProjId || bodyProjId;
+  
+  if (!projectId) {
+    throw new AppError('Project ID is missing. Provide x-aegis-api-key header or x-aegis-project-id header.', 400);
   }
-  throw new AppError('Project ID is missing. Provide x-aegis-api-key header or projectId in body.', 400);
+
+  // If using Admin JWT, ensure they own the project (unless they are a project user, though project users shouldn't hit these endpoints for admin tasks)
+  const user = req.user as any;
+  if (user && !user.isProjectUser) {
+    const db = require('../db/sqlite.connection').getDb();
+    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, user.sub);
+    if (!proj) {
+      throw new AppError('Access denied: Project not found or you do not own it.', 403);
+    }
+  }
+
+  return projectId;
 }
 
 export async function registerProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
