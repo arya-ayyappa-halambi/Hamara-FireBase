@@ -66,8 +66,8 @@ function createApp(): Application {
     allowedHeaders: ['Content-Type', 'Authorization', 'x-aegis-api-key', 'x-aegis-project-id'],
   }));
 
-  app.use(express.json({ limit: '5mb' }));   // Increased cap to allow image uploads
-  app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+  app.use(express.json({ limit: '50mb' }));   // Increased cap to allow large high-res image uploads
+  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
   // ── Request Logger (dev only) ────────────────────────────────────────────
   if (process.env.NODE_ENV === 'development') {
