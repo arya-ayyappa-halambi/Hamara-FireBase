@@ -425,11 +425,39 @@
 
             <!-- Auth Sub-tabs -->
             <div class="flex space-x-6 border-b border-darkborder mt-4">
+              <button id="authTabBtn-users" class="text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent hover:border-slate-600 pb-2 px-1 transition">Users</button>
               <button id="authTabBtn-signin" class="text-sm font-medium text-blue-400 border-b-2 border-blue-400 pb-2 px-1">Sign-in method</button>
               <button id="authTabBtn-templates" class="text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent hover:border-slate-600 pb-2 px-1 transition">Templates</button>
             </div>
             
             <div class="relative">
+              <!-- USERS TAB -->
+              <div id="authView-users" class="hidden bg-darkcard border border-darkborder rounded-lg overflow-hidden mt-4">
+                 <div class="flex items-center justify-between p-3 border-b border-darkborder bg-[#1e1e1e]">
+                   <div class="relative w-64">
+                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                     <input type="text" id="projectUserSearch" placeholder="Search by email..." class="w-full bg-[#282828] border border-darkborder rounded-full pl-8 pr-3 py-1 text-xs text-white focus:outline-none">
+                   </div>
+                   <button id="refreshProjectUsersBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-4 py-1.5 rounded-full transition">Refresh</button>
+                 </div>
+                 
+                 <table class="w-full text-left text-sm text-slate-300">
+                   <thead class="bg-[#282828] text-xs uppercase font-medium text-slate-500 border-b border-darkborder">
+                     <tr>
+                       <th class="px-4 py-2 font-medium">Identifier</th>
+                       <th class="px-4 py-2 font-medium">Providers</th>
+                       <th class="px-4 py-2 font-medium">Created</th>
+                       <th class="px-4 py-2 font-medium">Signed In</th>
+                       <th class="px-4 py-2 font-medium">User UID</th>
+                       <th class="px-4 py-2 font-medium">Actions</th>
+                     </tr>
+                   </thead>
+                   <tbody id="projectUsersTableBody" class="divide-y divide-darkborder text-xs">
+                     <!-- Populated by JS -->
+                   </tbody>
+                 </table>
+              </div>
+
               <!-- SIGN-IN METHOD TAB -->
               <div id="authView-signin" class="block bg-darkcard border border-darkborder rounded-lg overflow-hidden mt-4">
                  <table class="w-full text-left text-sm text-slate-300">

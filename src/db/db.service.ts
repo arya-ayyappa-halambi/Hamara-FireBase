@@ -181,7 +181,9 @@ class SqliteDbStore {
     `).get(ownerId, projectId, name) as Collection | undefined;
 
     if (!row) {
-      throw new AppError(`Collection "${name}" not found.`, 404);
+      // Auto-create collection to match Firebase behavior
+      this.createCollection(ownerId, projectId, { name });
+      return this.getCollection(ownerId, projectId, name);
     }
 
     return row;
@@ -225,7 +227,7 @@ class SqliteDbStore {
 
   // ── Documents ──────────────────────────────────────────────────────────────
 
-  insertDocument(ownerId: string, projectId: string, collectionName: string, data: DocumentObject): Document {
+  insertDocument(ownerId: string, projectId: string, collectionName: string, data: DocumentObject, docId?: string): Document {
     // Guard against reserved system field injection
     for (const key of Object.keys(data)) {
       if (key.startsWith('_')) {
@@ -244,10 +246,10 @@ class SqliteDbStore {
     }
 
     const now = new Date().toISOString();
-    const docId = uuidv4();
+    const finalDocId = docId || uuidv4();
     const doc: Document = {
       ...data,
-      _id: docId,
+      _id: finalDocId,
       _ownerId: ownerId,
       _projectId: projectId,
       _createdAt: now,
@@ -260,7 +262,7 @@ class SqliteDbStore {
       db.prepare(`
         INSERT INTO documents (id, ownerId, projectId, collectionName, data, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(docId, ownerId, projectId, collectionName, JSON.stringify(doc), now, now);
+      `).run(finalDocId, ownerId, projectId, collectionName, JSON.stringify(doc), now, now);
 
       db.prepare(`
         UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?

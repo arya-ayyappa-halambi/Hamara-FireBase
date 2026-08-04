@@ -57,3 +57,32 @@ export async function handleOAuthProvider(req: Request, res: Response, next: Nex
     });
   } catch (err) { next(err); }
 }
+
+export async function deleteProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const userId = req.params.id;
+    
+    await projectAuthService.deleteUser(projectId, userId);
+    
+    res.status(200).json({
+      success: true,
+      message: 'User deleted successfully.'
+    });
+  } catch (err) { next(err); }
+}
+
+export async function listProjectUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    // Directly query the db for simplicity here (or move to service)
+    const db = require('../db/sqlite.connection').getDb();
+    const users = db.prepare('SELECT id, email, provider, createdAt, lastLoginAt FROM project_users WHERE projectId = ? ORDER BY createdAt DESC').all(projectId);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Users retrieved successfully.',
+      data: users
+    });
+  } catch (err) { next(err); }
+}

@@ -230,7 +230,8 @@ export async function insertDocument(req: Request, res: Response, next: NextFunc
     
     checkRules(coll, 'write', req);
     
-    const doc = dbStore.insertDocument(ownerId, projectId, req.params.name, req.body.data);
+    const docId = req.body.id || require('uuid').v4();
+    const doc = (dbStore as any).insertDocument(ownerId, projectId, req.params.name, req.body.data, docId);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(201).json({ success: true, message: 'Document inserted.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }

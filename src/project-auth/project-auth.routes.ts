@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { registerProjectUser, loginProjectUser, handleOAuthProvider } from './project-auth.controller';
+import { registerProjectUser, loginProjectUser, handleOAuthProvider, listProjectUsers, deleteProjectUser } from './project-auth.controller';
 import { authenticateApiKeyOrJwt } from '../middleware/apikey.middleware';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -12,5 +12,9 @@ router.use(apiLimiter);
 router.post('/register', registerProjectUser);
 router.post('/login', loginProjectUser);
 router.post('/oauth/:provider', handleOAuthProvider);
+
+// Admin routes for managing project users
+router.get('/users', listProjectUsers);
+router.delete('/users/:id', deleteProjectUser);
 
 export default router;

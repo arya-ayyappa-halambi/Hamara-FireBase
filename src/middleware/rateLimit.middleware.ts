@@ -9,9 +9,9 @@ import { ApiResponse } from '../types/auth.types';
 
 export const rateLimitConfig = {
   authWindowMinutes: 15,
-  authLimit: 10,
+  authLimit: 1000,
   apiWindowMinutes: 15,
-  apiLimit: 100,
+  apiLimit: 1000,
 };
 
 function createRateLimitHandler(customMessage: string) {

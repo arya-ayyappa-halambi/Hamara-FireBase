@@ -66,6 +66,14 @@ export class ProjectAuthService {
     return this.generateAuthResponse(userId, projectId, email);
   }
 
+  async deleteUser(projectId: string, userId: string) {
+    const db = getDb();
+    const info = db.prepare('DELETE FROM project_users WHERE projectId = ? AND id = ?').run(projectId, userId);
+    if (info.changes === 0) {
+      throw new AppError('User not found in this project.', 404);
+    }
+  }
+
   async loginUser(projectId: string, email: string, passwordText: string) {
     const db = getDb();
     const user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND email = ?').get(projectId, email) as any;
