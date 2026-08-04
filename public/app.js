@@ -1387,12 +1387,9 @@ async function fetchProjectUsers() {
   tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-slate-500">Loading users...</td></tr>';
   
   try {
-    const res = await fetch(`${state.baseUrl}/api/v1/project-auth/users`, {
-      headers: { 'x-aegis-api-key': state.activeProject.apiKey }
-    });
-    const json = await res.json();
+    const json = await apiRequest('/api/v1/project-auth/users', 'GET');
     
-    if (json.success) {
+    if (json && json.success) {
       const users = json.data || [];
       if (users.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-slate-500">No users found for this project.</td></tr>';
@@ -1414,7 +1411,7 @@ async function fetchProjectUsers() {
         </tr>
       `).join('');
     } else {
-      tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-400">Failed to load users: ${json.message}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-400">Failed to load users: ${json ? json.message : 'Unknown Error'}</td></tr>`;
     }
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-400">Error loading users: ${err.message}</td></tr>`;
@@ -1426,16 +1423,12 @@ async function deleteProjectUser(userId) {
   if (!confirm('Are you sure you want to delete this user from the project? This cannot be undone.')) return;
   
   try {
-    const res = await fetch(`${state.baseUrl}/api/v1/project-auth/users/${userId}`, {
-      method: 'DELETE',
-      headers: { 'x-aegis-api-key': state.activeProject.apiKey }
-    });
-    const json = await res.json();
-    if (json.success) {
+    const json = await apiRequest(`/api/v1/project-auth/users/${userId}`, 'DELETE');
+    if (json && json.success) {
       showToast('User deleted successfully.', 'success');
       fetchProjectUsers();
     } else {
-      showToast(json.message || 'Failed to delete user.', 'error');
+      showToast((json && json.message) ? json.message : 'Failed to delete user.', 'error');
     }
   } catch (err) {
     showToast(`Error: ${err.message}`, 'error');
