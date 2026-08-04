@@ -331,9 +331,15 @@
                 <div class="flex items-center justify-between p-2 bg-[#2d2d2d] border-b border-darkborder">
                   <div class="flex items-center space-x-2 text-xs text-slate-300">
                     <i class="fa-solid fa-shield-halved text-blue-400 ml-2"></i>
-                    <span class="font-mono">Security Rules & Schema for <span id="rulesActiveCol" class="text-amber-400 font-bold">none</span></span>
+                    <span class="font-mono">Security Rules & Schema for</span>
+                    <select id="rulesCollectionSelect" class="bg-[#1e1e1e] text-amber-400 font-bold font-mono text-xs border border-darkborder rounded px-2 py-1 focus:outline-none focus:border-blue-500">
+                      <option value="">-- select collection --</option>
+                    </select>
                   </div>
-                  <button id="saveColSettingsBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-1.5 rounded transition">Publish</button>
+                  <div class="flex items-center space-x-2">
+                    <span id="publishStatus" class="text-xs font-mono hidden"></span>
+                    <button id="saveColSettingsBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-1.5 rounded transition">Publish</button>
+                  </div>
                 </div>
                 <!-- Editor Body -->
                 <div class="flex-1 flex overflow-hidden bg-[#1e1e1e]">

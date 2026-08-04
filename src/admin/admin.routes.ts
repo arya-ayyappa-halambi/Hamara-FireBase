@@ -6,7 +6,7 @@
 import { Router } from 'express';
 import { authenticateJwt } from '../middleware/auth.middleware';
 import { requireSuperAdmin } from '../middleware/admin.middleware';
-import { getStats, getUsers, updateRateLimits, updateUserLimits } from './admin.controller';
+import { getStats, getUsers, updateRateLimits, updateUserLimits, deleteUser } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
 const router = Router();
@@ -18,6 +18,7 @@ router.use(apiLimiter);
 router.get('/stats', getStats);
 router.get('/users', getUsers);
 router.patch('/users/:id/limits', updateUserLimits);
+router.delete('/users/:id', deleteUser);
 router.patch('/rate-limits', updateRateLimits);
 
 export default router;

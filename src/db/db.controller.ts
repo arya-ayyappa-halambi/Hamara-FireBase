@@ -8,6 +8,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { dbStore } from './db.service';
 import { userStore } from '../store/user.store';
+import { getDb } from './sqlite.connection';
 import { AppError, ApiResponse } from '../types/auth.types';
 import {
   Collection,
@@ -25,10 +26,31 @@ function getOwnerId(req: Request): string {
 }
 
 function getProjectId(req: Request): string {
-  const projectId = req.project?.id || req.headers['x-aegis-project-id'];
+  // 1. If using API key, req.project is set securely by api-key middleware.
+  if (req.project?.id) return req.project.id;
+
+  const projectId = req.headers['x-aegis-project-id'];
   if (!projectId || typeof projectId !== 'string') {
     throw new AppError('Project context missing. Ensure API key or x-aegis-project-id header is provided.', 400);
   }
+
+  // 2. If it's a project user (via JWT), ensure they only access the project they belong to.
+  const user = req.user as any;
+  if (user?.isProjectUser) {
+    if (user.projectId !== projectId) {
+      throw new AppError('Access denied: Project users can only access their own project.', 403);
+    }
+    return projectId;
+  }
+
+  // 3. If it's a platform user, ensure they own the project they are trying to access.
+  const ownerId = getOwnerId(req);
+  const db = getDb();
+  const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
+  if (!proj) {
+    throw new AppError('Access denied: Project not found or you do not have permission to access it.', 403);
+  }
+
   return projectId;
 }
 

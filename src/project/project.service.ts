@@ -166,6 +166,17 @@ export class ProjectService {
 
     return { ...proj, maxAssetSizeBytes, maxStorageBytes, updatedAt: now };
   }
+
+  /**
+   * Throws an error if the specified project doesn't exist or doesn't belong to the owner.
+   */
+  validateOwnership(projectId: string, ownerId: string): void {
+    const db = getDb();
+    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
+    if (!proj) {
+      throw new AppError('Access denied: Project not found or you do not own this project.', 403);
+    }
+  }
 }
 
 export const projectService = new ProjectService();

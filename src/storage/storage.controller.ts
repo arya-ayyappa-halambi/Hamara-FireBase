@@ -13,6 +13,7 @@ import {
   streamAsset,
   deleteAsset,
 } from './storage.service';
+import { projectService } from '../project/project.service';
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +44,17 @@ export async function uploadAsset(req: Request, res: Response, next: NextFunctio
     const ownerId = getOwnerId(req);
     const linkedCollectionId = req.body.linkedCollectionId as string | undefined;
     const projectId = req.project?.id || req.body.projectId;
+
+    if (projectId) {
+      const user = req.user as any;
+      if (user?.isProjectUser) {
+        if (user.projectId !== projectId) {
+          throw new AppError('Access denied: Project users can only access their own project.', 403);
+        }
+      } else {
+        projectService.validateOwnership(projectId, ownerId);
+      }
+    }
 
     const meta = saveAssetMetadata(ownerId, req.file, linkedCollectionId, projectId);
 

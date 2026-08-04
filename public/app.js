@@ -282,6 +282,7 @@ function setupDbSubTabs() {
         activeView.classList.remove('hidden');
         if (tab === 'rules') {
            activeView.classList.add('flex'); // Rules is flex-col
+           populateRulesCollectionDropdown(); // Load collections into dropdown
         } else if (tab === 'data') {
            activeView.classList.add('flex'); // Data is flex
         }
@@ -691,9 +692,34 @@ async function loadCollectionSettings(name) {
     const res = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(name)}`);
     document.getElementById('colSchemaInput').value = res.schema || '';
     document.getElementById('colRulesInput').value = res.rules || '';
-    document.getElementById('rulesActiveCol').textContent = name;
+    // Update dropdown if it exists
+    const dropdown = document.getElementById('rulesCollectionSelect');
+    if (dropdown) dropdown.value = name;
+    // Hide publish status when switching
+    const statusEl = document.getElementById('publishStatus');
+    if (statusEl) statusEl.classList.add('hidden');
   } catch (err) {
     console.error('Failed to load collection settings', err);
+  }
+}
+
+async function populateRulesCollectionDropdown() {
+  const dropdown = document.getElementById('rulesCollectionSelect');
+  if (!dropdown) return;
+  try {
+    const collections = await apiRequest('/api/v1/db/collections');
+    dropdown.innerHTML = '<option value="">-- select collection --</option>';
+    if (collections && collections.length > 0) {
+      collections.forEach(col => {
+        const opt = document.createElement('option');
+        opt.value = col.name;
+        opt.textContent = col.name;
+        if (state.activeCollection === col.name) opt.selected = true;
+        dropdown.appendChild(opt);
+      });
+    }
+  } catch (err) {
+    console.error('Failed to load collections for rules dropdown', err);
   }
 }
 
@@ -842,8 +868,33 @@ function setupDbHandlers() {
     }
   });
 
+  // Rules collection dropdown change handler
+  document.getElementById('rulesCollectionSelect')?.addEventListener('change', (e) => {
+    const name = e.target.value;
+    if (name) {
+      state.activeCollection = name;
+      loadCollectionSettings(name);
+    } else {
+      document.getElementById('colSchemaInput').value = '';
+      document.getElementById('colRulesInput').value = '';
+      const statusEl = document.getElementById('publishStatus');
+      if (statusEl) statusEl.classList.add('hidden');
+    }
+  });
+
   document.getElementById('saveColSettingsBtn')?.addEventListener('click', async () => {
-    if (!state.activeCollection) return;
+    const statusEl = document.getElementById('publishStatus');
+    
+    if (!state.activeCollection) {
+      showToast('Please select a collection first!', 'warning');
+      if (statusEl) {
+        statusEl.textContent = '⚠ No collection selected';
+        statusEl.className = 'text-xs font-mono text-amber-400';
+        statusEl.classList.remove('hidden');
+      }
+      return;
+    }
+    
     const schemaStr = document.getElementById('colSchemaInput').value.trim();
     const rulesStr = document.getElementById('colRulesInput').value.trim();
     
@@ -852,7 +903,19 @@ function setupDbHandlers() {
       if (schemaStr) JSON.parse(schemaStr);
       if (rulesStr) JSON.parse(rulesStr);
     } catch (e) {
+      if (statusEl) {
+        statusEl.textContent = '✗ Invalid JSON';
+        statusEl.className = 'text-xs font-mono text-red-400';
+        statusEl.classList.remove('hidden');
+      }
       return showToast('Invalid JSON in schema or rules.', 'error');
+    }
+
+    // Show publishing state
+    if (statusEl) {
+      statusEl.textContent = '⏳ Publishing...';
+      statusEl.className = 'text-xs font-mono text-blue-400';
+      statusEl.classList.remove('hidden');
     }
 
     try {
@@ -860,8 +923,16 @@ function setupDbHandlers() {
         schema: schemaStr || null,
         rules: rulesStr || null
       });
-      showToast('Collection settings saved.', 'success');
+      if (statusEl) {
+        statusEl.textContent = '✓ Published successfully';
+        statusEl.className = 'text-xs font-mono text-emerald-400';
+      }
+      showToast(`Rules published for "${state.activeCollection}".`, 'success');
     } catch (err) {
+      if (statusEl) {
+        statusEl.textContent = '✗ Publish failed';
+        statusEl.className = 'text-xs font-mono text-red-400';
+      }
       showToast(`Error: ${err.message}`, 'error');
     }
   });
@@ -1181,6 +1252,7 @@ async function loadAdminStats() {
                Edit Limits
                <i class="fa-solid fa-pen text-slate-500 text-[10px]"></i>
              </button>
+             ${!u.isSuperAdmin ? `<button onclick="confirmDeleteUser('${u.id}', '${u.email}')" class="px-2 py-1 bg-red-900/30 hover:bg-red-700/50 border border-red-800 rounded text-red-400 hover:text-red-200 text-xs flex items-center gap-2 transition ml-2">Delete <i class="fa-solid fa-trash text-[10px]"></i></button>` : ''}
            </td>
            <td class="px-4 py-3 text-slate-400">${new Date(u.createdAt).toLocaleDateString()}</td>
            <td class="px-4 py-3 font-mono text-slate-400 text-[10px]">${u.id}</td>
@@ -1219,6 +1291,17 @@ function setupAdminHandlers() {
     document.getElementById('editWriteLimit').value = writeLimit;
     document.getElementById('editLockoutMinutes').value = lockoutMinutes;
     document.getElementById('editUserLimitsModal').classList.remove('hidden');
+  };
+
+  window.confirmDeleteUser = async function(userId, email) {
+    if (!confirm(`Are you sure you want to delete user "${email}"?\n\nThis will permanently delete ALL their projects, collections, and documents.`)) return;
+    try {
+      await apiRequest(`/api/v1/admin/users/${userId}`, 'DELETE');
+      showToast(`User "${email}" deleted successfully.`, 'success');
+      loadAdminStats();
+    } catch (err) {
+      showToast(`Error deleting user: ${err.message}`, 'error');
+    }
   };
 
   const closeEditLimits = () => {

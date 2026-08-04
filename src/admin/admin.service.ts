@@ -64,6 +64,23 @@ export class AdminService {
 
     return rateLimitConfig;
   }
+
+  /**
+   * Delete a user and all their owned data (projects, collections, documents, etc).
+   * Cannot delete the Super Admin account.
+   */
+  deleteUser(userId: string): void {
+    const db = getDb();
+    const user = db.prepare('SELECT id, isSuperAdmin FROM users WHERE id = ?').get(userId) as any;
+    if (!user) {
+      throw new Error('User not found.');
+    }
+    if (user.isSuperAdmin) {
+      throw new Error('Cannot delete the Super Admin account.');
+    }
+    // CASCADE in the schema handles projects, collections, documents, etc.
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  }
 }
 
 export const adminService = new AdminService();

@@ -53,3 +53,15 @@ export async function updateRateLimits(req: Request, res: Response, next: NextFu
     } as ApiResponse<typeof config>);
   } catch (err) { next(err); }
 }
+
+export async function deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    adminService.deleteUser(id);
+    res.status(200).json({
+      success: true,
+      message: 'User deleted successfully.',
+      data: null,
+    } as ApiResponse<null>);
+  } catch (err) { next(err); }
+}

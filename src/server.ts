@@ -63,7 +63,7 @@ function createApp(): Application {
   app.use(cors({
     origin: process.env.CORS_ORIGIN ?? '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-aegis-api-key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-aegis-api-key', 'x-aegis-project-id'],
   }));
 
   app.use(express.json({ limit: '10kb' }));   // hard cap on body size

@@ -61,7 +61,8 @@ export function authenticateJwt(req: Request, _res: Response, next: NextFunction
     
     // Verify user actually exists in DB (protects against ghost tokens after DB resets)
     const db = getDb();
-    const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get(decoded.sub);
+    const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get(decoded.sub)
+      || db.prepare('SELECT id FROM project_users WHERE id = ?').get(decoded.sub);
     if (!userExists) {
       return next(new AppError('User not found. Please log in again.', 401));
     }
