@@ -1387,32 +1387,27 @@ async function fetchProjectUsers() {
   tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-slate-500">Loading users...</td></tr>';
   
   try {
-    const json = await apiRequest('/api/v1/project-auth/users', 'GET');
+    const users = await apiRequest('/api/v1/project-auth/users', 'GET') || [];
     
-    if (json && json.success) {
-      const users = json.data || [];
-      if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-slate-500">No users found for this project.</td></tr>';
-        return;
-      }
-      
-      tbody.innerHTML = users.map(u => `
-        <tr class="hover:bg-[#282828] transition">
-          <td class="px-4 py-2 font-medium text-white">${u.email || '-'}</td>
-          <td class="px-4 py-2 text-slate-400 capitalize">${u.provider || 'email'}</td>
-          <td class="px-4 py-2 text-slate-400">${new Date(u.createdAt).toLocaleDateString()}</td>
-          <td class="px-4 py-2 text-slate-400">${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never'}</td>
-          <td class="px-4 py-2 text-slate-500 font-mono text-[10px]">${u.id}</td>
-          <td class="px-4 py-2">
-            <button onclick="deleteProjectUser('${u.id}')" class="text-red-400 hover:text-red-300 transition" title="Delete User">
-              <i class="fa-solid fa-trash"></i>
-            </button>
-          </td>
-        </tr>
-      `).join('');
-    } else {
-      tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-400">Failed to load users: ${json ? json.message : 'Unknown Error'}</td></tr>`;
+    if (users.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="px-4 py-4 text-center text-slate-500">No users found for this project.</td></tr>';
+      return;
     }
+    
+    tbody.innerHTML = users.map(u => `
+      <tr class="hover:bg-[#282828] transition">
+        <td class="px-4 py-2 font-medium text-white">${u.email || '-'}</td>
+        <td class="px-4 py-2 text-slate-400 capitalize">${u.provider || 'email'}</td>
+        <td class="px-4 py-2 text-slate-400">${new Date(u.createdAt).toLocaleDateString()}</td>
+        <td class="px-4 py-2 text-slate-400">${u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : 'Never'}</td>
+        <td class="px-4 py-2 text-slate-500 font-mono text-[10px]">${u.id}</td>
+        <td class="px-4 py-2">
+          <button onclick="deleteProjectUser('${u.id}')" class="text-red-400 hover:text-red-300 transition" title="Delete User">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </td>
+      </tr>
+    `).join('');
   } catch (err) {
     tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-4 text-center text-red-400">Error loading users: ${err.message}</td></tr>`;
   }
