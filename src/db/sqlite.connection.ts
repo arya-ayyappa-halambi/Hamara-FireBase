@@ -147,6 +147,7 @@ export function initSqlite(): void {
       data TEXT NOT NULL,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
+      version INTEGER NOT NULL DEFAULT 1,
       FOREIGN KEY (ownerId, projectId, collectionName) REFERENCES collections(ownerId, projectId, name) ON DELETE CASCADE
     );
 
@@ -282,6 +283,11 @@ export function initSqlite(): void {
   } catch {}
   try {
     db.exec(`ALTER TABLE project_users ADD COLUMN customClaims TEXT;`);
+  } catch {}
+
+  // Migrate documents to add version column
+  try {
+    db.exec(`ALTER TABLE documents ADD COLUMN version INTEGER NOT NULL DEFAULT 1;`);
   } catch {}
 
 

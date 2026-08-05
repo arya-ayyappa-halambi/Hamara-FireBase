@@ -20,17 +20,23 @@ import {
   getAssetMetadata,
   downloadAsset,
   removeAsset,
+  getSignedUrl,
+  uploadSignedAsset,
 } from './storage.controller';
 
 const router = Router();
 
-// Apply API Key / JWT auth to ALL routes in this router
+// Signed upload endpoint (bypasses global API Key / JWT middleware, auth via token query param)
+router.post('/upload-signed', uploadMiddleware, uploadSignedAsset);
+
+// Apply API Key / JWT auth to ALL OTHER routes in this router
 router.use(authenticateApiKeyOrJwt);
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
 // Upload: authenticateJwt (via router.use) → multer → controller
 router.post('/upload', uploadMiddleware, uploadAsset);
+router.post('/signed-url', apiLimiter, getSignedUrl);
 
 // Asset metadata
 router.get('/assets',         listUserAssets);

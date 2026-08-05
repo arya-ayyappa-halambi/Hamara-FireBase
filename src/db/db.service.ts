@@ -28,6 +28,8 @@ import { wsService } from '../realtime/websocket.service';
 import { encryptValue, decryptValue, isEncryptedField } from '../utils/encryption.helper';
 import { webhookService } from '../services/webhook.service';
 import { cosineSimilarity } from '../utils/vector.helper';
+import { sseRealtimeService } from '../services/sse-realtime.service';
+import { replicationService } from '../services/replication.service';
 
 function preprocessVectorSchema(schema: any): any {
   if (!schema || typeof schema !== 'object') return schema;
@@ -123,7 +125,7 @@ function matchesOperators(fieldValue: DocumentValue, ops: FieldOperators): boole
 /**
  * Returns true if the document matches ALL entries in the filter expression.
  */
-function matchesFilter(doc: Document, filter: FilterExpression): boolean {
+export function matchesFilter(doc: Document, filter: FilterExpression): boolean {
   for (const [field, condition] of Object.entries(filter)) {
     const docValue = doc[field] as DocumentValue;
 
@@ -328,14 +330,15 @@ class SqliteDbStore {
       _projectId: projectId,
       _createdAt: now,
       _updatedAt: now,
+      _version: 1,
     };
 
     const db = getDb();
 
     db.transaction(() => {
       db.prepare(`
-        INSERT INTO documents (id, ownerId, projectId, collectionName, data, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO documents (id, ownerId, projectId, collectionName, data, createdAt, updatedAt, version)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)
       `).run(finalDocId, ownerId, projectId, collectionName, JSON.stringify(dbPayload), now, now);
 
       db.prepare(`
@@ -351,12 +354,27 @@ class SqliteDbStore {
       _projectId: projectId,
       _createdAt: now,
       _updatedAt: now,
+      _version: 1,
     };
 
     wsService.broadcastChange(ownerId, collectionName, 'document:inserted', returnedDoc);
+    sseRealtimeService.broadcast(ownerId, collectionName, 'document:inserted', returnedDoc);
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'document.created', returnedDoc);
+
+    // Replicate write
+    replicationService.queueReplication({
+      id: finalDocId,
+      ownerId,
+      projectId,
+      collectionName,
+      data: JSON.stringify(dbPayload),
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
+      isDelete: false,
+    });
 
     return returnedDoc;
   }
@@ -464,6 +482,12 @@ class SqliteDbStore {
 
     const now = new Date().toISOString();
 
+    const db = getDb();
+    
+    // Retrieve current version
+    const versionRow = db.prepare('SELECT version FROM documents WHERE id = ?').get(docId) as { version: number } | undefined;
+    const nextVersion = (versionRow?.version || 1) + 1;
+
     const updated: Document = {
       ...candidateData,
       _id: existing._id,
@@ -471,6 +495,7 @@ class SqliteDbStore {
       _projectId: existing._projectId || projectId,
       _createdAt: existing._createdAt,
       _updatedAt: now,
+      _version: nextVersion,
     };
 
     // Encrypt fields in candidate data before storing in DB
@@ -483,13 +508,13 @@ class SqliteDbStore {
       _projectId: pId,
       _createdAt: dbCreated,
       _updatedAt: dbUpdated,
+      _version: nextVersion,
     };
 
-    const db = getDb();
     db.transaction(() => {
       db.prepare(`
-        UPDATE documents SET data = ?, updatedAt = ? WHERE id = ? AND ownerId = ? AND projectId = ? AND collectionName = ?
-      `).run(JSON.stringify(dbPayload), now, docId, ownerId, projectId, collectionName);
+        UPDATE documents SET data = ?, updatedAt = ?, version = ? WHERE id = ? AND ownerId = ? AND projectId = ? AND collectionName = ?
+      `).run(JSON.stringify(dbPayload), now, nextVersion, docId, ownerId, projectId, collectionName);
 
       db.prepare(`
         UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?
@@ -497,9 +522,23 @@ class SqliteDbStore {
     })();
 
     wsService.broadcastChange(ownerId, collectionName, 'document:updated', updated);
+    sseRealtimeService.broadcast(ownerId, collectionName, 'document:updated', updated);
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'document.updated', updated);
+
+    // Replicate write
+    replicationService.queueReplication({
+      id: docId,
+      ownerId,
+      projectId,
+      collectionName,
+      data: JSON.stringify(dbPayload),
+      createdAt: existing._createdAt,
+      updatedAt: now,
+      version: nextVersion,
+      isDelete: false,
+    });
 
     return updated;
   }
@@ -516,9 +555,23 @@ class SqliteDbStore {
     })();
 
     wsService.broadcastChange(ownerId, collectionName, 'document:deleted', { _id: docId });
+    sseRealtimeService.broadcast(ownerId, collectionName, 'document:deleted', { _id: docId });
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'document.deleted', { _id: docId, collectionName });
+
+    // Replicate write
+    replicationService.queueReplication({
+      id: docId,
+      ownerId,
+      projectId,
+      collectionName,
+      data: '{}',
+      createdAt: now,
+      updatedAt: now,
+      version: 1,
+      isDelete: true,
+    });
   }
 
   queryDocumentsByVector(

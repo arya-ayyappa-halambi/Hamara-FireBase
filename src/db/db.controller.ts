@@ -12,6 +12,7 @@ import vm from 'vm';
 import { auditLogService } from '../services/audit-log.service';
 import { getDb } from './sqlite.connection';
 import { AppError, ApiResponse } from '../types/auth.types';
+import { sseRealtimeService } from '../services/sse-realtime.service';
 import {
   Collection,
   Document,
@@ -395,6 +396,47 @@ export async function queryVector(req: Request, res: Response, next: NextFunctio
       message: 'Vector query completed.',
       data: results
     });
+  } catch (err) { next(err); }
+}
+
+function parseQueryFilter(queryObj: any) {
+  const filter: any = {};
+  for (const [field, value] of Object.entries(queryObj)) {
+    if (field.startsWith('_') || ['limit', 'offset', 'sortBy', 'sortOrder', 'token'].includes(field)) {
+      continue;
+    }
+    if (typeof value === 'string') {
+      if (value === 'null') { filter[field] = null; continue; }
+      if (value === 'true') { filter[field] = true; continue; }
+      if (value === 'false') { filter[field] = false; continue; }
+      const n = Number(value);
+      filter[field] = isNaN(n) ? value : n;
+    } else {
+      filter[field] = value;
+    }
+  }
+  return Object.keys(filter).length > 0 ? filter : undefined;
+}
+
+export async function queryRealtime(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
+
+    const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
+    checkRules(coll, 'read', req);
+
+    // Setup Server-Sent Events headers
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const filter = parseQueryFilter(req.query);
+
+    sseRealtimeService.add(ownerId, req.params.name, res, filter);
+
+    res.write(`data: ${JSON.stringify({ event: 'connected', collection: req.params.name })}\n\n`);
   } catch (err) { next(err); }
 }
 

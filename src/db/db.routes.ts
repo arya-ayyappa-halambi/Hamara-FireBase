@@ -19,6 +19,7 @@ import {
   deleteDocument,
   updateCollection,
   queryVector,
+  queryRealtime,
 } from './db.controller';
 
 import { apiLimiter } from '../middleware/rateLimit.middleware';
@@ -44,5 +45,6 @@ router.get(   '/collections/:name/documents/:id',  getDocument);
 router.patch( '/collections/:name/documents/:id',  updateDocument);
 router.delete('/collections/:name/documents/:id',  deleteDocument);
 router.post(  '/collections/:name/query-vector',   queryVector);
+router.get(   '/collections/:name/realtime',        queryRealtime);
 
 export default router;

@@ -12,6 +12,8 @@ import {
   getAsset,
   streamAsset,
   deleteAsset,
+  generateSignedUploadUrl,
+  verifyUploadToken,
 } from './storage.service';
 import { projectService } from '../project/project.service';
 
@@ -56,7 +58,11 @@ export async function uploadAsset(req: Request, res: Response, next: NextFunctio
       }
     }
 
-    const meta = saveAssetMetadata(ownerId, req.file, linkedCollectionId, projectId);
+    const width = req.query.width ? Number(req.query.width) : undefined;
+    const height = req.query.height ? Number(req.query.height) : undefined;
+    const format = req.query.format as string | undefined;
+
+    const meta = await saveAssetMetadata(ownerId, req.file, linkedCollectionId, projectId, { width, height, format });
 
     res.status(201).json({
       success: true,
@@ -127,6 +133,73 @@ export async function removeAsset(req: Request, res: Response, next: NextFunctio
       message: 'Asset deleted.',
       data: deleted,
     } as ApiResponse<PublicAssetMetadata>);
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/storage/signed-url
+ */
+export async function getSignedUrl(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const projectId = req.project?.id || req.body.projectId;
+    const { fileName, mimeType } = req.body;
+
+    if (!fileName || !mimeType) {
+      throw new AppError('fileName and mimeType are required.', 400);
+    }
+
+    if (projectId) {
+      projectService.validateOwnership(projectId, ownerId);
+    }
+
+    const uploadUrl = generateSignedUploadUrl(ownerId, projectId, fileName, mimeType);
+
+    res.status(200).json({
+      success: true,
+      message: 'Signed upload URL generated.',
+      data: { uploadUrl },
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * POST /api/v1/storage/upload-signed
+ */
+export async function uploadSignedAsset(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const token = req.query.token as string;
+    if (!token) {
+      throw new AppError('Missing signed upload token.', 401);
+    }
+
+    const decoded = verifyUploadToken(token);
+
+    if (!req.file) {
+      throw new AppError('No file uploaded.', 400);
+    }
+
+    const width = req.query.width ? Number(req.query.width) : undefined;
+    const height = req.query.height ? Number(req.query.height) : undefined;
+    const format = req.query.format as string | undefined;
+
+    const meta = await saveAssetMetadata(
+      decoded.ownerId,
+      req.file,
+      undefined,
+      decoded.projectId,
+      { width, height, format }
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Asset uploaded via signed URL successfully.',
+      data: meta,
+    });
   } catch (err) {
     next(err);
   }

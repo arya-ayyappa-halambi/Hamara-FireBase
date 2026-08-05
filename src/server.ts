@@ -30,6 +30,7 @@ import { ensureHosterDirs, initRuntimeAdapter } from './hoster/hoster.service';
 import { initSqlite } from './db/sqlite.connection';
 
 import { wsService } from './realtime/websocket.service';
+import { replicationService } from './services/replication.service';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -101,6 +102,21 @@ function createApp(): Application {
   app.use('/api/v1/storage',  storageRouter);
   app.use('/api/v1/hoster',   hosterRouter);
   app.use('/api/v1/admin',    adminRouter);
+
+  // ── Multi-Region Logical Sync Replication Route ──────────────────────────────────
+  app.post('/api/v1/replication/sync', (req, res, next) => {
+    try {
+      const { senderNodeId, mutations } = req.body;
+      if (!mutations || !Array.isArray(mutations)) {
+        res.status(400).json({ success: false, message: 'mutations array required.' });
+        return;
+      }
+      replicationService.applyMutations(mutations);
+      res.status(200).json({ success: true, message: 'Sync complete.' });
+    } catch (err) {
+      next(err);
+    }
+  });
 
   // ── 404 Handler (after routes, before error handler) ────────────────────
   app.use(notFoundHandler);

@@ -25,10 +25,12 @@ import {
 } from '../types/storage.types';
 import { getDb } from '../db/sqlite.connection';
 import { webhookService } from '../services/webhook.service';
+import { Jimp } from 'jimp';
+import jwt from 'jsonwebtoken';
 
 // ── Upload Directory ──────────────────────────────────────────────────────────
 
-export const UPLOAD_DIR = path.resolve(process.cwd(), 'uploads', 'biometrics');
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.resolve(process.cwd(), 'uploads', 'biometrics');
 
 /** Ensure the upload directory exists (called at server startup). */
 export function ensureUploadDir(): void {
@@ -161,12 +163,13 @@ function toPublicMeta(meta: AssetMetadata): PublicAssetMetadata {
  * Persist metadata for a successfully uploaded file.
  * Called AFTER multer has written the file to disk.
  */
-export function saveAssetMetadata(
+export async function saveAssetMetadata(
   ownerId: string,
   file: Express.Multer.File,
   linkedCollectionId?: string,
-  projectId?: string
-): PublicAssetMetadata {
+  projectId?: string,
+  transforms?: { width?: number; height?: number; format?: string }
+): Promise<PublicAssetMetadata> {
 
   if (projectId) {
     const db = getDb();
@@ -184,13 +187,54 @@ export function saveAssetMetadata(
     }
   }
 
+  let finalMime = file.mimetype;
+  let finalSize = file.size;
+
+  // On-the-fly Image Transformations
+  if (file.mimetype.startsWith('image/') && transforms && (transforms.width || transforms.height || transforms.format)) {
+    try {
+      const image = await Jimp.read(file.path);
+      
+      if (transforms.width && transforms.height) {
+        image.resize({ w: transforms.width, h: transforms.height });
+      } else if (transforms.width) {
+        image.resize({ w: transforms.width });
+      } else if (transforms.height) {
+        image.resize({ h: transforms.height });
+      }
+
+      let outputPath = file.path;
+      if (transforms.format) {
+        const fmt = transforms.format.toLowerCase();
+        if (fmt.includes('png')) {
+          finalMime = 'image/png';
+          outputPath = file.path.replace(/\.[^/.]+$/, "") + ".png";
+        } else if (fmt.includes('jpeg') || fmt.includes('jpg')) {
+          finalMime = 'image/jpeg';
+          outputPath = file.path.replace(/\.[^/.]+$/, "") + ".jpg";
+        }
+      }
+
+      await image.write(outputPath as any);
+      if (outputPath !== file.path) {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        file.path = outputPath;
+        file.filename = path.basename(outputPath);
+        file.originalname = file.originalname.replace(/\.[^/.]+$/, "") + path.extname(outputPath);
+      }
+      finalSize = fs.statSync(file.path).size;
+    } catch (err: any) {
+      console.error('[Jimp] Image transformation failed:', err.message);
+    }
+  }
+
   const meta: AssetMetadata = {
     id: uuidv4(),
     ownerId,
     originalName: file.originalname,
     storedName: file.filename,
-    mimeType: file.mimetype,
-    sizeBytes: file.size,
+    mimeType: finalMime,
+    sizeBytes: finalSize,
     absolutePath: file.path,
     uploadedAt: new Date().toISOString(),
     projectId,
@@ -263,4 +307,30 @@ export function deleteAsset(ownerId: string, assetId: string): PublicAssetMetada
   }
 
   return pub;
+}
+
+export function generateSignedUploadUrl(
+  ownerId: string,
+  projectId: string,
+  fileName: string,
+  mimeType: string,
+  expiresIn = 900
+): string {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET is missing.');
+
+  const token = jwt.sign(
+    { ownerId, projectId, fileName, mimeType },
+    secret,
+    { expiresIn }
+  );
+
+  return `/api/v1/storage/upload-signed?token=${token}`;
+}
+
+export function verifyUploadToken(token: string): { ownerId: string; projectId: string; fileName: string; mimeType: string } {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET is missing.');
+
+  return jwt.verify(token, secret) as any;
 }
