@@ -5,7 +5,7 @@ import { rateLimitConfig } from './rateLimit.middleware';
 
 export function customApiLimiter(req: Request | any, res: Response, next: NextFunction): void {
   // Determine key: user ID, project ID, or IP
-  const key = req.project?.id || req.user?.id || req.ip || 'unknown';
+  const key = req.project?.id || req.user?.sub || req.user?.id || req.ip || 'unknown';
 
   // Determine limit: if user has a custom limit set, use that; otherwise fallback to rateLimitConfig
   let capacity = rateLimitConfig.apiLimit;
