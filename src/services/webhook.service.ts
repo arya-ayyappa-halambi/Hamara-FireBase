@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
-import { getDb } from '../db/sqlite.connection';
+import { getDb, getReaderDb } from '../db/sqlite.connection';
 import { auditLogService } from './audit-log.service';
+import { taskQueueService } from './task-queue.service';
 
 export interface Webhook {
   id: string;
@@ -46,7 +47,7 @@ export class WebhookService {
    * List all webhooks for a project.
    */
   list(projectId: string): Webhook[] {
-    const db = getDb();
+    const db = getReaderDb();
     const rows = db.prepare('SELECT * FROM webhooks WHERE projectId = ?').all(projectId) as any[];
     return rows.map((r) => ({
       id: r.id,
@@ -73,7 +74,7 @@ export class WebhookService {
    * Runs asynchronously in the background.
    */
   dispatch(projectId: string, event: string, payload: any): void {
-    const db = getDb();
+    const db = getReaderDb();
     const rows = db.prepare('SELECT * FROM webhooks WHERE projectId = ? AND isActive = 1').all(projectId) as any[];
     
     const webhooks = rows.map((r) => ({
@@ -96,30 +97,31 @@ export class WebhookService {
 
       const signature = crypto.createHmac('sha256', target.secret).update(payloadString).digest('hex');
 
-      // Dispatch asynchronously in the background
-      fetch(target.url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-aegis-signature': signature,
-          'x-aegis-event': event,
-        },
-        body: payloadString,
-        signal: AbortSignal.timeout(5000), // 5s timeout
-      })
-        .then((res) => {
+      // Dispatch asynchronously in the background task queue
+      taskQueueService.enqueue(async () => {
+        try {
+          const res = await fetch(target.url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-aegis-signature': signature,
+              'x-aegis-event': event,
+            },
+            body: payloadString,
+            signal: AbortSignal.timeout(5000), // 5s timeout
+          });
+
           if (!res.ok) {
             console.error(`[Webhook] Target ${target.url} returned status ${res.status}`);
           }
-          // Log success to audit logs
+          // Log success/failure to audit logs
           auditLogService.logAction({
             actionType: 'webhook_dispatch',
             projectId,
             status: res.ok ? 'success' : 'failure',
             details: `Dispatched event "${event}" to ${target.url}. Response Status: ${res.status}`
           });
-        })
-        .catch((err) => {
+        } catch (err: any) {
           console.error(`[Webhook] Failed to dispatch event "${event}" to ${target.url}:`, err.message);
           // Log failure to audit logs
           auditLogService.logAction({
@@ -128,7 +130,8 @@ export class WebhookService {
             status: 'failure',
             details: `Failed to dispatch event "${event}" to ${target.url}: ${err.message}`
           });
-        });
+        }
+      });
     }
   }
 }

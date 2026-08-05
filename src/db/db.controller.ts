@@ -373,3 +373,28 @@ export async function deleteDocument(req: Request, res: Response, next: NextFunc
   } catch (err) { next(err); }
 }
 
+export async function queryVector(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
+    const { vector, field, topK = 5 } = req.body;
+
+    if (!vector || !Array.isArray(vector) || !field) {
+      throw new AppError('vector (array of numbers) and field (string) are required.', 400);
+    }
+
+    const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
+    checkRules(coll, 'read', req);
+
+    const results = dbStore.queryDocumentsByVector(ownerId, projectId, req.params.name, field, vector, topK);
+
+    userStore.incrementTelemetry(ownerId, 'read');
+
+    res.status(200).json({
+      success: true,
+      message: 'Vector query completed.',
+      data: results
+    });
+  } catch (err) { next(err); }
+}
+

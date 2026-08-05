@@ -12,6 +12,8 @@ import crypto from 'crypto';
 const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'aegis.db');
 
 let dbInstance: Database.Database | null = null;
+let readerDbPool: Database.Database[] = [];
+let currentReaderIndex = 0;
 
 export function getDb(): Database.Database {
   if (!dbInstance) {
@@ -24,6 +26,28 @@ export function getDb(): Database.Database {
     dbInstance.pragma('temp_store = MEMORY');
   }
   return dbInstance;
+}
+
+export function getReaderDb(): Database.Database {
+  // If in-memory database path or write instance not yet initialized, fall back to write database
+  if (DB_PATH === ':memory:') {
+    return getDb();
+  }
+  if (readerDbPool.length === 0) {
+    for (let i = 0; i < 3; i++) {
+      const reader = new Database(DB_PATH, { readonly: true });
+      reader.pragma('foreign_keys = ON');
+      reader.pragma('journal_mode = WAL');
+      reader.pragma('synchronous = NORMAL');
+      reader.pragma('busy_timeout = 5000');
+      reader.pragma('cache_size = -20000');
+      reader.pragma('temp_store = MEMORY');
+      readerDbPool.push(reader);
+    }
+  }
+  const reader = readerDbPool[currentReaderIndex];
+  currentReaderIndex = (currentReaderIndex + 1) % readerDbPool.length;
+  return reader;
 }
 
 /**

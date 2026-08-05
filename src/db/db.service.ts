@@ -23,10 +23,27 @@ import {
   QueryResult,
   CreateCollectionDto,
 } from '../types/db.types';
-import { getDb } from './sqlite.connection';
+import { getDb, getReaderDb } from './sqlite.connection';
 import { wsService } from '../realtime/websocket.service';
 import { encryptValue, decryptValue, isEncryptedField } from '../utils/encryption.helper';
 import { webhookService } from '../services/webhook.service';
+import { cosineSimilarity } from '../utils/vector.helper';
+
+function preprocessVectorSchema(schema: any): any {
+  if (!schema || typeof schema !== 'object') return schema;
+  const cloned = JSON.parse(JSON.stringify(schema));
+  
+  if (cloned.properties) {
+    for (const key of Object.keys(cloned.properties)) {
+      const prop = cloned.properties[key];
+      if (prop && prop.type === 'vector') {
+        prop.type = 'array';
+        prop.items = { type: 'number' };
+      }
+    }
+  }
+  return cloned;
+}
 
 // ── Encryption Helpers ────────────────────────────────────────────────────────
 
@@ -166,7 +183,8 @@ class SqliteDbStore {
     // Validate schema format if provided
     if (schema) {
       try {
-        const parsedSchema = JSON.parse(schema);
+        let parsedSchema = JSON.parse(schema);
+        parsedSchema = preprocessVectorSchema(parsedSchema);
         ajv.compile(parsedSchema); // Check if it's a valid JSON schema
       } catch (e: any) {
         throw new AppError(`Invalid JSON Schema: ${e.message}`, 400);
@@ -200,7 +218,7 @@ class SqliteDbStore {
   }
 
   listCollections(ownerId: string, projectId: string): Collection[] {
-    const db = getDb();
+    const db = getReaderDb();
     const rows = db.prepare(`
       SELECT c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt,
              COUNT(d.id) as documentCount
@@ -221,7 +239,7 @@ class SqliteDbStore {
         400,
       );
     }
-    const db = getDb();
+    const db = getReaderDb();
     const row = db.prepare(`
       SELECT c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt,
              COUNT(d.id) as documentCount
@@ -247,7 +265,8 @@ class SqliteDbStore {
     if (patch.schema !== undefined) {
       if (patch.schema) {
         try {
-          const parsedSchema = JSON.parse(patch.schema);
+          let parsedSchema = JSON.parse(patch.schema);
+          parsedSchema = preprocessVectorSchema(parsedSchema);
           ajv.compile(parsedSchema);
         } catch (e: any) {
           throw new AppError(`Invalid JSON Schema: ${e.message}`, 400);
@@ -289,7 +308,7 @@ class SqliteDbStore {
     // Ensure collection exists and validate schema
     const coll = this.getCollection(ownerId, projectId, collectionName);
     if (coll.schema) {
-      const validate = ajv.compile(JSON.parse(coll.schema));
+      const validate = ajv.compile(preprocessVectorSchema(JSON.parse(coll.schema)));
       const valid = validate(data);
       if (!valid) {
         throw new AppError(`Schema validation failed: ${ajv.errorsText(validate.errors)}`, 400);
@@ -357,7 +376,7 @@ class SqliteDbStore {
     const cappedLimit = Math.min(Math.max(1, limit), MAX_QUERY_LIMIT);
     const safeOffset = Math.max(0, offset);
 
-    const db = getDb();
+    const db = getReaderDb();
     const rows = db.prepare(`
       SELECT data FROM documents WHERE ownerId = ? AND projectId = ? AND collectionName = ?
     `).all(ownerId, projectId, collectionName) as { data: string }[];
@@ -395,7 +414,7 @@ class SqliteDbStore {
   getDocument(ownerId: string, projectId: string, collectionName: string, docId: string): Document {
     this.getCollection(ownerId, projectId, collectionName);
 
-    const db = getDb();
+    const db = getReaderDb();
     const row = db.prepare(`
       SELECT data FROM documents WHERE id = ? AND ownerId = ? AND projectId = ? AND collectionName = ?
     `).get(docId, ownerId, projectId, collectionName) as { data: string } | undefined;
@@ -436,7 +455,7 @@ class SqliteDbStore {
     const { _id, _ownerId, _projectId, _createdAt, _updatedAt, ...validationData } = candidateData;
 
     if (coll.schema) {
-      const validate = ajv.compile(JSON.parse(coll.schema));
+      const validate = ajv.compile(preprocessVectorSchema(JSON.parse(coll.schema)));
       const valid = validate(validationData);
       if (!valid) {
         throw new AppError(`Schema validation failed: ${ajv.errorsText(validate.errors)}`, 400);
@@ -500,6 +519,55 @@ class SqliteDbStore {
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'document.deleted', { _id: docId, collectionName });
+  }
+
+  queryDocumentsByVector(
+    ownerId: string,
+    projectId: string,
+    collectionName: string,
+    vectorField: string,
+    queryVector: number[],
+    topK = 5
+  ): { document: Document; similarity: number }[] {
+    const db = getReaderDb();
+    
+    // Check collection exists
+    const collection = this.getCollection(ownerId, projectId, collectionName);
+
+    // Retrieve all documents for this collection
+    const rows = db.prepare(`
+      SELECT data FROM documents
+      WHERE ownerId = ? AND projectId = ? AND collectionName = ?
+    `).all(ownerId, projectId, collectionName) as { data: string }[];
+
+    const results: { document: Document; similarity: number }[] = [];
+
+    for (const row of rows) {
+      let doc: Document;
+      try {
+        doc = JSON.parse(row.data);
+      } catch (_) {
+        continue;
+      }
+
+      // Decrypt any encrypted fields transparently
+      const decryptedDoc = decryptDocumentFields(doc, projectId);
+
+      const docVector = decryptedDoc[vectorField];
+      if (Array.isArray(docVector)) {
+        try {
+          const similarity = cosineSimilarity(queryVector, docVector);
+          results.push({ document: decryptedDoc, similarity });
+        } catch (_) {
+          // Ignore dimension mismatches
+        }
+      }
+    }
+
+    // Sort descending by similarity score
+    results.sort((a, b) => b.similarity - a.similarity);
+
+    return results.slice(0, topK);
   }
 }
 

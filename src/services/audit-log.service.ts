@@ -1,5 +1,6 @@
-import { getDb } from '../db/sqlite.connection';
+import { getDb, getReaderDb } from '../db/sqlite.connection';
 import { v4 as uuidv4 } from 'uuid';
+import { taskQueueService } from './task-queue.service';
 
 export interface AuditLog {
   id: string;
@@ -23,33 +24,35 @@ export class AuditLogService {
     status: 'success' | 'failure';
     details?: string | null;
   }): void {
-    try {
-      const db = getDb();
-      const id = uuidv4();
-      const timestamp = new Date().toISOString();
-      
-      db.prepare(`
-        INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actionType, projectId, ipAddress, status, details)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        id,
-        timestamp,
-        params.actorId || null,
-        params.actorEmail || null,
-        params.actionType,
-        params.projectId || null,
-        params.ipAddress || null,
-        params.status,
-        params.details || null
-      );
-    } catch (e) {
-      console.error('Failed to write audit log:', e);
-    }
+    const id = uuidv4();
+    const timestamp = new Date().toISOString();
+
+    taskQueueService.enqueue(async () => {
+      try {
+        const db = getDb();
+        db.prepare(`
+          INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actionType, projectId, ipAddress, status, details)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          id,
+          timestamp,
+          params.actorId || null,
+          params.actorEmail || null,
+          params.actionType,
+          params.projectId || null,
+          params.ipAddress || null,
+          params.status,
+          params.details || null
+        );
+      } catch (e) {
+        console.error('Failed to write audit log:', e);
+      }
+    });
   }
 
   getRecentLogs(limit = 100, offset = 0): AuditLog[] {
     try {
-      const db = getDb();
+      const db = getReaderDb();
       return db.prepare(`
         SELECT * FROM audit_logs
         ORDER BY timestamp DESC
