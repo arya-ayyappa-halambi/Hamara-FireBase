@@ -269,5 +269,37 @@ db.collection('students').get().then(snapshot => {
 
 ---
 
+## 🛡️ Enterprise Security Hardening
+
+AegisDB implements state-of-the-art security features inspired by Firebase and Supabase to protect your self-hosted database against scraping, abuse, and security vulnerabilities.
+
+### 1. Cryptographic Key Segregation (Supabase Pattern)
+API keys are segregated into two distinct isolation tiers:
+- **Anon/Public Keys (`aegis_pk_...`):** Safe for client-side distribution in web or mobile apps. All requests are subject to collection-level Security Rules.
+- **Service Role Keys (`aegis_sk_...`):** High-privilege keys that bypass Security Rules entirely. Only usable in trusted backend contexts. Requests containing service keys made from a browser-like environment (indicated by `Origin` / `Referer` headers) are explicitly blocked.
+
+### 2. Device & App Integrity Attestation - "Aegis App Check" (Firebase Pattern)
+Protect your API endpoints from unauthorized scraping and clients.
+- Enforce App Check by setting `"appCheckEnforced": true` in your project's `authConfig`.
+- Clients must fetch an App Check token by sending a POST request to `/api/v1/project-auth/attest` with their attestation parameters.
+- Provide the returned App Check token in the `x-aegis-app-check` header on database and auth requests.
+
+### 3. VM Sandboxed Rules Engine
+Dynamic security rules are compiled and run inside Node's native `vm.runInContext` sandbox environment.
+- Rule evaluation is CPU timeout-restricted (50ms execution ceiling) to prevent infinite loop exploits.
+- Supported context variables:
+  - `auth`: The authenticated user's decoded JWT payload.
+  - `data`: The incoming data payload (for write operations).
+  - `resource`: The current existing document data.
+  - `request.time`: The current server ISO timestamp.
+
+### 4. Automated Security Advisor & Telemetry
+AegisDB includes an automated startup scanner that audits the server's security health.
+- Scans for weak/default `JWT_SECRET` keys, unprotected collections (no rules configured), and missing service key hashes.
+- Super Admins can query the live audit telemetry report at `GET /api/v1/admin/security-advisor`.
+
+---
+
 ## 📄 License
 This project is licensed under the MIT License.
+

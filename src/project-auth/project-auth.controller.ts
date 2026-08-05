@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { projectAuthService } from './project-auth.service';
 import { AppError } from '../types/auth.types';
+import jwt from 'jsonwebtoken';
 
 function getResolvedProjectId(req: Request): string {
   // 1. Set securely by api-key middleware
@@ -104,3 +105,26 @@ export async function listProjectUsers(req: Request, res: Response, next: NextFu
     });
   } catch (err) { next(err); }
 }
+
+export async function attestApp(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { clientAttestationToken } = req.body;
+    const project = req.project;
+    if (!project) {
+      throw new AppError('Project context required for App Check attestation.', 400);
+    }
+    
+    if (!clientAttestationToken) {
+      throw new AppError('Client attestation token is required.', 400);
+    }
+    
+    const secret = `${process.env.JWT_SECRET}::${project.id}`;
+    const token = jwt.sign(
+      { projectId: project.id, exp: Math.floor(Date.now() / 1000) + 3600 },
+      secret
+    );
+    
+    res.status(200).json({ success: true, message: 'Attestation successful.', data: { token } });
+  } catch (err) { next(err); }
+}
+

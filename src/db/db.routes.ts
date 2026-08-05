@@ -6,6 +6,7 @@
 
 import { Router } from 'express';
 import { authenticateApiKeyOrJwt } from '../middleware/apikey.middleware';
+import { enforceAppCheck } from '../middleware/appcheck.middleware';
 import {
   createCollection,
   listCollections,
@@ -25,6 +26,7 @@ const router = Router();
 
 // Apply API Key / JWT auth to ALL routes in this router
 router.use(authenticateApiKeyOrJwt);
+router.use(enforceAppCheck);
 router.use(apiLimiter);
 
 // ── Collection Routes ─────────────────────────────────────────────────────────

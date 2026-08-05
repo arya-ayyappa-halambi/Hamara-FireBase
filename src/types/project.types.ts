@@ -8,6 +8,7 @@ export interface Project {
   ownerId: string;
   name: string;
   apiKeyHash: string;
+  serviceKeyHash?: string | null;
   maxAssetSizeBytes: number;
   maxStorageBytes: number;
   authConfig: string | null;
@@ -18,6 +19,7 @@ export interface Project {
 export interface CreateProjectResult {
   project: Project;
   rawApiKey: string;
+  rawServiceKey?: string;
 }
 
 export interface ProjectStats extends Project {

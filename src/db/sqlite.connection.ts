@@ -23,13 +23,28 @@ export function getDb(): Database.Database {
 }
 
 /**
- * Helper: Generate secure API Key in aegis_pk_... format and returns raw & SHA-256 hash.
+ * Helper: Generate secure API Keys (Anon & Service) and SHA-256 hashes.
  */
+export function generateProjectKeys(): {
+  anonKey: string;
+  anonKeyHash: string;
+  serviceKey: string;
+  serviceKeyHash: string;
+} {
+  const anonHex = crypto.randomBytes(16).toString('hex');
+  const anonKey = `aegis_pk_${anonHex}`;
+  const anonKeyHash = crypto.createHash('sha256').update(anonKey).digest('hex');
+
+  const serviceHex = crypto.randomBytes(16).toString('hex');
+  const serviceKey = `aegis_sk_${serviceHex}`;
+  const serviceKeyHash = crypto.createHash('sha256').update(serviceKey).digest('hex');
+
+  return { anonKey, anonKeyHash, serviceKey, serviceKeyHash };
+}
+
 export function generateApiKey(): { rawApiKey: string; apiKeyHash: string } {
-  const hex = crypto.randomBytes(16).toString('hex');
-  const rawApiKey = `aegis_pk_${hex}`;
-  const apiKeyHash = crypto.createHash('sha256').update(rawApiKey).digest('hex');
-  return { rawApiKey, apiKeyHash };
+  const keys = generateProjectKeys();
+  return { rawApiKey: keys.anonKey, apiKeyHash: keys.anonKeyHash };
 }
 
 /**
@@ -68,6 +83,7 @@ export function initSqlite(): void {
       ownerId TEXT NOT NULL,
       name TEXT NOT NULL,
       apiKeyHash TEXT UNIQUE NOT NULL,
+      serviceKeyHash TEXT UNIQUE,
       maxAssetSizeBytes INTEGER NOT NULL DEFAULT 10485760, -- 10MB default
       maxStorageBytes INTEGER NOT NULL DEFAULT 1073741824, -- 1GB default
       authConfig TEXT,
@@ -240,6 +256,27 @@ export function initSqlite(): void {
     db.exec(`ALTER TABLE projects ADD COLUMN authConfig TEXT;`);
   } catch {}
 
+  // Migrate projects table to add serviceKeyHash
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN serviceKeyHash TEXT;`);
+    // Create unique index for serviceKeyHash
+    db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_serviceKeyHash ON projects(serviceKeyHash);`);
+  } catch {}
+
+  // Backfill serviceKeyHash for existing projects
+  try {
+    const projects = db.prepare('SELECT id FROM projects WHERE serviceKeyHash IS NULL').all() as { id: string }[];
+    for (const p of projects) {
+      const hexService = crypto.randomBytes(16).toString('hex');
+      const serviceKey = `aegis_sk_${hexService}`;
+      const serviceKeyHash = crypto.createHash('sha256').update(serviceKey).digest('hex');
+      db.prepare('UPDATE projects SET serviceKeyHash = ? WHERE id = ?').run(serviceKeyHash, p.id);
+      console.log(`ℹ️ Generated service role key for existing project ${p.id}.`);
+    }
+  } catch (e) {
+    // Ignore if table doesn't have the column yet or other db errors
+  }
+
   // Seed Super Admin Account if absent
   seedSuperAdminSync(db);
 
@@ -260,14 +297,16 @@ function seedSuperAdminSync(db: Database.Database): void {
       `).run(adminId, adminEmail, 'Super Admin', hash, now, now);
 
       // Auto-create Default Project for Super Admin
-      const { apiKeyHash } = generateApiKey();
+      const keys = generateProjectKeys();
       const projId = uuidv4();
       db.prepare(`
-        INSERT INTO projects (id, ownerId, name, apiKeyHash, createdAt, updatedAt)
-        VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?)
-      `).run(projId, adminId, apiKeyHash, now, now);
+        INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
+        VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?, ?)
+      `).run(projId, adminId, keys.anonKeyHash, keys.serviceKeyHash, now, now);
 
       console.log(`👑 Super Admin account seeded: ${adminEmail}`);
+      console.log(`🔑 Anon Key: ${keys.anonKey}`);
+      console.log(`🔑 Service Key: ${keys.serviceKey}`);
     }).catch(() => { /* silent */ });
   }
 }

@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { adminService } from './admin.service';
 import { ApiResponse } from '../types/auth.types';
 import { AdminSystemStats } from '../types/project.types';
+import { securityAdvisorService } from '../security/advisor.service';
 
 export async function getStats(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -65,3 +66,15 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
     } as ApiResponse<null>);
   } catch (err) { next(err); }
 }
+
+export async function getSecurityAdvisorReport(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const report = securityAdvisorService.runScan();
+    res.status(200).json({
+      success: true,
+      message: 'Security advisor scan completed.',
+      data: report,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+

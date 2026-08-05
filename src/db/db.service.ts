@@ -170,6 +170,12 @@ class SqliteDbStore {
   }
 
   getCollection(ownerId: string, projectId: string, name: string): Collection {
+    if (!COLLECTION_NAME_REGEX.test(name)) {
+      throw new AppError(
+        'Collection name must start with a letter, and contain only letters, numbers, underscores, or hyphens (2–64 chars).',
+        400,
+      );
+    }
     const db = getDb();
     const row = db.prepare(`
       SELECT c.name, c.description, c.ownerId, c.schema, c.rules, c.createdAt, c.updatedAt,

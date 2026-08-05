@@ -86,13 +86,14 @@ function hashToken(rawToken: string): string {
 }
 
 /**
- * Issue a cryptographically secure random refresh token and persist its SHA-256 hash in SQLite.
+ * Issue a cryptographically secure random refresh token (selector.validator format)
+ * and persist the Argon2id hash of the validator in SQLite.
  * Default validity: 7 days.
  */
 export async function issueRefreshToken(userId: string): Promise<string> {
-  const rawToken = crypto.randomBytes(32).toString('hex');
-  const tokenHash = hashToken(rawToken);
   const id = uuidv4();
+  const validator = crypto.randomBytes(32).toString('hex');
+  const tokenHash = await argon2.hash(validator, ARGON2_OPTIONS);
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -102,7 +103,8 @@ export async function issueRefreshToken(userId: string): Promise<string> {
     VALUES (?, ?, ?, ?, ?)
   `).run(id, userId, tokenHash, expiresAt, now.toISOString());
 
-  return rawToken;
+  // Return the compound raw token to the client
+  return `${id}.${validator}`;
 }
 
 // ── Public User Projection ────────────────────────────────────────────────────
@@ -140,7 +142,7 @@ export async function registerUser(dto: RegisterDto): Promise<AuthResponseData> 
   // Auto-create "Default Project" and API Key for new user
   try {
     projectService.createProject(savedUser.id, 'Default Project');
-  } catch { /* Ignore if project creation fails */ }
+  } catch (e) { /* Ignore if project creation fails */ }
 
   const token = generateToken(savedUser);
   const refreshToken = await issueRefreshToken(savedUser.id);
@@ -175,12 +177,22 @@ export async function loginUser(dto: LoginDto): Promise<AuthResponseData> {
  * Performs refresh token rotation: revokes the used refresh token and issues a new pair.
  */
 export async function refreshAccessToken(refreshToken: string): Promise<AuthResponseData> {
-  const tokenHash = hashToken(refreshToken);
-  const db = getDb();
+  const parts = refreshToken.split('.');
+  if (parts.length !== 2) {
+    throw new AppError('Invalid or expired refresh token.', 401);
+  }
+  const [id, validator] = parts;
 
-  const record = db.prepare('SELECT * FROM refresh_tokens WHERE tokenHash = ?').get(tokenHash) as RefreshTokenRecord | undefined;
+  const db = getDb();
+  const record = db.prepare('SELECT * FROM refresh_tokens WHERE id = ?').get(id) as RefreshTokenRecord | undefined;
 
   if (!record) {
+    throw new AppError('Invalid or expired refresh token.', 401);
+  }
+
+  // Verify the validator part against the Argon2id hash stored in the DB
+  const valid = await argon2.verify(record.tokenHash, validator);
+  if (!valid) {
     throw new AppError('Invalid or expired refresh token.', 401);
   }
 
@@ -215,7 +227,10 @@ export async function refreshAccessToken(refreshToken: string): Promise<AuthResp
  * Deletes matching refresh token from SQLite.
  */
 export async function logoutUser(refreshToken: string): Promise<void> {
-  const tokenHash = hashToken(refreshToken);
+  const parts = refreshToken.split('.');
+  if (parts.length !== 2) return;
+  const [id] = parts;
+
   const db = getDb();
-  db.prepare('DELETE FROM refresh_tokens WHERE tokenHash = ?').run(tokenHash);
+  db.prepare('DELETE FROM refresh_tokens WHERE id = ?').run(id);
 }

@@ -13,26 +13,52 @@ import { projectService } from '../project/project.service';
 import { authenticateJwt, extractBearerToken } from './auth.middleware';
 import { AppError } from '../types/auth.types';
 
+function isBrowserContext(req: Request): boolean {
+  const origin = req.headers['origin'];
+  const referer = req.headers['referer'];
+  const secFetchMode = req.headers['sec-fetch-mode'];
+  
+  if (origin || secFetchMode) return true;
+  // Exclude dashboard requests on port 3000
+  if (referer && !referer.includes('localhost:3000') && !referer.includes('127.0.0.1:3000')) {
+    return true;
+  }
+  return false;
+}
+
 export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextFunction): void {
   const apiKeyHeader = req.headers['x-aegis-api-key'];
 
   if (apiKeyHeader && typeof apiKeyHeader === 'string') {
     const rawApiKey = apiKeyHeader.trim();
-    if (!rawApiKey.startsWith('aegis_pk_')) {
-      return next(new AppError('Invalid API Key format. API keys must start with "aegis_pk_".', 401));
+    if (!rawApiKey.startsWith('aegis_pk_') && !rawApiKey.startsWith('aegis_sk_')) {
+      return next(new AppError('Invalid API Key format. API keys must start with "aegis_pk_" or "aegis_sk_".', 401));
     }
 
     const apiKeyHash = crypto.createHash('sha256').update(rawApiKey).digest('hex');
-    const project = projectService.getProjectByApiKeyHash(apiKeyHash);
+    let project;
+    let isServiceRole = false;
+
+    if (rawApiKey.startsWith('aegis_pk_')) {
+      project = projectService.getProjectByApiKeyHash(apiKeyHash);
+    } else {
+      // Service Role Key: check if from browser context
+      if (isBrowserContext(req)) {
+        return next(new AppError('Security violation: Service role keys must not be exposed in client-side/browser environments.', 403));
+      }
+      project = projectService.getProjectByServiceKeyHash(apiKeyHash);
+      isServiceRole = true;
+    }
 
     if (!project) {
       return next(new AppError('Invalid API Key provided.', 401));
     }
 
     req.project = project;
+    req.isServiceRole = isServiceRole;
     req.user = {
       sub: project.ownerId,
-      email: `api-key::${project.name}`,
+      email: isServiceRole ? `service-role::${project.name}` : `api-key::${project.name}`,
     };
 
     // Decode Bearer token if present to identify the authenticated project user

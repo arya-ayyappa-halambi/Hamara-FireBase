@@ -11,6 +11,8 @@ declare global {
       project?: import('./project.types').Project;
       /** Populated when both API key and user JWT are present */
       projectUser?: any;
+      /** Set to true when request uses a service role key */
+      isServiceRole?: boolean;
     }
   }
 }

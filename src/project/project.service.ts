@@ -5,7 +5,7 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
-import { getDb, generateApiKey } from '../db/sqlite.connection';
+import { getDb, generateProjectKeys } from '../db/sqlite.connection';
 import { AppError } from '../types/auth.types';
 import { Project, CreateProjectResult, ProjectStats } from '../types/project.types';
 
@@ -21,18 +21,19 @@ export class ProjectService {
     const db = getDb();
     const id = uuidv4();
     const now = new Date().toISOString();
-    const { rawApiKey, apiKeyHash } = generateApiKey();
+    const keys = generateProjectKeys();
 
     db.prepare(`
-      INSERT INTO projects (id, ownerId, name, apiKeyHash, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(id, ownerId, name.trim(), apiKeyHash, now, now);
+      INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(id, ownerId, name.trim(), keys.anonKeyHash, keys.serviceKeyHash, now, now);
 
     const project: Project = {
       id,
       ownerId,
       name: name.trim(),
-      apiKeyHash,
+      apiKeyHash: keys.anonKeyHash,
+      serviceKeyHash: keys.serviceKeyHash,
       createdAt: now,
       updatedAt: now,
       maxAssetSizeBytes: 10485760,
@@ -40,7 +41,7 @@ export class ProjectService {
       authConfig: null,
     };
 
-    return { project, rawApiKey };
+    return { project, rawApiKey: keys.anonKey, rawServiceKey: keys.serviceKey };
   }
 
   /**
@@ -84,6 +85,22 @@ export class ProjectService {
     const row = db.prepare(`
       SELECT * FROM projects WHERE apiKeyHash = ?
     `).get(apiKeyHash) as any;
+
+    if (!row) return undefined;
+    return {
+      ...row,
+      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null
+    };
+  }
+
+  /**
+   * Find project by SHA-256 hashed Service role API key string.
+   */
+  getProjectByServiceKeyHash(serviceKeyHash: string): Project | undefined {
+    const db = getDb();
+    const row = db.prepare(`
+      SELECT * FROM projects WHERE serviceKeyHash = ?
+    `).get(serviceKeyHash) as any;
 
     if (!row) return undefined;
     return {

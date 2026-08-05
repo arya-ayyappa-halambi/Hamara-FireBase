@@ -8,6 +8,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { dbStore } from './db.service';
 import { userStore } from '../store/user.store';
+import vm from 'vm';
 import { getDb } from './sqlite.connection';
 import { AppError, ApiResponse } from '../types/auth.types';
 import {
@@ -102,8 +103,11 @@ async function checkLimitsAndLockout(ownerId: string, operation: 'read' | 'write
 function checkRules(collection: Collection, operation: 'read' | 'write', req: Request): void {
   // If this is a client using an API Key, enforce rules.
   // If it's a dashboard user (JWT), they have full access to their own resources.
-  const isApiKey = req.user?.email?.startsWith('api-key::');
+  const isApiKey = req.user?.email?.startsWith('api-key::') || req.user?.email?.startsWith('service-role::');
   if (!isApiKey) return;
+
+  // High-privilege service role bypasses all Security Rules!
+  if (req.isServiceRole === true) return;
 
   // Default to allowing access if no rules are defined (backwards compatibility)
   let rulesObj: { read?: boolean | string; write?: boolean | string } = { read: true, write: true };
@@ -137,7 +141,10 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
         // Document not found / doesn't exist yet
       }
     }
-    allowed = evaluateExpression(rule, { auth, data, resource });
+    const requestContext = {
+      time: new Date().toISOString()
+    };
+    allowed = evaluateExpression(rule, { auth, data, resource, request: requestContext });
   } else {
     allowed = true;
   }
@@ -147,16 +154,20 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   }
 }
 
-function evaluateExpression(expr: string, context: { auth: any; data: any; resource: any }): boolean {
+function evaluateExpression(expr: string, context: { auth: any; data: any; resource: any; request: any }): boolean {
   try {
-    const fn = new Function('auth', 'data', 'resource', `
-      try {
-        return !!(${expr});
-      } catch (e) {
-        return false;
-      }
-    `);
-    return fn(context.auth, context.data, context.resource);
+    const sandbox = {
+      auth: context.auth,
+      data: context.data,
+      resource: context.resource,
+      request: context.request,
+    };
+
+    vm.createContext(sandbox);
+
+    // Limit evaluation execution time to 50ms to prevent CPU exhaustion
+    const result = vm.runInContext(expr, sandbox, { timeout: 50 });
+    return !!result;
   } catch (e) {
     return false;
   }
