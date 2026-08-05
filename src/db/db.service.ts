@@ -26,6 +26,7 @@ import {
 import { getDb } from './sqlite.connection';
 import { wsService } from '../realtime/websocket.service';
 import { encryptValue, decryptValue, isEncryptedField } from '../utils/encryption.helper';
+import { webhookService } from '../services/webhook.service';
 
 // ── Encryption Helpers ────────────────────────────────────────────────────────
 
@@ -335,6 +336,9 @@ class SqliteDbStore {
 
     wsService.broadcastChange(ownerId, collectionName, 'document:inserted', returnedDoc);
 
+    // Trigger webhook event
+    webhookService.dispatch(projectId, 'document.created', returnedDoc);
+
     return returnedDoc;
   }
 
@@ -475,6 +479,9 @@ class SqliteDbStore {
 
     wsService.broadcastChange(ownerId, collectionName, 'document:updated', updated);
 
+    // Trigger webhook event
+    webhookService.dispatch(projectId, 'document.updated', updated);
+
     return updated;
   }
 
@@ -490,6 +497,9 @@ class SqliteDbStore {
     })();
 
     wsService.broadcastChange(ownerId, collectionName, 'document:deleted', { _id: docId });
+
+    // Trigger webhook event
+    webhookService.dispatch(projectId, 'document.deleted', { _id: docId, collectionName });
   }
 }
 

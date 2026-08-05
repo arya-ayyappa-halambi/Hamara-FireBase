@@ -128,3 +128,22 @@ export async function attestApp(req: Request, res: Response, next: NextFunction)
   } catch (err) { next(err); }
 }
 
+export async function updateUserRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const userId = req.params.id;
+    const { role, customClaims } = req.body;
+    
+    if (!role) {
+      throw new AppError('Role is required.', 400);
+    }
+    
+    await projectAuthService.updateUserRoleAndClaims(projectId, userId, role, customClaims);
+    
+    res.status(200).json({
+      success: true,
+      message: 'User role and custom claims updated successfully.'
+    });
+  } catch (err) { next(err); }
+}
+

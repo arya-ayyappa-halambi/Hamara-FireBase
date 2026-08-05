@@ -24,6 +24,7 @@ import {
   ALLOWED_MIME_TYPES,
 } from '../types/storage.types';
 import { getDb } from '../db/sqlite.connection';
+import { webhookService } from '../services/webhook.service';
 
 // ── Upload Directory ──────────────────────────────────────────────────────────
 
@@ -196,7 +197,13 @@ export function saveAssetMetadata(
     linkedCollectionId,
   };
   assetStore.save(meta);
-  return toPublicMeta(meta);
+
+  const pub = toPublicMeta(meta);
+  if (projectId) {
+    webhookService.dispatch(projectId, 'file.uploaded', pub);
+  }
+
+  return pub;
 }
 
 /** Returns all assets owned by the requesting user. */
@@ -250,5 +257,10 @@ export function deleteAsset(ownerId: string, assetId: string): PublicAssetMetada
     }
   }
 
-  return toPublicMeta(meta);
+  const pub = toPublicMeta(meta);
+  if (meta.projectId) {
+    webhookService.dispatch(meta.projectId, 'file.deleted', pub);
+  }
+
+  return pub;
 }

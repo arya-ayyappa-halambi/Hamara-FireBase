@@ -4,6 +4,7 @@ import { AppError } from '../types/auth.types';
 import { projectService } from '../project/project.service';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
+import { webhookService } from '../services/webhook.service';
 
 const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
   type: argon2.argon2id,
@@ -63,6 +64,14 @@ export class ProjectAuthService {
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(userId, projectId, email, passwordHash, provider, now, now);
 
+    // Trigger webhook event
+    webhookService.dispatch(projectId, 'user.signed_up', {
+      id: userId,
+      email,
+      provider,
+      createdAt: now,
+    });
+
     return this.generateAuthResponse(userId, projectId, email);
   }
 
@@ -99,11 +108,23 @@ export class ProjectAuthService {
   }
 
   private generateAuthResponse(userId: string, projectId: string, email: string) {
+    const db = getDb();
+    const userRow = db.prepare('SELECT role, customClaims FROM project_users WHERE id = ?').get(userId) as any;
+    const role = userRow?.role || 'viewer';
+    let customClaims = {};
+    if (userRow?.customClaims) {
+      try {
+        customClaims = JSON.parse(userRow.customClaims);
+      } catch (_) {}
+    }
+
     const payload = {
       sub: userId,
       projectId: projectId,
       email: email,
-      isProjectUser: true // Differentiates from Dashboard Dev JWT
+      isProjectUser: true, // Differentiates from Dashboard Dev JWT
+      role,
+      ...customClaims
     };
 
     const accessToken = jwt.sign(payload, this.getJwtSecret(), { expiresIn: '7d' });
@@ -113,7 +134,9 @@ export class ProjectAuthService {
       user: {
         id: userId,
         email,
-        projectId
+        projectId,
+        role,
+        customClaims
       }
     };
   }
@@ -205,6 +228,22 @@ export class ProjectAuthService {
     }
     
     return this.generateAuthResponse(user.id, projectId, user.email);
+  }
+
+  async updateUserRoleAndClaims(projectId: string, userId: string, role: string, customClaims: any): Promise<void> {
+    const db = getDb();
+    
+    // Check if user exists
+    const user = db.prepare('SELECT id FROM project_users WHERE projectId = ? AND id = ?').get(projectId, userId);
+    if (!user) {
+      throw new AppError('User not found in this project.', 404);
+    }
+    
+    const claimsStr = customClaims ? JSON.stringify(customClaims) : null;
+    const now = new Date().toISOString();
+    
+    db.prepare('UPDATE project_users SET role = ?, customClaims = ?, updatedAt = ? WHERE projectId = ? AND id = ?')
+      .run(role, claimsStr, now, projectId, userId);
   }
 }
 

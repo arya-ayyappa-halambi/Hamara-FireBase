@@ -8,6 +8,7 @@ import { projectService } from './project.service';
 import { AppError, ApiResponse } from '../types/auth.types';
 import { ProjectStats, CreateProjectResult } from '../types/project.types';
 import { auditLogService } from '../services/audit-log.service';
+import { webhookService } from '../services/webhook.service';
 
 function getOwnerId(req: Request): string {
   const sub = req.user?.sub;
@@ -93,3 +94,54 @@ export async function updateAuthConfig(req: Request, res: Response, next: NextFu
     res.status(200).json({ success: true, message: 'Auth config updated successfully.' });
   } catch (err) { next(err); }
 }
+
+export async function listWebhooks(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const webhooks = webhookService.list(id);
+    res.status(200).json({ success: true, data: webhooks });
+  } catch (err) { next(err); }
+}
+
+export async function registerWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { url, events } = req.body;
+    if (!url || !events || !Array.isArray(events)) {
+      throw new AppError('url (string) and events (array of strings) are required.', 400);
+    }
+    const webhook = webhookService.register(id, url, events);
+    
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'webhook_register',
+      projectId: id,
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Registered new webhook for ${url}`
+    });
+
+    res.status(201).json({ success: true, message: 'Webhook registered successfully.', data: webhook });
+  } catch (err) { next(err); }
+}
+
+export async function deleteWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id, webhookId } = req.params;
+    webhookService.delete(id, webhookId);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'webhook_delete',
+      projectId: id,
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Deleted webhook ID ${webhookId}`
+    });
+
+    res.status(200).json({ success: true, message: 'Webhook deleted successfully.' });
+  } catch (err) { next(err); }
+}
+

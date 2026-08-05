@@ -18,6 +18,10 @@ export function getDb(): Database.Database {
     dbInstance = new Database(DB_PATH);
     dbInstance.pragma('foreign_keys = ON');
     dbInstance.pragma('journal_mode = WAL');
+    dbInstance.pragma('synchronous = NORMAL');
+    dbInstance.pragma('busy_timeout = 5000');
+    dbInstance.pragma('cache_size = -20000');
+    dbInstance.pragma('temp_store = MEMORY');
   }
   return dbInstance;
 }
@@ -207,6 +211,21 @@ export function initSqlite(): void {
 
     CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
     CREATE INDEX IF NOT EXISTS idx_audit_logs_project ON audit_logs(projectId);
+
+    -- 10. Webhooks Table
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id TEXT PRIMARY KEY,
+      projectId TEXT NOT NULL,
+      url TEXT NOT NULL,
+      secret TEXT NOT NULL,
+      events TEXT NOT NULL,
+      isActive INTEGER NOT NULL DEFAULT 1,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_webhooks_project ON webhooks(projectId);
   `);
 
   // Column migration check for isSuperAdmin if users table existed previously
@@ -232,6 +251,15 @@ export function initSqlite(): void {
   try {
     db.exec(`ALTER TABLE collections ADD COLUMN rules TEXT;`);
   } catch {}
+
+  // Migrate project_users to add role and customClaims
+  try {
+    db.exec(`ALTER TABLE project_users ADD COLUMN role TEXT NOT NULL DEFAULT 'viewer';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE project_users ADD COLUMN customClaims TEXT;`);
+  } catch {}
+
 
   // Project storage limits migration
   try {

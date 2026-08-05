@@ -130,7 +130,7 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   } else if (rule === false) {
     allowed = false;
   } else if (typeof rule === 'string') {
-    const auth = (req as any).projectUser || null;
+    const auth = (req as any).projectUser || { role: 'anonymous' };
     const data = req.body?.data || null;
     let resource: any = null;
     if (req.params.id) {
@@ -215,9 +215,13 @@ export async function createCollection(req: Request, res: Response, next: NextFu
   try {
     const ownerId = getOwnerId(req);
     const projectId = getProjectId(req);
+    const schema = typeof req.body.schema === 'object' ? JSON.stringify(req.body.schema) : req.body.schema;
+    const rules = typeof req.body.rules === 'object' ? JSON.stringify(req.body.rules) : req.body.rules;
     const collection = dbStore.createCollection(ownerId, projectId, {
       name: req.body.name,
       description: req.body.description,
+      schema,
+      rules,
     });
     res.status(201).json({ success: true, message: 'Collection created.', data: collection } as ApiResponse<Collection>);
   } catch (err) { next(err); }
@@ -239,10 +243,12 @@ export async function getCollection(req: Request, res: Response, next: NextFunct
 
 export async function updateCollection(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const schema = typeof req.body.schema === 'object' ? JSON.stringify(req.body.schema) : req.body.schema;
+    const rules = typeof req.body.rules === 'object' ? JSON.stringify(req.body.rules) : req.body.rules;
     const patch = {
       description: req.body.description,
-      schema: req.body.schema,
-      rules: req.body.rules,
+      schema,
+      rules,
     };
     const ownerId = getOwnerId(req);
     const projectId = getProjectId(req);
