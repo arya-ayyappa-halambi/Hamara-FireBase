@@ -279,31 +279,31 @@ AegisDB is designed as a modular, decoupled self-hosted BaaS engine. Below is a 
 graph TD
     Client[Client Apps & SDKs] -->|HTTP / WebSockets / SSE| Gateway[API Gateway / Middleware]
     
-    subgraph Gateway Layer
+    subgraph "Gateway Layer"
         Gateway -->|Key Check| Auth[Key Segregation & JWT Auth]
         Gateway -->|Attestation| AppCheck[App Check Middleware]
         Gateway -->|Rate Limiting| RateLimit[Token Bucket Rate Limiter]
     end
     
-    subgraph Router Layer
+    subgraph "Router Layer"
         Auth & AppCheck -->|Route Match| DBRouter[Database Router]
         Auth & AppCheck -->|Route Match| StorageRouter[Storage Router]
     end
 
-    subgraph Database Layer (WAL Mode)
+    subgraph "Database Layer (WAL Mode)"
         DBRouter -->|Writes| PrimaryDB[(Primary SQLite DB)]
         DBRouter -->|Reads - Round Robin| Replicas[(Reader Connection Pool x3)]
         PrimaryDB -->|Encryption/Decryption| AESGCM[AES-256-GCM HKDF Handler]
         PrimaryDB -->|Rules Validation| Sandbox[Sandboxed VM Engine]
     end
 
-    subgraph Storage Layer
+    subgraph "Storage Layer"
         StorageRouter -->|Signed URLs| Multer[Multer Upload Engine]
         Multer -->|Optimizations| Jimp[Jimp Media Transformation Pipeline]
         Jimp -->|Local Disk| Uploads[(File Assets Directory)]
     end
 
-    subgraph Async Side-Effect Workers
+    subgraph "Async Side-Effect Workers"
         PrimaryDB -->|Queue Event| TaskQueue[Write-Behind Task Queue]
         TaskQueue -->|Async Log| AuditLog[(audit_logs Table)]
         TaskQueue -->|HMAC POST| Webhook[Webhook Dispatcher]
