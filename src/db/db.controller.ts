@@ -9,6 +9,7 @@ import { Request, Response, NextFunction } from 'express';
 import { dbStore } from './db.service';
 import { userStore } from '../store/user.store';
 import vm from 'vm';
+import { auditLogService } from '../services/audit-log.service';
 import { getDb } from './sqlite.connection';
 import { AppError, ApiResponse } from '../types/auth.types';
 import {
@@ -243,7 +244,20 @@ export async function updateCollection(req: Request, res: Response, next: NextFu
       schema: req.body.schema,
       rules: req.body.rules,
     };
-    const collection = dbStore.updateCollection(getOwnerId(req), getProjectId(req), req.params.name, patch);
+    const ownerId = getOwnerId(req);
+    const projectId = getProjectId(req);
+    const collection = dbStore.updateCollection(ownerId, projectId, req.params.name, patch);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'collection_update',
+      projectId: projectId,
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Collection "${req.params.name}" schema/rules updated.`
+    });
+
     res.status(200).json({ success: true, message: 'Collection updated.', data: collection } as ApiResponse<Collection>);
   } catch (err) { next(err); }
 }

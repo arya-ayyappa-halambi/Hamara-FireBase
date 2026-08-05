@@ -7,6 +7,7 @@ import { Request, Response, NextFunction } from 'express';
 import { projectService } from './project.service';
 import { AppError, ApiResponse } from '../types/auth.types';
 import { ProjectStats, CreateProjectResult } from '../types/project.types';
+import { auditLogService } from '../services/audit-log.service';
 
 function getOwnerId(req: Request): string {
   const sub = req.user?.sub;
@@ -78,6 +79,17 @@ export async function updateAuthConfig(req: Request, res: Response, next: NextFu
     const { id } = req.params;
     const { authConfig } = req.body;
     projectService.updateAuthConfig(id, ownerId, authConfig);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'project_config_update',
+      projectId: id,
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Project auth config updated.`
+    });
+
     res.status(200).json({ success: true, message: 'Auth config updated successfully.' });
   } catch (err) { next(err); }
 }

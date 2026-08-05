@@ -12,6 +12,7 @@ import jwt from 'jsonwebtoken';
 import { projectService } from '../project/project.service';
 import { authenticateJwt, extractBearerToken } from './auth.middleware';
 import { AppError } from '../types/auth.types';
+import { auditLogService } from '../services/audit-log.service';
 
 function isBrowserContext(req: Request): boolean {
   const origin = req.headers['origin'];
@@ -52,6 +53,17 @@ export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextF
 
     if (!project) {
       return next(new AppError('Invalid API Key provided.', 401));
+    }
+
+    if (isServiceRole) {
+      auditLogService.logAction({
+        actorEmail: `service-role::${project.name}`,
+        actionType: 'service_key_access',
+        projectId: project.id,
+        ipAddress: req.ip,
+        status: 'success',
+        details: `Service role key used to request: ${req.method} ${req.originalUrl}`
+      });
     }
 
     req.project = project;

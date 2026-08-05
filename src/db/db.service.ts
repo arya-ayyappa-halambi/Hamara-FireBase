@@ -25,6 +25,50 @@ import {
 } from '../types/db.types';
 import { getDb } from './sqlite.connection';
 import { wsService } from '../realtime/websocket.service';
+import { encryptValue, decryptValue, isEncryptedField } from '../utils/encryption.helper';
+
+// ── Encryption Helpers ────────────────────────────────────────────────────────
+
+function getFieldsToEncrypt(coll: Collection): string[] {
+  const fields = new Set<string>(['ssn', 'creditCard', 'biometrics', 'password', 'faceEncoding', 'secret']);
+  if (coll.schema) {
+    try {
+      const parsed = JSON.parse(coll.schema);
+      if (parsed && parsed.properties) {
+        for (const [key, prop] of Object.entries(parsed.properties)) {
+          if (prop && typeof prop === 'object' && (prop as any)['x-encrypted'] === true) {
+            fields.add(key);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+  return Array.from(fields);
+}
+
+function encryptDocumentFields(doc: any, coll: Collection, projectId: string): any {
+  if (!doc) return doc;
+  const fieldsToEncrypt = getFieldsToEncrypt(coll);
+  const cloned = { ...doc };
+  for (const field of fieldsToEncrypt) {
+    if (cloned[field] !== undefined && cloned[field] !== null && !isEncryptedField(cloned[field])) {
+      cloned[field] = encryptValue(cloned[field], projectId);
+    }
+  }
+  return cloned;
+}
+
+function decryptDocumentFields(doc: any, projectId: string): any {
+  if (!doc) return doc;
+  const cloned = { ...doc };
+  for (const key of Object.keys(cloned)) {
+    if (isEncryptedField(cloned[key])) {
+      cloned[key] = decryptValue(cloned[key], projectId);
+    }
+  }
+  return cloned;
+}
+
 
 const ajv = new Ajv({ strict: false });
 
@@ -253,8 +297,12 @@ class SqliteDbStore {
 
     const now = new Date().toISOString();
     const finalDocId = docId || uuidv4();
-    const doc: Document = {
-      ...data,
+
+    // Encrypt fields before writing to database
+    const encryptedData = encryptDocumentFields(data, coll, projectId);
+
+    const dbPayload: Document = {
+      ...encryptedData,
       _id: finalDocId,
       _ownerId: ownerId,
       _projectId: projectId,
@@ -268,16 +316,26 @@ class SqliteDbStore {
       db.prepare(`
         INSERT INTO documents (id, ownerId, projectId, collectionName, data, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `).run(finalDocId, ownerId, projectId, collectionName, JSON.stringify(doc), now, now);
+      `).run(finalDocId, ownerId, projectId, collectionName, JSON.stringify(dbPayload), now, now);
 
       db.prepare(`
         UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?
       `).run(now, ownerId, projectId, collectionName);
     })();
 
-    wsService.broadcastChange(ownerId, collectionName, 'document:inserted', doc);
+    // Return and broadcast decrypted version
+    const returnedDoc: Document = {
+      ...data,
+      _id: finalDocId,
+      _ownerId: ownerId,
+      _projectId: projectId,
+      _createdAt: now,
+      _updatedAt: now,
+    };
 
-    return doc;
+    wsService.broadcastChange(ownerId, collectionName, 'document:inserted', returnedDoc);
+
+    return returnedDoc;
   }
 
   queryDocuments(ownerId: string, projectId: string, collectionName: string, opts: QueryOptions = {}): QueryResult {
@@ -300,7 +358,10 @@ class SqliteDbStore {
       SELECT data FROM documents WHERE ownerId = ? AND projectId = ? AND collectionName = ?
     `).all(ownerId, projectId, collectionName) as { data: string }[];
 
-    let docs: Document[] = rows.map((r) => JSON.parse(r.data));
+    let docs: Document[] = rows.map((r) => {
+      const doc = JSON.parse(r.data);
+      return decryptDocumentFields(doc, projectId);
+    });
 
     // Apply filter
     if (filter && Object.keys(filter).length > 0) {
@@ -339,8 +400,10 @@ class SqliteDbStore {
       throw new AppError(`Document "${docId}" not found in collection "${collectionName}".`, 404);
     }
 
-    return JSON.parse(row.data);
+    const doc = JSON.parse(row.data);
+    return decryptDocumentFields(doc, projectId);
   }
+
 
   updateDocument(
     ownerId: string,
@@ -387,11 +450,23 @@ class SqliteDbStore {
       _updatedAt: now,
     };
 
+    // Encrypt fields in candidate data before storing in DB
+    const { _id: dbId, _ownerId: dbOwner, _projectId: pId, _createdAt: dbCreated, _updatedAt: dbUpdated, ...userFields } = updated;
+    const encryptedFields = encryptDocumentFields(userFields, coll, projectId);
+    const dbPayload = {
+      ...encryptedFields,
+      _id: dbId,
+      _ownerId: dbOwner,
+      _projectId: pId,
+      _createdAt: dbCreated,
+      _updatedAt: dbUpdated,
+    };
+
     const db = getDb();
     db.transaction(() => {
       db.prepare(`
         UPDATE documents SET data = ?, updatedAt = ? WHERE id = ? AND ownerId = ? AND projectId = ? AND collectionName = ?
-      `).run(JSON.stringify(updated), now, docId, ownerId, projectId, collectionName);
+      `).run(JSON.stringify(dbPayload), now, docId, ownerId, projectId, collectionName);
 
       db.prepare(`
         UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?
@@ -402,6 +477,7 @@ class SqliteDbStore {
 
     return updated;
   }
+
 
   deleteDocument(ownerId: string, projectId: string, collectionName: string, docId: string): void {
     this.getDocument(ownerId, projectId, collectionName, docId);

@@ -1,12 +1,17 @@
-// ─────────────────────────────────────────────────────────────────────────────
-//  src/admin/admin.routes.ts
-//  Mounted at /api/v1/admin by server.ts.
-// ─────────────────────────────────────────────────────────────────────────────
-
 import { Router } from 'express';
 import { authenticateJwt } from '../middleware/auth.middleware';
 import { requireSuperAdmin } from '../middleware/admin.middleware';
-import { getStats, getUsers, updateRateLimits, updateUserLimits, deleteUser, getSecurityAdvisorReport } from './admin.controller';
+import {
+  getStats,
+  getUsers,
+  updateRateLimits,
+  updateUserLimits,
+  deleteUser,
+  getSecurityAdvisorReport,
+  getAuditLogs,
+  listBackups,
+  createBackup
+} from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
 const router = Router();
@@ -21,5 +26,8 @@ router.patch('/users/:id/limits', updateUserLimits);
 router.delete('/users/:id', deleteUser);
 router.patch('/rate-limits', updateRateLimits);
 router.get('/security-advisor', getSecurityAdvisorReport);
+router.get('/audit-logs', getAuditLogs);
+router.get('/backups', listBackups);
+router.post('/backups', createBackup);
 
 export default router;

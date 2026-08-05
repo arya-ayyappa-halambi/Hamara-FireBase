@@ -1,0 +1,64 @@
+import { getDb } from '../db/sqlite.connection';
+import { v4 as uuidv4 } from 'uuid';
+
+export interface AuditLog {
+  id: string;
+  timestamp: string;
+  actorId: string | null;
+  actorEmail: string | null;
+  actionType: string;
+  projectId: string | null;
+  ipAddress: string | null;
+  status: string;
+  details: string | null;
+}
+
+export class AuditLogService {
+  logAction(params: {
+    actorId?: string | null;
+    actorEmail?: string | null;
+    actionType: string;
+    projectId?: string | null;
+    ipAddress?: string | null;
+    status: 'success' | 'failure';
+    details?: string | null;
+  }): void {
+    try {
+      const db = getDb();
+      const id = uuidv4();
+      const timestamp = new Date().toISOString();
+      
+      db.prepare(`
+        INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actionType, projectId, ipAddress, status, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id,
+        timestamp,
+        params.actorId || null,
+        params.actorEmail || null,
+        params.actionType,
+        params.projectId || null,
+        params.ipAddress || null,
+        params.status,
+        params.details || null
+      );
+    } catch (e) {
+      console.error('Failed to write audit log:', e);
+    }
+  }
+
+  getRecentLogs(limit = 100, offset = 0): AuditLog[] {
+    try {
+      const db = getDb();
+      return db.prepare(`
+        SELECT * FROM audit_logs
+        ORDER BY timestamp DESC
+        LIMIT ? OFFSET ?
+      `).all(limit, offset) as AuditLog[];
+    } catch (_) {
+      return [];
+    }
+  }
+}
+
+export const auditLogService = new AuditLogService();

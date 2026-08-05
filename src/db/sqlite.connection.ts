@@ -191,6 +191,22 @@ export function initSqlite(): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_project_users_project ON project_users(projectId);
+
+    -- 9. Audit Logs Table
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      timestamp TEXT NOT NULL,
+      actorId TEXT,
+      actorEmail TEXT,
+      actionType TEXT NOT NULL,
+      projectId TEXT,
+      ipAddress TEXT,
+      status TEXT NOT NULL,
+      details TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_project ON audit_logs(projectId);
   `);
 
   // Column migration check for isSuperAdmin if users table existed previously
