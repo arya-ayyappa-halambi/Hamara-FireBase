@@ -226,5 +226,48 @@ AegisDB seeds a Super Admin account automatically on the very first start. You c
 
 ---
 
+## 🔌 Firebase Compatibility & Emulation (Hamara-FireBase)
+
+AegisDB includes a drop-in compatibility shim that allows you to swap out real Firebase Firestore and Firebase Auth in existing frontend codebases with AegisDB without changing your application code.
+
+### 1. Vanilla JavaScript SDK (`aegis.js`)
+`aegis.js` is a lightweight client SDK for connecting to AegisDB. It handles auth state, session caching, and database/storage API requests.
+
+### 2. Firebase Firestore/Auth Shim (`firebase-shim.js`)
+`firebase-shim.js` wraps the `AegisClient` into standard Firebase interface structures. It emulates:
+- `firebase.initializeApp(config, appName)`
+- `firebase.firestore()` (collections, document reads, document writes, update, delete, batch writes)
+- `firebase.auth()` (email/password sign-in, user registration, sign-out, session change listeners)
+
+#### Usage Example
+To use it, load the Aegis SDK and Firebase Shim before your application scripts:
+```html
+<script src="aegis.js"></script>
+<script src="firebase-shim.js"></script>
+```
+
+Initialize it with your AegisDB credentials:
+```javascript
+const FB_CFG = {
+  aegisBaseUrl: "http://localhost:3000",
+  aegisApiKey: "aegis_pk_<your_project_api_key>"
+};
+
+// Initializes the emulator default app and any secondary apps
+firebase.initializeApp(FB_CFG);
+
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+// Read documents (automatically handles AegisDB query wraps)
+db.collection('students').get().then(snapshot => {
+  snapshot.forEach(doc => {
+    console.log(doc.id, doc.data());
+  });
+});
+```
+
+---
+
 ## 📄 License
 This project is licensed under the MIT License.

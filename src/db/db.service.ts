@@ -31,7 +31,7 @@ const ajv = new Ajv({ strict: false });
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COLLECTION_NAME_REGEX = /^[a-zA-Z][a-zA-Z0-9_-]{1,63}$/;
-const MAX_QUERY_LIMIT = 100;
+const MAX_QUERY_LIMIT = 10000;
 const DEFAULT_QUERY_LIMIT = 20;
 
 // ── Filter Engine ─────────────────────────────────────────────────────────────
