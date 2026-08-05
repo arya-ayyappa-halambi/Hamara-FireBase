@@ -8,8 +8,9 @@
 
 import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
+import jwt from 'jsonwebtoken';
 import { projectService } from '../project/project.service';
-import { authenticateJwt } from './auth.middleware';
+import { authenticateJwt, extractBearerToken } from './auth.middleware';
 import { AppError } from '../types/auth.types';
 
 export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextFunction): void {
@@ -33,6 +34,20 @@ export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextF
       sub: project.ownerId,
       email: `api-key::${project.name}`,
     };
+
+    // Decode Bearer token if present to identify the authenticated project user
+    const token = extractBearerToken(req);
+    if (token) {
+      const secret = process.env.JWT_SECRET;
+      if (secret) {
+        try {
+          const decoded = jwt.verify(token, secret) as any;
+          req.projectUser = decoded;
+        } catch (_) {
+          // Ignore invalid/expired token so administrative API key access works
+        }
+      }
+    }
 
     return next();
   }

@@ -9,6 +9,8 @@ declare global {
       user?: import('./auth.types').JwtPayload;
       /** Populated when authenticated via x-aegis-api-key */
       project?: import('./project.types').Project;
+      /** Populated when both API key and user JWT are present */
+      projectUser?: any;
     }
   }
 }

@@ -106,7 +106,7 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   if (!isApiKey) return;
 
   // Default to allowing access if no rules are defined (backwards compatibility)
-  let rulesObj: { read?: boolean; write?: boolean } = { read: true, write: true };
+  let rulesObj: { read?: boolean | string; write?: boolean | string } = { read: true, write: true };
   
   if (collection.rules) {
     try {
@@ -117,9 +117,48 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
     }
   }
 
-  const allowed = rulesObj[operation] === true;
+  const rule = rulesObj[operation];
+  let allowed = false;
+
+  if (rule === true) {
+    allowed = true;
+  } else if (rule === false) {
+    allowed = false;
+  } else if (typeof rule === 'string') {
+    const auth = (req as any).projectUser || null;
+    const data = req.body?.data || null;
+    let resource: any = null;
+    if (req.params.id) {
+      try {
+        const ownerId = getOwnerId(req);
+        const projectId = getProjectId(req);
+        resource = dbStore.getDocument(ownerId, projectId, collection.name, req.params.id);
+      } catch (_) {
+        // Document not found / doesn't exist yet
+      }
+    }
+    allowed = evaluateExpression(rule, { auth, data, resource });
+  } else {
+    allowed = true;
+  }
+
   if (!allowed) {
     throw new AppError(`Permission denied by collection security rules for operation: ${operation}.`, 403);
+  }
+}
+
+function evaluateExpression(expr: string, context: { auth: any; data: any; resource: any }): boolean {
+  try {
+    const fn = new Function('auth', 'data', 'resource', `
+      try {
+        return !!(${expr});
+      } catch (e) {
+        return false;
+      }
+    `);
+    return fn(context.auth, context.data, context.resource);
+  } catch (e) {
+    return false;
   }
 }
 

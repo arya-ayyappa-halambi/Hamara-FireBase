@@ -22,7 +22,7 @@ import { getDb } from '../db/sqlite.connection';
  *
  * Expected header format: `Authorization: Bearer <token>`
  */
-function extractBearerToken(req: Request): string | null {
+export function extractBearerToken(req: Request): string | null {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) return null;
 
