@@ -269,9 +269,9 @@ db.collection('students').get().then(snapshot => {
 
 ---
 
-## 🛡️ Enterprise Security Hardening
+## 🛡️ Enterprise Security Hardening & Architecture Upgrades
 
-AegisDB implements state-of-the-art security features inspired by Firebase and Supabase to protect your self-hosted database against scraping, abuse, and security vulnerabilities.
+AegisDB implements state-of-the-art security features and architecture upgrades inspired by Firebase and Supabase to protect your self-hosted database and scale under high concurrent production loads.
 
 ### 1. Cryptographic Key Segregation (Supabase Pattern)
 API keys are segregated into two distinct isolation tiers:
@@ -293,10 +293,70 @@ Dynamic security rules are compiled and run inside Node's native `vm.runInContex
   - `resource`: The current existing document data.
   - `request.time`: The current server ISO timestamp.
 
-### 4. Automated Security Advisor & Telemetry
-AegisDB includes an automated startup scanner that audits the server's security health.
-- Scans for weak/default `JWT_SECRET` keys, unprotected collections (no rules configured), and missing service key hashes.
-- Super Admins can query the live audit telemetry report at `GET /api/v1/admin/security-advisor`.
+### 4. Sliding Token Bucket Rate Limiting
+Custom in-memory sliding token bucket rate limiter tracking requests per project/IP/user.
+- Enforces default thresholds (e.g. max 120 reads/writes per minute) and returns `429 Too Many Requests` with a standard `Retry-After` header when exceeded.
+- Exposes real-time rate limiting telemetry to the Super Admin portal.
+
+### 5. Transparent Field-Level Encryption at Rest (AES-GCM)
+Encrypts sensitive fields (declared with `"x-encrypted": true` in collection schemas, plus default fields like `ssn`, `creditCard`) before storing payloads in SQLite.
+- Uses AES-256-GCM cipher mode with unique IVs and authentication tags.
+- Derives separate 256-bit encryption keys per project utilizing HKDF with a secure master secret.
+- Automatically decrypts encrypted values transparently upon authorized retrieval.
+
+### 6. Dedicated Audit Logging Service
+Every security-sensitive event (mutations, authentication, and policy changes) is captured by a dedicated audit service.
+- Persisted in an indexed `audit_logs` SQLite table.
+- Accessible to Super Admins via `/api/v1/admin/audit-logs`.
+
+### 7. Online Hot SQLite Backups & Retention
+Ensures data durability without blocking database operations.
+- Employs SQLite's online non-blocking `.backup()` snapshot API.
+- Compresses backups into `.db.gz` archives and enforces an automated 10-backup rotation retention policy.
+- Automated daily scheduled backups alongside manual backup invocation via `POST /api/v1/admin/backups`.
+
+### 8. Role-Based Access Control (RBAC) & Custom Claims
+Natively supports user-level roles (`admin`, `editor`, `viewer`) and arbitrary JSON custom claims.
+- Decoded roles and claims are embedded inside JWT access tokens and automatically populated in Security Rules' `auth` variable.
+
+---
+
+## 🏢 Enterprise-Grade Scaling & Resiliency
+
+### 1. SQLite High-Concurrency Tuning
+Optimized connection options by running performance PRAGMAs on startup:
+- **WAL (Write-Ahead Logging) Mode** with `NORMAL` synchronous write safety to prevent locking.
+- **5-second busy-timeout** to handle high-concurrency contention gracefully.
+- **Memory cache sizing** (20MB) to keep hot database sectors in memory.
+- **Memory temp-store** to accelerate sorting and temporary queries.
+
+### 2. Read-Replica Routing & Query Offloading
+Safely handles read-heavy workloads by splitting transaction traffic:
+- Establishes a pool of 3 read-only SQLite connections.
+- Automatically routes all reads round-robin across reader connections, reserving the primary SQLite connection exclusively for writes.
+
+### 3. Asynchronous Write-Behind Task Queue
+Decouples non-critical side effects from the request thread.
+- Processes tasks like audit log writes and webhook dispatches out-of-band in a sequential background micro-task worker queue.
+- Drastically reduces API response latency.
+
+### 4. Database Change Data Capture (CDC) & Real-Time SSE Streams
+In addition to WebSockets, AegisDB supports Server-Sent Events (SSE) CDC streams.
+- Exposes `GET /api/v1/db/collections/:name/realtime` supporting browser `EventSource` connections.
+- Allows clients to filter change notifications in real-time by passing query parameters (e.g. `?name=apple`), mimicking Firebase/Supabase real-time filters.
+
+### 5. Vector Search & Semantic RAG Queries
+Integrates high-dimensional semantic search:
+- Schema property `"type": "vector"` supports storing float array embeddings.
+- Endpoint `POST /api/v1/db/collections/:name/query-vector` performs high-speed Cosine Similarity calculations to return nearest-neighbor matches for AI agent memory and RAG workflows.
+
+### 6. Signed Upload URLs & On-The-Fly Media transformations
+- **Signed URL uploads**: Endpoint `POST /api/v1/storage/signed-url` generates secure, time-bound upload URLs so clients can bypass global key validation and upload files directly.
+- **On-the-fly transformations**: Automatically resizes images, generates thumbnails, and converts format (JPEG/PNG) based on query parameters (`?width=150&format=png`) during upload.
+
+### 7. Multi-Region Replication & CRDT-based Conflict Resolution
+- Synchronizes write events across edge replica nodes using logical replication.
+- Implements **Last-Write-Wins (LWW-CRDT)** resolution using incremental document version tracking and logical timestamps, guaranteeing eventual consistency across geographical multi-master nodes without data loss.
 
 ---
 
