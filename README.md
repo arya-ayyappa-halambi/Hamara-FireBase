@@ -267,96 +267,177 @@ db.collection('students').get().then(snapshot => {
 });
 ```
 
----
+## 📊 Technical Report & Project Specifications
 
-## 🛡️ Enterprise Security Hardening & Architecture Upgrades
+This section serves as a formal system design document and technical report detailing AegisDB's architectural model, database layout, security patterns, and distributed scaling capabilities.
 
-AegisDB implements state-of-the-art security features and architecture upgrades inspired by Firebase and Supabase to protect your self-hosted database and scale under high concurrent production loads.
+### 1. System Architecture
 
-### 1. Cryptographic Key Segregation (Supabase Pattern)
-API keys are segregated into two distinct isolation tiers:
-- **Anon/Public Keys (`aegis_pk_...`):** Safe for client-side distribution in web or mobile apps. All requests are subject to collection-level Security Rules.
-- **Service Role Keys (`aegis_sk_...`):** High-privilege keys that bypass Security Rules entirely. Only usable in trusted backend contexts. Requests containing service keys made from a browser-like environment (indicated by `Origin` / `Referer` headers) are explicitly blocked.
+AegisDB is designed as a modular, decoupled self-hosted BaaS engine. Below is a high-level representation of the data and control flow:
 
-### 2. Device & App Integrity Attestation - "Aegis App Check" (Firebase Pattern)
-Protect your API endpoints from unauthorized scraping and clients.
-- Enforce App Check by setting `"appCheckEnforced": true` in your project's `authConfig`.
-- Clients must fetch an App Check token by sending a POST request to `/api/v1/project-auth/attest` with their attestation parameters.
-- Provide the returned App Check token in the `x-aegis-app-check` header on database and auth requests.
+```mermaid
+graph TD
+    Client[Client Apps & SDKs] -->|HTTP / WebSockets / SSE| Gateway[API Gateway / Middleware]
+    
+    subgraph Gateway Layer
+        Gateway -->|Key Check| Auth[Key Segregation & JWT Auth]
+        Gateway -->|Attestation| AppCheck[App Check Middleware]
+        Gateway -->|Rate Limiting| RateLimit[Token Bucket Rate Limiter]
+    end
+    
+    subgraph Router Layer
+        Auth & AppCheck -->|Route Match| DBRouter[Database Router]
+        Auth & AppCheck -->|Route Match| StorageRouter[Storage Router]
+    end
 
-### 3. VM Sandboxed Rules Engine
-Dynamic security rules are compiled and run inside Node's native `vm.runInContext` sandbox environment.
-- Rule evaluation is CPU timeout-restricted (50ms execution ceiling) to prevent infinite loop exploits.
-- Supported context variables:
-  - `auth`: The authenticated user's decoded JWT payload.
-  - `data`: The incoming data payload (for write operations).
-  - `resource`: The current existing document data.
-  - `request.time`: The current server ISO timestamp.
+    subgraph Database Layer (WAL Mode)
+        DBRouter -->|Writes| PrimaryDB[(Primary SQLite DB)]
+        DBRouter -->|Reads - Round Robin| Replicas[(Reader Connection Pool x3)]
+        PrimaryDB -->|Encryption/Decryption| AESGCM[AES-256-GCM HKDF Handler]
+        PrimaryDB -->|Rules Validation| Sandbox[Sandboxed VM Engine]
+    end
 
-### 4. Sliding Token Bucket Rate Limiting
-Custom in-memory sliding token bucket rate limiter tracking requests per project/IP/user.
-- Enforces default thresholds (e.g. max 120 reads/writes per minute) and returns `429 Too Many Requests` with a standard `Retry-After` header when exceeded.
-- Exposes real-time rate limiting telemetry to the Super Admin portal.
+    subgraph Storage Layer
+        StorageRouter -->|Signed URLs| Multer[Multer Upload Engine]
+        Multer -->|Optimizations| Jimp[Jimp Media Transformation Pipeline]
+        Jimp -->|Local Disk| Uploads[(File Assets Directory)]
+    end
 
-### 5. Transparent Field-Level Encryption at Rest (AES-GCM)
-Encrypts sensitive fields (declared with `"x-encrypted": true` in collection schemas, plus default fields like `ssn`, `creditCard`) before storing payloads in SQLite.
-- Uses AES-256-GCM cipher mode with unique IVs and authentication tags.
-- Derives separate 256-bit encryption keys per project utilizing HKDF with a secure master secret.
-- Automatically decrypts encrypted values transparently upon authorized retrieval.
-
-### 6. Dedicated Audit Logging Service
-Every security-sensitive event (mutations, authentication, and policy changes) is captured by a dedicated audit service.
-- Persisted in an indexed `audit_logs` SQLite table.
-- Accessible to Super Admins via `/api/v1/admin/audit-logs`.
-
-### 7. Online Hot SQLite Backups & Retention
-Ensures data durability without blocking database operations.
-- Employs SQLite's online non-blocking `.backup()` snapshot API.
-- Compresses backups into `.db.gz` archives and enforces an automated 10-backup rotation retention policy.
-- Automated daily scheduled backups alongside manual backup invocation via `POST /api/v1/admin/backups`.
-
-### 8. Role-Based Access Control (RBAC) & Custom Claims
-Natively supports user-level roles (`admin`, `editor`, `viewer`) and arbitrary JSON custom claims.
-- Decoded roles and claims are embedded inside JWT access tokens and automatically populated in Security Rules' `auth` variable.
+    subgraph Async Side-Effect Workers
+        PrimaryDB -->|Queue Event| TaskQueue[Write-Behind Task Queue]
+        TaskQueue -->|Async Log| AuditLog[(audit_logs Table)]
+        TaskQueue -->|HMAC POST| Webhook[Webhook Dispatcher]
+        TaskQueue -->|Logical Sync| CRDT[LWW-CRDT Peer Replication]
+    end
+```
 
 ---
 
-## 🏢 Enterprise-Grade Scaling & Resiliency
+### 2. Database Schema Specifications
 
-### 1. SQLite High-Concurrency Tuning
-Optimized connection options by running performance PRAGMAs on startup:
-- **WAL (Write-Ahead Logging) Mode** with `NORMAL` synchronous write safety to prevent locking.
-- **5-second busy-timeout** to handle high-concurrency contention gracefully.
-- **Memory cache sizing** (20MB) to keep hot database sectors in memory.
-- **Memory temp-store** to accelerate sorting and temporary queries.
+The underlying SQLite store uses a relational multi-tenant layout. All table structures, fields, and indices are detailed below:
 
-### 2. Read-Replica Routing & Query Offloading
-Safely handles read-heavy workloads by splitting transaction traffic:
-- Establishes a pool of 3 read-only SQLite connections.
-- Automatically routes all reads round-robin across reader connections, reserving the primary SQLite connection exclusively for writes.
+#### `users` Table (Super Admins)
+Stores platform administrators authorized to manage projects and access global statistics.
+- **`id`** (TEXT, Primary Key): UUIDv4 identifier.
+- **`email`** (TEXT, Unique): Admin email address.
+- **`passwordHash`** (TEXT): Hashed credentials (Argon2id).
+- **`isSuperAdmin`** (INTEGER): Flag (`0` or `1`) for super admin privilege.
 
-### 3. Asynchronous Write-Behind Task Queue
-Decouples non-critical side effects from the request thread.
-- Processes tasks like audit log writes and webhook dispatches out-of-band in a sequential background micro-task worker queue.
-- Drastically reduces API response latency.
+#### `projects` Table
+Defines separate project scopes (tenants).
+- **`id`** (TEXT, Primary Key): UUIDv4 identifier.
+- **`name`** (TEXT): Descriptive project name.
+- **`apiKeyHash`** (TEXT): Cryptographic hash of the public client key (`aegis_pk_...`).
+- **`serviceKeyHash`** (TEXT): Cryptographic hash of the server administrative key (`aegis_sk_...`).
+- **`authConfig`** (TEXT): JSON configuration string (JWT secrets, OAuth keys, App Check flag).
+- **`maxAssetSizeBytes`** (INTEGER): Individual file size limit (default: 10MB).
+- **`maxStorageBytes`** (INTEGER): Cumulative storage limit (default: 100MB).
+- **`monthlyWriteQuota`** / **`monthlyReadQuota`** (INTEGER): API rate quota controls.
 
-### 4. Database Change Data Capture (CDC) & Real-Time SSE Streams
-In addition to WebSockets, AegisDB supports Server-Sent Events (SSE) CDC streams.
-- Exposes `GET /api/v1/db/collections/:name/realtime` supporting browser `EventSource` connections.
-- Allows clients to filter change notifications in real-time by passing query parameters (e.g. `?name=apple`), mimicking Firebase/Supabase real-time filters.
+#### `project_users` Table
+Multi-tenant user registry scoped to specific projects.
+- **`id`** (TEXT, Primary Key): UUIDv4 identifier.
+- **`projectId`** (TEXT, FK): Foreign key referencing `projects(id)`.
+- **`email`** (TEXT): User login email.
+- **`passwordHash`** (TEXT): Argon2id hashed password.
+- **`role`** (TEXT): Access control role (`admin`, `editor`, `viewer`).
+- **`customClaims`** (TEXT): JSON string containing custom claims.
+- **`createdAt`** / **`updatedAt`** (TEXT): ISO-8601 timestamps.
 
-### 5. Vector Search & Semantic RAG Queries
-Integrates high-dimensional semantic search:
-- Schema property `"type": "vector"` supports storing float array embeddings.
-- Endpoint `POST /api/v1/db/collections/:name/query-vector` performs high-speed Cosine Similarity calculations to return nearest-neighbor matches for AI agent memory and RAG workflows.
+#### `collections` Table
+User-defined collections storing document records.
+- **`ownerId`** (TEXT) / **`projectId`** (TEXT) / **`name`** (TEXT): Composite Primary Key.
+- **`schema`** (TEXT): JSON Schema string defining collection structure and `"x-encrypted"` fields.
+- **`rules`** (TEXT): JSON security rule expressions for `"read"` and `"write"` scopes.
 
-### 6. Signed Upload URLs & On-The-Fly Media transformations
-- **Signed URL uploads**: Endpoint `POST /api/v1/storage/signed-url` generates secure, time-bound upload URLs so clients can bypass global key validation and upload files directly.
-- **On-the-fly transformations**: Automatically resizes images, generates thumbnails, and converts format (JPEG/PNG) based on query parameters (`?width=150&format=png`) during upload.
+#### `documents` Table
+Document store holding serialized JSON payloads.
+- **`id`** (TEXT, Primary Key): UUIDv4 identifier.
+- **`ownerId`** (TEXT) / **`projectId`** (TEXT) / **`collectionName`** (TEXT): Foreign Key referencing `collections`.
+- **`data`** (TEXT): Encrypted/Plaintext JSON document contents.
+- **`version`** (INTEGER): Incremental write counter for CRDT LWW sync.
+- **`createdAt`** / **`updatedAt`** (TEXT): ISO-8601 timestamps.
 
-### 7. Multi-Region Replication & CRDT-based Conflict Resolution
-- Synchronizes write events across edge replica nodes using logical replication.
-- Implements **Last-Write-Wins (LWW-CRDT)** resolution using incremental document version tracking and logical timestamps, guaranteeing eventual consistency across geographical multi-master nodes without data loss.
+#### `assets` Table
+Metadata tracking uploaded files.
+- **`id`** (TEXT, Primary Key): UUIDv4 identifier.
+- **`ownerId`** (TEXT) / **`projectId`** (TEXT): Tenancy owner scopes.
+- **`originalName`** (TEXT): Client-side filename.
+- **`storedName`** (TEXT): Secure SHA-256 hashed disk filename.
+- **`mimeType`** (TEXT): MIME format content type.
+- **`sizeBytes`** (INTEGER): File size on disk.
+- **`absolutePath`** (TEXT): File system location.
+
+#### `audit_logs` Table
+Audit ledger tracking operations.
+- **`id`** (TEXT, Primary Key): UUIDv4 identifier.
+- **`timestamp`** (TEXT): Event execution timestamp (Indexed).
+- **`actorId`** (TEXT): User ID performing the action.
+- **`actionType`** (TEXT): Event label (e.g. `document.create`).
+- **`projectId`** (TEXT, Indexed): Target project identifier.
+- **`status`** (TEXT): Result state (`success`, `failure`).
+
+#### `webhooks` Table
+Project webhook endpoints.
+- **`id`** (TEXT, Primary Key): UUIDv4 identifier.
+- **`projectId`** (TEXT, Indexed): Project identifier.
+- **`url`** (TEXT): Endpoint HTTPS destination.
+- **`secret`** (TEXT): HMAC-SHA256 signature key.
+- **`events`** (TEXT): JSON array of subscribed event types.
+
+---
+
+### 3. Security Threat Matrix & Mitigations
+
+| Threat Vector | Mitigation Strategy | Implementation Details |
+| :--- | :--- | :--- |
+| **API Abuse & Scraping** | Sliding Token Bucket Rate Limiting | Custom middleware tracking token consumption per IP/User with headers returned. |
+| **Sensitive Data Exposure** | Transparent Field-Level Encryption | AES-256-GCM cipher with project keys derived via HKDF using a master server secret. |
+| **API Spoofing / Replay** | Device Attestation (App Check) | Derives signature check via a secret, validating client authenticity before routing. |
+| **Credential Attacks** | High-entropy Hashing & Blocklisting | Utilizes Argon2id password hashing and active blocklist tracking for revoked JWT tokens. |
+| **Malicious DB Injections** | Collection Name Regex & Parameterization | Strictly enforces `/^[a-zA-Z][a-zA-Z0-9_-]{1,63}$/` regex rules and parameterized SQLite queries. |
+| **Rules Engine Hijacking** | VM Execution Sandbox | Runs JavaScript rules in Node's native `vm` module with a 50ms execution timeout limits. |
+
+---
+
+### 4. Distributed System Mechanics
+
+#### Logical LWW-CRDT Synchronization
+To keep distributed edge nodes synchronized without coordination, AegisDB implements a **Last-Write-Wins (LWW) CRDT** model:
+- Every document holds a `version` (scalar clock) and an `updatedAt` (physical timestamp).
+- When a node receives a peer replication payload:
+  $$\text{if } T_{\text{incoming}} > T_{\text{local}} \rightarrow \text{Apply Update}$$
+  $$\text{if } T_{\text{incoming}} = T_{\text{local}} \land V_{\text{incoming}} > V_{\text{local}} \rightarrow \text{Apply Update}$$
+  $$\text{else} \rightarrow \text{Discard Update}$$
+- Discards stale updates safely, guaranteeing eventual consistency across multi-master region edge nodes.
+
+---
+
+### 5. API Endpoint Registry
+
+#### Database Services (`/api/v1/db`)
+- `POST /collections` - Create a collection (JSON Schema, Security Rules).
+- `GET /collections` - List registered collections.
+- `PATCH /collections/:name` - Update metadata/rules.
+- `DELETE /collections/:name` - Delete collection.
+- `POST /collections/:name/documents` - Create a document.
+- `GET /collections/:name/documents` - Query documents (filters, sorting, pagination).
+- `GET /collections/:name/documents/:id` - Fetch single document.
+- `PATCH /collections/:name/documents/:id` - Update document.
+- `DELETE /collections/:name/documents/:id` - Delete document.
+- `POST /collections/:name/query-vector` - Nearest-neighbor semantic search.
+- `GET /collections/:name/realtime` - Server-Sent Events (SSE) CDC stream.
+
+#### Storage Services (`/api/v1/storage`)
+- `POST /upload` - Standard multipart upload.
+- `POST /signed-url` - Generate a signed upload URL.
+- `POST /upload-signed` - Direct upload bypassing key validation (attestation check carried in JWT token query parameters).
+- `GET /assets` - List user assets.
+- `GET /assets/:id/file` - Download/Stream file.
+
+#### Multi-Region Sync (`/api/v1/replication`)
+- `POST /replication/sync` - Ingestion path for peer node logical mutations.
 
 ---
 
