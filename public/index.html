@@ -298,7 +298,13 @@
                     <button id="insertDocBtn" class="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 flex items-center">
                       <i class="fa-solid fa-plus mr-1.5"></i> Add document
                     </button>
-                    <button id="queryDocsBtn" class="text-slate-400 hover:text-slate-200 px-2 py-1" title="Refresh Documents"><i class="fa-solid fa-rotate-right"></i></button>
+                    <div class="flex items-center space-x-2">
+                      <span id="docCountBadge" class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded font-mono"></span>
+                      <button id="queryDocsBtn" class="text-slate-400 hover:text-slate-200 px-2 py-1" title="Refresh Documents"><i class="fa-solid fa-rotate-right"></i></button>
+                    </div>
+                  </div>
+                  <div class="p-2 border-b border-darkborder bg-[#181818]">
+                    <input id="docSearchInput" type="text" placeholder="Filter documents by ID or content..." class="w-full bg-darkcard border border-darkborder rounded px-2.5 py-1 text-xs font-mono text-slate-200 focus:border-blue-500 focus:outline-none" />
                   </div>
                   <div class="p-2 border-b border-darkborder hidden" id="newDocInputContainer">
                     <textarea id="docJsonInput" rows="5" class="w-full bg-darkcard border border-darkborder rounded p-2 text-xs font-mono text-emerald-300 focus:border-blue-500 focus:outline-none" placeholder='{"field": "value"}'></textarea>

@@ -727,55 +727,81 @@ async function fetchDocuments() {
   const container = document.getElementById('documentsContainer');
   const fieldsList = document.getElementById('fieldsList');
   const activeDocIdText = document.getElementById('activeDocIdText');
+  const docCountBadge = document.getElementById('docCountBadge');
   
   fieldsList.innerHTML = '<p class="text-xs text-slate-500 italic p-4 text-center">Select a document.</p>';
   activeDocIdText.textContent = '';
   
   if (!state.activeCollection) {
     container.innerHTML = '<p class="text-sm text-amber-500 italic p-4 text-center">Select a collection first.</p>';
+    if (docCountBadge) docCountBadge.textContent = '';
     return;
   }
 
   try {
-    const result = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents`);
-    if (!result.documents || result.documents.length === 0) {
-      container.innerHTML = '<p class="text-xs text-slate-500 italic p-4 text-center">Collection is empty.</p>';
-      return;
-    }
-
-    container.innerHTML = result.documents.map((doc) => {
-      const { _id } = doc;
-      
-      return `
-      <div class="border-b border-darkborder hover:bg-[#2a2a2a] cursor-pointer transition p-2 flex justify-between items-center group" onclick='selectDocument(${JSON.stringify(doc).replace(/'/g, "&#39;")})'>
-        <div class="flex flex-col overflow-hidden">
-          <span class="text-xs font-mono text-slate-300 truncate">${_id}</span>
-        </div>
-        <button class="delete-doc-btn opacity-0 group-hover:opacity-100 text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition text-xs ml-2 shrink-0" data-docid="${_id}">
-          <i class="fa-solid fa-trash"></i>
-        </button>
-      </div>
-      `;
-    }).join('');
-
-    document.querySelectorAll('.delete-doc-btn').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const id = btn.getAttribute('data-docid');
-        if (confirm(`Delete document "${id}"?`)) {
-          try {
-            await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents/${encodeURIComponent(id)}`, 'DELETE');
-            showToast('Document deleted', 'success');
-            fetchDocuments();
-          } catch (err) {
-            showToast(`Error: ${err.message}`, 'error');
-          }
-        }
-      });
-    });
+    const result = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents?limit=10000`);
+    state.allDocuments = result.documents || [];
+    renderDocumentList();
   } catch (err) {
     container.innerHTML = `<p class="text-xs text-red-400 p-2">${err.message}</p>`;
   }
+}
+
+function renderDocumentList() {
+  const container = document.getElementById('documentsContainer');
+  const docCountBadge = document.getElementById('docCountBadge');
+  const searchInput = document.getElementById('docSearchInput');
+  const q = (searchInput ? searchInput.value : '').toLowerCase().trim();
+
+  let docs = state.allDocuments || [];
+  if (q) {
+    docs = docs.filter(doc => {
+      const id = String(doc._id || doc.id || '').toLowerCase();
+      const str = JSON.stringify(doc).toLowerCase();
+      return id.includes(q) || str.includes(q);
+    });
+  }
+
+  if (docCountBadge) {
+    docCountBadge.textContent = q ? `${docs.length}/${state.allDocuments.length} docs` : `${docs.length} docs`;
+  }
+
+  if (docs.length === 0) {
+    container.innerHTML = q 
+      ? '<p class="text-xs text-slate-500 italic p-4 text-center">No matching documents found.</p>'
+      : '<p class="text-xs text-slate-500 italic p-4 text-center">Collection is empty.</p>';
+    return;
+  }
+
+  container.innerHTML = docs.map((doc) => {
+    const _id = doc._id || doc.id;
+    return `
+    <div class="border-b border-darkborder hover:bg-[#2a2a2a] cursor-pointer transition p-2 flex justify-between items-center group" onclick='selectDocument(${JSON.stringify(doc).replace(/'/g, "&#39;")})'>
+      <div class="flex flex-col overflow-hidden">
+        <span class="text-xs font-mono text-slate-300 truncate">${_id}</span>
+      </div>
+      <button class="delete-doc-btn opacity-0 group-hover:opacity-100 text-red-400 hover:bg-red-500/10 px-2 py-1 rounded transition text-xs ml-2 shrink-0" data-docid="${_id}">
+        <i class="fa-solid fa-trash"></i>
+      </button>
+    </div>
+    `;
+  }).join('');
+
+  document.querySelectorAll('.delete-doc-btn').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.getAttribute('data-docid');
+      if (confirm(`Delete document "${id}"?`)) {
+        try {
+          await apiRequest(`/api/v1/db/collections/${encodeURIComponent(state.activeCollection)}/documents/${encodeURIComponent(id)}`, 'DELETE');
+          showToast('Document deleted', 'success');
+          fetchDocuments();
+        } catch (err) {
+          showToast(`Error: ${err.message}`, 'error');
+        }
+      }
+    });
+  });
 }
 
 window.selectDocument = function(doc) {
@@ -866,6 +892,10 @@ function setupDbHandlers() {
     } catch (err) {
       showToast(`Invalid JSON or Error: ${err.message}`, 'error');
     }
+  });
+
+  document.getElementById('docSearchInput')?.addEventListener('input', () => {
+    renderDocumentList();
   });
 
   // Rules collection dropdown change handler
