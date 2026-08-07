@@ -12,6 +12,7 @@
 import { Router } from 'express';
 import { register, login, refresh, logout } from './auth.controller';
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema } from '../middleware/validate.middleware';
+import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 
 const router = Router();
 
@@ -25,6 +26,7 @@ router.post(
 // ── POST /login ───────────────────────────────────────────────────────────────
 router.post(
   '/login',
+  checkFailedLoginLockout,
   validateBody(loginSchema),
   login,
 );

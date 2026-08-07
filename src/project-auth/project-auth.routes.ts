@@ -11,6 +11,7 @@ import {
 import { authenticateApiKeyOrJwt } from '../middleware/apikey.middleware';
 import { enforceAppCheck } from '../middleware/appcheck.middleware';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
+import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 
 const router = Router();
 
@@ -23,7 +24,7 @@ router.post('/attest', attestApp);
 
 // Other routes require strict App Check (if enabled on project)
 router.post('/register', enforceAppCheck, registerProjectUser);
-router.post('/login', enforceAppCheck, loginProjectUser);
+router.post('/login', checkFailedLoginLockout, enforceAppCheck, loginProjectUser);
 router.post('/oauth/:provider', enforceAppCheck, handleOAuthProvider);
 
 // Admin routes for managing project users

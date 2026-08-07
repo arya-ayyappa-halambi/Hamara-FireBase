@@ -10,7 +10,8 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { registerUser, loginUser, refreshAccessToken, logoutUser } from './auth.service';
-import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData } from '../types/auth.types';
+import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData, AppError } from '../types/auth.types';
+import { failedLoginService } from '../services/failed-login-limiter.service';
 
 // ── Register ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +48,9 @@ export async function login(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
+  const ip = req.ip || 'unknown';
+  const email = req.body?.email || '';
+
   try {
     const dto: LoginDto = {
       email:    req.body.email,
@@ -54,6 +58,7 @@ export async function login(
     };
 
     const data = await loginUser(dto);
+    failedLoginService.recordSuccessfulLogin(ip, email);
 
     const response: ApiResponse<AuthResponseData> = {
       success: true,
@@ -62,7 +67,14 @@ export async function login(
     };
 
     res.status(200).json(response);
-  } catch (err) {
+  } catch (err: any) {
+    if (err instanceof AppError && err.statusCode === 401) {
+      const result = failedLoginService.recordFailedAttempt(ip, email);
+      if (result.locked) {
+        res.setHeader('Retry-After', result.remainingSec);
+        return next(new AppError(`Account temporarily locked due to 5 consecutive failed login attempts. Please try again in 15 minutes.`, 429));
+      }
+    }
     next(err);
   }
 }

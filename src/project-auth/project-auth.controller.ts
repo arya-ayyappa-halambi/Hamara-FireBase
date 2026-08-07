@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { projectAuthService } from './project-auth.service';
 import { AppError } from '../types/auth.types';
+import { failedLoginService } from '../services/failed-login-limiter.service';
 import jwt from 'jsonwebtoken';
 
 function getResolvedProjectId(req: Request): string {
@@ -34,9 +35,9 @@ function getResolvedProjectId(req: Request): string {
 export async function registerProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const projectId = getResolvedProjectId(req);
-    const { email, password } = req.body;
+    const { email, password, provider } = req.body;
     
-    const result = await projectAuthService.registerUser(projectId, email, password);
+    const result = await projectAuthService.registerUser(projectId, email, password, provider);
     
     res.status(201).json({
       success: true,
@@ -47,18 +48,31 @@ export async function registerProjectUser(req: Request, res: Response, next: Nex
 }
 
 export async function loginProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const ip = req.ip || 'unknown';
+  const email = req.body?.email || '';
+
   try {
     const projectId = getResolvedProjectId(req);
-    const { email, password } = req.body;
+    const { password } = req.body;
 
     const result = await projectAuthService.loginUser(projectId, email, password);
+    failedLoginService.recordSuccessfulLogin(ip, email);
 
     res.status(200).json({
       success: true,
       message: 'User logged in successfully.',
       data: result
     });
-  } catch (err) { next(err); }
+  } catch (err: any) {
+    if (err instanceof AppError && err.statusCode === 401) {
+      const result = failedLoginService.recordFailedAttempt(ip, email);
+      if (result.locked) {
+        res.setHeader('Retry-After', result.remainingSec);
+        return next(new AppError(`Account temporarily locked due to 5 consecutive failed login attempts. Please try again in 15 minutes.`, 429));
+      }
+    }
+    next(err);
+  }
 }
 
 export async function handleOAuthProvider(req: Request, res: Response, next: NextFunction): Promise<void> {
