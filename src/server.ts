@@ -32,6 +32,8 @@ import { initSqlite } from './db/sqlite.connection';
 import { wsService } from './realtime/websocket.service';
 import { replicationService } from './services/replication.service';
 import jwksRouter from './routes/jwks.routes';
+import metricsRouter      from './routes/metrics.routes';
+import { metricsService } from './services/metrics.service';
 import { securityHeaders, dynamicCors } from './middleware/security.middleware';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
@@ -45,8 +47,8 @@ function validateEnv(): void {
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
-    console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
-    console.error('   Copy .env.example to .env and fill in the values.');
+    console.error(`❌ FATAL: Missing required environment variables: ${missing.join(', ')}`);
+    console.error('   Copy .env.example to .env and fill in the required values.');
     process.exit(1);
   }
 
@@ -66,6 +68,14 @@ function createApp(): Application {
   app.use(securityHeaders);
   app.use(dynamicCors);
 
+  // ── Prometheus Metrics Middleware ────────────────────────────────────────
+  app.use((req, res, next) => {
+    res.on('finish', () => {
+      metricsService.recordHttpRequest(req.method, req.path, res.statusCode);
+    });
+    next();
+  });
+
   app.use(express.json({ limit: '50mb' }));   // Increased cap to allow large high-res image uploads
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
@@ -80,8 +90,9 @@ function createApp(): Application {
   // ── Static Files (Web Dashboard) ───────────────────────────────────────────
   app.use(express.static('public'));
 
-  // ── Public Well-Known Endpoints (JWKS) ────────────────────────────────────
+  // ── Public Well-Known & Metrics Endpoints ─────────────────────────────────
   app.use('/', jwksRouter);
+  app.use('/', metricsRouter);
 
   // ── Health Check ─────────────────────────────────────────────────────────
   app.get('/health', (_req: Request, res: Response) => {

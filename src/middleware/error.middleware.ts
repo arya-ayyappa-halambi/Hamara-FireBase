@@ -41,10 +41,10 @@ export function globalErrorHandler(
 
   // ── Operational errors (AppError) ──────────────────────────────────────────
   if (err instanceof AppError && err.isOperational) {
-    const body: ApiResponse<null> = {
+    const body: ApiResponse<any> = {
       success: false,
       message: err.message,
-      data: null,
+      data: err.details || null,
     };
     res.status(err.statusCode).json(body);
     return;

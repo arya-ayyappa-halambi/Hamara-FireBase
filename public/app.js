@@ -366,12 +366,77 @@ function setupAuthHandlers() {
         body: JSON.stringify({ email, password }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json.message);
+
+      if (!res.ok || !json.success) {
+        if (json.data && json.data.mfaRequired) {
+          state.pendingMfa = { email, password };
+          document.getElementById('mfaModal')?.classList.remove('hidden');
+          return;
+        }
+        throw new Error(json.message);
+      }
 
       setAuthState(json.data);
       showToast(`Welcome back, ${json.data.user.name}!`, 'success');
     } catch (err) {
       showToast(`Login Error: ${err.message}`, 'error');
+    }
+  });
+
+  // TOTP MFA Login Verification Handler
+  document.getElementById('mfaLoginForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!state.pendingMfa) return;
+    const totpCode = document.getElementById('mfaOtpCode').value;
+
+    try {
+      const res = await fetch(`${state.baseUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: state.pendingMfa.email, password: state.pendingMfa.password, totpCode }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message);
+
+      document.getElementById('mfaModal')?.classList.add('hidden');
+      state.pendingMfa = null;
+      setAuthState(json.data);
+      showToast(`MFA Verified! Welcome back, ${json.data.user.name}!`, 'success');
+    } catch (err) {
+      showToast(`MFA Verification Failed: ${err.message}`, 'error');
+    }
+  });
+
+  document.getElementById('cancelMfaBtn')?.addEventListener('click', () => {
+    document.getElementById('mfaModal')?.classList.add('hidden');
+    state.pendingMfa = null;
+  });
+
+  // TOTP MFA Setup & Enable Handlers
+  document.getElementById('setupMfaBtn')?.addEventListener('click', async () => {
+    try {
+      const res = await apiRequest('POST', '/api/v1/auth/mfa/setup');
+      document.getElementById('mfaSecretText').textContent = `Base32 Secret: ${res.secret}`;
+      document.getElementById('mfaOtpUrlText').textContent = res.otpAuthUrl;
+      document.getElementById('mfaSetupModal')?.classList.remove('hidden');
+    } catch (err) {
+      showToast(`MFA Setup Error: ${err.message}`, 'error');
+    }
+  });
+
+  document.getElementById('closeMfaSetupBtn')?.addEventListener('click', () => {
+    document.getElementById('mfaSetupModal')?.classList.add('hidden');
+  });
+
+  document.getElementById('mfaVerifyForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const totpCode = document.getElementById('mfaSetupCode').value;
+    try {
+      await apiRequest('POST', '/api/v1/auth/mfa/verify', { totpCode });
+      document.getElementById('mfaSetupModal')?.classList.add('hidden');
+      showToast('🎉 TOTP MFA successfully activated for your account!', 'success');
+    } catch (err) {
+      showToast(`MFA Enable Failed: ${err.message}`, 'error');
     }
   });
 

@@ -151,8 +151,8 @@ export async function registerUser(dto: RegisterDto): Promise<AuthResponseData> 
 }
 
 /** Authenticate an existing user and issue both access JWT & refresh token. */
-export async function loginUser(dto: LoginDto): Promise<AuthResponseData> {
-  const { email, password } = dto;
+export async function loginUser(dto: LoginDto & { totpCode?: string }): Promise<AuthResponseData> {
+  const { email, password, totpCode } = dto;
 
   const DUMMY_HASH =
     '$argon2id$v=19$m=65536,t=3,p=4$dummysaltdummysalt$dummyhashvalueplaceholderXXXX';
@@ -166,10 +166,50 @@ export async function loginUser(dto: LoginDto): Promise<AuthResponseData> {
     throw new AppError('Invalid email or password.', 401);
   }
 
+  // TOTP Multi-Factor Authentication Check
+  if (user.mfaEnabled === 1) {
+    if (!totpCode || !user.mfaSecret) {
+      throw new AppError('MFA verification required. Please provide a 6-digit TOTP code.', 403, { mfaRequired: true, email: user.email });
+    }
+    const { totpService } = await import('../services/totp.service');
+    const isValidTotp = totpService.verifyCode(user.mfaSecret, totpCode);
+    if (!isValidTotp) {
+      throw new AppError('Invalid TOTP verification code.', 401, { mfaRequired: true });
+    }
+  }
+
   const token = generateToken(user);
   const refreshToken = await issueRefreshToken(user.id);
 
   return { user: toPublicUser(user), token, refreshToken };
+}
+
+export async function setupMfa(userId: string): Promise<{ secret: string; otpAuthUrl: string }> {
+  const db = getDb();
+  const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found.', 404);
+
+  const { totpService } = await import('../services/totp.service');
+  const secret = totpService.generateSecret();
+  const otpAuthUrl = totpService.generateOtpAuthUrl(user.email, secret);
+
+  // Store temporary unconfirmed secret
+  db.prepare('UPDATE users SET mfaSecret = ? WHERE id = ?').run(secret, userId);
+
+  return { secret, otpAuthUrl };
+}
+
+export async function verifyAndEnableMfa(userId: string, totpCode: string): Promise<boolean> {
+  const db = getDb();
+  const user = db.prepare('SELECT id, email, mfaSecret FROM users WHERE id = ?').get(userId) as any;
+  if (!user || !user.mfaSecret) throw new AppError('MFA setup not initiated.', 400);
+
+  const { totpService } = await import('../services/totp.service');
+  const isValid = totpService.verifyCode(user.mfaSecret, totpCode);
+  if (!isValid) throw new AppError('Invalid TOTP code provided.', 400);
+
+  db.prepare('UPDATE users SET mfaEnabled = 1, updatedAt = ? WHERE id = ?').run(new Date().toISOString(), userId);
+  return true;
 }
 
 /**

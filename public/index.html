@@ -192,6 +192,11 @@
               <i class="fa-solid fa-chart-line w-4 text-center text-emerald-400"></i>
               <span>Realtime Analytics</span>
             </button>
+
+            <button data-tab="about" class="nav-tab w-full text-left px-2 py-1.5 rounded flex items-center space-x-3 text-sm text-slate-300 hover:bg-[#282828] transition">
+              <i class="fa-solid fa-circle-info w-4 text-center text-cyan-400"></i>
+              <span>About AegisDB</span>
+            </button>
           </div>
         </div>
 
@@ -757,6 +762,114 @@
         <div class="flex items-center justify-end space-x-3 mt-6">
           <button id="oauthModalCancelBtn" class="text-sm text-slate-400 hover:text-white transition px-4 py-2">Cancel</button>
           <button id="oauthModalSaveBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded text-sm transition">Save & Enable</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: ABOUT AEGISDB FEATURES -->
+    <div id="tab-about" class="tab-content hidden p-8">
+      <div class="max-w-5xl mx-auto space-y-8">
+        <div>
+          <h1 class="text-3xl font-light text-white mb-2 flex items-center space-x-3"><i class="fa-solid fa-shield-halved text-cyan-400"></i><span>About AegisDB Architecture & Features</span></h1>
+          <p class="text-slate-400 text-sm">Enterprise-grade Firebase-like BaaS platform built on SQLite, RS256 JWKS, and Envelope Encryption.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Feature 1: Asymmetric RS256 JWKS -->
+          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-cyan-500/50 transition shadow-xl">
+            <div class="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-800 flex items-center justify-center text-cyan-400 text-lg">
+              <i class="fa-solid fa-key"></i>
+            </div>
+            <h3 class="text-base font-semibold text-white">RS256 JWKS Validation</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Asymmetric RSA 2048-bit token signing. Serves dynamic public keys via standard <code class="text-cyan-300">/.well-known/jwks.json</code> for client verification.</p>
+          </div>
+
+          <!-- Feature 2: Envelope Encryption -->
+          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-purple-500/50 transition shadow-xl">
+            <div class="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-800 flex items-center justify-center text-purple-400 text-lg">
+              <i class="fa-solid fa-lock"></i>
+            </div>
+            <h3 class="text-base font-semibold text-white">Two-Tier Envelope Encryption</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Master KEK derived via HKDF-SHA256 wraps 256-bit per-project DEKs. AES-256-GCM field encryption with background key rotation.</p>
+          </div>
+
+          <!-- Feature 3: Litestream Continuous S3 WAL Backup -->
+          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-blue-500/50 transition shadow-xl">
+            <div class="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800 flex items-center justify-center text-blue-400 text-lg">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <h3 class="text-base font-semibold text-white">Litestream S3 WAL Backup</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">1-second continuous WAL replication to AWS S3 / MinIO object storage enabling zero-data-loss Point-in-Time Recovery (PITR).</p>
+          </div>
+
+          <!-- Feature 4: Failed Login Lockout Policy -->
+          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-red-500/50 transition shadow-xl">
+            <div class="w-10 h-10 rounded-lg bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400 text-lg">
+              <i class="fa-solid fa-user-lock"></i>
+            </div>
+            <h3 class="text-base font-semibold text-white">15-Min Lockout Policy</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Tracks 5 consecutive failed login attempts per IP:email and enforces an automatic 15-minute HTTP 429 lockout window.</p>
+          </div>
+
+          <!-- Feature 5: Multi-Driver Storage Engine -->
+          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-amber-500/50 transition shadow-xl">
+            <div class="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800 flex items-center justify-center text-amber-400 text-lg">
+              <i class="fa-solid fa-server"></i>
+            </div>
+            <h3 class="text-base font-semibold text-white">Multi-Driver Storage Engine</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Abstracted storage driver interface allowing dynamic switching between Local Disk and AWS S3 / Cloudflare R2 object storage.</p>
+          </div>
+
+          <!-- Feature 6: Prometheus Telemetry Engine -->
+          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-emerald-500/50 transition shadow-xl">
+            <div class="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800 flex items-center justify-center text-emerald-400 text-lg">
+              <i class="fa-solid fa-chart-simple"></i>
+            </div>
+            <h3 class="text-base font-semibold text-white">Prometheus Metrics (/metrics)</h3>
+            <p class="text-xs text-slate-400 leading-relaxed">Standard Prometheus exposition format collecting CPU, heap, database latency, active WebSockets, and HTTP request metrics.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOTP MFA Verification Modal (Prompted during login if MFA enabled) -->
+    <div id="mfaModal" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 hidden">
+      <div class="bg-darkcard border border-darkborder rounded-xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
+        <div class="text-center space-y-2">
+          <i class="fa-solid fa-shield-halved text-brand-400 text-4xl"></i>
+          <h3 class="text-xl font-bold text-white">Two-Factor Authentication</h3>
+          <p class="text-xs text-slate-400">Enter the 6-digit code from your authenticator app (Google Authenticator, Authy, etc.).</p>
+        </div>
+        <form id="mfaLoginForm" class="space-y-4">
+          <div>
+            <input type="text" id="mfaOtpCode" maxlength="6" pattern="[0-9]{6}" required placeholder="000000" class="w-full text-center tracking-[0.5em] text-2xl font-mono bg-[#1e1e1e] border border-darkborder rounded p-3 text-white focus:border-brand-500 focus:outline-none">
+          </div>
+          <div class="flex space-x-3">
+            <button type="button" id="cancelMfaBtn" class="flex-1 bg-[#1e1e1e] hover:bg-[#3c3c3c] text-slate-300 font-medium py-2 rounded text-xs">Cancel</button>
+            <button type="submit" class="flex-1 bg-brand-500 hover:bg-brand-600 text-darkbg font-bold py-2 rounded text-xs">Verify Code</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- TOTP Setup Modal -->
+    <div id="mfaSetupModal" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 hidden">
+      <div class="bg-darkcard border border-darkborder rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div class="flex justify-between items-center border-b border-darkborder pb-3">
+          <h3 class="text-lg font-bold text-white flex items-center space-x-2"><i class="fa-solid fa-shield-halved text-brand-400"></i><span>Enable TOTP MFA</span></h3>
+          <button id="closeMfaSetupBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="space-y-3 text-xs text-slate-300">
+          <p>1. Copy the secret key or URI into your Authenticator App (Google Authenticator, Authy, 1Password):</p>
+          <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder space-y-2">
+            <p class="text-[11px] text-slate-400 font-mono select-all break-all" id="mfaSecretText">Secret Key Loading...</p>
+            <p class="text-[10px] text-blue-400 font-mono select-all break-all" id="mfaOtpUrlText">otpauth://totp/...</p>
+          </div>
+          <p>2. Enter the 6-digit code from your app to verify and activate TOTP MFA:</p>
+          <form id="mfaVerifyForm" class="space-y-3">
+            <input type="text" id="mfaSetupCode" maxlength="6" pattern="[0-9]{6}" required placeholder="123456" class="w-full text-center tracking-[0.4em] text-xl font-mono bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-white focus:border-brand-500 focus:outline-none">
+            <button type="submit" class="w-full bg-brand-500 hover:bg-brand-600 text-darkbg font-bold py-2.5 rounded text-xs transition">Confirm & Enable TOTP MFA</button>
+          </form>
         </div>
       </div>
     </div>

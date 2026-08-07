@@ -51,6 +51,8 @@ export interface User {
   name: string;
   passwordHash: string;
   isSuperAdmin?: boolean;
+  mfaEnabled?: number;
+  mfaSecret?: string;
   createdAt: Date;
   updatedAt: Date;
   apiLimit?: number;
@@ -120,12 +122,14 @@ export interface AuthResponseData {
 export class AppError extends Error {
   public readonly statusCode: number;
   public readonly isOperational: boolean;
+  public readonly details?: any;
 
-  constructor(message: string, statusCode: number) {
+  constructor(message: string, statusCode: number, details?: any) {
     super(message);
     this.name = 'AppError';
     this.statusCode = statusCode;
     this.isOperational = true; // distinguishes known errors from unexpected bugs
+    this.details = details;
 
     // Maintains proper stack trace in V8
     Error.captureStackTrace(this, this.constructor);

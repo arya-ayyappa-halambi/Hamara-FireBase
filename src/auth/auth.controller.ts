@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, refreshAccessToken, logoutUser } from './auth.service';
+import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa } from './auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData, AppError } from '../types/auth.types';
 import { failedLoginService } from '../services/failed-login-limiter.service';
 
@@ -52,9 +52,10 @@ export async function login(
   const email = req.body?.email || '';
 
   try {
-    const dto: LoginDto = {
+    const dto: LoginDto & { totpCode?: string } = {
       email:    req.body.email,
       password: req.body.password,
+      totpCode: req.body.totpCode,
     };
 
     const data = await loginUser(dto);
@@ -139,4 +140,37 @@ export async function logout(
   } catch (err) {
     next(err);
   }
+}
+
+// ── MFA Setup & Verify Handlers ───────────────────────────────────────────────
+
+export async function setupMfaController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const data = await setupMfa(userId);
+    res.status(200).json({
+      success: true,
+      message: 'MFA setup initialized.',
+      data
+    });
+  } catch (err) { next(err); }
+}
+
+export async function verifyMfaController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { totpCode } = req.body;
+    if (!totpCode) throw new AppError('TOTP code is required.', 400);
+
+    await verifyAndEnableMfa(userId, totpCode);
+    res.status(200).json({
+      success: true,
+      message: 'MFA successfully enabled for account.',
+      data: { mfaEnabled: true }
+    });
+  } catch (err) { next(err); }
 }

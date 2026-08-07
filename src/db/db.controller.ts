@@ -131,7 +131,7 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   } else if (rule === false) {
     allowed = false;
   } else if (typeof rule === 'string') {
-    const auth = (req as any).projectUser || { role: 'anonymous' };
+    const auth = (req as any).projectUser || null;
     const data = req.body?.data || null;
     let resource: any = null;
     if (req.params.id) {

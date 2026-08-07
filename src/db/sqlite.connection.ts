@@ -296,6 +296,12 @@ export function initSqlite(): void {
     db.exec(`ALTER TABLE project_users ADD COLUMN customClaims TEXT;`);
   } catch {}
 
+  // Migrate users & project_users for TOTP MFA support
+  try { db.exec(`ALTER TABLE users ADD COLUMN mfaEnabled INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE users ADD COLUMN mfaSecret TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE project_users ADD COLUMN mfaEnabled INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE project_users ADD COLUMN mfaSecret TEXT;`); } catch {}
+
   // Migrate documents to add version column
   try {
     db.exec(`ALTER TABLE documents ADD COLUMN version INTEGER NOT NULL DEFAULT 1;`);

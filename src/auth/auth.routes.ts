@@ -10,9 +10,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { register, login, refresh, logout } from './auth.controller';
+import { register, login, refresh, logout, setupMfaController, verifyMfaController } from './auth.controller';
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
+import { authenticateJwt } from '../middleware/auth.middleware';
 
 const router = Router();
 
@@ -44,5 +45,9 @@ router.post(
   validateBody(refreshTokenSchema),
   logout,
 );
+
+// ── TOTP MFA Routes ───────────────────────────────────────────────────────────
+router.post('/mfa/setup', authenticateJwt, setupMfaController);
+router.post('/mfa/verify', authenticateJwt, verifyMfaController);
 
 export default router;
