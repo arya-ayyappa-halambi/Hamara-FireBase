@@ -31,6 +31,8 @@ import { initSqlite } from './db/sqlite.connection';
 
 import { wsService } from './realtime/websocket.service';
 import { replicationService } from './services/replication.service';
+import jwksRouter from './routes/jwks.routes';
+import { securityHeaders, dynamicCors } from './middleware/security.middleware';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -60,12 +62,9 @@ function validateEnv(): void {
 function createApp(): Application {
   const app = express();
 
-  // ── Global Middleware ────────────────────────────────────────────────────
-  app.use(cors({
-    origin: process.env.CORS_ORIGIN ?? '*',
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-aegis-api-key', 'x-aegis-project-id'],
-  }));
+  // ── Global Security & CORS Middleware ────────────────────────────────────
+  app.use(securityHeaders);
+  app.use(dynamicCors);
 
   app.use(express.json({ limit: '50mb' }));   // Increased cap to allow large high-res image uploads
   app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -80,6 +79,9 @@ function createApp(): Application {
 
   // ── Static Files (Web Dashboard) ───────────────────────────────────────────
   app.use(express.static('public'));
+
+  // ── Public Well-Known Endpoints (JWKS) ────────────────────────────────────
+  app.use('/', jwksRouter);
 
   // ── Health Check ─────────────────────────────────────────────────────────
   app.get('/health', (_req: Request, res: Response) => {

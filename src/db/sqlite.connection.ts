@@ -153,6 +153,17 @@ export function initSqlite(): void {
 
     CREATE INDEX IF NOT EXISTS idx_docs_owner_proj_coll ON documents(ownerId, projectId, collectionName);
 
+    -- Project Encryption Keys Table (Envelope Encryption DEK/KEK)
+    CREATE TABLE IF NOT EXISTS project_keys (
+      projectId TEXT PRIMARY KEY,
+      dekEncrypted TEXT NOT NULL,
+      dekIv TEXT NOT NULL,
+      dekTag TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE
+    );
+
     -- 5. Assets Table (Biometric storage)
     CREATE TABLE IF NOT EXISTS assets (
       id TEXT PRIMARY KEY,

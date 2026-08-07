@@ -1,0 +1,15 @@
+# AegisDB Litestream Configuration
+access-key-id: ${AWS_ACCESS_KEY_ID}
+secret-access-key: ${AWS_SECRET_ACCESS_KEY}
+
+dbs:
+  - path: /data/aegis.db
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_S3_BUCKET}
+        path: aegis-db-backups
+        region: ${AWS_REGION:-us-east-1}
+        endpoint: ${S3_ENDPOINT_URL:-}
+        sync-interval: 1s
+        snapshot-interval: 1h
+        retention: 72h
