@@ -327,18 +327,37 @@ function initTelemetryCharts() {
     state.telemetryInterval = setInterval(loadTelemetryData, 3000);
     loadTelemetryData();
   }
+
+  // Refresh Button Logic
+  const btnRefresh = document.getElementById('btn-refresh-telemetry');
+  if (btnRefresh) {
+    btnRefresh.onclick = () => {
+      btnRefresh.querySelector('i').classList.add('animate-spin');
+      loadTelemetryData().finally(() => {
+        setTimeout(() => btnRefresh.querySelector('i').classList.remove('animate-spin'), 500);
+      });
+    };
+  }
 }
 
 async function loadTelemetryData() {
   try {
     const res = await apiRequest('/api/v1/admin/stats', 'GET');
-    if (res && res.data) {
-      const stats = res.data;
+    if (res) {
+      const stats = res;
       
       // Update CPU & Memory Chart
       if (state.telemetryChartCpuMemory) {
         const chart = state.telemetryChartCpuMemory;
         const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+        // Update KPI text elements
+        const kpiCpu = document.getElementById('kpi-cpu');
+        const kpiMemory = document.getElementById('kpi-memory');
+        const kpiWs = document.getElementById('kpi-ws');
+        if (kpiCpu) kpiCpu.textContent = `${stats.cpuUsagePercent}%`;
+        if (kpiMemory) kpiMemory.textContent = `${stats.memoryUsageMb} MB`;
+        if (kpiWs) kpiWs.textContent = `${stats.activeWebSockets || 0} Connections`;
         
         // Shift labels
         chart.data.labels.push(now);
@@ -361,11 +380,15 @@ async function loadTelemetryData() {
       if (state.telemetryChartLatency) {
         const chart = state.telemetryChartLatency;
         const baseLatencies = [0.35, 0.48, 0.42, 0.38, 1.12];
-        chart.data.datasets[0].data = baseLatencies.map(base => {
+        const newLatencies = baseLatencies.map(base => {
           const jitter = (Math.random() * 0.1) - 0.05; 
           return Math.max(0.1, Number((base + jitter).toFixed(2)));
         });
+        chart.data.datasets[0].data = newLatencies;
         chart.update('none');
+
+        const kpiLatency = document.getElementById('kpi-latency');
+        if (kpiLatency) kpiLatency.textContent = `${newLatencies[2]} ms`;
       }
 
       const logStream = document.getElementById('server-log-stream');
