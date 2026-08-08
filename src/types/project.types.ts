@@ -38,6 +38,7 @@ export interface AdminSystemStats {
   totalDeployments: number;
   memoryUsageMb: number;
   uptimeSeconds: number;
+  cpuUsagePercent?: number;
 }
 
 export interface UpdateRateLimitDto {

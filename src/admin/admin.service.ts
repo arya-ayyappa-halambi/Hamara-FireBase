@@ -7,8 +7,24 @@ import { getDb } from '../db/sqlite.connection';
 import { rateLimitConfig } from '../middleware/rateLimit.middleware';
 import { AdminSystemStats, UpdateRateLimitDto } from '../types/project.types';
 import { userStore } from '../store/user.store';
+import os from 'os';
 
 export class AdminService {
+  private lastCpu = this.getCpuUsage();
+
+  private getCpuUsage() {
+    const cpus = os.cpus();
+    let idle = 0;
+    let total = 0;
+    for (const cpu of cpus) {
+      for (const type in cpu.times) {
+        total += (cpu.times as any)[type];
+      }
+      idle += cpu.times.idle;
+    }
+    return { idle, total };
+  }
+
   async getUsers() {
     return userStore.getAllUsers();
   }
@@ -33,6 +49,12 @@ export class AdminService {
     const memoryUsageMb = Math.round((mem.heapUsed / 1024 / 1024) * 100) / 100;
     const uptimeSeconds = Math.round(process.uptime());
 
+    const currentCpu = this.getCpuUsage();
+    const idleDiff = currentCpu.idle - this.lastCpu.idle;
+    const totalDiff = currentCpu.total - this.lastCpu.total;
+    const cpuUsagePercent = totalDiff === 0 ? 0 : 100 - (100 * idleDiff) / totalDiff;
+    this.lastCpu = currentCpu;
+
     return {
       totalUsers: usersCount,
       totalProjects: projectsCount,
@@ -42,6 +64,7 @@ export class AdminService {
       totalDeployments: deploymentsCount,
       memoryUsageMb,
       uptimeSeconds,
+      cpuUsagePercent: Number(cpuUsagePercent.toFixed(1)),
     };
   }
 
@@ -80,6 +103,18 @@ export class AdminService {
     }
     // CASCADE in the schema handles projects, collections, documents, etc.
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+  }
+
+  /**
+   * Reset MFA for a user (admin operation). Clears the TOTP secret and disables MFA.
+   */
+  resetUserMfa(userId: string): void {
+    const db = getDb();
+    const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId) as any;
+    if (!user) {
+      throw new Error('User not found.');
+    }
+    db.prepare('UPDATE users SET mfaEnabled = 0, mfaSecret = NULL WHERE id = ?').run(userId);
   }
 }
 

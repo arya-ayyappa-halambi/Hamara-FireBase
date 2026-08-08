@@ -10,7 +10,8 @@ import {
   updateAuthConfig,
   listWebhooks,
   registerWebhook,
-  deleteWebhook
+  deleteWebhook,
+  rotateApiKey
 } from './project.controller';
 
 const router = Router();
@@ -22,6 +23,7 @@ router.post('/', createProject);
 router.get('/', listProjects);
 router.patch('/:id', updateProject);
 router.delete('/:id', deleteProject);
+router.post('/:id/rotate-keys', rotateApiKey);
 router.get('/:id/auth-config', getAuthConfig);
 router.patch('/:id/auth-config', updateAuthConfig);
 

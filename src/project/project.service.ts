@@ -49,7 +49,7 @@ export class ProjectService {
    */
   listProjects(ownerId: string): ProjectStats[] {
     const db = getDb();
-    const rows = db.prepare(`
+    const sql = `
       SELECT p.*,
         (SELECT COUNT(*) FROM collections c WHERE c.ownerId = p.ownerId AND (c.projectId = p.id OR c.projectId IS NULL)) as collectionCount,
         (SELECT COUNT(*) FROM documents d WHERE d.ownerId = p.ownerId AND (d.projectId = p.id OR d.projectId IS NULL)) as documentCount,
@@ -58,7 +58,9 @@ export class ProjectService {
       FROM projects p
       WHERE p.ownerId = ?
       ORDER BY p.createdAt DESC
-    `).all(ownerId) as any[];
+    `;
+
+    const rows = db.prepare(sql).all(ownerId) as any[];
 
     return rows.map((r) => ({
       id: r.id,
@@ -193,6 +195,28 @@ export class ProjectService {
     if (!proj) {
       throw new AppError('Access denied: Project not found or you do not own this project.', 403);
     }
+  }
+
+  /**
+   * Rotate a project's API and Service Keys.
+   */
+  rotateProjectKeys(ownerId: string, projectId: string): { rawApiKey: string, rawServiceKey: string } {
+    const db = getDb();
+    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
+    if (!proj) {
+      throw new AppError(`Project "${projectId}" not found.`, 404);
+    }
+
+    const keys = generateProjectKeys();
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE projects 
+      SET apiKeyHash = ?, serviceKeyHash = ?, updatedAt = ?
+      WHERE id = ? AND ownerId = ?
+    `).run(keys.anonKeyHash, keys.serviceKeyHash, now, projectId, ownerId);
+
+    return { rawApiKey: keys.anonKey, rawServiceKey: keys.serviceKey };
   }
 }
 

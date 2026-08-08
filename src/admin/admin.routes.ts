@@ -7,6 +7,7 @@ import {
   updateRateLimits,
   updateUserLimits,
   deleteUser,
+  resetUserMfa,
   getSecurityAdvisorReport,
   getAuditLogs,
   listBackups,
@@ -24,6 +25,7 @@ router.get('/stats', getStats);
 router.get('/users', getUsers);
 router.patch('/users/:id/limits', updateUserLimits);
 router.delete('/users/:id', deleteUser);
+router.post('/users/:id/reset-mfa', resetUserMfa);
 router.patch('/rate-limits', updateRateLimits);
 router.get('/security-advisor', getSecurityAdvisorReport);
 router.get('/audit-logs', getAuditLogs);

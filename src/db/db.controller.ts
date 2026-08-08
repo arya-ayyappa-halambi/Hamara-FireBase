@@ -46,9 +46,18 @@ function getProjectId(req: Request): string {
     return projectId;
   }
 
-  // 3. If it's a platform user, ensure they own the project they are trying to access.
+  // 3. If it's a super admin user, allow access to any project.
   const ownerId = getOwnerId(req);
   const db = getDb();
+
+  if (user?.isSuperAdmin === true) {
+    const proj = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+    if (!proj) {
+      throw new AppError('Access denied: Project not found.', 404);
+    }
+    return projectId;
+  }
+
   const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
   if (!proj) {
     throw new AppError('Access denied: Project not found or you do not have permission to access it.', 403);

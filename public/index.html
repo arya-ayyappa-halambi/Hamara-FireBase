@@ -3,1091 +3,1501 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AegisDB Console</title>
+  <title>AegisDB — Enterprise Glassmorphic Console</title>
+
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
-      safelist: [
-        'bg-[#282828]', 'border-[#3c3c3c]', 'text-blue-400',
-        'bg-emerald-950/80', 'border-emerald-800', 'text-emerald-100', 'text-emerald-400',
-        'bg-red-950/80', 'border-red-800', 'text-red-100', 'text-red-400',
-        'bg-amber-950/80', 'border-amber-800', 'text-amber-100', 'text-amber-400',
-        'toast-enter', 'toast-exit'
-      ],
       theme: {
         extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+          },
           colors: {
             brand: {
-              400: '#ffca28', // Firebase Yellow
-              500: '#ffa000',
-              600: '#f57c00', // Firebase Orange
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
             },
-            darkbg: '#1e1e1e',     // Firebase Main BG
-            darkcard: '#282828',   // Firebase Card BG
-            darkborder: '#3c3c3c', // Firebase Border
+            glass: {
+              bg: 'rgba(15, 23, 42, 0.65)',
+              border: 'rgba(255, 255, 255, 0.08)',
+              hover: 'rgba(255, 255, 255, 0.12)',
+            }
           }
         }
       }
     }
   </script>
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
   <!-- FontAwesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js CDN for Prometheus Telemetry Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Highlight.js for Code Snippets & Syntax Highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
   <style>
+    /* Custom Glassmorphism & Micro-Interactions */
+    body {
+      background-color: #090d16;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.12) 0px, transparent 50%);
+      background-attachment: fixed;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-input {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+      transition: all 0.2s ease;
+    }
+
+    .glass-input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+      outline: none;
+    }
+
     .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: #1e1e1e; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #3c3c3c; border-radius: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: rgba(9, 13, 22, 0.8); }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(99, 102, 241, 0.5); }
+
     .toast-enter { animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     .toast-exit { animation: slideOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
     @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes slideOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
+
+    /* Mac-Style Sidebar Transitions */
+    .sidebar-collapsed { width: 4.5rem; }
+    .sidebar-collapsed .nav-text { display: none; }
+    .sidebar-collapsed .sidebar-header-title { display: none; }
+    .sidebar-collapsed:hover { width: 16rem; }
+    .sidebar-collapsed:hover .nav-text { display: inline; }
+    .sidebar-collapsed:hover .sidebar-header-title { display: block; }
+
+    .live-pulse {
+      animation: pulseGlow 2s infinite;
+    }
+    @keyframes pulseGlow {
+      0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+    }
   </style>
 </head>
-<body class="bg-darkbg text-slate-200 min-h-screen font-sans flex flex-col custom-scrollbar overflow-x-hidden relative">
+<body class="text-slate-100 min-h-screen flex flex-col custom-scrollbar overflow-x-hidden antialiased select-none">
 
   <!-- ========================================== -->
-  <!-- AUTH SCREEN (Shown if not logged in)       -->
+  <!-- AUTHENTICATION SCREEN                      -->
   <!-- ========================================== -->
-  <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-darkbg">
-    <div class="w-full max-w-md space-y-8 relative">
-      <div class="text-center space-y-2">
-        <i class="fa-solid fa-fire text-brand-500 text-5xl"></i>
-        <h1 class="text-3xl font-bold tracking-tight text-white mt-4">AegisDB</h1>
-        <p class="text-sm text-slate-400">Welcome to the AegisDB Console</p>
+  <div id="auth-screen" class="fixed inset-0 z-50 flex items-center justify-center p-6 bg-[#090d16]">
+    <div class="w-full max-w-md space-y-6 relative">
+      <!-- Glow background -->
+      <div class="absolute -top-12 -left-12 w-48 h-48 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-12 -right-12 w-48 h-48 bg-purple-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="text-center space-y-2 relative z-10">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-violet-500 text-white shadow-xl shadow-indigo-500/20 mb-2">
+          <i class="fa-solid fa-shield-halved text-3xl"></i>
+        </div>
+        <h1 class="text-3xl font-extrabold tracking-tight text-white">AegisDB</h1>
+        <p class="text-sm text-slate-400">Enterprise High-Performance Database Engine</p>
       </div>
 
-      <div class="bg-darkcard rounded-xl p-8 space-y-6 shadow-2xl relative border border-darkborder">
-        <!-- Auth Tabs (Login / Register toggle) -->
-        <div class="flex p-1 bg-[#1e1e1e] rounded-lg relative z-10 border border-darkborder">
-          <button id="authLoginTabBtn" class="flex-1 py-2 text-sm font-medium rounded text-brand-400 bg-[#3c3c3c] shadow transition-all duration-200">Login</button>
-          <button id="authRegisterTabBtn" class="flex-1 py-2 text-sm font-medium rounded text-slate-400 hover:text-slate-200 transition-all duration-200">Register</button>
+      <div class="glass-panel rounded-2xl p-8 space-y-6 relative z-10 border border-white/10">
+        <div class="flex border-b border-white/10 pb-4 mb-4">
+          <button id="tab-btn-login" class="flex-1 text-center py-2 font-medium text-white border-b-2 border-indigo-500 transition">Sign In</button>
+          <button id="tab-btn-register" class="flex-1 text-center py-2 font-medium text-slate-400 border-b-2 border-transparent hover:text-white transition">Register Account</button>
         </div>
 
-        <!-- Login Form -->
-        <form id="loginForm" class="space-y-4 relative z-10">
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Email Address</label>
-            <input type="email" id="loginEmail" required placeholder="alice@aegis.dev" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-sm text-white focus:border-brand-500 focus:outline-none transition-all">
+        <form id="auth-form" class="space-y-4">
+          <div id="field-name" class="space-y-1 hidden">
+            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Full Name</label>
+            <input type="text" id="input-name" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" placeholder="Alice Smith">
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Password</label>
-            <input type="password" id="loginPassword" required placeholder="••••••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-sm text-white focus:border-brand-500 focus:outline-none transition-all">
-          </div>
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded transition-all flex justify-center items-center mt-2">
-            <span>Sign In</span>
-          </button>
-          
-          <div class="mt-4 text-center">
-            <button type="button" id="demoCredsBtn" class="text-xs text-slate-400 hover:text-white underline transition">
-              Use Demo Admin Credentials
-            </button>
-          </div>
-        </form>
 
-        <!-- Register Form -->
-        <form id="registerForm" class="space-y-4 relative z-10 hidden">
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Full Name</label>
-            <input type="text" id="regName" required placeholder="Alice Smith" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-sm text-white focus:border-brand-500 focus:outline-none transition-all">
+          <div class="space-y-1">
+            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Email Address</label>
+            <input type="email" id="input-email" required class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" placeholder="admin@aegisdb.dev">
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Email Address</label>
-            <input type="email" id="regEmail" required placeholder="alice@aegis.dev" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-sm text-white focus:border-brand-500 focus:outline-none transition-all">
+
+          <div class="space-y-1">
+            <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Password</label>
+            <input type="password" id="input-password" required class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" placeholder="••••••••••••">
           </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1.5 ml-1">Password</label>
-            <input type="password" id="regPassword" required placeholder="••••••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-sm text-white focus:border-brand-500 focus:outline-none transition-all">
+
+          <div id="field-totp" class="space-y-1 hidden">
+            <label class="text-xs font-semibold uppercase tracking-wider text-indigo-400 flex items-center space-x-1">
+              <i class="fa-solid fa-key"></i>
+              <span>6-Digit TOTP Code (MFA Enabled)</span>
+            </label>
+            <input type="text" id="input-totp" maxlength="6" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-mono tracking-widest text-center" placeholder="123456">
           </div>
-          <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded transition-all flex justify-center items-center mt-2">
-            <span>Create Account</span>
+
+          <button type="submit" id="btn-auth-submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition active:scale-[0.98] flex items-center justify-center space-x-2">
+            <span>Sign In to Console</span>
+            <i class="fa-solid fa-arrow-right text-xs"></i>
+          </button>
+
+          <div class="relative flex py-1 items-center">
+            <div class="flex-grow border-t border-white/10"></div>
+            <span class="flex-shrink mx-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Or Quick Demo</span>
+            <div class="flex-grow border-t border-white/10"></div>
+          </div>
+
+          <button type="button" id="btn-demo-admin-login" class="w-full py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium text-xs transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-crown text-amber-400"></i>
+            <span>Fill Demo Admin (`admin@aegisdb.dev`)</span>
           </button>
         </form>
       </div>
     </div>
   </div>
 
-
   <!-- ========================================== -->
-  <!-- MAIN DASHBOARD (Shown if logged in)        -->
+  <!-- MAIN APPLICATION DASHBOARD                 -->
   <!-- ========================================== -->
-  <div id="app-dashboard" class="flex-1 flex flex-col hidden h-screen overflow-hidden">
-    <!-- Top Navigation Header -->
-    <header class="bg-[#1e1e1e] h-12 flex items-center justify-between px-4 border-b border-darkborder shrink-0">
-      <div class="flex items-center space-x-3">
-        <!-- ☰ Sidebar Toggle Button -->
-        <button id="sidebarToggleBtn" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-[#282828] transition focus:outline-none" title="Toggle Sidebar (☰)">
-          <i class="fa-solid fa-bars text-base"></i>
+  <div id="main-app" class="hidden flex-1 flex flex-col min-h-screen">
+    
+    <!-- ── TOP HEADER BAR ────────────────────────────────────────────────── -->
+    <header class="h-16 border-b border-white/10 glass-panel sticky top-0 z-40 px-6 flex items-center justify-between">
+      <div class="flex items-center space-x-4">
+        <!-- Mac Sidebar Toggle -->
+        <button id="btn-toggle-sidebar" title="Toggle Sidebar (Mac Style)" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
+          <i class="fa-solid fa-bars text-lg"></i>
         </button>
 
-        <!-- Logo -->
-        <div class="flex items-center space-x-2">
-          <i class="fa-solid fa-fire text-brand-500 text-lg"></i>
-          <span class="text-white font-medium text-[15px]">AegisDB</span>
-        </div>
-        
-        <!-- Global Project Selector -->
-        <div class="relative ml-4 flex items-center bg-[#282828] border border-darkborder rounded px-3 py-1 text-sm text-slate-300 min-w-[200px] cursor-pointer hover:bg-[#3c3c3c]" id="projectSelectorDropdownBtn">
-          <span id="globalActiveProjectName">Select a Project...</span>
-          <i class="fa-solid fa-chevron-down ml-auto text-[10px]"></i>
-          
-          <!-- Dropdown list -->
-          <div id="projectSelectorDropdown" class="hidden absolute top-full left-0 mt-1 w-64 bg-[#282828] border border-darkborder rounded shadow-xl z-50 py-1">
-             <div class="px-3 py-2 border-b border-darkborder">
-               <input type="text" placeholder="Search projects" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-2 py-1 text-xs text-white focus:outline-none">
-             </div>
-             <div id="globalProjectsList" class="max-h-48 overflow-y-auto">
-               <!-- injected by JS -->
-             </div>
+        <!-- Brand Logo -->
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
+            <i class="fa-solid fa-shield-halved"></i>
           </div>
-        </div>
-      </div>
-
-      <!-- Right Controls: Connection & Active User -->
-      <div class="flex items-center space-x-4 text-xs">
-        <div id="wsStatusBadge" class="flex items-center space-x-1.5">
-          <span id="wsStatusDot" class="w-2 h-2 rounded-full bg-slate-500"></span>
-          <span id="wsStatusText" class="text-slate-400 hidden sm:inline">WS Disconnected</span>
+          <span class="font-bold text-lg tracking-tight text-white hidden sm:inline">AegisDB</span>
         </div>
 
-        <!-- User Profile Avatar -->
-        <div class="w-8 h-8 rounded-full bg-pink-600 flex items-center justify-center text-white font-bold text-sm cursor-pointer" id="userBadge" title="Profile">
-          <span id="userInitial">U</span>
-        </div>
-        <button id="logoutBtn" class="text-slate-400 hover:text-white transition" title="Logout">
-          <i class="fa-solid fa-right-from-bracket text-lg"></i>
-        </button>
-      </div>
-    </header>
-
-    <!-- Main Workspace Area -->
-    <div class="flex flex-1 overflow-hidden">
-      <!-- Left Sidebar -->
-      <aside id="appSidebar" class="w-64 bg-[#18181b] border-r border-darkborder/80 flex flex-col h-full shrink-0 select-none transition-all duration-300 z-30 group relative">
-        <!-- Fixed Header -->
-        <div class="p-3.5 border-b border-darkborder/50">
-          <button data-tab="projects" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-semibold text-brand-400 bg-[#242428] hover:bg-[#2e2e34] transition-all shadow-sm" title="Project Overview">
-            <i class="fa-solid fa-house w-5 text-center text-sm shrink-0"></i>
-            <span class="truncate sidebar-text">Project Overview</span>
+        <!-- Role Context Switcher Badge -->
+        <div class="bg-slate-900/80 p-1 rounded-xl border border-white/10 flex items-center text-xs font-semibold">
+          <button id="btn-role-superadmin" class="px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center space-x-1.5">
+            <i class="fa-solid fa-crown text-amber-400"></i>
+            <span>Super Admin</span>
+          </button>
+          <button id="btn-role-developer" class="px-3 py-1.5 rounded-lg transition-all bg-indigo-600 text-white shadow flex items-center space-x-1.5">
+            <i class="fa-solid fa-code text-indigo-200"></i>
+            <span>Project Developer</span>
           </button>
         </div>
 
-        <!-- Scrollable Shortcuts List -->
-        <div class="flex-1 px-3 py-3 overflow-y-auto custom-scrollbar space-y-1">
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-2.5 sidebar-text">Project shortcuts</p>
-          <div class="space-y-1">
-            <button data-tab="db" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Firestore Database">
-              <i class="fa-solid fa-database w-5 text-center text-sm text-blue-400 shrink-0"></i>
-              <span class="truncate sidebar-text">Firestore Database</span>
-            </button>
+        <!-- Project Selector Dropdown (Developer Mode) -->
+        <div id="project-selector-container" class="relative">
+          <select id="select-active-project" class="bg-slate-900/90 text-xs font-semibold text-slate-200 border border-white/10 rounded-xl px-3 py-1.5 pr-8 focus:outline-none focus:border-indigo-500 cursor-pointer">
+            <option value="">Select Active Project...</option>
+          </select>
+        </div>
+      </div>
 
-            <button data-tab="storage" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Storage">
-              <i class="fa-solid fa-folder w-5 text-center text-sm text-amber-400 shrink-0"></i>
-              <span class="truncate sidebar-text">Storage</span>
-            </button>
-            
-            <button data-tab="auth" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Authentication">
-              <i class="fa-solid fa-users w-5 text-center text-sm text-pink-400 shrink-0"></i>
-              <span class="truncate sidebar-text">Authentication</span>
-            </button>
+      <!-- Right Header Actions -->
+      <div class="flex items-center space-x-4">
+        <!-- Health Badges -->
+        <div class="hidden md:flex items-center space-x-2">
+          <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 live-pulse"></span>
+            <span>Server Online</span>
+          </span>
+          <span id="badge-ws-status" class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <i class="fa-solid fa-wifi text-[10px]"></i>
+            <span>WS Connected</span>
+          </span>
+        </div>
 
-            <button id="adminTabBtn" data-tab="admin" class="nav-tab hidden w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Super Admin">
-              <i class="fa-solid fa-shield-halved w-5 text-center text-sm text-red-400 shrink-0"></i>
-              <span class="truncate sidebar-text">Super Admin</span>
-            </button>
-            
-            <button data-tab="realtime" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Realtime Analytics">
-              <i class="fa-solid fa-chart-line w-5 text-center text-sm text-emerald-400 shrink-0"></i>
-              <span class="truncate sidebar-text">Realtime Analytics</span>
-            </button>
+        <!-- MFA Setup Modal Trigger Button -->
+        <button id="btn-mfa-setup-header" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-qrcode text-indigo-400"></i>
+          <span>MFA Setup</span>
+        </button>
 
-            <button data-tab="settings" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Settings & Security">
-              <i class="fa-solid fa-gear w-5 text-center text-sm text-purple-400 shrink-0"></i>
-              <span class="truncate sidebar-text">Settings & Security</span>
-            </button>
+        <!-- User Profile Dropdown -->
+        <div class="flex items-center space-x-3 pl-3 border-l border-white/10">
+          <div class="text-right hidden lg:block">
+            <div id="user-display-name" class="text-xs font-semibold text-white">Super Admin</div>
+            <div id="user-display-email" class="text-[10px] text-slate-400">admin@aegisdb.dev</div>
+          </div>
+          <button id="btn-logout" title="Sign Out" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition">
+            <i class="fa-solid fa-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
+    </header>
 
-            <button data-tab="about" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="About AegisDB">
-              <i class="fa-solid fa-circle-info w-5 text-center text-sm text-cyan-400 shrink-0"></i>
-              <span class="truncate sidebar-text">About AegisDB</span>
+    <!-- ── DASHBOARD BODY (SIDEBAR + CONTENT) ────────────────────────────── -->
+    <div class="flex-1 flex overflow-hidden">
+
+      <!-- ── MAC-STYLE COLLAPSIBLE SIDEBAR ────────────────────────────────── -->
+      <aside id="sidebar" class="sidebar-collapsed border-r border-white/10 glass-panel flex flex-col transition-all duration-300 z-30 select-none">
+        
+        <div class="p-4 space-y-6 flex-1 custom-scrollbar overflow-y-auto">
+          
+          <!-- SUPER ADMIN NAVIGATION WORKSPACES -->
+          <div id="section-nav-superadmin" class="space-y-1">
+            <div class="sidebar-header-title text-[10px] font-bold uppercase tracking-wider text-amber-400 px-3 mb-2">Platform Administration</div>
+            <button data-tab="tab-telemetry" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-chart-line text-base text-amber-400 w-5"></i>
+              <span class="nav-text">Telemetry & Metrics</span>
+            </button>
+            <button data-tab="tab-tenants" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-city text-base text-amber-400 w-5"></i>
+              <span class="nav-text">Multi-Tenant Quotas</span>
+            </button>
+            <button data-tab="tab-user-management" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-users-gear text-base text-amber-400 w-5"></i>
+              <span class="nav-text">User Management</span>
+            </button>
+            <button data-tab="tab-rate-limits" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-gauge-high text-base text-amber-400 w-5"></i>
+              <span class="nav-text">Rate Limits</span>
+            </button>
+            <button data-tab="tab-sec-ops" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-shield-virus text-base text-amber-400 w-5"></i>
+              <span class="nav-text">SecOps & Backups</span>
+            </button>
+          </div>
+
+          <!-- DEVELOPER NAVIGATION WORKSPACES -->
+          <div id="section-nav-developer" class="space-y-1">
+            <div class="sidebar-header-title text-[10px] font-bold uppercase tracking-wider text-indigo-400 px-3 mb-2">Developer Workspace</div>
+            <button data-tab="tab-project-management" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-folder-open text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Project Management</span>
+            </button>
+            <button data-tab="tab-data-browser" class="nav-item active-nav w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-white bg-indigo-600/30 border border-indigo-500/30 transition">
+              <i class="fa-solid fa-database text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Data & Documents</span>
+            </button>
+            <button data-tab="tab-auth-config" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-users text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Authentication</span>
+            </button>
+            <button data-tab="tab-api-tester" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-flask text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">API Key Tester</span>
+            </button>
+            <button data-tab="tab-rules-sandbox" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-lock text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Rules & Sandbox</span>
+            </button>
+            <button data-tab="tab-ws-debugger" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-bolt text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">WebSocket Stream</span>
+            </button>
+            <button data-tab="tab-api-playground" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-terminal text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">API & Code Generator</span>
+            </button>
+            <button data-tab="tab-asset-vault" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-hard-drive text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Media Asset Vault</span>
+            </button>
+          </div>
+
+          <div class="pt-4 border-t border-white/10 space-y-1">
+            <button data-tab="tab-settings" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-gear text-base text-slate-400 w-5"></i>
+              <span class="nav-text">Account & Security</span>
+            </button>
+            <button data-tab="tab-about" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-circle-info text-base text-slate-400 w-5"></i>
+              <span class="nav-text">About AegisDB</span>
             </button>
           </div>
         </div>
 
-        <!-- Fixed Footer -->
-        <div class="px-3 py-2.5 border-t border-darkborder/80 bg-[#141416]">
-          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-2.5 sidebar-text">Account Info</p>
-          <div class="px-2.5 py-1 flex items-center space-x-2 text-xs text-slate-300">
-            <i class="fa-solid fa-user-circle text-brand-400 text-sm shrink-0"></i>
-            <span id="userEmailText" class="truncate text-xs font-medium text-slate-200 sidebar-text" style="max-width: 170px;">alice@example.com</span>
-          </div>
-          <!-- Auth JWT info hidden by default -->
-          <div class="hidden" id="jwtTokenDisplay"></div>
-          <button id="refreshTokenBtn" class="hidden"></button>
-        </div>
       </aside>
 
-      <!-- Main Content Container -->
-      <main class="flex-1 bg-darkbg overflow-y-auto custom-scrollbar relative">
-        
-        <!-- TAB: PROJECT OVERVIEW -->
-        <div id="tab-projects" class="tab-content block p-8">
-          <div class="max-w-4xl mx-auto space-y-8">
+      <!-- ── MAIN CONTENT WORKSPACE PANELS ───────────────────────────────── -->
+      <main class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 1: GLOBAL INFRASTRUCTURE & TELEMETRY (SUPER ADMIN)      -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-telemetry" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
             <div>
-              <h1 class="text-3xl font-light text-white mb-2">Hello, <span id="welcomeNameText">Aegis User</span></h1>
-              <p class="text-slate-400 text-lg">Welcome back to AegisDB!</p>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-chart-line text-amber-400"></i>
+                <span>Global Infrastructure & Telemetry</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Live Prometheus metrics and real-time event stream</p>
             </div>
+            <button id="btn-refresh-telemetry" class="px-4 py-2 rounded-xl text-xs font-medium glass-panel hover:bg-white/10 text-slate-200 transition flex items-center space-x-2">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>Refresh Metrics</span>
+            </button>
+          </div>
 
-            <div class="bg-darkcard border border-darkborder rounded-lg p-6">
-              <h2 class="text-lg font-medium text-white mb-4">Get started</h2>
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="border border-darkborder rounded-lg p-4 hover:border-slate-500 cursor-pointer transition">
-                  <div class="flex items-start space-x-4">
-                    <i class="fa-solid fa-fire text-brand-500 text-xl mt-1"></i>
-                    <div class="w-full">
-                      <h3 class="text-white font-medium text-sm">Create a new Project</h3>
-                      <p class="text-xs text-slate-400 mt-1 mb-3">Integrate AegisDB products to supercharge your app</p>
-                      <div class="flex space-x-2">
-                         <input type="text" id="newProjectName" placeholder="e.g., App Backend" class="flex-1 bg-[#1e1e1e] border border-darkborder rounded px-2 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500">
-                         <button id="createProjectBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-1.5 rounded text-xs transition">Create</button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <!-- Metrics KPI Cards -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">CPU Usage</div>
+              <div id="kpi-cpu" class="text-3xl font-extrabold text-amber-400">1.8%</div>
+              <div class="text-[10px] text-slate-500">Node process load</div>
+            </div>
+            <div class="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Memory Heap</div>
+              <div id="kpi-memory" class="text-3xl font-extrabold text-indigo-400">42 MB</div>
+              <div class="text-[10px] text-slate-500">V8 heap allocation</div>
+            </div>
+            <div class="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Active WebSockets</div>
+              <div id="kpi-ws" class="text-3xl font-extrabold text-emerald-400">1 Connections</div>
+              <div class="text-[10px] text-slate-500">Real-time listeners</div>
+            </div>
+            <div class="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Query Latency</div>
+              <div id="kpi-latency" class="text-3xl font-extrabold text-purple-400">0.42 ms</div>
+              <div class="text-[10px] text-slate-500">SQLite WAL mode</div>
+            </div>
+          </div>
+
+          <!-- Charts Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white">System CPU & Memory Stream</h3>
+              <div class="h-64">
+                <canvas id="chart-cpu-memory"></canvas>
               </div>
             </div>
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white">SQLite WAL Query Performance (ms)</h3>
+              <div class="h-64">
+                <canvas id="chart-query-latency"></canvas>
+              </div>
+            </div>
+          </div>
 
+          <!-- Live Server Log Stream Terminal -->
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-terminal text-emerald-400"></i>
+                <span>Live Server Event & Security Log Stream</span>
+              </h3>
+              <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">LIVE TAIL</span>
+            </div>
+            <div id="server-log-stream" class="h-48 bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 custom-scrollbar overflow-y-auto space-y-1">
+              <div class="text-slate-500">[INFO] AegisDB telemetry pipeline initialized. Live log stream connected.</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 2: MULTI-TENANT QUOTAS (SUPER ADMIN)                  -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-tenants" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
             <div>
-              <div class="flex items-center justify-between mb-3 border-b border-darkborder pb-2">
-                 <h3 class="text-sm font-medium text-slate-300">Your Projects</h3>
-                 <button id="refreshProjectsBtn" class="text-xs text-blue-400 hover:text-blue-300"><i class="fa-solid fa-rotate-right mr-1"></i> Refresh</button>
-              </div>
-              <div id="projectsListContainer" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <p class="text-sm text-slate-500 italic py-4 col-span-full">Loading projects...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB: FIRESTORE DB ENGINE -->
-        <div id="tab-db" class="tab-content hidden h-full flex flex-col">
-          <div class="px-6 py-4 border-b border-darkborder shrink-0">
-            <div class="text-xs text-slate-400 mb-1 flex items-center">
-              <span>Cloud Firestore</span><i class="fa-solid fa-chevron-right mx-2 text-[8px]"></i><span>Database</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <h1 class="text-2xl font-medium text-white">Database <span class="text-sm text-slate-500 ml-2">(default)</span></h1>
-              <div class="flex items-center space-x-2">
-                <button id="developTestBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-4 py-1.5 rounded transition">Develop and Test</button>
-              </div>
-            </div>
-            
-            <!-- DB Sub-tabs -->
-            <div class="flex space-x-6 mt-4 border-b border-darkborder">
-              <button id="dbTabBtn-data" class="text-sm font-medium text-blue-400 border-b-2 border-blue-400 pb-2 px-1">Data</button>
-              <button id="dbTabBtn-rules" class="text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent hover:border-slate-600 pb-2 px-1 transition">Rules</button>
-              <button id="dbTabBtn-tester" class="text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent hover:border-slate-600 pb-2 px-1 transition">API Tester</button>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-city text-amber-400"></i>
+                <span>Multi-Tenant & Quota Manager</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Manage project quotas, tenant limits, and service keys</p>
             </div>
           </div>
 
-          <div class="flex-1 overflow-hidden relative">
-            <!-- DB DATA SUB-TAB -->
-            <div id="dbView-data" class="absolute inset-0 flex p-4 overflow-hidden">
-              <div class="flex-1 bg-darkcard border border-darkborder rounded-lg flex overflow-hidden">
-                <!-- Col 1: Collections -->
-                <div class="w-1/3 border-r border-darkborder flex flex-col">
-                  <div class="flex items-center justify-between p-2 border-b border-darkborder bg-[#1e1e1e]">
-                    <button id="createColBtn" class="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 flex items-center">
-                      <i class="fa-solid fa-plus mr-1.5"></i> Start collection
-                    </button>
-                    <button id="refreshCollectionsBtn" class="text-slate-400 hover:text-slate-200 px-2 py-1"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-                  </div>
-                  <div class="p-2 border-b border-darkborder hidden" id="newColInputContainer">
-                    <input type="text" id="newColName" placeholder="Collection ID" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-2 py-1 text-xs text-white focus:border-blue-500 focus:outline-none mb-2">
-                    <button id="submitNewColBtn" class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded w-full">Add Collection</button>
-                  </div>
-                  <div id="collectionsList" class="flex-1 overflow-y-auto custom-scrollbar">
-                    <p class="text-xs text-slate-500 italic p-4 text-center">No collections.</p>
-                  </div>
-                </div>
-
-                <!-- Col 2: Documents -->
-                <div class="w-1/3 border-r border-darkborder flex flex-col bg-[#1e1e1e]">
-                  <div class="flex items-center justify-between p-2 border-b border-darkborder">
-                    <button id="insertDocBtn" class="text-blue-400 hover:text-blue-300 text-xs font-medium px-2 py-1 flex items-center">
-                      <i class="fa-solid fa-plus mr-1.5"></i> Add document
-                    </button>
-                    <div class="flex items-center space-x-2">
-                      <span id="docCountBadge" class="text-[10px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded font-mono"></span>
-                      <button id="queryDocsBtn" class="text-slate-400 hover:text-slate-200 px-2 py-1" title="Refresh Documents"><i class="fa-solid fa-rotate-right"></i></button>
-                    </div>
-                  </div>
-                  <div class="p-2 border-b border-darkborder bg-[#181818]">
-                    <input id="docSearchInput" type="text" placeholder="Filter documents by ID or content..." class="w-full bg-darkcard border border-darkborder rounded px-2.5 py-1 text-xs font-mono text-slate-200 focus:border-blue-500 focus:outline-none" />
-                  </div>
-                  <div class="p-2 border-b border-darkborder hidden" id="newDocInputContainer">
-                    <textarea id="docJsonInput" rows="5" class="w-full bg-darkcard border border-darkborder rounded p-2 text-xs font-mono text-emerald-300 focus:border-blue-500 focus:outline-none" placeholder='{"field": "value"}'></textarea>
-                    <button id="submitNewDocBtn" class="text-xs bg-blue-600 hover:bg-blue-500 text-white px-2 py-1 rounded w-full mt-2">Save</button>
-                  </div>
-                  <div id="documentsContainer" class="flex-1 overflow-y-auto custom-scrollbar">
-                    <p class="text-xs text-slate-500 italic p-4 text-center">Select a collection.</p>
-                  </div>
-                </div>
-
-                <!-- Col 3: Fields -->
-                <div class="w-1/3 flex flex-col bg-darkcard">
-                  <div class="flex items-center justify-between p-2 border-b border-darkborder">
-                    <button id="addFieldBtn" class="text-blue-500 hover:text-blue-400 cursor-pointer text-xs font-medium px-2 py-1 flex items-center transition">
-                      <i class="fa-solid fa-plus mr-1.5"></i> Add field
-                    </button>
-                    <span class="text-xs text-slate-400 mr-2" id="activeDocIdText"></span>
-                  </div>
-                  <div id="fieldsList" class="flex-1 overflow-y-auto custom-scrollbar p-2">
-                    <p class="text-xs text-slate-500 italic p-4 text-center">Select a document.</p>
-                  </div>
-                </div>
-              </div>
+          <div class="glass-panel rounded-2xl border border-white/10 overflow-hidden">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex items-center justify-between">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Tenant Projects List</div>
             </div>
-
-            <!-- DB RULES SUB-TAB -->
-            <div id="dbView-rules" class="absolute inset-0 hidden p-6 overflow-hidden flex-col bg-darkbg">
-              <div class="flex-1 bg-[#1e1e1e] border border-darkborder rounded-lg flex flex-col max-w-4xl w-full mx-auto shadow-sm">
-                <!-- Editor Header -->
-                <div class="flex items-center justify-between p-2 bg-[#2d2d2d] border-b border-darkborder">
-                  <div class="flex items-center space-x-2 text-xs text-slate-300">
-                    <i class="fa-solid fa-shield-halved text-blue-400 ml-2"></i>
-                    <span class="font-mono">Security Rules & Schema for</span>
-                    <select id="rulesCollectionSelect" class="bg-[#1e1e1e] text-amber-400 font-bold font-mono text-xs border border-darkborder rounded px-2 py-1 focus:outline-none focus:border-blue-500">
-                      <option value="">-- select collection --</option>
-                    </select>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <span id="publishStatus" class="text-xs font-mono hidden"></span>
-                    <button id="saveColSettingsBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs px-4 py-1.5 rounded transition">Publish</button>
-                  </div>
-                </div>
-                <!-- Editor Body -->
-                <div class="flex-1 flex overflow-hidden bg-[#1e1e1e]">
-                  <!-- Line numbers -->
-                  <div class="w-10 bg-[#252526] border-r border-darkborder flex flex-col items-end pt-4 pb-4 pr-2 text-xs font-mono text-slate-500 space-y-1">
-                    <div>1</div><div>2</div><div>3</div><div>4</div><div>5</div><div>6</div><div>7</div><div>8</div>
-                  </div>
-                  <!-- Textareas -->
-                  <div class="flex-1 flex flex-col p-4 space-y-4 overflow-y-auto">
-                    <div>
-                      <label class="block text-xs font-mono text-blue-400 mb-1">// Security Rules (API Key)</label>
-                      <textarea id="colRulesInput" rows="5" class="w-full bg-transparent border-0 resize-none font-mono text-sm text-slate-300 focus:outline-none leading-relaxed" placeholder='{ "read": true, "write": false }'></textarea>
-                    </div>
-                    <div>
-                      <label class="block text-xs font-mono text-emerald-400 mb-1">// JSON Schema Validation</label>
-                      <textarea id="colSchemaInput" rows="10" class="w-full bg-transparent border-0 resize-none font-mono text-sm text-slate-300 focus:outline-none leading-relaxed" placeholder='{ "type": "object", "properties": {} }'></textarea>
-                    </div>
-                  </div>
-                </div>
-                <!-- Footer -->
-                <div class="p-3 bg-[#2d2d2d] border-t border-darkborder text-xs text-slate-400 flex items-center justify-between">
-                  <div class="flex items-center"><i class="fa-solid fa-check text-emerald-400 mr-2"></i> Simulator ready</div>
-                  <div class="cursor-pointer hover:text-white">Rules playground <i class="fa-solid fa-chevron-up ml-1"></i></div>
-                </div>
-              </div>
-            </div>
-            
-            <!-- DB API TESTER SUB-TAB -->
-            <div id="dbView-tester" class="absolute inset-0 hidden p-6 overflow-y-auto bg-darkbg">
-               <div class="max-w-4xl mx-auto bg-darkcard rounded-lg border border-darkborder p-6 shadow-sm space-y-6">
-                 <div>
-                   <h2 class="text-lg font-medium text-white">API Key Tester</h2>
-                   <p class="text-sm text-slate-400 mt-1">Test your Security Rules by simulating external API requests.</p>
-                 </div>
-                 
-                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div class="space-y-4">
-                    <div>
-                      <label class="block text-xs font-medium text-slate-400 mb-1">API Key</label>
-                      <input type="text" id="apiTestKey" placeholder="aegis_pk_..." class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2 text-xs text-white focus:border-blue-500 focus:outline-none">
-                    </div>
-                    <div class="flex space-x-2">
-                      <div class="w-1/3">
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Method</label>
-                        <select id="apiTestMethod" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2 text-xs text-white focus:border-blue-500 focus:outline-none">
-                          <option value="GET">GET</option>
-                          <option value="POST">POST</option>
-                        </select>
-                      </div>
-                      <div class="flex-1">
-                        <label class="block text-xs font-medium text-slate-400 mb-1">Collection</label>
-                        <input type="text" id="apiTestCol" placeholder="users" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2 text-xs text-white focus:border-blue-500 focus:outline-none">
-                      </div>
-                    </div>
-                    <div>
-                      <label class="block text-xs font-medium text-slate-400 mb-1">JSON Body (for POST)</label>
-                      <textarea id="apiTestBody" rows="4" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2 text-[11px] font-mono text-emerald-300 focus:border-blue-500 focus:outline-none" placeholder='{ "field": "value" }'></textarea>
-                    </div>
-                    <button id="runApiTestBtn" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-medium transition">
-                      Send Request
-                    </button>
-                  </div>
-                  <div class="flex flex-col">
-                    <label class="block text-xs font-medium text-slate-400 mb-1">Response</label>
-                    <pre id="apiTestResponse" class="flex-1 w-full bg-[#1e1e1e] border border-darkborder rounded p-3 text-xs font-mono text-slate-300 overflow-y-auto custom-scrollbar whitespace-pre-wrap">Ready.</pre>
-                  </div>
-                </div>
-               </div>
-            </div>
-
-          </div>
-        </div>
-
-        <!-- TAB: PROJECT AUTHENTICATION -->
-        <div id="tab-auth" class="tab-content hidden p-6">
-          <div class="max-w-6xl mx-auto space-y-6">
-            <div class="flex items-center justify-between">
-              <div>
-                <h1 class="text-2xl font-medium text-white">Authentication</h1>
-                <p class="text-sm text-slate-400 mt-1">Configure sign-in providers and email templates.</p>
-              </div>
-            </div>
-
-            <!-- Auth Sub-tabs -->
-            <div class="flex space-x-6 border-b border-darkborder mt-4">
-              <button id="authTabBtn-users" class="text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent hover:border-slate-600 pb-2 px-1 transition">Users</button>
-              <button id="authTabBtn-signin" class="text-sm font-medium text-blue-400 border-b-2 border-blue-400 pb-2 px-1">Sign-in method</button>
-              <button id="authTabBtn-templates" class="text-sm font-medium text-slate-400 hover:text-slate-200 border-b-2 border-transparent hover:border-slate-600 pb-2 px-1 transition">Templates</button>
-            </div>
-            
-            <div class="relative">
-              <!-- USERS TAB -->
-              <div id="authView-users" class="hidden bg-darkcard border border-darkborder rounded-lg overflow-hidden mt-4">
-                 <div class="flex items-center justify-between p-3 border-b border-darkborder bg-[#1e1e1e]">
-                   <div class="relative w-64">
-                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
-                     <input type="text" id="projectUserSearch" placeholder="Search by email..." class="w-full bg-[#282828] border border-darkborder rounded-full pl-8 pr-3 py-1 text-xs text-white focus:outline-none">
-                   </div>
-                   <button id="refreshProjectUsersBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-4 py-1.5 rounded-full transition">Refresh</button>
-                 </div>
-                 
-                 <table class="w-full text-left text-sm text-slate-300">
-                   <thead class="bg-[#282828] text-xs uppercase font-medium text-slate-500 border-b border-darkborder">
-                     <tr>
-                       <th class="px-4 py-2 font-medium">Identifier</th>
-                       <th class="px-4 py-2 font-medium">Providers</th>
-                       <th class="px-4 py-2 font-medium">Created</th>
-                       <th class="px-4 py-2 font-medium">Signed In</th>
-                       <th class="px-4 py-2 font-medium">User UID</th>
-                       <th class="px-4 py-2 font-medium">Actions</th>
-                     </tr>
-                   </thead>
-                   <tbody id="projectUsersTableBody" class="divide-y divide-darkborder text-xs">
-                     <!-- Populated by JS -->
-                   </tbody>
-                 </table>
-              </div>
-
-              <!-- SIGN-IN METHOD TAB -->
-              <div id="authView-signin" class="block bg-darkcard border border-darkborder rounded-lg overflow-hidden mt-4">
-                 <table class="w-full text-left text-sm text-slate-300">
-                   <thead class="bg-[#282828] text-xs uppercase font-medium text-slate-500 border-b border-darkborder">
-                     <tr>
-                       <th class="px-4 py-2 font-medium">Provider</th>
-                       <th class="px-4 py-2 font-medium">Status</th>
-                     </tr>
-                   </thead>
-                   <tbody class="divide-y divide-darkborder text-xs">
-                     <tr class="hover:bg-[#3c3c3c] transition cursor-pointer" onclick="toggleAuthProvider('email')">
-                       <td class="px-4 py-3 font-medium text-white flex items-center"><i class="fa-solid fa-envelope w-6 text-slate-400"></i> Email/Password</td>
-                       <td class="px-4 py-3">
-                         <div id="authToggle-email" class="w-10 h-6 bg-slate-600 rounded-full relative transition-colors duration-300 pointer-events-none">
-                           <div id="authKnob-email" class="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 pointer-events-none"></div>
-                         </div>
-                       </td>
-                     </tr>
-                     <tr class="hover:bg-[#3c3c3c] transition cursor-pointer" onclick="toggleAuthProvider('google')">
-                       <td class="px-4 py-3 font-medium text-white flex items-center"><i class="fa-brands fa-google w-6 text-slate-400"></i> Google</td>
-                       <td class="px-4 py-3">
-                         <div id="authToggle-google" class="w-10 h-6 bg-slate-600 rounded-full relative transition-colors duration-300 pointer-events-none">
-                           <div id="authKnob-google" class="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 pointer-events-none"></div>
-                         </div>
-                       </td>
-                     </tr>
-                     <tr class="hover:bg-[#3c3c3c] transition cursor-pointer" onclick="toggleAuthProvider('github')">
-                       <td class="px-4 py-3 font-medium text-white flex items-center"><i class="fa-brands fa-github w-6 text-slate-400"></i> GitHub</td>
-                       <td class="px-4 py-3">
-                         <div id="authToggle-github" class="w-10 h-6 bg-slate-600 rounded-full relative transition-colors duration-300 pointer-events-none">
-                           <div id="authKnob-github" class="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 pointer-events-none"></div>
-                         </div>
-                       </td>
-                     </tr>
-                     <tr class="hover:bg-[#3c3c3c] transition cursor-pointer" onclick="toggleAuthProvider('apple')">
-                       <td class="px-4 py-3 font-medium text-white flex items-center"><i class="fa-brands fa-apple w-6 text-slate-400"></i> Apple</td>
-                       <td class="px-4 py-3">
-                         <div id="authToggle-apple" class="w-10 h-6 bg-slate-600 rounded-full relative transition-colors duration-300 pointer-events-none">
-                           <div id="authKnob-apple" class="w-4 h-4 bg-white rounded-full absolute top-1 left-1 transition-transform duration-300 pointer-events-none"></div>
-                         </div>
-                       </td>
-                     </tr>
-                   </tbody>
-                 </table>
-              </div>
-
-              <!-- TEMPLATES TAB -->
-              <div id="authView-templates" class="hidden bg-darkcard border border-darkborder rounded-lg overflow-hidden mt-4 p-6">
-                <div class="space-y-6 max-w-4xl">
-                  <div>
-                    <h3 class="text-sm font-medium text-white mb-2">Email Verification Template</h3>
-                    <textarea id="templateVerification" rows="4" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-3 text-xs text-white focus:outline-none focus:border-blue-500 font-mono" placeholder="Subject: Verify your email\n\nHi {{name}},\nPlease verify your email by clicking the link below:\n{{link}}"></textarea>
-                  </div>
-                  <div>
-                    <h3 class="text-sm font-medium text-white mb-2">Password Reset Template</h3>
-                    <textarea id="templateReset" rows="4" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-3 text-xs text-white focus:outline-none focus:border-blue-500 font-mono" placeholder="Subject: Reset your password\n\nHi {{name}},\nClick the link below to reset your password:\n{{link}}"></textarea>
-                  </div>
-                  <button id="saveTemplatesBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded text-sm transition">
-                    Save Templates
-                  </button>
-                </div>
-              </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-4">Project Name</th>
+                    <th class="p-4">Project ID</th>
+                    <th class="p-4">Owner ID</th>
+                    <th class="p-4">Storage Limit</th>
+                    <th class="p-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-tenants-body" class="divide-y divide-white/5 font-mono">
+                  <tr>
+                    <td colspan="5" class="p-4 text-center text-slate-500">Loading tenant projects...</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- TAB: SUPER ADMIN -->
-        <div id="tab-admin" class="tab-content hidden p-6">
-          <div class="max-w-6xl mx-auto space-y-6">
-            <div class="flex items-center justify-between">
-              <div>
-                <h1 class="text-2xl font-medium text-white">Super Admin Portal</h1>
-                <p class="text-sm text-slate-400 mt-1">Manage global users and platform telemetry.</p>
-              </div>
-              <button id="refreshAdminStatsBtn" class="bg-[#282828] hover:bg-[#3c3c3c] text-white border border-darkborder text-sm px-4 py-1.5 rounded transition">
-                <i class="fa-solid fa-rotate-right mr-1"></i> Refresh
-              </button>
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: USER MANAGEMENT (SUPER ADMIN)                       -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-user-management" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-users-gear text-amber-400"></i>
+                <span>User Management</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">View, manage, and configure limits for all registered platform users</p>
             </div>
-            
-            <div class="relative">
-              <!-- USERS VIEW -->
-              <div class="block bg-darkcard border border-darkborder rounded-lg overflow-hidden mt-4">
-                 <div class="flex items-center justify-between p-3 border-b border-darkborder bg-[#1e1e1e]">
-                   <div class="relative w-64">
-                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
-                     <input type="text" placeholder="Search by email address..." class="w-full bg-[#282828] border border-darkborder rounded-full pl-8 pr-3 py-1 text-xs text-white focus:outline-none">
-                   </div>
-                   <button id="addUserBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium px-4 py-1.5 rounded-full transition">Add user</button>
-                 </div>
-                 
-                 <table class="w-full text-left text-sm text-slate-300">
-                   <thead class="bg-[#282828] text-xs uppercase font-medium text-slate-500 border-b border-darkborder">
-                     <tr>
-                       <th class="px-4 py-2 font-medium">Identifier</th>
-                       <th class="px-4 py-2 font-medium">Projects</th>
-                       <th class="px-4 py-2 font-medium">Reads</th>
-                       <th class="px-4 py-2 font-medium">Writes</th>
-                       <th class="px-4 py-2 font-medium">API Limit</th>
-                       <th class="px-4 py-2 font-medium">Created</th>
-                       <th class="px-4 py-2 font-medium">User UID</th>
-                       <th class="px-4 py-2 font-medium">Actions</th>
-                     </tr>
-                   </thead>
-                   <tbody id="adminUsersTableBody" class="divide-y divide-darkborder text-xs">
-                   </tbody>
-                 </table>
-              </div>
+            <button id="btn-refresh-users" class="px-4 py-2 rounded-xl text-xs font-medium glass-panel hover:bg-white/10 text-slate-200 transition flex items-center space-x-2">
+              <i class="fa-solid fa-rotate-right"></i>
+              <span>Refresh Users</span>
+            </button>
+          </div>
+
+          <div class="glass-panel rounded-2xl border border-white/10 overflow-hidden">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex items-center justify-between">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Registered Platform Users</div>
+              <span id="badge-user-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">0 users</span>
             </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-4">Name</th>
+                    <th class="p-4">Email</th>
+                    <th class="p-4">Role</th>
+                    <th class="p-4">MFA</th>
+                    <th class="p-4">Rate Limit (R/W)</th>
+                    <th class="p-4">Created</th>
+                    <th class="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-users-body" class="divide-y divide-white/5">
+                  <tr>
+                    <td colspan="7" class="p-4 text-center text-slate-500">Loading users...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
 
-            <!-- Rate Limit Settings -->
-            <div class="bg-darkcard border border-darkborder rounded-lg p-6 space-y-4 mt-6">
-              <h3 class="text-sm font-medium text-white border-b border-darkborder pb-2">Platform Telemetry & Rate Limits</h3>
-              
-              <div class="grid grid-cols-4 gap-4 mb-6">
-                <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder"><p class="text-xs text-slate-500">Users</p><p id="statTotalUsers" class="text-lg font-medium text-white">0</p></div>
-                <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder"><p class="text-xs text-slate-500">Projects</p><p id="statTotalProjects" class="text-lg font-medium text-white">0</p></div>
-                <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder"><p class="text-xs text-slate-500">Docs</p><p id="statTotalDocs" class="text-lg font-medium text-white">0</p></div>
-                <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder"><p class="text-xs text-slate-500">Heap</p><p id="statSystemHealth" class="text-lg font-medium text-emerald-400">0 MB</p></div>
-              </div>
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: RATE LIMIT CONFIGURATION (SUPER ADMIN)              -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-rate-limits" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-gauge-high text-amber-400"></i>
+                <span>Global Rate Limit Configuration</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Configure platform-wide API rate limiting policies and per-user overrides</p>
+            </div>
+          </div>
 
-              <form id="rateLimitForm" class="flex items-end space-x-4">
-                <div class="flex-1">
-                  <label class="block text-xs font-medium text-slate-400 mb-1">Auth Limit (req/15m)</label>
-                  <input type="number" id="authLimitInput" value="10" required class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-sliders text-indigo-400"></i>
+                <span>Global Rate Limits</span>
+              </h3>
+              <p class="text-xs text-slate-400">These limits apply to all users by default unless overridden per-user.</p>
+              <div class="space-y-3">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Reads per Minute</label>
+                  <input type="number" id="rl-reads-per-min" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="100" value="100">
                 </div>
-                <div class="flex-1">
-                  <label class="block text-xs font-medium text-slate-400 mb-1">API Limit (req/15m)</label>
-                  <input type="number" id="apiLimitInput" value="100" required class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Writes per Minute</label>
+                  <input type="number" id="rl-writes-per-min" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="50" value="50">
                 </div>
-                <button type="submit" class="bg-[#3c3c3c] hover:bg-[#4d4d4d] text-white font-medium px-4 py-1.5 rounded text-sm transition border border-darkborder">
-                  Apply
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Max Burst Size</label>
+                  <input type="number" id="rl-burst" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="20" value="20">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Lockout Window (minutes)</label>
+                  <input type="number" id="rl-lockout-window" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="15" value="15">
+                </div>
+                <button id="btn-save-rate-limits" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs transition active:scale-95 flex items-center justify-center space-x-2">
+                  <i class="fa-solid fa-floppy-disk"></i>
+                  <span>Save Global Rate Limits</span>
                 </button>
-              </form>
+              </div>
+            </div>
+
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-chart-bar text-emerald-400"></i>
+                <span>Current Rate Limit Status</span>
+              </h3>
+              <div class="space-y-3" id="rate-limit-status-cards">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                  <span class="text-xs text-slate-400">Auth Endpoint Limit</span>
+                  <span class="text-xs font-mono text-amber-300">10 req/15min per IP</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                  <span class="text-xs text-slate-400">API Endpoint Limit</span>
+                  <span class="text-xs font-mono text-indigo-300">100 req/min per user</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                  <span class="text-xs text-slate-400">Failed Login Lockout</span>
+                  <span class="text-xs font-mono text-rose-300">5 attempts → 15min lock</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                  <span class="text-xs text-slate-400">IP-Based Brute Force</span>
+                  <span class="text-xs font-mono text-emerald-300">Active Protection</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- TAB: STORAGE -->
-        <div id="tab-storage" class="tab-content hidden p-6">
-          <div class="max-w-6xl mx-auto space-y-6">
-             <div class="flex items-center justify-between">
-              <div>
-                <h1 class="text-2xl font-medium text-white">Storage</h1>
-                <p class="text-sm text-slate-400 mt-1">Store and serve user-generated content.</p>
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 3: SECOPS & DISASTER RECOVERY (SUPER ADMIN)           -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-sec-ops" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-shield-virus text-amber-400"></i>
+                <span>Security Operations & Disaster Recovery</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Account lockout management and S3 replication status</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Account Lockout Panel -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-user-lock text-rose-400"></i>
+                <span>Locked Out Accounts (5-Failed-Login Policy)</span>
+              </h3>
+              <div id="container-locked-accounts" class="space-y-2">
+                <div class="text-xs text-slate-500 p-4 text-center border border-dashed border-slate-800 rounded-xl">No accounts currently locked out.</div>
               </div>
-              <button id="refreshAssetsBtn" class="bg-[#282828] hover:bg-[#3c3c3c] text-white border border-darkborder text-sm px-4 py-1.5 rounded transition">
-                <i class="fa-solid fa-rotate-right mr-1"></i> Refresh
+            </div>
+
+            <!-- Litestream S3 Disaster Recovery Panel -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-cloud-arrow-up text-indigo-400"></i>
+                <span>Litestream S3 Disaster Recovery</span>
+              </h3>
+              <div class="space-y-3">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                  <span class="text-xs text-slate-400">WAL Stream Status</span>
+                  <span class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">REPLICATED</span>
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                  <span class="text-xs text-slate-400">Last Snapshot</span>
+                  <span class="text-xs font-mono text-slate-200">Just now</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: PROJECT MANAGEMENT (DEVELOPER MODE)                  -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-project-management" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-folder-open text-indigo-400"></i>
+                <span>Project Management</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Create, configure, and manage your AegisDB projects</p>
+            </div>
+            <button id="btn-open-create-project" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 transition active:scale-95 flex items-center space-x-2">
+              <i class="fa-solid fa-plus"></i>
+              <span>New Project</span>
+            </button>
+          </div>
+
+          <div class="glass-panel rounded-2xl border border-white/10 overflow-hidden">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex items-center justify-between">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Your Projects</div>
+              <span id="badge-project-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">0 projects</span>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-4">Project Name</th>
+                    <th class="p-4">Project ID</th>
+                    <th class="p-4">Collections</th>
+                    <th class="p-4">Documents</th>
+                    <th class="p-4">Auth Config</th>
+                    <th class="p-4">Created</th>
+                    <th class="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-projects-body" class="divide-y divide-white/5 font-mono">
+                  <tr>
+                    <td colspan="7" class="p-4 text-center text-slate-500">Loading projects...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 1: DATA BROWSER & DOCUMENTS (DEVELOPER MODE)           -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-data-browser" class="workspace-panel space-y-6">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-database text-indigo-400"></i>
+                <span>Data Browser & Document Management</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Explore collections, inspect documents, and manage collection security rules</p>
+            </div>
+            <div class="flex items-center space-x-3">
+              <button id="btn-open-create-collection" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 transition active:scale-95 flex items-center space-x-2">
+                <i class="fa-solid fa-plus"></i>
+                <span>New Collection</span>
               </button>
             </div>
-            
-            <!-- Storage Sub-tabs -->
-            <div class="flex space-x-6 mt-4 border-b border-darkborder">
-              <button class="text-sm font-medium text-blue-400 border-b-2 border-blue-400 pb-2 px-1">Files</button>
-              <button class="text-sm font-medium text-slate-400 border-b-2 border-transparent pb-2 px-1 cursor-not-allowed hidden">Rules</button>
-              <button class="text-sm font-medium text-slate-400 border-b-2 border-transparent pb-2 px-1 cursor-not-allowed hidden">Usage</button>
-            </div>
+          </div>
 
-            <div class="bg-darkcard border border-darkborder rounded-lg p-6">
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Upload -->
-                <div>
-                  <h3 class="text-sm font-medium text-white mb-3">Upload File</h3>
-                  <form id="uploadAssetForm" class="space-y-4">
-                    <div class="border-2 border-dashed border-darkborder hover:border-blue-500 rounded-lg p-6 text-center cursor-pointer transition bg-[#1e1e1e] group relative">
-                      <input type="file" id="assetFileInput" required accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                      <div class="space-y-2 pointer-events-none">
-                        <i class="fa-solid fa-cloud-arrow-up text-2xl text-slate-500 group-hover:text-blue-400 transition"></i>
-                        <p id="fileLabelText" class="text-xs text-slate-300 font-medium">Click or drag file to this area to upload</p>
-                      </div>
-                    </div>
-                    <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded text-sm transition">
-                      Upload
-                    </button>
-                  </form>
-                </div>
-                
-                <!-- Assets -->
-                <div>
-                  <h3 class="text-sm font-medium text-white mb-3">Files</h3>
-                  <div id="assetsContainer" class="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-2 bg-[#1e1e1e] p-2 border border-darkborder rounded-lg">
-                    <p class="text-xs text-slate-500 italic text-center py-4">No files uploaded.</p>
-                  </div>
-                </div>
+          <!-- Collection Chips Bar -->
+          <div id="collections-tabs" class="flex items-center space-x-2 overflow-x-auto custom-scrollbar pb-2 border-b border-white/10">
+            <!-- Dynamic Collection Chips -->
+          </div>
+
+          <!-- Sub-tab Navigation (Documents vs Collection Rules) -->
+          <div class="flex items-center space-x-3 border-b border-white/10 pb-2">
+            <button id="btn-subtab-documents" class="px-4 py-2 rounded-xl text-xs font-semibold bg-indigo-600 text-white shadow transition flex items-center space-x-2">
+              <i class="fa-solid fa-table-list"></i>
+              <span>Documents</span>
+            </button>
+            <button id="btn-subtab-collection-rules" class="px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/5 transition flex items-center space-x-2">
+              <i class="fa-solid fa-scroll text-amber-400"></i>
+              <span>Collection Rules & Schema</span>
+            </button>
+          </div>
+
+          <!-- SUBTAB 1: Documents Spreadsheet View Table -->
+          <div id="panel-subtab-documents" class="glass-panel rounded-2xl border border-white/10 overflow-hidden space-y-4 p-6">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div class="flex items-center space-x-3">
+                <h3 id="current-collection-title" class="text-base font-semibold text-white">Select a collection</h3>
+                <span id="badge-doc-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">0 docs</span>
+              </div>
+              <div class="flex flex-1 max-w-sm w-full items-center px-3 py-1.5 bg-slate-900 border border-white/10 rounded-xl focus-within:border-indigo-500 transition">
+                <i class="fa-solid fa-search text-slate-400 text-xs"></i>
+                <input id="input-doc-search" oninput="handleDocSearch()" type="text" placeholder="Search document contents..." class="bg-transparent border-none text-xs text-white placeholder-slate-500 focus:outline-none w-full ml-2" />
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="prevDocsPage()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition" title="Previous 100">
+                  <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <button onclick="nextDocsPage()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition" title="Next 100">
+                  <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+                <button id="btn-open-create-document" class="px-3 py-1.5 ml-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center space-x-1.5">
+                  <i class="fa-solid fa-plus text-xs"></i>
+                  <span>Add Document</span>
+                </button>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- TAB: REALTIME -->
-        <div id="tab-realtime" class="tab-content hidden p-6">
-          <div class="max-w-4xl mx-auto space-y-6">
+            <!-- Documents Table -->
+            <div class="overflow-x-auto rounded-xl border border-white/5 bg-slate-950/60">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-900/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-3">Document ID</th>
+                    <th class="p-3">Data Preview</th>
+                    <th class="p-3">Created At</th>
+                    <th class="p-3">Updated At</th>
+                    <th class="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-documents-body" class="divide-y divide-white/5 font-mono">
+                  <tr>
+                    <td colspan="5" class="p-6 text-center text-slate-500">No collection selected. Select a collection above to browse documents.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- SUBTAB 2: Collection Rules & Schema Editor -->
+          <div id="panel-subtab-collection-rules" class="glass-panel rounded-2xl border border-white/10 p-6 space-y-6 hidden">
             <div class="flex items-center justify-between">
               <div>
-                <h1 class="text-2xl font-medium text-white">Realtime Analytics</h1>
-                <p class="text-sm text-slate-400 mt-1">Live WebSocket feed of database changes.</p>
+                <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-scroll text-amber-400"></i>
+                  <span>Security Rules & JSON Schema (<span id="coll-rules-target-name" class="text-indigo-400 font-mono">select collection</span>)</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Configure access rules and schema validation for this collection</p>
               </div>
-              <div class="flex space-x-2">
-                <button id="connectWsBtn" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-1.5 rounded transition">Connect</button>
-                <button id="clearWsLogBtn" class="bg-[#282828] hover:bg-[#3c3c3c] text-white border border-darkborder text-sm px-4 py-1.5 rounded transition">Clear</button>
-              </div>
+              <button id="btn-save-coll-rules" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg transition flex items-center space-x-2">
+                <i class="fa-solid fa-floppy-disk"></i>
+                <span>Save Rules & Schema</span>
+              </button>
             </div>
 
-            <div class="bg-darkcard border border-darkborder rounded-lg p-6 space-y-4">
-              <div class="flex items-center space-x-3">
-                <input type="text" id="wsSubCollectionName" placeholder="Collection ID" class="w-64 bg-[#1e1e1e] border border-darkborder rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500">
-                <button id="wsSubBtn" class="bg-[#282828] hover:bg-[#3c3c3c] border border-darkborder text-white px-4 py-1.5 rounded text-sm transition">Subscribe</button>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="space-y-2">
+                <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Collection Security Rules (JSON / JS Expressions)</label>
+                <textarea id="coll-rules-editor" class="w-full h-64 bg-slate-950 p-4 rounded-xl font-mono text-xs text-indigo-300 border border-white/10 focus:outline-none focus:border-indigo-500 custom-scrollbar" placeholder='{\n  "read": "auth != null",\n  "write": "auth.sub == resource.ownerId"\n}'></textarea>
               </div>
-              
-              <div id="wsActivityLog" class="bg-[#1e1e1e] p-4 rounded border border-darkborder font-mono text-xs text-slate-300 h-96 overflow-y-auto custom-scrollbar space-y-1">
-                <div class="text-slate-500 italic">Waiting for connection...</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB: ABOUT AEGISDB FEATURES -->
-        <div id="tab-about" class="tab-content hidden p-8">
-          <div class="max-w-5xl mx-auto space-y-8">
-            <div>
-              <h1 class="text-3xl font-light text-white mb-2 flex items-center space-x-3"><i class="fa-solid fa-shield-halved text-cyan-400"></i><span>About AegisDB Architecture & Features</span></h1>
-              <p class="text-slate-400 text-sm">Enterprise-grade Firebase-like BaaS platform built on SQLite, RS256 JWKS, and Envelope Encryption.</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <!-- Feature 1: Asymmetric RS256 JWKS -->
-              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-cyan-500/50 transition shadow-xl">
-                <div class="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-800 flex items-center justify-center text-cyan-400 text-lg">
-                  <i class="fa-solid fa-key"></i>
-                </div>
-                <h3 class="text-base font-semibold text-white">RS256 JWKS Validation</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Asymmetric RSA 2048-bit token signing. Serves dynamic public keys via standard <code class="text-cyan-300">/.well-known/jwks.json</code> for client verification.</p>
-              </div>
-
-              <!-- Feature 2: Envelope Encryption -->
-              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-purple-500/50 transition shadow-xl">
-                <div class="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-800 flex items-center justify-center text-purple-400 text-lg">
-                  <i class="fa-solid fa-lock"></i>
-                </div>
-                <h3 class="text-base font-semibold text-white">Two-Tier Envelope Encryption</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Master KEK derived via HKDF-SHA256 wraps 256-bit per-project DEKs. AES-256-GCM field encryption with background key rotation.</p>
-              </div>
-
-              <!-- Feature 3: Litestream Continuous S3 WAL Backup -->
-              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-blue-500/50 transition shadow-xl">
-                <div class="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800 flex items-center justify-center text-blue-400 text-lg">
-                  <i class="fa-solid fa-cloud-arrow-up"></i>
-                </div>
-                <h3 class="text-base font-semibold text-white">Litestream S3 WAL Backup</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">1-second continuous WAL replication to AWS S3 / MinIO object storage enabling zero-data-loss Point-in-Time Recovery (PITR).</p>
-              </div>
-
-              <!-- Feature 4: Failed Login Lockout Policy -->
-              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-red-500/50 transition shadow-xl">
-                <div class="w-10 h-10 rounded-lg bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400 text-lg">
-                  <i class="fa-solid fa-user-lock"></i>
-                </div>
-                <h3 class="text-base font-semibold text-white">15-Min Lockout Policy</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Tracks 5 consecutive failed login attempts per IP:email and enforces an automatic 15-minute HTTP 429 lockout window.</p>
-              </div>
-
-              <!-- Feature 5: Multi-Driver Storage Engine -->
-              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-amber-500/50 transition shadow-xl">
-                <div class="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800 flex items-center justify-center text-amber-400 text-lg">
-                  <i class="fa-solid fa-server"></i>
-                </div>
-                <h3 class="text-base font-semibold text-white">Multi-Driver Storage Engine</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Abstracted storage driver interface allowing dynamic switching between Local Disk and AWS S3 / Cloudflare R2 object storage.</p>
-              </div>
-
-              <!-- Feature 6: Prometheus Telemetry Engine -->
-              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-emerald-500/50 transition shadow-xl">
-                <div class="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800 flex items-center justify-center text-emerald-400 text-lg">
-                  <i class="fa-solid fa-chart-simple"></i>
-                </div>
-                <h3 class="text-base font-semibold text-white">Prometheus Metrics (/metrics)</h3>
-                <p class="text-xs text-slate-400 leading-relaxed">Standard Prometheus exposition format collecting CPU, heap, database latency, active WebSockets, and HTTP request metrics.</p>
+              <div class="space-y-2">
+                <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">JSON Schema Definition (`x-encrypted` supported)</label>
+                <textarea id="coll-schema-editor" class="w-full h-64 bg-slate-950 p-4 rounded-xl font-mono text-xs text-purple-300 border border-white/10 focus:outline-none focus:border-purple-500 custom-scrollbar" placeholder='{\n  "type": "object",\n  "properties": {\n    "ssn": { "type": "string", "x-encrypted": true }\n  }\n}'></textarea>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        <!-- TAB: SETTINGS & SECURITY -->
-        <div id="tab-settings" class="tab-content hidden p-8">
-          <div class="max-w-4xl mx-auto space-y-8">
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 2: RULES & SCHEMA SANDBOX (DEVELOPER MODE)             -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-rules-sandbox" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
             <div>
-              <h1 class="text-3xl font-light text-white mb-2 flex items-center space-x-3">
-                <i class="fa-solid fa-gear text-purple-400"></i>
-                <span>Account & Security Settings</span>
-              </h1>
-              <p class="text-slate-400 text-sm">Manage your account profile, security preferences, and Two-Factor Authentication (TOTP MFA).</p>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-lock text-indigo-400"></i>
+                <span>Security Rules & Schema Sandbox</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Configure fail-closed access rules and evaluate expressions in the 50ms VM sandbox</p>
+            </div>
+            <button id="btn-save-rules-schema" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 transition active:scale-95 flex items-center space-x-2">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Save Rules & Schema</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Rules & Schema Editor -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white">Security Rules Definition (JSON)</h3>
+              <textarea id="textarea-rules" class="w-full h-48 bg-slate-950 p-4 rounded-xl font-mono text-xs text-indigo-300 border border-white/10 focus:outline-none focus:border-indigo-500 custom-scrollbar" placeholder='{"read": "auth != null", "write": "auth.sub == resource.id"}'></textarea>
+
+              <h3 class="text-sm font-semibold text-white pt-2">JSON Schema Definition</h3>
+              <textarea id="textarea-schema" class="w-full h-48 bg-slate-950 p-4 rounded-xl font-mono text-xs text-purple-300 border border-white/10 focus:outline-none focus:border-purple-500 custom-scrollbar" placeholder='{"type": "object", "properties": {"secret": {"type": "string", "x-encrypted": true}}}'></textarea>
             </div>
 
-            <!-- Account Profile Card -->
-            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-4 shadow-xl">
+            <!-- Simulation Sandbox -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-white flex items-center space-x-2">
-                  <i class="fa-solid fa-user text-blue-400"></i>
-                  <span>Account Profile</span>
-                </h2>
+                <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-flask text-amber-400"></i>
+                  <span>Live Rules Simulation Sandbox</span>
+                </h3>
+                <button id="btn-run-rule-sim" class="px-3 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs font-semibold transition">
+                  Test Evaluation
+                </button>
               </div>
-              <form id="profileForm" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <label class="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Full Name</label>
-                    <input type="text" id="settingsUserNameInput" required placeholder="Your Name" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-blue-500 focus:outline-none">
-                  </div>
-                  <div>
-                    <label class="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Email Address (Read-only)</label>
-                    <p class="text-slate-300 font-mono text-sm bg-[#18181b] border border-darkborder/60 rounded px-3 py-2 select-all" id="settingsUserEmail">user@aegis.dev</p>
-                  </div>
-                </div>
-                <div>
-                  <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition flex items-center space-x-2">
-                    <i class="fa-solid fa-floppy-disk"></i>
-                    <span>Save Profile Changes</span>
-                  </button>
-                </div>
-              </form>
+
+              <div class="space-y-2">
+                <label class="text-[10px] font-semibold uppercase text-slate-400">Mock Auth Context (auth)</label>
+                <textarea id="sim-auth" class="w-full h-24 bg-slate-950 p-3 rounded-xl font-mono text-xs text-slate-300 border border-white/10 custom-scrollbar" placeholder='{"sub": "user_123", "email": "user@example.com"}'></textarea>
+              </div>
+
+              <div class="space-y-2">
+                <label class="text-[10px] font-semibold uppercase text-slate-400">Mock Resource Context (resource)</label>
+                <textarea id="sim-resource" class="w-full h-24 bg-slate-950 p-3 rounded-xl font-mono text-xs text-slate-300 border border-white/10 custom-scrollbar" placeholder='{"id": "user_123", "title": "My Document"}'></textarea>
+              </div>
+
+              <!-- Simulation Output -->
+              <div class="p-4 rounded-xl bg-slate-950 border border-white/10 font-mono text-xs space-y-1">
+                <span class="text-slate-500">Evaluation Result:</span>
+                <div id="sim-output" class="text-emerald-400 font-bold">Ready to simulate...</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 3: WEBSOCKET STREAM DEBUGGER (DEVELOPER MODE)         -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-ws-debugger" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-bolt text-indigo-400"></i>
+                <span>Real-Time WebSocket & SSE Stream Debugger</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Subscribe to collection channels and monitor live change events</p>
+            </div>
+          </div>
+
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="flex items-center space-x-3">
+              <input type="text" id="ws-channel-input" class="flex-1 px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="Collection channel name (e.g. todos)">
+              <button id="btn-ws-subscribe" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+                Subscribe Channel
+              </button>
             </div>
 
-            <!-- Change Password Card -->
-            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-4 shadow-xl">
+            <div id="ws-log-stream" class="h-96 bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 custom-scrollbar overflow-y-auto space-y-2">
+              <div class="text-slate-500">[WS] Connected to WebSocket change stream on ws://localhost:3000</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 4: API PLAYGROUND & CODE GENERATOR (DEVELOPER MODE)   -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-api-playground" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-terminal text-indigo-400"></i>
+                <span>Interactive API Playground & Code Generator</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Test REST endpoints and generate copy-ready SDK snippets</p>
+            </div>
+          </div>
+
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-6">
+            <!-- Code Snippet Tabs -->
+            <div class="flex border-b border-white/10 space-x-4">
+              <button class="code-tab-btn px-4 py-2 font-medium text-xs text-indigo-400 border-b-2 border-indigo-500" data-lang="js">aegis.js</button>
+              <button class="code-tab-btn px-4 py-2 font-medium text-xs text-slate-400 border-b-2 border-transparent hover:text-white" data-lang="firebase">Firebase Shim</button>
+              <button class="code-tab-btn px-4 py-2 font-medium text-xs text-slate-400 border-b-2 border-transparent hover:text-white" data-lang="react">React</button>
+              <button class="code-tab-btn px-4 py-2 font-medium text-xs text-slate-400 border-b-2 border-transparent hover:text-white" data-lang="curl">cURL</button>
+              <button class="code-tab-btn px-4 py-2 font-medium text-xs text-slate-400 border-b-2 border-transparent hover:text-white" data-lang="python">Python</button>
+            </div>
+
+            <!-- Code Output Display -->
+            <div class="relative">
+              <button id="btn-copy-code" class="absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 transition flex items-center space-x-1.5 z-10">
+                <i class="fa-regular fa-copy"></i>
+                <span>Copy Code</span>
+              </button>
+              <pre class="bg-slate-950 p-6 rounded-xl overflow-x-auto text-xs font-mono border border-white/10"><code id="code-snippet-display" class="language-javascript">import { AegisDB } from 'aegisdb-sdk';
+
+const aegis = new AegisDB({ apiKey: 'aegis_pk_your_anon_key' });
+const docs = await aegis.collection('todos').get();</code></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE 5: MEDIA ASSET VAULT (DEVELOPER MODE)                 -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-asset-vault" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-hard-drive text-indigo-400"></i>
+                <span>Media Asset Vault</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Upload assets, manage S3 storage backends, and generate pre-signed URLs</p>
+            </div>
+          </div>
+
+          <!-- Drag and Drop Zone -->
+          <div id="drop-zone" class="glass-panel border-2 border-dashed border-white/20 hover:border-indigo-500 rounded-2xl p-8 text-center cursor-pointer transition space-y-3">
+            <i class="fa-solid fa-cloud-arrow-up text-4xl text-indigo-400"></i>
+            <div class="text-sm font-semibold text-white">Drag & drop files here or click to browse</div>
+            <div class="text-xs text-slate-400">Supports images, audio, video, and documents up to 50MB</div>
+            <input type="file" id="input-file-vault" class="hidden">
+          </div>
+
+          <!-- Uploaded Assets List Table -->
+          <div class="glass-panel rounded-2xl border border-white/10 overflow-hidden">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50">
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Vault Assets Table</div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-3">Asset ID</th>
+                    <th class="p-3">Original Name</th>
+                    <th class="p-3">MIME Type</th>
+                    <th class="p-3">Size</th>
+                    <th class="p-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-assets-body" class="divide-y divide-white/5 font-mono">
+                  <tr>
+                    <td colspan="5" class="p-4 text-center text-slate-500">No assets uploaded yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: AUTHENTICATION CONFIGURATION                          -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-auth-config" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-users text-indigo-400"></i>
+                <span>Authentication Configuration</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Configure identity providers for this project.</p>
+            </div>
+            <button onclick="saveAuthConfig()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg transition flex items-center space-x-2">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Save Settings</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Email Auth -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-lg bg-pink-950/80 border border-pink-800 flex items-center justify-center text-pink-400 text-lg">
-                    <i class="fa-solid fa-key"></i>
+                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300">
+                    <i class="fa-solid fa-envelope text-lg"></i>
                   </div>
                   <div>
-                    <h2 class="text-lg font-semibold text-white">Change Password</h2>
-                    <p class="text-xs text-slate-400">Update your password with security verification</p>
+                    <h3 class="text-sm font-semibold text-white">Email & Password</h3>
+                    <p class="text-[10px] text-slate-400">Standard email/password login</p>
                   </div>
                 </div>
-                <span id="passwordTotpIndicator" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
-                  Standard Security
-                </span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="auth-enable-email" class="sr-only peer">
+                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Google Auth -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-red-400">
+                    <i class="fa-brands fa-google text-lg"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">Google</h3>
+                    <p class="text-[10px] text-slate-400">OAuth2 login with Google</p>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="auth-enable-google" class="sr-only peer">
+                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Google Client ID</label>
+                <input type="text" id="auth-clientid-google" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="12345...apps.googleusercontent.com">
+              </div>
+            </div>
+
+            <!-- Apple Auth -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white">
+                    <i class="fa-brands fa-apple text-lg"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">Apple</h3>
+                    <p class="text-[10px] text-slate-400">Sign in with Apple</p>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="auth-enable-apple" class="sr-only peer">
+                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Apple Client ID (Service ID)</label>
+                <input type="text" id="auth-clientid-apple" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="com.example.app.signin">
+              </div>
+            </div>
+
+            <!-- GitHub Auth -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-200">
+                    <i class="fa-brands fa-github text-lg"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">GitHub</h3>
+                    <p class="text-[10px] text-slate-400">OAuth2 login with GitHub</p>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="auth-enable-github" class="sr-only peer">
+                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                </label>
+              </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">GitHub Client ID</label>
+                <input type="text" id="auth-clientid-github" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="Iv1.xxxxxxxxxxxx">
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: API KEY TESTER                                        -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-api-tester" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-flask text-indigo-400"></i>
+                <span>API Key Tester</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Test your Project API Keys against real endpoints to ensure they are working.</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Request Builder -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white border-b border-white/10 pb-2 mb-4">Request Builder</h3>
+              
+              <div>
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Project API Key</label>
+                <input type="text" id="tester-api-key" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="sk_test_...">
               </div>
 
-              <form id="changePasswordForm" class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">Current Password</label>
-                    <input type="password" id="changePasswordCurrent" required placeholder="••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-pink-500 focus:outline-none">
-                  </div>
-                  <div>
-                    <label class="block text-xs font-medium text-slate-300 mb-1">New Password (Min 8 chars)</label>
-                    <input type="password" id="changePasswordNew" required minlength="8" placeholder="••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-pink-500 focus:outline-none">
-                  </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Endpoint (Path)</label>
+                <div class="flex items-center">
+                  <span class="bg-slate-800 border border-r-0 border-white/10 rounded-l-xl px-3 py-2 text-xs text-slate-400">/api/v1/db/collections/</span>
+                  <input type="text" id="tester-collection" class="w-full bg-slate-950 border border-white/10 rounded-r-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="test_collection" value="_test_collection">
                 </div>
+              </div>
 
-                <!-- Mandatory TOTP Code Input (Highlighted when MFA Enabled) -->
-                <div id="changePasswordTotpContainer" class="p-3 bg-purple-950/20 border border-purple-800/40 rounded-lg space-y-1.5">
-                  <label class="block text-xs font-semibold text-purple-300 flex items-center space-x-1.5">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <span id="changePasswordTotpLabel">6-Digit TOTP Code (Mandatory if TOTP MFA is Enabled)</span>
-                  </label>
-                  <input type="text" id="changePasswordTotp" maxlength="6" pattern="[0-9]{6}" placeholder="123456" class="w-full max-w-xs tracking-[0.3em] text-center font-mono bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none">
-                </div>
+              <div>
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">HTTP Method</label>
+                <select id="tester-method" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition">
+                  <option value="GET">GET (List Documents)</option>
+                  <option value="POST">POST (Create Document)</option>
+                </select>
+              </div>
 
-                <div class="pt-1">
-                  <button type="submit" class="bg-pink-600 hover:bg-pink-500 text-white font-medium px-4 py-2.5 rounded-lg text-xs transition flex items-center space-x-2">
-                    <i class="fa-solid fa-lock"></i>
-                    <span>Update Password</span>
-                  </button>
+              <div id="tester-body-container" class="hidden">
+                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Request Body (JSON)</label>
+                <textarea id="tester-body" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-slate-300 font-mono focus:outline-none focus:border-indigo-500 transition" rows="4">{
+  "test_field": "Hello from Tester!"
+}</textarea>
+              </div>
+
+              <button onclick="executeApiTest()" class="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-lg transition flex items-center justify-center space-x-2">
+                <i class="fa-solid fa-paper-plane"></i>
+                <span>Send Test Request</span>
+              </button>
+            </div>
+
+            <!-- Response Viewer -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 flex flex-col">
+              <div class="flex items-center justify-between border-b border-white/10 pb-2 mb-4">
+                <h3 class="text-sm font-semibold text-white">Response</h3>
+                <span id="tester-status" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Waiting...</span>
+              </div>
+              <pre id="tester-response" class="flex-1 bg-slate-950 border border-white/10 rounded-xl p-4 text-[10px] sm:text-xs text-slate-300 font-mono overflow-auto whitespace-pre-wrap">Awaiting request execution...</pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: SETTINGS & SECURITY                                  -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-settings" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+                <span>Account & Security Console</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Manage user profile, TOTP multi-factor authentication, password changes, and session timeout</p>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Profile Card -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-user text-indigo-400"></i>
+                <span>User Profile Information</span>
+              </h3>
+              <div class="space-y-3">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Full Name</label>
+                  <input type="text" id="setting-name" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="Super Admin">
                 </div>
-              </form>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Email Address</label>
+                  <input type="email" id="setting-email" readonly class="w-full px-4 py-2.5 rounded-xl glass-input text-xs bg-slate-950/90 text-slate-400 cursor-not-allowed" placeholder="admin@aegisdb.dev">
+                </div>
+                <button id="btn-save-profile" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition active:scale-95">
+                  Update Profile
+                </button>
+              </div>
             </div>
 
             <!-- Inactivity Session Timeout Card -->
-            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-4 shadow-xl">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800 flex items-center justify-center text-blue-400 text-lg">
-                    <i class="fa-solid fa-clock-rotate-left"></i>
-                  </div>
-                  <div>
-                    <h2 class="text-lg font-semibold text-white">Inactivity Session Timeout</h2>
-                    <p class="text-xs text-slate-400">Automatically log out session after a period of inactivity</p>
-                  </div>
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-hourglass-half text-amber-400"></i>
+                <span>Inactivity Session Timeout</span>
+              </h3>
+              <p class="text-xs text-slate-400">Automatically logout the current session upon idle inactivity.</p>
+              <div class="space-y-3">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Timeout Duration</label>
+                  <select id="select-session-timeout" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs cursor-pointer">
+                    <option value="5">5 Minutes</option>
+                    <option value="15" selected>15 Minutes (Default)</option>
+                    <option value="30">30 Minutes</option>
+                    <option value="60">60 Minutes</option>
+                    <option value="0">Disabled (Off)</option>
+                  </select>
                 </div>
-                <span id="timeoutStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  15 Minutes
-                </span>
-              </div>
-
-              <p class="text-xs text-slate-300 leading-relaxed">
-                Protects your active session by automatically logging out if no keyboard, mouse, or scroll activity is detected for your chosen duration.
-              </p>
-
-              <div class="flex items-center space-x-4 pt-2">
-                <label for="inactivityTimeoutSelect" class="text-xs font-medium text-slate-300">Timeout Duration:</label>
-                <select id="inactivityTimeoutSelect" class="bg-[#1e1e1e] border border-darkborder text-white text-xs rounded-lg px-3 py-2 focus:border-brand-500 focus:outline-none cursor-pointer">
-                  <option value="5">5 Minutes</option>
-                  <option value="15" selected>15 Minutes (Recommended)</option>
-                  <option value="30">30 Minutes</option>
-                  <option value="60">60 Minutes (1 Hour)</option>
-                  <option value="0">Disabled / Never</option>
-                </select>
+                <button id="btn-save-timeout" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition active:scale-95">
+                  Save Timeout Preference
+                </button>
               </div>
             </div>
 
-            <!-- TOTP MFA Security Card -->
-            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-6 shadow-xl">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-800 flex items-center justify-center text-purple-400 text-lg">
-                    <i class="fa-solid fa-shield-halved"></i>
-                  </div>
-                  <div>
-                    <h2 class="text-lg font-semibold text-white">Two-Factor Authentication (TOTP MFA)</h2>
-                    <p class="text-xs text-slate-400">RFC 6238 HMAC-SHA1 6-digit TOTP code verification</p>
-                  </div>
+            <!-- Password Change Card -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-key text-purple-400"></i>
+                <span>Change Password (TOTP Enforced)</span>
+              </h3>
+              <form id="form-change-password" class="space-y-3">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Current Password</label>
+                  <input type="password" id="pwd-current" required class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="••••••••••••">
                 </div>
-                <span id="mfaStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                  MFA Not Configured
-                </span>
-              </div>
-
-              <p class="text-xs text-slate-300 leading-relaxed">
-                Enhance account security by requiring a 6-digit time-based code from an authenticator app (Google Authenticator, Authy, 1Password) during login.
-              </p>
-
-              <div class="pt-2 flex items-center space-x-3">
-                <button id="setupMfaBtn" class="bg-brand-500 hover:bg-brand-600 text-darkbg font-bold px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-2">
-                  <i class="fa-solid fa-qrcode"></i>
-                  <span>Enable TOTP MFA</span>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">New Password</label>
+                  <input type="password" id="pwd-new" required class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="••••••••••••">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-indigo-400">6-Digit TOTP Code (Mandatory if MFA Enabled)</label>
+                  <input type="text" id="pwd-totp" maxlength="6" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono tracking-widest text-center" placeholder="123456">
+                </div>
+                <button type="submit" class="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold shadow transition active:scale-95">
+                  Update Password
                 </button>
-                <button id="openDisableMfaModalBtn" class="hidden bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-semibold px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-2">
-                  <i class="fa-solid fa-shield-xmark"></i>
-                  <span>Disable TOTP MFA</span>
+              </form>
+            </div>
+
+            <!-- TOTP MFA Management Card -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-qrcode text-emerald-400"></i>
+                  <span>TOTP Multi-Factor Authentication</span>
+                </h3>
+                <span id="mfa-status-badge" class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">MFA Disabled</span>
+              </div>
+              <p class="text-xs text-slate-400">Secure your account using RFC 6238 TOTP authenticators (Google Authenticator, Authy, 1Password).</p>
+              <div class="flex items-center space-x-3 pt-2">
+                <button id="btn-enable-mfa-settings" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition active:scale-95 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-qrcode"></i>
+                  <span>Setup / Enable MFA</span>
+                </button>
+                <button id="btn-disable-mfa-settings" class="hidden px-4 py-2 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 text-xs font-semibold transition active:scale-95 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-lock-open"></i>
+                  <span>Disable MFA (Secure)</span>
                 </button>
               </div>
             </div>
           </div>
-        </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: ABOUT                                                -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-about" class="workspace-panel space-y-6 hidden">
+          <div class="glass-panel p-8 rounded-2xl border border-white/10 space-y-6 max-w-4xl">
+            <div class="flex items-center space-x-4">
+              <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-2xl">
+                <i class="fa-solid fa-shield-halved"></i>
+              </div>
+              <div>
+                <h2 class="text-xl font-bold text-white">AegisDB v2.5 Enterprise</h2>
+                <p class="text-xs text-slate-400">High-Performance Dynamic Schema Database Engine</p>
+              </div>
+            </div>
+            
+            <p class="text-xs text-slate-300 leading-relaxed">
+              AegisDB is an enterprise-grade, high-concurrency database system combining SQLite WAL mode storage, two-tier envelope encryption (DEK/KEK), TOTP multi-factor authentication, single-use refresh token family rotation, Node.js VM security rules sandbox, and full Firebase API compatibility.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-white border-b border-white/10 pb-2">Core Features</h3>
+                <ul class="text-xs text-slate-400 space-y-2 list-none">
+                  <li><i class="fa-solid fa-bolt text-indigo-400 w-4"></i> <strong>SQLite WAL Mode</strong> for high-concurrency reads & writes</li>
+                  <li><i class="fa-solid fa-key text-indigo-400 w-4"></i> <strong>Envelope Encryption</strong> (DEK/KEK) for sensitive fields</li>
+                  <li><i class="fa-solid fa-shield text-indigo-400 w-4"></i> <strong>VM Sandbox Rules</strong> for advanced data validation</li>
+                  <li><i class="fa-solid fa-chart-line text-indigo-400 w-4"></i> <strong>Prometheus Telemetry</strong> and Real-Time system stats</li>
+                  <li><i class="fa-solid fa-users text-indigo-400 w-4"></i> <strong>Multi-Tenant Architecture</strong> with strict isolation</li>
+                </ul>
+              </div>
+
+              <div class="space-y-3">
+                <h3 class="text-sm font-semibold text-white border-b border-white/10 pb-2">Operational Manual</h3>
+                <ul class="text-xs text-slate-400 space-y-2 list-none">
+                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Project Management:</strong> Create projects to isolate your databases.</li>
+                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Authentication:</strong> Configure identity providers in the Auth tab.</li>
+                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Data & Documents:</strong> Manage collections and query documents manually.</li>
+                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>API Keys:</strong> Generate keys in Project Management to authenticate REST requests.</li>
+                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Telemetry:</strong> View real-time CPU & memory metrics as a Super Admin.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
 
       </main>
     </div>
   </div>
 
-    <!-- Delete Document Modal -->
-    <div id="deleteDocModal" class="hidden fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
-      <div class="bg-darkcard border border-darkborder rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-slide-up">
-        <div class="p-4 border-b border-darkborder flex justify-between items-center bg-[#1e1e1e]">
-          <h2 class="text-sm font-semibold text-white">Delete Document</h2>
-          <button id="cancelDeleteDocBtn" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-3 pointer-events-none"></div>
+
+  <!-- TOTP MFA Setup Modal -->
+  <div id="modal-mfa-setup" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-white/10 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-qrcode text-indigo-400"></i>
+          <span>TOTP Multi-Factor Authentication Setup</span>
+        </h3>
+        <button onclick="document.getElementById('modal-mfa-setup').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4 text-center">
+        <div id="mfa-qr-container" class="p-4 bg-white rounded-2xl inline-block shadow-lg"></div>
+        <div class="text-xs text-slate-300">Scan this QR code with Google Authenticator or Authy.</div>
+        <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-indigo-300 border border-white/10 break-all select-all" id="mfa-secret-display"></div>
+        <div class="space-y-2 text-left">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Enter 6-Digit Code to Confirm & Enable</label>
+          <input type="text" id="input-mfa-confirm-code" maxlength="6" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-center tracking-widest" placeholder="123456">
         </div>
-        <div class="p-6">
-          <p class="text-sm text-slate-300">Are you sure you want to delete this document? This action cannot be undone.</p>
-        </div>
-        <div class="px-4 py-3 border-t border-darkborder bg-[#1e1e1e] flex justify-end space-x-2">
-          <button id="cancelDeleteDocBtn2" class="px-4 py-1.5 text-xs text-slate-300 hover:text-white transition">Cancel</button>
-          <button id="confirmDeleteDocBtn" class="px-4 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white rounded transition">Delete</button>
-        </div>
+        <button id="btn-confirm-enable-mfa" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition">
+          Verify Code & Enable MFA
+        </button>
       </div>
     </div>
+  </div>
 
-    <!-- Edit User Limits Modal -->
-    <div id="editUserLimitsModal" class="hidden fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
-      <div class="bg-darkcard border border-darkborder rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-slide-up">
-        <div class="p-4 border-b border-darkborder flex justify-between items-center bg-[#1e1e1e]">
-          <h2 class="text-sm font-semibold text-white">Edit User Limits</h2>
-          <button id="closeEditUserLimitsBtn" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-xmark"></i></button>
+  <!-- TOTP MFA Disable Secure Modal -->
+  <div id="modal-mfa-disable" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-white/10 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-shield-virus text-rose-400"></i>
+          <span>Secure MFA Disable Verification</span>
+        </h3>
+        <button onclick="document.getElementById('modal-mfa-disable').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <p class="text-xs text-slate-300">To securely disable MFA, please enter your current account password and a valid 6-digit TOTP code.</p>
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Account Password</label>
+          <input type="password" id="disable-mfa-password" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="••••••••••••">
         </div>
-        <div class="p-6 space-y-4">
-          <input type="hidden" id="editLimitsUserId">
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Monthly Read Limit</label>
-            <input type="number" id="editReadLimit" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Monthly Write Limit</label>
-            <input type="number" id="editWriteLimit" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">API Request Limit (Global)</label>
-            <input type="number" id="editApiLimit" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Penalty Lockout (Minutes)</label>
-            <input type="number" id="editLockoutMinutes" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-1.5 text-sm text-white focus:outline-none focus:border-brand-500">
-          </div>
-          <div class="flex items-center space-x-2 pt-2 border-t border-darkborder">
-            <input type="checkbox" id="editResetLockout" class="w-4 h-4 rounded border-darkborder bg-[#1e1e1e] text-brand-500 focus:ring-brand-500 focus:ring-offset-gray-900">
-            <label for="editResetLockout" class="text-xs font-medium text-slate-300">Reset active penalty lockout immediately</label>
-          </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">6-Digit TOTP Code</label>
+          <input type="text" id="disable-mfa-totp" maxlength="6" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-center tracking-widest" placeholder="123456">
         </div>
-        <div class="px-4 py-3 border-t border-darkborder bg-[#1e1e1e] flex justify-end space-x-2">
-          <button id="cancelEditUserLimitsBtn" class="px-4 py-1.5 text-xs text-slate-300 hover:text-white transition">Cancel</button>
-          <button id="saveUserLimitsBtn" class="px-4 py-1.5 text-xs bg-brand-600 hover:bg-brand-500 text-white rounded transition">Save Limits</button>
-        </div>
+        <button id="btn-confirm-disable-mfa" class="w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition">Confirm & Disable MFA</button>
       </div>
     </div>
+  </div>
 
-    <!-- OAuth Config Modal -->
-    <div id="oauthModal" class="fixed inset-0 z-50 hidden bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div class="bg-darkcard border border-darkborder rounded-xl shadow-2xl w-full max-w-md p-6">
-        <h3 id="oauthModalTitle" class="text-lg font-medium text-white mb-1">Configure Provider</h3>
-        <p class="text-sm text-slate-400 mb-4">Enter your OAuth application credentials.</p>
+  <!-- Document Detail Modal -->
+  <div id="modal-document-detail" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-3xl w-full border border-white/10 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-file-code text-indigo-400"></i>
+          <span>Document Detail — <span id="doc-detail-id" class="text-indigo-300 font-mono text-sm"></span></span>
+        </h3>
+        <button onclick="document.getElementById('modal-document-detail').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="flex-1 overflow-y-auto custom-scrollbar">
+        <pre class="bg-slate-950 p-6 rounded-xl text-xs font-mono text-indigo-300 border border-white/10 whitespace-pre-wrap break-words"><code id="doc-detail-content"></code></pre>
+      </div>
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-white/10">
+        <button id="btn-copy-doc-json" class="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-slate-200 transition flex items-center space-x-1.5">
+          <i class="fa-regular fa-copy"></i>
+          <span>Copy JSON</span>
+        </button>
+        <button onclick="document.getElementById('modal-document-detail').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rotate Keys Modal -->
+  <div id="modal-rotate-keys" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-lg w-full border border-amber-500/20 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-key text-amber-400"></i>
+          <span>Keys Rotated: <span id="rotate-keys-project-name" class="text-amber-300 font-semibold"></span></span>
+        </h3>
+        <button onclick="document.getElementById('modal-rotate-keys').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+          <p class="text-xs text-amber-300 font-semibold mb-1"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Important</p>
+          <p class="text-[11px] text-slate-300">Your old keys have been invalidated immediately. Please update your applications with these new keys. They will not be shown again.</p>
+        </div>
         
-        <div class="space-y-4">
-          <div>
-            <label class="block text-xs font-medium text-slate-400 mb-1">Client ID</label>
-            <input type="text" id="oauthClientId" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="e.g. 12345-abcde.apps.googleusercontent.com">
-          </div>
-          <div id="oauthSecretContainer">
-            <label class="block text-xs font-medium text-slate-400 mb-1">Client Secret</label>
-            <input type="password" id="oauthClientSecret" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500" placeholder="Required for GitHub">
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New API Key (Public)</label>
+          <div class="relative">
+            <code id="rotate-keys-api-key" class="block w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs text-emerald-300 font-mono break-all"></code>
           </div>
         </div>
 
-        <div class="flex items-center justify-end space-x-3 mt-6">
-          <button id="oauthModalCancelBtn" class="text-sm text-slate-400 hover:text-white transition px-4 py-2">Cancel</button>
-          <button id="oauthModalSaveBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded text-sm transition">Save & Enable</button>
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New Service Key (Private)</label>
+          <div class="relative">
+            <code id="rotate-keys-service-key" class="block w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs text-rose-300 font-mono break-all"></code>
+          </div>
         </div>
       </div>
-    </div>
-
-    <!-- TOTP MFA Verification Modal (Prompted during login if MFA enabled) -->
-    <div id="mfaModal" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 hidden">
-      <div class="bg-darkcard border border-darkborder rounded-xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
-        <div class="text-center space-y-2">
-          <i class="fa-solid fa-shield-halved text-brand-400 text-4xl"></i>
-          <h3 class="text-xl font-bold text-white">Two-Factor Authentication</h3>
-          <p class="text-xs text-slate-400">Enter the 6-digit code from your authenticator app (Google Authenticator, Authy, etc.).</p>
-        </div>
-        <form id="mfaLoginForm" class="space-y-4">
-          <div>
-            <input type="text" id="mfaOtpCode" maxlength="6" pattern="[0-9]{6}" required placeholder="000000" class="w-full text-center tracking-[0.5em] text-2xl font-mono bg-[#1e1e1e] border border-darkborder rounded p-3 text-white focus:border-brand-500 focus:outline-none">
-          </div>
-          <div class="flex space-x-3">
-            <button type="button" id="cancelMfaBtn" class="flex-1 bg-[#1e1e1e] hover:bg-[#3c3c3c] text-slate-300 font-medium py-2 rounded text-xs">Cancel</button>
-            <button type="submit" class="flex-1 bg-brand-500 hover:bg-brand-600 text-darkbg font-bold py-2 rounded text-xs">Verify Code</button>
-          </div>
-        </form>
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-white/10">
+        <button onclick="document.getElementById('modal-rotate-keys').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition">I have copied these</button>
       </div>
     </div>
+  </div>
 
-    <!-- TOTP Setup Modal -->
-    <div id="mfaSetupModal" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 hidden">
-      <div class="bg-darkcard border border-darkborder rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-        <div class="flex justify-between items-center border-b border-darkborder pb-3">
-          <h3 class="text-lg font-bold text-white flex items-center space-x-2"><i class="fa-solid fa-shield-halved text-brand-400"></i><span>Enable TOTP MFA</span></h3>
-          <button id="closeMfaSetupBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+  <!-- User Limits Edit Modal -->
+  <div id="modal-user-limits" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-white/10 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-sliders text-amber-400"></i>
+          <span>Edit User Limits</span>
+        </h3>
+        <button onclick="document.getElementById('modal-user-limits').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <input type="hidden" id="edit-user-id">
+        <div class="text-xs text-slate-300">Editing limits for: <span id="edit-user-email" class="text-indigo-300 font-mono"></span></div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Max Projects</label>
+          <input type="number" id="edit-user-max-projects" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="5" value="5">
         </div>
-        <div class="space-y-4 text-xs text-slate-300">
-          <p class="font-medium text-slate-200">1. Scan this QR Code with your Authenticator App (Google Authenticator, Authy, 1Password):</p>
-          
-          <!-- QR Code Display Box -->
-          <div class="flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-slate-700 w-44 h-44 mx-auto shadow-lg">
-            <img id="mfaQrCodeImg" src="" alt="TOTP MFA QR Code" class="w-40 h-40 object-contain hidden" />
-            <div id="mfaQrLoading" class="text-slate-600 text-xs flex items-center space-x-2">
-              <i class="fa-solid fa-circle-notch fa-spin text-brand-500 text-lg"></i>
-              <span>Generating QR...</span>
-            </div>
-          </div>
-
-          <p class="font-medium text-slate-200">Or manually copy the Secret Key / URI into your app:</p>
-          <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder space-y-1.5">
-            <p class="text-[11px] text-slate-400 font-mono select-all break-all" id="mfaSecretText">Secret Key Loading...</p>
-            <p class="text-[10px] text-blue-400 font-mono select-all break-all" id="mfaOtpUrlText">otpauth://totp/...</p>
-          </div>
-
-          <p class="font-medium text-slate-200">2. Enter the 6-digit verification code from your app:</p>
-          <form id="mfaVerifyForm" class="space-y-3">
-            <input type="text" id="mfaSetupCode" maxlength="6" pattern="[0-9]{6}" required placeholder="123456" class="w-full text-center tracking-[0.4em] text-xl font-mono bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-white focus:border-brand-500 focus:outline-none">
-            <button type="submit" class="w-full bg-brand-500 hover:bg-brand-600 text-darkbg font-bold py-2.5 rounded text-xs transition">Confirm & Enable TOTP MFA</button>
-          </form>
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Read Rate Limit (per min)</label>
+          <input type="number" id="edit-user-read-limit" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="100" value="100">
         </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Write Rate Limit (per min)</label>
+          <input type="number" id="edit-user-write-limit" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="50" value="50">
+        </div>
+        <button id="btn-confirm-save-user-limits" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs transition">Save User Limits</button>
       </div>
     </div>
+  </div>
 
-    <!-- Secure Disable TOTP MFA Modal -->
-    <div id="disableMfaModal" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 hidden">
-      <div class="bg-darkcard border border-darkborder rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl">
-        <div class="flex justify-between items-center border-b border-darkborder pb-3">
-          <h3 class="text-lg font-bold text-white flex items-center space-x-2 text-rose-400">
-            <i class="fa-solid fa-triangle-exclamation"></i>
-            <span>Disable TOTP MFA</span>
-          </h3>
-          <button id="closeDisableMfaBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+  <!-- Create Project Modal -->
+  <div id="modal-create-project" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-white/10 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-folder-plus text-indigo-400"></i>
+          <span>Create New Project</span>
+        </h3>
+        <button onclick="document.getElementById('modal-create-project').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Project Name</label>
+          <input type="text" id="input-new-project-name" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="e.g. My Awesome App">
         </div>
-        <div class="space-y-3 text-xs text-slate-300">
-          <p class="text-rose-300 font-medium">⚠️ Security Verification Required:</p>
-          <p>To disable Two-Factor Authentication, you must verify your identity by entering both your account password and a current 6-digit TOTP code.</p>
-          
-          <form id="disableMfaForm" class="space-y-3 pt-2">
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-400 mb-1">ACCOUNT PASSWORD</label>
-              <input type="password" id="disableMfaPassword" required placeholder="••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-white focus:border-rose-500 focus:outline-none">
-            </div>
-            <div>
-              <label class="block text-[11px] font-semibold text-slate-400 mb-1">CURRENT 6-DIGIT TOTP CODE</label>
-              <input type="text" id="disableMfaTotpCode" maxlength="6" pattern="[0-9]{6}" required placeholder="123456" class="w-full text-center tracking-[0.4em] text-xl font-mono bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-white focus:border-rose-500 focus:outline-none">
-            </div>
-            <div class="flex space-x-3 pt-2">
-              <button type="button" id="cancelDisableMfaBtn" class="flex-1 bg-[#1e1e1e] hover:bg-[#3c3c3c] text-slate-300 font-medium py-2.5 rounded text-xs">Cancel</button>
-              <button type="submit" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded text-xs transition">Confirm & Disable MFA</button>
-            </div>
-          </form>
-        </div>
+        <button id="btn-confirm-create-project" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs transition">Create Project</button>
       </div>
     </div>
+  </div>
 
-    <!-- Toast Notifications -->
-    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-3 pointer-events-none"></div>
+  <!-- New Collection Modal -->
+  <div id="modal-create-collection" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-white/10 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-folder-plus text-indigo-400"></i>
+          <span>Create New Collection</span>
+        </h3>
+        <button onclick="document.getElementById('modal-create-collection').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Collection Name</label>
+          <input type="text" id="input-new-collection-name" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="e.g. users, products, orders">
+        </div>
+        <button id="btn-confirm-create-collection" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs transition">
+          Create Collection
+        </button>
+      </div>
+    </div>
+  </div>
 
-    <script src="app.js"></script>
-  </body>
+  <!-- Add Document Modal -->
+  <div id="modal-create-document" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-lg w-full border border-white/10 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-file-circle-plus text-indigo-400"></i>
+          <span>Insert Document into Collection</span>
+        </h3>
+        <button onclick="document.getElementById('modal-create-document').classList.add('hidden')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Document Data (JSON Object)</label>
+          <textarea id="input-new-document-json" class="w-full h-40 bg-slate-950 p-4 rounded-xl font-mono text-xs text-indigo-300 border border-white/10 focus:outline-none focus:border-indigo-500 custom-scrollbar" placeholder='{\n  "name": "Jane Doe",\n  "role": "Engineer",\n  "status": "Active"\n}'></textarea>
+        </div>
+        <button id="btn-confirm-create-document" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs transition">
+          Insert Document
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Controller JavaScript -->
+  <script src="app.js"></script>
+</body>
 </html>

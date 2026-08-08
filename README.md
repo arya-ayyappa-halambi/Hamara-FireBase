@@ -20,9 +20,12 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 - **⛔ 15-Minute Failed Login Lockout Policy**: Tracks 5 consecutive failed login attempts per `IP:Email` combination and enforces an automatic 15-minute temporary lockout (`HTTP 429`).
 - **☁️ Continuous WAL Replication (Litestream)**: 1-second continuous WAL replication to AWS S3, MinIO, or Cloudflare R2 object storage targets with Point-in-Time Recovery (PITR).
 - **📦 Multi-Driver Storage Abstraction**: Pluggable storage abstraction supporting `LocalStorageDriver` (disk-bound) and `S3StorageDriver` (AWS S3, MinIO, Cloudflare R2), dynamically selected via `STORAGE_DRIVER=s3|local`.
-- **📊 Prometheus Telemetry Instrumentation (`GET /metrics`)**: Standardized Prometheus exposition metrics collecting CPU usage, resident memory size, heap statistics, `http_requests_total`, `rate_limit_hits_total`, and active WebSockets.
+- **🛡️ VM Sandbox Rules**: Node.js `vm2` sandbox for executing custom JavaScript security and validation rules on collections.
+- **📊 Real-Time Prometheus Telemetry**: Standardized Prometheus exposition metrics collecting CPU usage, resident memory size, heap statistics, `http_requests_total`, `rate_limit_hits_total`, and active WebSockets. Includes a live dashboard polling real-time CPU/Memory data.
 - **⚡ Real-Time Data Streams**: Native WebSocket support broadcasting live change stream events (insert, update, delete) to subscribed clients instantly.
 - **👑 Role Context Scope Switcher**: Dynamic web console supporting Super Admin global platform management mode and Project / Developer scoped views.
+- **🧪 Interactive API Key Tester**: Built-in developer console tool to securely test Project API keys against live endpoints via an integrated REST client.
+- **🔎 Document Search & Pagination**: Effortlessly browse large datasets with built-in client-side pagination (100 docs per page) and real-time field filtering in the Data Browser.
 
 ---
 

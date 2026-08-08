@@ -54,12 +54,15 @@ interface RawUserRow {
   lockoutMinutes: number;
   lockedUntil: string | null;
   billingMonthStart: string | null;
+  mfaEnabled?: number;
+  mfaSecret?: string;
 }
 
 function mapRowToUser(row: RawUserRow): User {
   return {
     ...row,
     isSuperAdmin: Boolean(row.isSuperAdmin),
+    mfaEnabled: row.mfaEnabled ?? 0,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
     lockedUntil: row.lockedUntil ? new Date(row.lockedUntil) : undefined,
@@ -118,7 +121,7 @@ class SqliteUserStore implements UserStore {
 
   async getAllUsers(): Promise<Omit<User, 'passwordHash'>[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT id, email, name, isSuperAdmin, createdAt, updatedAt, apiLimit, readLimit, writeLimit, readsCount, writesCount, lockoutMinutes, lockedUntil, billingMonthStart FROM users ORDER BY createdAt DESC').all() as RawUserRow[];
+    const rows = db.prepare('SELECT id, email, name, isSuperAdmin, createdAt, updatedAt, apiLimit, readLimit, writeLimit, readsCount, writesCount, lockoutMinutes, lockedUntil, billingMonthStart, mfaEnabled FROM users ORDER BY createdAt DESC').all() as RawUserRow[];
     
     // We also need project count for each user
     const usersWithProjects = rows.map(row => {

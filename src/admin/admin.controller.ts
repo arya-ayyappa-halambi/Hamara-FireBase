@@ -104,6 +104,28 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
   } catch (err) { next(err); }
 }
 
+export async function resetUserMfa(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    adminService.resetUserMfa(id);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'super_admin_operation',
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Reset MFA for user ID "${id}".`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'User MFA has been reset successfully.',
+      data: null,
+    } as ApiResponse<null>);
+  } catch (err) { next(err); }
+}
+
 export async function getSecurityAdvisorReport(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const report = securityAdvisorService.runScan();

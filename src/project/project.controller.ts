@@ -64,6 +64,30 @@ export async function updateProject(req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 }
 
+export async function rotateApiKey(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const { id } = req.params;
+    const keys = projectService.rotateProjectKeys(ownerId, id);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'project_key_rotation',
+      projectId: id,
+      ipAddress: req.ip,
+      status: 'success',
+      details: 'Project API keys rotated manually by user.'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Project API keys rotated successfully.',
+      data: keys,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
 export async function getAuthConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);

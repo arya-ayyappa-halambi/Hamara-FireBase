@@ -381,29 +381,35 @@ export function initSqlite(): void {
 }
 
 function seedSuperAdminSync(db: Database.Database): void {
-  const adminEmail = 'admin@aegis.dev';
-  const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(adminEmail);
-  if (!existing) {
-    const adminId = uuidv4();
-    const now = new Date().toISOString();
-    // Synchronously hash admin password
-    argon2.hash('AdminPass123!').then((hash) => {
-      db.prepare(`
-        INSERT INTO users (id, email, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, 1, ?, ?)
-      `).run(adminId, adminEmail, 'Super Admin', hash, now, now);
+  const seedAccounts = [
+    { email: 'admin@aegis.dev', pass: 'AdminPass123!' },
+    { email: 'admin@aegisdb.dev', pass: 'Admin@123' },
+  ];
 
-      // Auto-create Default Project for Super Admin
-      const keys = generateProjectKeys();
-      const projId = uuidv4();
-      db.prepare(`
-        INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
-        VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?, ?)
-      `).run(projId, adminId, keys.anonKeyHash, keys.serviceKeyHash, now, now);
+  for (const acc of seedAccounts) {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(acc.email);
+    if (!existing) {
+      const adminId = uuidv4();
+      const now = new Date().toISOString();
+      // Synchronously hash admin password
+      argon2.hash(acc.pass).then((hash) => {
+        db.prepare(`
+          INSERT INTO users (id, email, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, 1, ?, ?)
+        `).run(adminId, acc.email, 'Super Admin', hash, now, now);
 
-      console.log(`👑 Super Admin account seeded: ${adminEmail}`);
-      console.log(`🔑 Anon Key: ${keys.anonKey}`);
-      console.log(`🔑 Service Key: ${keys.serviceKey}`);
-    }).catch(() => { /* silent */ });
+        // Auto-create Default Project for Super Admin
+        const keys = generateProjectKeys();
+        const projId = uuidv4();
+        db.prepare(`
+          INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
+          VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?, ?)
+        `).run(projId, adminId, keys.anonKeyHash, keys.serviceKeyHash, now, now);
+
+        console.log(`👑 Super Admin account seeded: ${acc.email}`);
+        console.log(`🔑 Anon Key: ${keys.anonKey}`);
+        console.log(`🔑 Service Key: ${keys.serviceKey}`);
+      }).catch(() => { /* silent */ });
+    }
   }
 }
