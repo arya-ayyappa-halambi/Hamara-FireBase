@@ -173,6 +173,12 @@ function updateAuthUI() {
     userBadge.classList.remove('hidden');
     const adminTag = state.user.isSuperAdmin ? ' 👑 (Admin)' : '';
     userEmailText.textContent = `${state.user.name}${adminTag}`;
+
+    // Update Settings Profile Display
+    const settingsNameInput = document.getElementById('settingsUserNameInput');
+    const settingsEmail = document.getElementById('settingsUserEmail');
+    if (settingsNameInput && state.user.name) settingsNameInput.value = state.user.name;
+    if (settingsEmail && state.user.email) settingsEmail.textContent = state.user.email;
     
     // Update Sidebar JWT
     jwtTokenDisplay.textContent = state.accessToken;
@@ -208,14 +214,14 @@ function switchTab(tabTarget) {
   }
 
   tabs.forEach((t) => {
-    t.classList.remove('bg-brand-600', 'text-white');
-    t.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/50');
+    t.classList.remove('bg-[#26262b]', 'text-brand-400', 'border-l-2', 'border-brand-500', 'shadow-sm', 'bg-brand-600', 'text-white');
+    t.classList.add('text-slate-400', 'hover:text-white', 'hover:bg-[#242428]');
   });
 
   const activeTab = document.querySelector(`.nav-tab[data-tab="${tabTarget}"]`);
   if (activeTab) {
-    activeTab.classList.add('bg-brand-600', 'text-white');
-    activeTab.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-slate-800/50');
+    activeTab.classList.add('bg-[#26262b]', 'text-brand-400', 'border-l-2', 'border-brand-500', 'shadow-sm');
+    activeTab.classList.remove('text-slate-400', 'hover:text-white', 'hover:bg-[#242428]');
   }
 
   document.querySelectorAll('.tab-content').forEach((c) => c.classList.add('hidden', 'opacity-0'));
@@ -236,6 +242,7 @@ function switchTab(tabTarget) {
     if (tabTarget === 'realtime') initWebSocket();
     if (tabTarget === 'auth') loadAuthConfig();
     if (tabTarget === 'admin') loadAdminStats();
+    if (tabTarget === 'settings') updateSettingsMfaUI();
   }
 }
 
@@ -415,9 +422,25 @@ function setupAuthHandlers() {
   // TOTP MFA Setup & Enable Handlers
   document.getElementById('setupMfaBtn')?.addEventListener('click', async () => {
     try {
-      const res = await apiRequest('POST', '/api/v1/auth/mfa/setup');
+      const res = await apiRequest('/api/v1/auth/mfa/setup', 'POST');
       document.getElementById('mfaSecretText').textContent = `Base32 Secret: ${res.secret}`;
       document.getElementById('mfaOtpUrlText').textContent = res.otpAuthUrl;
+
+      // Render QR Code Image
+      const qrImg = document.getElementById('mfaQrCodeImg');
+      const qrLoading = document.getElementById('mfaQrLoading');
+      if (qrImg) {
+        qrImg.classList.add('hidden');
+        if (qrLoading) qrLoading.classList.remove('hidden');
+
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(res.otpAuthUrl)}`;
+        qrImg.src = qrApiUrl;
+        qrImg.onload = () => {
+          qrImg.classList.remove('hidden');
+          if (qrLoading) qrLoading.classList.add('hidden');
+        };
+      }
+
       document.getElementById('mfaSetupModal')?.classList.remove('hidden');
     } catch (err) {
       showToast(`MFA Setup Error: ${err.message}`, 'error');
@@ -428,15 +451,131 @@ function setupAuthHandlers() {
     document.getElementById('mfaSetupModal')?.classList.add('hidden');
   });
 
+  window.updateSettingsMfaUI = function() {
+    const badge = document.getElementById('mfaStatusBadge');
+    const setupBtn = document.getElementById('setupMfaBtn');
+    const disableBtn = document.getElementById('openDisableMfaModalBtn');
+    const pwdIndicator = document.getElementById('passwordTotpIndicator');
+    const pwdTotpLabel = document.getElementById('changePasswordTotpLabel');
+    const pwdTotpContainer = document.getElementById('changePasswordTotpContainer');
+    const pwdTotpInput = document.getElementById('changePasswordTotp');
+
+    if (state.user && state.user.mfaEnabled === 1) {
+      if (badge) {
+        badge.textContent = 'MFA Active & Enforced';
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      }
+      setupBtn?.classList.add('hidden');
+      disableBtn?.classList.remove('hidden');
+
+      if (pwdIndicator) {
+        pwdIndicator.textContent = 'MFA Protection Active (TOTP Mandatory)';
+        pwdIndicator.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400 border border-purple-500/20';
+      }
+      if (pwdTotpLabel) pwdTotpLabel.textContent = '6-Digit TOTP Code (Mandatory for Password Change)';
+      if (pwdTotpContainer) {
+        pwdTotpContainer.className = 'p-3 bg-purple-950/40 border border-purple-500/60 rounded-lg space-y-1.5 shadow-md';
+      }
+      if (pwdTotpInput) pwdTotpInput.required = true;
+    } else {
+      if (badge) {
+        badge.textContent = 'MFA Not Configured';
+        badge.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      }
+      setupBtn?.classList.remove('hidden');
+      disableBtn?.classList.add('hidden');
+
+      if (pwdIndicator) {
+        pwdIndicator.textContent = 'Standard Auth';
+        pwdIndicator.className = 'px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700';
+      }
+      if (pwdTotpLabel) pwdTotpLabel.textContent = '6-Digit TOTP Code (Optional when MFA is disabled)';
+      if (pwdTotpContainer) {
+        pwdTotpContainer.className = 'p-3 bg-[#18181b] border border-darkborder/60 rounded-lg space-y-1.5 opacity-60';
+      }
+      if (pwdTotpInput) pwdTotpInput.required = false;
+    }
+  };
+
+  // Profile Form Handler
+  document.getElementById('profileForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = document.getElementById('settingsUserNameInput').value;
+    try {
+      const res = await apiRequest('/api/v1/auth/profile', 'PATCH', { name });
+      if (res && res.user) {
+        state.user.name = res.user.name;
+        localStorage.setItem('aegis_user', JSON.stringify(state.user));
+        updateAuthUI();
+        showToast('👤 Profile updated successfully!', 'success');
+      }
+    } catch (err) {
+      showToast(`Profile Update Failed: ${err.message}`, 'error');
+    }
+  });
+
+  // Change Password Form Handler
+  document.getElementById('changePasswordForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const currentPassword = document.getElementById('changePasswordCurrent').value;
+    const newPassword = document.getElementById('changePasswordNew').value;
+    const totpCode = document.getElementById('changePasswordTotp').value;
+
+    try {
+      await apiRequest('/api/v1/auth/change-password', 'POST', { currentPassword, newPassword, totpCode });
+      document.getElementById('changePasswordCurrent').value = '';
+      document.getElementById('changePasswordNew').value = '';
+      document.getElementById('changePasswordTotp').value = '';
+      showToast('🔑 Password updated successfully!', 'success');
+    } catch (err) {
+      showToast(`Password Change Error: ${err.message}`, 'error');
+    }
+  });
+
   document.getElementById('mfaVerifyForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const totpCode = document.getElementById('mfaSetupCode').value;
     try {
-      await apiRequest('POST', '/api/v1/auth/mfa/verify', { totpCode });
+      await apiRequest('/api/v1/auth/mfa/verify', 'POST', { totpCode });
       document.getElementById('mfaSetupModal')?.classList.add('hidden');
+      if (state.user) state.user.mfaEnabled = 1;
+      updateSettingsMfaUI();
       showToast('🎉 TOTP MFA successfully activated for your account!', 'success');
     } catch (err) {
       showToast(`MFA Enable Failed: ${err.message}`, 'error');
+    }
+  });
+
+  // TOTP MFA Disable Handlers
+  document.getElementById('openDisableMfaModalBtn')?.addEventListener('click', () => {
+    const pwdInput = document.getElementById('disableMfaPassword');
+    const codeInput = document.getElementById('disableMfaTotpCode');
+    if (pwdInput) pwdInput.value = '';
+    if (codeInput) codeInput.value = '';
+    document.getElementById('disableMfaModal')?.classList.remove('hidden');
+  });
+
+  document.getElementById('closeDisableMfaBtn')?.addEventListener('click', () => {
+    document.getElementById('disableMfaModal')?.classList.add('hidden');
+  });
+
+  document.getElementById('cancelDisableMfaBtn')?.addEventListener('click', () => {
+    document.getElementById('disableMfaModal')?.classList.add('hidden');
+  });
+
+  document.getElementById('disableMfaForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = document.getElementById('disableMfaPassword').value;
+    const totpCode = document.getElementById('disableMfaTotpCode').value;
+
+    try {
+      await apiRequest('/api/v1/auth/mfa/disable', 'POST', { password, totpCode });
+      document.getElementById('disableMfaModal')?.classList.add('hidden');
+      if (state.user) state.user.mfaEnabled = 0;
+      updateSettingsMfaUI();
+      showToast('🔒 TOTP MFA has been successfully disabled.', 'info');
+    } catch (err) {
+      showToast(`Disable MFA Error: ${err.message}`, 'error');
     }
   });
 
@@ -1568,9 +1707,123 @@ function setupAuthSubTabs() {
   }
 }
 
+// ── User Inactivity Session Timeout Tracker ───────────────────────────────────
+
+let inactivityTimer = null;
+let configuredInactivityMins = parseInt(localStorage.getItem('aegis_inactivity_timeout_mins') || '15', 10);
+
+function initInactivityTracker() {
+  const timeoutSelect = document.getElementById('inactivityTimeoutSelect');
+  const badge = document.getElementById('timeoutStatusBadge');
+
+  if (timeoutSelect) {
+    timeoutSelect.value = configuredInactivityMins.toString();
+    if (badge) {
+      badge.textContent = configuredInactivityMins === 0 ? 'Disabled / Never' : `${configuredInactivityMins} Minutes`;
+    }
+
+    timeoutSelect.addEventListener('change', (e) => {
+      const val = parseInt(e.target.value, 10);
+      configuredInactivityMins = val;
+      localStorage.setItem('aegis_inactivity_timeout_mins', val.toString());
+
+      if (badge) {
+        badge.textContent = val === 0 ? 'Disabled / Never' : `${val} Minutes`;
+      }
+      resetInactivityTimer();
+      showToast(`Inactivity timeout updated to ${val === 0 ? 'Disabled' : val + ' minutes'}.`, 'success');
+    });
+  }
+
+  const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+  events.forEach((evt) => {
+    window.addEventListener(evt, resetInactivityTimer, { passive: true });
+  });
+
+  resetInactivityTimer();
+}
+
+function resetInactivityTimer() {
+  if (inactivityTimer) clearTimeout(inactivityTimer);
+
+  if (!state.accessToken || configuredInactivityMins === 0) return;
+
+  const timeoutMs = configuredInactivityMins * 60 * 1000;
+  inactivityTimer = setTimeout(() => {
+    triggerInactivityLogout();
+  }, timeoutMs);
+}
+
+function triggerInactivityLogout() {
+  if (!state.accessToken) return;
+  clearAuthState();
+  showToast('🔒 Session expired due to inactivity. Please log in again.', 'warning');
+}
+
+// ── Mac-Style Sidebar Collapsible & Hover Controller ──────────────────────────
+
+state.sidebarPinned = localStorage.getItem('aegis_sidebar_pinned') !== 'false';
+
+function applySidebarState() {
+  const sidebar = document.getElementById('appSidebar');
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const texts = document.querySelectorAll('.sidebar-text');
+  if (!sidebar) return;
+
+  if (state.sidebarPinned) {
+    sidebar.className = 'w-64 bg-[#18181b] border-r border-darkborder/80 flex flex-col h-full shrink-0 select-none transition-all duration-300 z-30 group relative';
+    texts.forEach(t => t.classList.remove('hidden'));
+    if (toggleBtn) {
+      toggleBtn.title = 'Collapse Sidebar (Mac Auto-Expand Mode)';
+      toggleBtn.classList.add('text-brand-400');
+    }
+  } else {
+    sidebar.className = 'w-16 bg-[#18181b] border-r border-darkborder/80 flex flex-col h-full shrink-0 select-none transition-all duration-300 z-30 group relative';
+    texts.forEach(t => t.classList.add('hidden'));
+    if (toggleBtn) {
+      toggleBtn.title = 'Pin Sidebar Open';
+      toggleBtn.classList.remove('text-brand-400');
+    }
+  }
+}
+
+function initSidebarController() {
+  const sidebar = document.getElementById('appSidebar');
+  const toggleBtn = document.getElementById('sidebarToggleBtn');
+  const texts = document.querySelectorAll('.sidebar-text');
+
+  if (!sidebar) return;
+
+  applySidebarState();
+
+  // ☰ Pin / Collapse Toggle
+  toggleBtn?.addEventListener('click', () => {
+    state.sidebarPinned = !state.sidebarPinned;
+    localStorage.setItem('aegis_sidebar_pinned', state.sidebarPinned ? 'true' : 'false');
+    applySidebarState();
+    showToast(state.sidebarPinned ? '📌 Sidebar pinned open' : '🚀 Sidebar collapsed (Hover left edge to expand)', 'info');
+  });
+
+  // Mac-style Hover Auto-Expand when Collapsed
+  sidebar.addEventListener('mouseenter', () => {
+    if (!state.sidebarPinned) {
+      sidebar.className = 'w-64 bg-[#18181b] border-r border-darkborder/80 flex flex-col h-full shrink-0 select-none transition-all duration-300 z-50 shadow-2xl absolute left-0 top-0 group';
+      texts.forEach(t => t.classList.remove('hidden'));
+    }
+  });
+
+  sidebar.addEventListener('mouseleave', () => {
+    if (!state.sidebarPinned) {
+      sidebar.className = 'w-16 bg-[#18181b] border-r border-darkborder/80 flex flex-col h-full shrink-0 select-none transition-all duration-300 z-30 group relative';
+      texts.forEach(t => t.classList.add('hidden'));
+    }
+  });
+}
+
 // ── Initialization ────────────────────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', () => {
+  initSidebarController();
   setupTabNavigation();
   setupAuthHandlers();
   setupProjectHandlers();
@@ -1583,6 +1836,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial state check
   updateAuthUI();
+  initInactivityTracker();
 });
 
 // ── Auth Config Management ───────────────────────────────────────────────────

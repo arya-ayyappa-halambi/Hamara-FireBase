@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa } from './auth.service';
+import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa, disableMfa, changePassword, updateUserProfile } from './auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData, AppError } from '../types/auth.types';
 import { failedLoginService } from '../services/failed-login-limiter.service';
 
@@ -171,6 +171,59 @@ export async function verifyMfaController(req: Request, res: Response, next: Nex
       success: true,
       message: 'MFA successfully enabled for account.',
       data: { mfaEnabled: true }
+    });
+  } catch (err) { next(err); }
+}
+
+export async function disableMfaController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { password, totpCode } = req.body;
+    if (!password) throw new AppError('Account password is required for security verification.', 400);
+    if (!totpCode) throw new AppError('Current 6-digit TOTP code is required for security verification.', 400);
+
+    await disableMfa(userId, password, totpCode);
+    res.status(200).json({
+      success: true,
+      message: 'MFA successfully disabled.',
+      data: { mfaEnabled: false }
+    });
+  } catch (err) { next(err); }
+}
+
+export async function changePasswordController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { currentPassword, newPassword, totpCode } = req.body;
+    if (!currentPassword) throw new AppError('Current password is required.', 400);
+    if (!newPassword) throw new AppError('New password is required.', 400);
+
+    await changePassword(userId, currentPassword, newPassword, totpCode);
+    res.status(200).json({
+      success: true,
+      message: 'Password updated successfully.',
+      data: null
+    });
+  } catch (err) { next(err); }
+}
+
+export async function updateProfileController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { name } = req.body;
+    if (!name) throw new AppError('Name is required.', 400);
+
+    const updatedUser = await updateUserProfile(userId, name);
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully.',
+      data: { user: updatedUser }
     });
   } catch (err) { next(err); }
 }

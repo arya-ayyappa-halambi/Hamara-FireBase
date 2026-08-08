@@ -1,6 +1,6 @@
 # AegisDB 🛡️
 
-AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, extremely performant, and provides developers with a full suite of cloud services straight out of the box—complete with a glassmorphic modern web dashboard.
+AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, extremely performant, and provides developers with a full suite of cloud services straight out of the box—complete with a modern, glassmorphic developer console featuring a Mac-style collapsible sidebar.
 
 ![AegisDB Engine](https://img.shields.io/badge/AegisDB-Engine-6366f1?style=for-the-badge&logo=shield&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=for-the-badge&logo=typescript&logoColor=white)
@@ -13,13 +13,16 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 
 - **🔐 Asymmetric RS256 JWKS Token Signing**: RSA 2048-bit key pair generation and public key exposition at `GET /.well-known/jwks.json` for external service token verification.
 - **🔑 Two-Tier Envelope Encryption (DEK / KEK)**: 256-bit per-project Data Encryption Keys (DEKs) wrapped using a HKDF-SHA256 derived Master Key Encryption Key (KEK). Transparent AES-256-GCM field encryption (`x-encrypted: true`) with non-destructive key rotation.
-- **🔒 TOTP Multi-Factor Authentication (MFA)**: Pure RFC 6238 HMAC-SHA1 TOTP generator/verifier. Base32 secrets, `otpauth://` QR-code URIs, setup/verify endpoints, and login enforcement.
+- **🔒 Pure TOTP Multi-Factor Authentication (MFA)**: Pure RFC 6238 HMAC-SHA1 TOTP generator/verifier. Base32 secrets, dynamic QR code image URIs, setup/verify endpoints, and login enforcement.
+- **🛡️ Secure TOTP Disabling & Password Change Enforcement**: Disabling TOTP MFA or changing account passwords strictly requires dual verification (account password + valid 6-digit TOTP code).
+- **⏱️ Configurable Inactivity Session Timeout**: User-configurable session timeout (5m, 15m, 30m, 60m, or Disabled) with real-time user activity tracking (`mousemove`, `keydown`, `click`, `scroll`, `touchstart`).
+- **🍏 Mac-Style Hover Auto-Expanding Sidebar**: Glassmorphic sidebar with ☰ Hamburger toggle for Pinned vs Collapsed mode, featuring Mac-style smooth auto-expansion on hover.
 - **⛔ 15-Minute Failed Login Lockout Policy**: Tracks 5 consecutive failed login attempts per `IP:Email` combination and enforces an automatic 15-minute temporary lockout (`HTTP 429`).
 - **☁️ Continuous WAL Replication (Litestream)**: 1-second continuous WAL replication to AWS S3, MinIO, or Cloudflare R2 object storage targets with Point-in-Time Recovery (PITR).
 - **📦 Multi-Driver Storage Abstraction**: Pluggable storage abstraction supporting `LocalStorageDriver` (disk-bound) and `S3StorageDriver` (AWS S3, MinIO, Cloudflare R2), dynamically selected via `STORAGE_DRIVER=s3|local`.
 - **📊 Prometheus Telemetry Instrumentation (`GET /metrics`)**: Standardized Prometheus exposition metrics collecting CPU usage, resident memory size, heap statistics, `http_requests_total`, `rate_limit_hits_total`, and active WebSockets.
 - **⚡ Real-Time Data Streams**: Native WebSocket support broadcasting live change stream events (insert, update, delete) to subscribed clients instantly.
-- **👑 Role Context Scope Switcher**: Dynamic glassmorphic web console supporting Super Admin global platform management mode and Project / Developer scoped view.
+- **👑 Role Context Scope Switcher**: Dynamic web console supporting Super Admin global platform management mode and Project / Developer scoped views.
 
 ---
 
@@ -82,15 +85,18 @@ npx ts-node src/scripts/migrate-envelope-encryption.ts
 | `GET` | `/metrics` | Prometheus exposition metrics endpoint |
 | `GET` | `/health` | Engine health check & status |
 
-### Authentication (`/api/v1/auth`)
+### Authentication & Account (`/api/v1/auth`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/register` | Register new user account |
 | `POST` | `/login` | Authenticate user & receive JWT access + refresh tokens |
 | `POST` | `/refresh` | Rotate refresh token & obtain new JWT |
 | `POST` | `/logout` | Revoke refresh token |
+| `PATCH` | `/profile` | Update user profile name |
+| `POST` | `/change-password` | Update account password (requires TOTP verification if MFA enabled) |
 | `POST` | `/mfa/setup` | Generate Base32 secret key & `otpauth://` QR URI |
 | `POST` | `/mfa/verify` | Verify 6-digit TOTP code and enable MFA on profile |
+| `POST` | `/mfa/disable` | Disable TOTP MFA (requires password + 6-digit TOTP verification) |
 
 ### Database Services (`/api/v1/db`)
 | Method | Endpoint | Description |
@@ -118,7 +124,9 @@ npx ts-node src/scripts/migrate-envelope-encryption.ts
 | Threat Vector | Mitigation Strategy | Implementation Details |
 | :--- | :--- | :--- |
 | **Brute-Force Attacks** | 15-Minute Failed Login Lockout | Enforces temporary `429` lockout after 5 consecutive failed attempts per IP:Email. |
-| **Credential Theft** | TOTP Multi-Factor Authentication | RFC 6238 HMAC-SHA1 6-digit TOTP verification required during login. |
+| **Credential Theft** | Pure RFC 6238 TOTP MFA | 6-digit time-based authenticator code required during login. |
+| **Unauthorized MFA Disable** | Dual Verification Lock | Disabling TOTP MFA requires entering both current password + valid 6-digit TOTP code. |
+| **Password Tampering** | Mandatory TOTP Password Change | Password changes strictly require TOTP code validation if MFA is enabled. |
 | **Database Data Leak** | Two-Tier Envelope Encryption | AES-256-GCM field encryption with HKDF Master KEK wrapping 256-bit project DEKs. |
 | **Key Compromise** | Non-Destructive Key Rotation | Re-wraps project DEKs with new keys without corrupting encrypted field data. |
 | **Cross-Site Scripting** | Strict Content Security Policy | Restricts script, style, and font sources to trusted local & CDN origins. |

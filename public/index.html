@@ -114,7 +114,12 @@
   <div id="app-dashboard" class="flex-1 flex flex-col hidden h-screen overflow-hidden">
     <!-- Top Navigation Header -->
     <header class="bg-[#1e1e1e] h-12 flex items-center justify-between px-4 border-b border-darkborder shrink-0">
-      <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-3">
+        <!-- ☰ Sidebar Toggle Button -->
+        <button id="sidebarToggleBtn" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-[#282828] transition focus:outline-none" title="Toggle Sidebar (☰)">
+          <i class="fa-solid fa-bars text-base"></i>
+        </button>
+
         <!-- Logo -->
         <div class="flex items-center space-x-2">
           <i class="fa-solid fa-fire text-brand-500 text-lg"></i>
@@ -158,58 +163,66 @@
     <!-- Main Workspace Area -->
     <div class="flex flex-1 overflow-hidden">
       <!-- Left Sidebar -->
-      <aside class="w-64 bg-[#1e1e1e] border-r border-darkborder flex flex-col overflow-y-auto custom-scrollbar shrink-0">
-        <div class="p-4">
-          <button data-tab="projects" class="nav-tab w-full text-left px-3 py-1.5 rounded flex items-center space-x-3 text-sm text-brand-400 bg-[#282828] hover:bg-[#3c3c3c] transition">
-            <i class="fa-solid fa-house w-4 text-center"></i>
-            <span>Project Overview</span>
+      <aside id="appSidebar" class="w-64 bg-[#18181b] border-r border-darkborder/80 flex flex-col h-full shrink-0 select-none transition-all duration-300 z-30 group relative">
+        <!-- Fixed Header -->
+        <div class="p-3.5 border-b border-darkborder/50">
+          <button data-tab="projects" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-semibold text-brand-400 bg-[#242428] hover:bg-[#2e2e34] transition-all shadow-sm" title="Project Overview">
+            <i class="fa-solid fa-house w-5 text-center text-sm shrink-0"></i>
+            <span class="truncate sidebar-text">Project Overview</span>
           </button>
         </div>
 
-        <div class="px-3 pb-2 pt-1">
-          <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Project shortcuts</p>
-          <div class="space-y-0.5">
-            <button data-tab="db" class="nav-tab w-full text-left px-2 py-1.5 rounded flex items-center space-x-3 text-sm text-slate-300 hover:bg-[#282828] transition">
-              <i class="fa-solid fa-database w-4 text-center text-blue-400"></i>
-              <span>Firestore Database</span>
-            </button>
-            <button data-tab="storage" class="nav-tab w-full text-left px-2 py-1.5 rounded flex items-center space-x-3 text-sm text-slate-300 hover:bg-[#282828] transition">
-              <i class="fa-solid fa-folder w-4 text-center text-amber-400"></i>
-              <span>Storage</span>
-            </button>
-            
-            <button data-tab="auth" class="nav-tab w-full text-left px-2 py-1.5 rounded flex items-center space-x-3 text-sm text-slate-300 hover:bg-[#282828] transition">
-              <i class="fa-solid fa-users w-4 text-center text-pink-400"></i>
-              <span>Authentication</span>
+        <!-- Scrollable Shortcuts List -->
+        <div class="flex-1 px-3 py-3 overflow-y-auto custom-scrollbar space-y-1">
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-2.5 sidebar-text">Project shortcuts</p>
+          <div class="space-y-1">
+            <button data-tab="db" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Firestore Database">
+              <i class="fa-solid fa-database w-5 text-center text-sm text-blue-400 shrink-0"></i>
+              <span class="truncate sidebar-text">Firestore Database</span>
             </button>
 
-            <button id="adminTabBtn" data-tab="admin" class="nav-tab hidden w-full text-left px-2 py-1.5 rounded flex items-center space-x-3 text-sm text-slate-300 hover:bg-[#282828] transition">
-              <i class="fa-solid fa-shield-halved w-4 text-center text-red-400"></i>
-              <span>Super Admin</span>
+            <button data-tab="storage" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Storage">
+              <i class="fa-solid fa-folder w-5 text-center text-sm text-amber-400 shrink-0"></i>
+              <span class="truncate sidebar-text">Storage</span>
             </button>
             
-            <button data-tab="realtime" class="nav-tab w-full text-left px-2 py-1.5 rounded flex items-center space-x-3 text-sm text-slate-300 hover:bg-[#282828] transition">
-              <i class="fa-solid fa-chart-line w-4 text-center text-emerald-400"></i>
-              <span>Realtime Analytics</span>
+            <button data-tab="auth" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Authentication">
+              <i class="fa-solid fa-users w-5 text-center text-sm text-pink-400 shrink-0"></i>
+              <span class="truncate sidebar-text">Authentication</span>
             </button>
 
-            <button data-tab="about" class="nav-tab w-full text-left px-2 py-1.5 rounded flex items-center space-x-3 text-sm text-slate-300 hover:bg-[#282828] transition">
-              <i class="fa-solid fa-circle-info w-4 text-center text-cyan-400"></i>
-              <span>About AegisDB</span>
+            <button id="adminTabBtn" data-tab="admin" class="nav-tab hidden w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Super Admin">
+              <i class="fa-solid fa-shield-halved w-5 text-center text-sm text-red-400 shrink-0"></i>
+              <span class="truncate sidebar-text">Super Admin</span>
+            </button>
+            
+            <button data-tab="realtime" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Realtime Analytics">
+              <i class="fa-solid fa-chart-line w-5 text-center text-sm text-emerald-400 shrink-0"></i>
+              <span class="truncate sidebar-text">Realtime Analytics</span>
+            </button>
+
+            <button data-tab="settings" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="Settings & Security">
+              <i class="fa-solid fa-gear w-5 text-center text-sm text-purple-400 shrink-0"></i>
+              <span class="truncate sidebar-text">Settings & Security</span>
+            </button>
+
+            <button data-tab="about" class="nav-tab w-full text-left px-3 py-2 rounded-lg flex items-center space-x-3 text-xs font-medium text-slate-300 hover:bg-[#242428] hover:text-white transition-all" title="About AegisDB">
+              <i class="fa-solid fa-circle-info w-5 text-center text-sm text-cyan-400 shrink-0"></i>
+              <span class="truncate sidebar-text">About AegisDB</span>
             </button>
           </div>
         </div>
 
-        <div class="px-3 py-2 mt-auto border-t border-darkborder">
-          <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 px-2">Account Info</p>
-          <div class="space-y-0.5">
-            <div class="px-2 py-1.5 flex justify-between items-center text-sm text-slate-400">
-              <span id="userEmailText" class="truncate text-xs text-blue-400" style="max-width: 150px;">alice@example.com</span>
-            </div>
-            <!-- Auth JWT info hidden by default -->
-            <div class="hidden" id="jwtTokenDisplay"></div>
-            <button id="refreshTokenBtn" class="hidden"></button>
+        <!-- Fixed Footer -->
+        <div class="px-3 py-2.5 border-t border-darkborder/80 bg-[#141416]">
+          <p class="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 px-2.5 sidebar-text">Account Info</p>
+          <div class="px-2.5 py-1 flex items-center space-x-2 text-xs text-slate-300">
+            <i class="fa-solid fa-user-circle text-brand-400 text-sm shrink-0"></i>
+            <span id="userEmailText" class="truncate text-xs font-medium text-slate-200 sidebar-text" style="max-width: 170px;">alice@example.com</span>
           </div>
+          <!-- Auth JWT info hidden by default -->
+          <div class="hidden" id="jwtTokenDisplay"></div>
+          <button id="refreshTokenBtn" class="hidden"></button>
         </div>
       </aside>
 
@@ -684,6 +697,226 @@
           </div>
         </div>
 
+        <!-- TAB: ABOUT AEGISDB FEATURES -->
+        <div id="tab-about" class="tab-content hidden p-8">
+          <div class="max-w-5xl mx-auto space-y-8">
+            <div>
+              <h1 class="text-3xl font-light text-white mb-2 flex items-center space-x-3"><i class="fa-solid fa-shield-halved text-cyan-400"></i><span>About AegisDB Architecture & Features</span></h1>
+              <p class="text-slate-400 text-sm">Enterprise-grade Firebase-like BaaS platform built on SQLite, RS256 JWKS, and Envelope Encryption.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <!-- Feature 1: Asymmetric RS256 JWKS -->
+              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-cyan-500/50 transition shadow-xl">
+                <div class="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-800 flex items-center justify-center text-cyan-400 text-lg">
+                  <i class="fa-solid fa-key"></i>
+                </div>
+                <h3 class="text-base font-semibold text-white">RS256 JWKS Validation</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Asymmetric RSA 2048-bit token signing. Serves dynamic public keys via standard <code class="text-cyan-300">/.well-known/jwks.json</code> for client verification.</p>
+              </div>
+
+              <!-- Feature 2: Envelope Encryption -->
+              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-purple-500/50 transition shadow-xl">
+                <div class="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-800 flex items-center justify-center text-purple-400 text-lg">
+                  <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="text-base font-semibold text-white">Two-Tier Envelope Encryption</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Master KEK derived via HKDF-SHA256 wraps 256-bit per-project DEKs. AES-256-GCM field encryption with background key rotation.</p>
+              </div>
+
+              <!-- Feature 3: Litestream Continuous S3 WAL Backup -->
+              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-blue-500/50 transition shadow-xl">
+                <div class="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800 flex items-center justify-center text-blue-400 text-lg">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <h3 class="text-base font-semibold text-white">Litestream S3 WAL Backup</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">1-second continuous WAL replication to AWS S3 / MinIO object storage enabling zero-data-loss Point-in-Time Recovery (PITR).</p>
+              </div>
+
+              <!-- Feature 4: Failed Login Lockout Policy -->
+              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-red-500/50 transition shadow-xl">
+                <div class="w-10 h-10 rounded-lg bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400 text-lg">
+                  <i class="fa-solid fa-user-lock"></i>
+                </div>
+                <h3 class="text-base font-semibold text-white">15-Min Lockout Policy</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Tracks 5 consecutive failed login attempts per IP:email and enforces an automatic 15-minute HTTP 429 lockout window.</p>
+              </div>
+
+              <!-- Feature 5: Multi-Driver Storage Engine -->
+              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-amber-500/50 transition shadow-xl">
+                <div class="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800 flex items-center justify-center text-amber-400 text-lg">
+                  <i class="fa-solid fa-server"></i>
+                </div>
+                <h3 class="text-base font-semibold text-white">Multi-Driver Storage Engine</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Abstracted storage driver interface allowing dynamic switching between Local Disk and AWS S3 / Cloudflare R2 object storage.</p>
+              </div>
+
+              <!-- Feature 6: Prometheus Telemetry Engine -->
+              <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-emerald-500/50 transition shadow-xl">
+                <div class="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800 flex items-center justify-center text-emerald-400 text-lg">
+                  <i class="fa-solid fa-chart-simple"></i>
+                </div>
+                <h3 class="text-base font-semibold text-white">Prometheus Metrics (/metrics)</h3>
+                <p class="text-xs text-slate-400 leading-relaxed">Standard Prometheus exposition format collecting CPU, heap, database latency, active WebSockets, and HTTP request metrics.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: SETTINGS & SECURITY -->
+        <div id="tab-settings" class="tab-content hidden p-8">
+          <div class="max-w-4xl mx-auto space-y-8">
+            <div>
+              <h1 class="text-3xl font-light text-white mb-2 flex items-center space-x-3">
+                <i class="fa-solid fa-gear text-purple-400"></i>
+                <span>Account & Security Settings</span>
+              </h1>
+              <p class="text-slate-400 text-sm">Manage your account profile, security preferences, and Two-Factor Authentication (TOTP MFA).</p>
+            </div>
+
+            <!-- Account Profile Card -->
+            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-4 shadow-xl">
+              <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-user text-blue-400"></i>
+                  <span>Account Profile</span>
+                </h2>
+              </div>
+              <form id="profileForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <label class="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Full Name</label>
+                    <input type="text" id="settingsUserNameInput" required placeholder="Your Name" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-blue-500 focus:outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-xs text-slate-400 uppercase tracking-wider font-semibold mb-1">Email Address (Read-only)</label>
+                    <p class="text-slate-300 font-mono text-sm bg-[#18181b] border border-darkborder/60 rounded px-3 py-2 select-all" id="settingsUserEmail">user@aegis.dev</p>
+                  </div>
+                </div>
+                <div>
+                  <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-4 py-2 rounded-lg text-xs transition flex items-center space-x-2">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Save Profile Changes</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Change Password Card -->
+            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-4 shadow-xl">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-lg bg-pink-950/80 border border-pink-800 flex items-center justify-center text-pink-400 text-lg">
+                    <i class="fa-solid fa-key"></i>
+                  </div>
+                  <div>
+                    <h2 class="text-lg font-semibold text-white">Change Password</h2>
+                    <p class="text-xs text-slate-400">Update your password with security verification</p>
+                  </div>
+                </div>
+                <span id="passwordTotpIndicator" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                  Standard Security
+                </span>
+              </div>
+
+              <form id="changePasswordForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Current Password</label>
+                    <input type="password" id="changePasswordCurrent" required placeholder="••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-pink-500 focus:outline-none">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">New Password (Min 8 chars)</label>
+                    <input type="password" id="changePasswordNew" required minlength="8" placeholder="••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-pink-500 focus:outline-none">
+                  </div>
+                </div>
+
+                <!-- Mandatory TOTP Code Input (Highlighted when MFA Enabled) -->
+                <div id="changePasswordTotpContainer" class="p-3 bg-purple-950/20 border border-purple-800/40 rounded-lg space-y-1.5">
+                  <label class="block text-xs font-semibold text-purple-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <span id="changePasswordTotpLabel">6-Digit TOTP Code (Mandatory if TOTP MFA is Enabled)</span>
+                  </label>
+                  <input type="text" id="changePasswordTotp" maxlength="6" pattern="[0-9]{6}" placeholder="123456" class="w-full max-w-xs tracking-[0.3em] text-center font-mono bg-[#1e1e1e] border border-darkborder rounded px-3 py-2 text-white text-sm focus:border-purple-500 focus:outline-none">
+                </div>
+
+                <div class="pt-1">
+                  <button type="submit" class="bg-pink-600 hover:bg-pink-500 text-white font-medium px-4 py-2.5 rounded-lg text-xs transition flex items-center space-x-2">
+                    <i class="fa-solid fa-lock"></i>
+                    <span>Update Password</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            <!-- Inactivity Session Timeout Card -->
+            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-4 shadow-xl">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800 flex items-center justify-center text-blue-400 text-lg">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                  </div>
+                  <div>
+                    <h2 class="text-lg font-semibold text-white">Inactivity Session Timeout</h2>
+                    <p class="text-xs text-slate-400">Automatically log out session after a period of inactivity</p>
+                  </div>
+                </div>
+                <span id="timeoutStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                  15 Minutes
+                </span>
+              </div>
+
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Protects your active session by automatically logging out if no keyboard, mouse, or scroll activity is detected for your chosen duration.
+              </p>
+
+              <div class="flex items-center space-x-4 pt-2">
+                <label for="inactivityTimeoutSelect" class="text-xs font-medium text-slate-300">Timeout Duration:</label>
+                <select id="inactivityTimeoutSelect" class="bg-[#1e1e1e] border border-darkborder text-white text-xs rounded-lg px-3 py-2 focus:border-brand-500 focus:outline-none cursor-pointer">
+                  <option value="5">5 Minutes</option>
+                  <option value="15" selected>15 Minutes (Recommended)</option>
+                  <option value="30">30 Minutes</option>
+                  <option value="60">60 Minutes (1 Hour)</option>
+                  <option value="0">Disabled / Never</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- TOTP MFA Security Card -->
+            <div class="bg-darkcard border border-darkborder rounded-xl p-6 space-y-6 shadow-xl">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-800 flex items-center justify-center text-purple-400 text-lg">
+                    <i class="fa-solid fa-shield-halved"></i>
+                  </div>
+                  <div>
+                    <h2 class="text-lg font-semibold text-white">Two-Factor Authentication (TOTP MFA)</h2>
+                    <p class="text-xs text-slate-400">RFC 6238 HMAC-SHA1 6-digit TOTP code verification</p>
+                  </div>
+                </div>
+                <span id="mfaStatusBadge" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                  MFA Not Configured
+                </span>
+              </div>
+
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Enhance account security by requiring a 6-digit time-based code from an authenticator app (Google Authenticator, Authy, 1Password) during login.
+              </p>
+
+              <div class="pt-2 flex items-center space-x-3">
+                <button id="setupMfaBtn" class="bg-brand-500 hover:bg-brand-600 text-darkbg font-bold px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-2">
+                  <i class="fa-solid fa-qrcode"></i>
+                  <span>Enable TOTP MFA</span>
+                </button>
+                <button id="openDisableMfaModalBtn" class="hidden bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 font-semibold px-4 py-2.5 rounded-lg text-sm transition flex items-center space-x-2">
+                  <i class="fa-solid fa-shield-xmark"></i>
+                  <span>Disable TOTP MFA</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
   </div>
@@ -766,72 +999,6 @@
       </div>
     </div>
 
-    <!-- TAB: ABOUT AEGISDB FEATURES -->
-    <div id="tab-about" class="tab-content hidden p-8">
-      <div class="max-w-5xl mx-auto space-y-8">
-        <div>
-          <h1 class="text-3xl font-light text-white mb-2 flex items-center space-x-3"><i class="fa-solid fa-shield-halved text-cyan-400"></i><span>About AegisDB Architecture & Features</span></h1>
-          <p class="text-slate-400 text-sm">Enterprise-grade Firebase-like BaaS platform built on SQLite, RS256 JWKS, and Envelope Encryption.</p>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <!-- Feature 1: Asymmetric RS256 JWKS -->
-          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-cyan-500/50 transition shadow-xl">
-            <div class="w-10 h-10 rounded-lg bg-cyan-950/80 border border-cyan-800 flex items-center justify-center text-cyan-400 text-lg">
-              <i class="fa-solid fa-key"></i>
-            </div>
-            <h3 class="text-base font-semibold text-white">RS256 JWKS Validation</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">Asymmetric RSA 2048-bit token signing. Serves dynamic public keys via standard <code class="text-cyan-300">/.well-known/jwks.json</code> for client verification.</p>
-          </div>
-
-          <!-- Feature 2: Envelope Encryption -->
-          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-purple-500/50 transition shadow-xl">
-            <div class="w-10 h-10 rounded-lg bg-purple-950/80 border border-purple-800 flex items-center justify-center text-purple-400 text-lg">
-              <i class="fa-solid fa-lock"></i>
-            </div>
-            <h3 class="text-base font-semibold text-white">Two-Tier Envelope Encryption</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">Master KEK derived via HKDF-SHA256 wraps 256-bit per-project DEKs. AES-256-GCM field encryption with background key rotation.</p>
-          </div>
-
-          <!-- Feature 3: Litestream Continuous S3 WAL Backup -->
-          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-blue-500/50 transition shadow-xl">
-            <div class="w-10 h-10 rounded-lg bg-blue-950/80 border border-blue-800 flex items-center justify-center text-blue-400 text-lg">
-              <i class="fa-solid fa-cloud-arrow-up"></i>
-            </div>
-            <h3 class="text-base font-semibold text-white">Litestream S3 WAL Backup</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">1-second continuous WAL replication to AWS S3 / MinIO object storage enabling zero-data-loss Point-in-Time Recovery (PITR).</p>
-          </div>
-
-          <!-- Feature 4: Failed Login Lockout Policy -->
-          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-red-500/50 transition shadow-xl">
-            <div class="w-10 h-10 rounded-lg bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400 text-lg">
-              <i class="fa-solid fa-user-lock"></i>
-            </div>
-            <h3 class="text-base font-semibold text-white">15-Min Lockout Policy</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">Tracks 5 consecutive failed login attempts per IP:email and enforces an automatic 15-minute HTTP 429 lockout window.</p>
-          </div>
-
-          <!-- Feature 5: Multi-Driver Storage Engine -->
-          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-amber-500/50 transition shadow-xl">
-            <div class="w-10 h-10 rounded-lg bg-amber-950/80 border border-amber-800 flex items-center justify-center text-amber-400 text-lg">
-              <i class="fa-solid fa-server"></i>
-            </div>
-            <h3 class="text-base font-semibold text-white">Multi-Driver Storage Engine</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">Abstracted storage driver interface allowing dynamic switching between Local Disk and AWS S3 / Cloudflare R2 object storage.</p>
-          </div>
-
-          <!-- Feature 6: Prometheus Telemetry Engine -->
-          <div class="bg-darkcard/80 backdrop-blur border border-darkborder rounded-xl p-6 space-y-3 hover:border-emerald-500/50 transition shadow-xl">
-            <div class="w-10 h-10 rounded-lg bg-emerald-950/80 border border-emerald-800 flex items-center justify-center text-emerald-400 text-lg">
-              <i class="fa-solid fa-chart-simple"></i>
-            </div>
-            <h3 class="text-base font-semibold text-white">Prometheus Metrics (/metrics)</h3>
-            <p class="text-xs text-slate-400 leading-relaxed">Standard Prometheus exposition format collecting CPU, heap, database latency, active WebSockets, and HTTP request metrics.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- TOTP MFA Verification Modal (Prompted during login if MFA enabled) -->
     <div id="mfaModal" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 hidden">
       <div class="bg-darkcard border border-darkborder rounded-xl p-6 max-w-sm w-full space-y-4 shadow-2xl">
@@ -859,16 +1026,60 @@
           <h3 class="text-lg font-bold text-white flex items-center space-x-2"><i class="fa-solid fa-shield-halved text-brand-400"></i><span>Enable TOTP MFA</span></h3>
           <button id="closeMfaSetupBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
         </div>
-        <div class="space-y-3 text-xs text-slate-300">
-          <p>1. Copy the secret key or URI into your Authenticator App (Google Authenticator, Authy, 1Password):</p>
-          <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder space-y-2">
+        <div class="space-y-4 text-xs text-slate-300">
+          <p class="font-medium text-slate-200">1. Scan this QR Code with your Authenticator App (Google Authenticator, Authy, 1Password):</p>
+          
+          <!-- QR Code Display Box -->
+          <div class="flex flex-col items-center justify-center p-3 bg-white rounded-xl border border-slate-700 w-44 h-44 mx-auto shadow-lg">
+            <img id="mfaQrCodeImg" src="" alt="TOTP MFA QR Code" class="w-40 h-40 object-contain hidden" />
+            <div id="mfaQrLoading" class="text-slate-600 text-xs flex items-center space-x-2">
+              <i class="fa-solid fa-circle-notch fa-spin text-brand-500 text-lg"></i>
+              <span>Generating QR...</span>
+            </div>
+          </div>
+
+          <p class="font-medium text-slate-200">Or manually copy the Secret Key / URI into your app:</p>
+          <div class="bg-[#1e1e1e] p-3 rounded border border-darkborder space-y-1.5">
             <p class="text-[11px] text-slate-400 font-mono select-all break-all" id="mfaSecretText">Secret Key Loading...</p>
             <p class="text-[10px] text-blue-400 font-mono select-all break-all" id="mfaOtpUrlText">otpauth://totp/...</p>
           </div>
-          <p>2. Enter the 6-digit code from your app to verify and activate TOTP MFA:</p>
+
+          <p class="font-medium text-slate-200">2. Enter the 6-digit verification code from your app:</p>
           <form id="mfaVerifyForm" class="space-y-3">
             <input type="text" id="mfaSetupCode" maxlength="6" pattern="[0-9]{6}" required placeholder="123456" class="w-full text-center tracking-[0.4em] text-xl font-mono bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-white focus:border-brand-500 focus:outline-none">
             <button type="submit" class="w-full bg-brand-500 hover:bg-brand-600 text-darkbg font-bold py-2.5 rounded text-xs transition">Confirm & Enable TOTP MFA</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secure Disable TOTP MFA Modal -->
+    <div id="disableMfaModal" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 hidden">
+      <div class="bg-darkcard border border-darkborder rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+        <div class="flex justify-between items-center border-b border-darkborder pb-3">
+          <h3 class="text-lg font-bold text-white flex items-center space-x-2 text-rose-400">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+            <span>Disable TOTP MFA</span>
+          </h3>
+          <button id="closeDisableMfaBtn" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        <div class="space-y-3 text-xs text-slate-300">
+          <p class="text-rose-300 font-medium">⚠️ Security Verification Required:</p>
+          <p>To disable Two-Factor Authentication, you must verify your identity by entering both your account password and a current 6-digit TOTP code.</p>
+          
+          <form id="disableMfaForm" class="space-y-3 pt-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-400 mb-1">ACCOUNT PASSWORD</label>
+              <input type="password" id="disableMfaPassword" required placeholder="••••••••" class="w-full bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-white focus:border-rose-500 focus:outline-none">
+            </div>
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-400 mb-1">CURRENT 6-DIGIT TOTP CODE</label>
+              <input type="text" id="disableMfaTotpCode" maxlength="6" pattern="[0-9]{6}" required placeholder="123456" class="w-full text-center tracking-[0.4em] text-xl font-mono bg-[#1e1e1e] border border-darkborder rounded p-2.5 text-white focus:border-rose-500 focus:outline-none">
+            </div>
+            <div class="flex space-x-3 pt-2">
+              <button type="button" id="cancelDisableMfaBtn" class="flex-1 bg-[#1e1e1e] hover:bg-[#3c3c3c] text-slate-300 font-medium py-2.5 rounded text-xs">Cancel</button>
+              <button type="submit" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded text-xs transition">Confirm & Disable MFA</button>
+            </div>
           </form>
         </div>
       </div>

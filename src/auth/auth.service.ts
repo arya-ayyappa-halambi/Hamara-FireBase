@@ -212,6 +212,78 @@ export async function verifyAndEnableMfa(userId: string, totpCode: string): Prom
   return true;
 }
 
+export async function disableMfa(userId: string, password: string, totpCode: string): Promise<boolean> {
+  const db = getDb();
+  const user = db.prepare('SELECT id, email, passwordHash, mfaSecret, mfaEnabled FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found.', 404);
+  if (user.mfaEnabled !== 1) throw new AppError('MFA is not enabled for this account.', 400);
+
+  // 1. Verify password for security
+  const passwordValid = await argon2.verify(user.passwordHash, password);
+  if (!passwordValid) throw new AppError('Security check failed: Incorrect account password.', 401);
+
+  // 2. Verify 6-digit TOTP code
+  const { totpService } = await import('../services/totp.service');
+  const isValidTotp = totpService.verifyCode(user.mfaSecret, totpCode);
+  if (!isValidTotp) throw new AppError('Security check failed: Invalid 6-digit TOTP code.', 400);
+
+  // 3. Clear secret and disable MFA
+  db.prepare('UPDATE users SET mfaEnabled = 0, mfaSecret = NULL, updatedAt = ? WHERE id = ?').run(new Date().toISOString(), userId);
+  return true;
+}
+
+export async function changePassword(
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+  totpCode?: string,
+): Promise<boolean> {
+  if (!newPassword || newPassword.length < 8) {
+    throw new AppError('New password must be at least 8 characters long.', 400);
+  }
+
+  const db = getDb();
+  const user = db.prepare('SELECT id, email, passwordHash, mfaSecret, mfaEnabled FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found.', 404);
+
+  // 1. Verify current password
+  const passwordValid = await argon2.verify(user.passwordHash, currentPassword);
+  if (!passwordValid) throw new AppError('Incorrect current password.', 401);
+
+  // 2. Mandatory TOTP check if MFA enabled
+  if (user.mfaEnabled === 1) {
+    if (!totpCode) {
+      throw new AppError('TOTP verification mandatory: 6-digit TOTP code is required to change password.', 400, { mfaRequired: true });
+    }
+    const { totpService } = await import('../services/totp.service');
+    const isValidTotp = totpService.verifyCode(user.mfaSecret, totpCode);
+    if (!isValidTotp) {
+      throw new AppError('Security check failed: Invalid 6-digit TOTP code.', 400);
+    }
+  }
+
+  // 3. Hash new password and update DB
+  const newPasswordHash = await argon2.hash(newPassword);
+  db.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?').run(newPasswordHash, new Date().toISOString(), userId);
+  return true;
+}
+
+export async function updateUserProfile(userId: string, name: string): Promise<any> {
+  if (!name || name.trim().length === 0) {
+    throw new AppError('Name cannot be empty.', 400);
+  }
+
+  const db = getDb();
+  const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found.', 404);
+
+  const cleanName = name.trim();
+  db.prepare('UPDATE users SET name = ?, updatedAt = ? WHERE id = ?').run(cleanName, new Date().toISOString(), userId);
+  
+  const updatedUser = await userStore.findById(userId);
+  return updatedUser ? toPublicUser(updatedUser) : null;
+}
+
 /**
  * Refresh an access token using a valid refresh token.
  * Performs refresh token rotation: revokes the used refresh token and issues a new pair.
