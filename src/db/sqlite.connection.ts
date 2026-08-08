@@ -302,6 +302,12 @@ export function initSqlite(): void {
   try { db.exec(`ALTER TABLE project_users ADD COLUMN mfaEnabled INTEGER DEFAULT 0;`); } catch {}
   try { db.exec(`ALTER TABLE project_users ADD COLUMN mfaSecret TEXT;`); } catch {}
 
+  // Migrate refresh_tokens for Token Family Rotation & Reuse Detection
+  try { db.exec(`ALTER TABLE refresh_tokens ADD COLUMN familyId TEXT;`); } catch {}
+  try { db.exec(`ALTER TABLE refresh_tokens ADD COLUMN isSpent INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`ALTER TABLE refresh_tokens ADD COLUMN isRevoked INTEGER DEFAULT 0;`); } catch {}
+  try { db.exec(`CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(familyId);`); } catch {}
+
   // Migrate documents to add version column
   try {
     db.exec(`ALTER TABLE documents ADD COLUMN version INTEGER NOT NULL DEFAULT 1;`);
