@@ -22,6 +22,7 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 - **📦 Multi-Driver Storage Abstraction**: Pluggable storage abstraction supporting `LocalStorageDriver` (disk-bound) and `S3StorageDriver` (AWS S3, MinIO, Cloudflare R2), dynamically selected via `STORAGE_DRIVER=s3|local`.
 - **🛡️ VM Sandbox Rules**: Node.js `vm2` sandbox for executing custom JavaScript security and validation rules on collections.
 - **📊 Real-Time Prometheus Telemetry**: Standardized Prometheus exposition metrics collecting CPU usage, resident memory size, heap statistics, `http_requests_total`, `rate_limit_hits_total`, and active WebSockets. Includes a live dashboard polling real-time CPU/Memory data.
+- **📄 Multi-Format Telemetry Export**: 1-click generation of project metrics and telemetry reports natively in JSON, Markdown, Excel (CSV), MS Word (.doc), and formatted PDF, completely generated client-side without backend overhead.
 - **⚡ Real-Time Data Streams**: Native WebSocket support broadcasting live change stream events (insert, update, delete) to subscribed clients instantly.
 - **👑 Role Context Scope Switcher**: Dynamic web console supporting Super Admin global platform management mode and Project / Developer scoped views.
 - **🧪 Interactive API Key Tester**: Built-in developer console tool to securely test Project API keys against live endpoints via an integrated REST client.

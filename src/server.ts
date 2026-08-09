@@ -71,7 +71,14 @@ function createApp(): Application {
   // ── Prometheus Metrics Middleware ────────────────────────────────────────
   app.use((req, res, next) => {
     res.on('finish', () => {
-      metricsService.recordHttpRequest(req.method, req.path, res.statusCode);
+      let projectId: string | undefined = req.project?.id;
+      if (!projectId && typeof req.headers['x-aegis-project-id'] === 'string') {
+        projectId = req.headers['x-aegis-project-id'];
+      }
+      if (!projectId && req.user && (req.user as any).isProjectUser) {
+        projectId = (req.user as any).projectId;
+      }
+      metricsService.recordHttpRequest(req.method, req.path, res.statusCode, projectId);
     });
     next();
   });

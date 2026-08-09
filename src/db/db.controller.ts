@@ -13,6 +13,7 @@ import { auditLogService } from '../services/audit-log.service';
 import { getDb } from './sqlite.connection';
 import { AppError, ApiResponse } from '../types/auth.types';
 import { sseRealtimeService } from '../services/sse-realtime.service';
+import { metricsService } from '../services/metrics.service';
 import {
   Collection,
   Document,
@@ -311,7 +312,9 @@ export async function insertDocument(req: Request, res: Response, next: NextFunc
     checkRules(coll, 'write', req);
     
     const docId = req.body.id || require('uuid').v4();
+    const t0 = performance.now();
     const doc = (dbStore as any).insertDocument(ownerId, projectId, req.params.name, req.body.data, docId);
+    metricsService.recordDbOperation(performance.now() - t0, 'insert', projectId);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(201).json({ success: true, message: 'Document inserted.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
@@ -332,7 +335,9 @@ export async function queryDocuments(req: Request, res: Response, next: NextFunc
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'read', req);
     
+    const t0 = performance.now();
     const result = dbStore.queryDocuments(ownerId, projectId, req.params.name, opts);
+    metricsService.recordDbOperation(performance.now() - t0, 'select', projectId);
     userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Documents retrieved.', data: result } as ApiResponse<QueryResult>);
   } catch (err) { next(err); }
@@ -346,7 +351,9 @@ export async function getDocument(req: Request, res: Response, next: NextFunctio
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'read', req);
     
+    const t0 = performance.now();
     const doc = dbStore.getDocument(ownerId, projectId, req.params.name, req.params.id);
+    metricsService.recordDbOperation(performance.now() - t0, 'select', projectId);
     userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Document retrieved.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
@@ -363,7 +370,9 @@ export async function updateDocument(req: Request, res: Response, next: NextFunc
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'write', req);
     
+    const t0 = performance.now();
     const doc = dbStore.updateDocument(ownerId, projectId, req.params.name, req.params.id, req.body.data);
+    metricsService.recordDbOperation(performance.now() - t0, 'update', projectId);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(200).json({ success: true, message: 'Document updated.', data: doc } as ApiResponse<Document>);
   } catch (err) { next(err); }
@@ -377,7 +386,9 @@ export async function deleteDocument(req: Request, res: Response, next: NextFunc
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'write', req);
     
+    const t0 = performance.now();
     dbStore.deleteDocument(ownerId, projectId, req.params.name, req.params.id);
+    metricsService.recordDbOperation(performance.now() - t0, 'delete', projectId);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(200).json({ success: true, message: 'Document deleted.', data: null } as ApiResponse<null>);
   } catch (err) { next(err); }
@@ -396,7 +407,9 @@ export async function queryVector(req: Request, res: Response, next: NextFunctio
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
     checkRules(coll, 'read', req);
 
+    const t0 = performance.now();
     const results = dbStore.queryDocumentsByVector(ownerId, projectId, req.params.name, field, vector, topK);
+    metricsService.recordDbOperation(performance.now() - t0, 'search', projectId);
 
     userStore.incrementTelemetry(ownerId, 'read');
 

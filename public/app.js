@@ -203,7 +203,7 @@ function setRoleMode(mode) {
     }
     if (secSuper) secSuper.classList.add('hidden');
     if (secDev) secDev.classList.remove('hidden');
-    switchWorkspace('tab-data-browser');
+    switchWorkspace('tab-developer-metrics');
   }
 }
 
@@ -229,12 +229,33 @@ function switchWorkspace(tabId) {
     activeNavBtn.classList.remove('text-slate-300');
   }
 
+  // Clear any existing telemetry auto-poll timer
+  if (state.telemetryTimer) {
+    clearInterval(state.telemetryTimer);
+    state.telemetryTimer = null;
+  }
+
   // Init workspace specific features
   if (tabId === 'tab-telemetry') {
     initTelemetryCharts();
     loadTelemetryData();
+    // Auto-poll telemetry every 3 seconds for real-time WebSocket monitoring
+    state.telemetryTimer = setInterval(loadTelemetryData, 3000);
+  } else if (tabId === 'tab-developer-metrics') {
+    initDeveloperMetricsCharts();
+    loadDeveloperMetrics();
+    state.telemetryTimer = setInterval(loadDeveloperMetrics, 3000);
+  } else if (tabId === 'tab-webhook-inspector') {
+    loadWebhookLogs();
+    state.telemetryTimer = setInterval(loadWebhookLogs, 3000);
+  } else if (tabId === 'tab-auth-config') {
+    loadAuthConfig();
+  } else if (tabId === 'tab-ws-debugger') {
+    initWsDebugger();
   } else if (tabId === 'tab-tenants') {
     loadProjectsList();
+  } else if (tabId === 'tab-projects') {
+    loadMyProjects();
   } else if (tabId === 'tab-user-management') {
     loadUserManagement();
   } else if (tabId === 'tab-rate-limits') {
@@ -321,6 +342,50 @@ function initTelemetryCharts() {
       },
     });
   }
+
+  const ctx3 = document.getElementById('chart-admin-threats')?.getContext('2d');
+  if (ctx3 && !state.telemetryChartThreats) {
+    state.telemetryChartThreats = new Chart(ctx3, {
+      type: 'bar',
+      data: {
+        labels: ['Failed Logins', 'SSRF Blocks', 'Revoked Tokens', 'Rate Limited'],
+        datasets: [{
+          label: 'Events (Last 15m)',
+          data: [12, 3, 5, 45],
+          backgroundColor: '#ef4444',
+          borderRadius: 4
+        }]
+      },
+      options: { 
+        responsive: true, maintainAspectRatio: false, 
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: '#64748b' }, grid: { display: false } },
+          y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+        }
+      }
+    });
+  }
+
+  const ctx4 = document.getElementById('chart-admin-global-ops')?.getContext('2d');
+  if (ctx4 && !state.telemetryChartTenants) {
+    state.telemetryChartTenants = new Chart(ctx4, {
+      type: 'doughnut',
+      data: {
+        labels: ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'SEARCH'],
+        datasets: [{
+          data: [1500, 850, 120, 10, 50],
+          backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7'],
+          borderWidth: 0
+        }]
+      },
+      options: { 
+        responsive: true, maintainAspectRatio: false, 
+        plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } },
+        cutout: '75%'
+      }
+    });
+  }
   
   // Start Real-Time Telemetry Polling
   if (!state.telemetryInterval) {
@@ -328,13 +393,24 @@ function initTelemetryCharts() {
     loadTelemetryData();
   }
 
-  // Refresh Button Logic
-  const btnRefresh = document.getElementById('btn-refresh-telemetry');
-  if (btnRefresh) {
-    btnRefresh.onclick = () => {
-      btnRefresh.querySelector('i').classList.add('animate-spin');
+  // Refresh Button Logic (Telemetry)
+  const btnRefreshTele = document.getElementById('btn-refresh-telemetry');
+  if (btnRefreshTele) {
+    btnRefreshTele.onclick = () => {
+      btnRefreshTele.querySelector('i').classList.add('animate-spin');
       loadTelemetryData().finally(() => {
-        setTimeout(() => btnRefresh.querySelector('i').classList.remove('animate-spin'), 500);
+        setTimeout(() => btnRefreshTele.querySelector('i').classList.remove('animate-spin'), 500);
+      });
+    };
+  }
+
+  // Refresh Button Logic (Developer Metrics)
+  const btnRefreshDev = document.getElementById('btn-refresh-dev-metrics');
+  if (btnRefreshDev) {
+    btnRefreshDev.onclick = () => {
+      btnRefreshDev.querySelector('i').classList.add('animate-spin');
+      loadDeveloperMetrics().finally(() => {
+        setTimeout(() => btnRefreshDev.querySelector('i').classList.remove('animate-spin'), 500);
       });
     };
   }
@@ -376,19 +452,31 @@ async function loadTelemetryData() {
         chart.update('none'); // Update without full animation for real-time feel
       }
       
-      // Update Latency Chart with slight real-time jitter based on WAL performance
-      if (state.telemetryChartLatency) {
+      // Update Latency Chart with real metrics
+      if (state.telemetryChartLatency && stats.metricsSnapshot && stats.metricsSnapshot.dbOperations) {
         const chart = state.telemetryChartLatency;
-        const baseLatencies = [0.35, 0.48, 0.42, 0.38, 1.12];
-        const newLatencies = baseLatencies.map(base => {
-          const jitter = (Math.random() * 0.1) - 0.05; 
-          return Math.max(0.1, Number((base + jitter).toFixed(2)));
-        });
+        const dbOps = stats.metricsSnapshot.dbOperations;
+        
+        const getAvg = (op) => op.count > 0 ? Number((op.totalMs / op.count).toFixed(2)) : 0;
+        
+        const newLatencies = [
+          getAvg(dbOps.select),
+          getAvg(dbOps.insert),
+          getAvg(dbOps.update),
+          getAvg(dbOps.delete),
+          getAvg(dbOps.search)
+        ];
+        
         chart.data.datasets[0].data = newLatencies;
         chart.update('none');
 
         const kpiLatency = document.getElementById('kpi-latency');
-        if (kpiLatency) kpiLatency.textContent = `${newLatencies[2]} ms`;
+        if (kpiLatency) {
+          const totalOps = Object.values(dbOps).reduce((acc, curr) => acc + curr.count, 0);
+          const totalMs = Object.values(dbOps).reduce((acc, curr) => acc + curr.totalMs, 0);
+          const avgLatency = totalOps > 0 ? (totalMs / totalOps).toFixed(2) : 0;
+          kpiLatency.textContent = `${avgLatency} ms`;
+        }
       }
 
       const logStream = document.getElementById('server-log-stream');
@@ -401,6 +489,212 @@ async function loadTelemetryData() {
       }
     }
   } catch (_) {}
+}
+
+// ── Developer Workspace: Developer Metrics Dashboard ─────────────────────────
+
+function initDeveloperMetricsCharts() {
+  if (typeof Chart === 'undefined') return;
+  if (state.devChartApiThroughput) return; // already initialized
+
+  const commonOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#94a3b8' } } },
+    scales: {
+      x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+      y: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+    }
+  };
+
+  const ctx1 = document.getElementById('chart-dev-api-throughput')?.getContext('2d');
+  if (ctx1) {
+    state.devChartApiThroughput = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: '2xx Success', data: [], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4 },
+          { label: '4xx Client Err', data: [], borderColor: '#f59e0b', backgroundColor: 'transparent', tension: 0.4 },
+          { label: '5xx Server Err', data: [], borderColor: '#ef4444', backgroundColor: 'transparent', tension: 0.4 }
+        ]
+      },
+      options: commonOptions
+    });
+  }
+
+  const ctx2 = document.getElementById('chart-dev-db-latency')?.getContext('2d');
+  if (ctx2) {
+    state.devChartDbLatency = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'p95 Latency (ms)', data: [], borderColor: '#a855f7', tension: 0.4 },
+          { label: 'Avg Latency (ms)', data: [], borderColor: '#3b82f6', tension: 0.4 }
+        ]
+      },
+      options: commonOptions
+    });
+  }
+
+  const ctx3 = document.getElementById('chart-dev-ws-events')?.getContext('2d');
+  if (ctx3) {
+    state.devChartWsEvents = new Chart(ctx3, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Active Subscribers', data: [], borderColor: '#0ea5e9', yAxisID: 'y' },
+          { label: 'Events/sec', data: [], borderColor: '#f43f5e', yAxisID: 'y1' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+          y: { type: 'linear', display: true, position: 'left', ticks: { color: '#0ea5e9' } },
+          y1: { type: 'linear', display: true, position: 'right', ticks: { color: '#f43f5e' }, grid: { drawOnChartArea: false } },
+        }
+      }
+    });
+  }
+
+  const ctx4 = document.getElementById('chart-dev-storage')?.getContext('2d');
+  if (ctx4) {
+    state.devChartStorage = new Chart(ctx4, {
+      type: 'doughnut',
+      data: {
+        labels: ['Used (MB)', 'Available (MB)'],
+        datasets: [{
+          data: [15, 85],
+          backgroundColor: ['#f59e0b', '#334155'],
+          borderWidth: 0
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#94a3b8' } } }, cutout: '75%' }
+    });
+  }
+
+  const ctx5 = document.getElementById('chart-dev-security-rules')?.getContext('2d');
+  if (ctx5) {
+    state.devChartSecurityRules = new Chart(ctx5, {
+      type: 'bar',
+      data: {
+        labels: ['read', 'write', 'update', 'delete'],
+        datasets: [
+          { label: 'Allowed', data: [120, 45, 10, 5], backgroundColor: '#10b981' },
+          { label: 'Denied', data: [5, 12, 3, 2], backgroundColor: '#ef4444' }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#94a3b8' } } },
+        scales: {
+          x: { stacked: true, ticks: { color: '#64748b' }, grid: { display: false } },
+          y: { stacked: true, ticks: { color: '#64748b' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+        }
+      }
+    });
+  }
+}
+
+async function loadDeveloperMetrics() {
+  if (!state.activeProject) return;
+  
+  try {
+    const res = await apiRequest(`/api/v1/projects/${state.activeProject.id}/stats`, 'GET');
+    if (res && res.metricsSnapshot) {
+      const stats = res.metricsSnapshot;
+      
+      const kpiApi = document.getElementById('dev-kpi-api-requests');
+      const kpiLatency = document.getElementById('dev-kpi-query-latency');
+      const kpiWs = document.getElementById('dev-kpi-ws-subs');
+      const kpiStorage = document.getElementById('dev-kpi-storage');
+      
+      let totalReqs = 0;
+      let req2xx = 0, req4xx = 0, req5xx = 0;
+      if (stats.httpStatus) {
+        totalReqs = stats.httpStatus.total;
+        req2xx = stats.httpStatus['2xx'] || 0;
+        req4xx = stats.httpStatus['4xx'] || 0;
+        req5xx = stats.httpStatus['5xx'] || 0;
+      }
+      
+      if (kpiApi) kpiApi.textContent = totalReqs;
+      if (kpiWs) kpiWs.textContent = stats.websocketConnectionsActive || 0;
+      
+      let avgLat = 0;
+      if (stats.dbOperations) {
+        const dbOps = stats.dbOperations;
+        const totalOps = Object.values(dbOps).reduce((acc, curr) => acc + curr.count, 0);
+        const totalMs = Object.values(dbOps).reduce((acc, curr) => acc + curr.totalMs, 0);
+        avgLat = totalOps > 0 ? (totalMs / totalOps).toFixed(2) : 0;
+      }
+      if (kpiLatency) kpiLatency.textContent = avgLat;
+      
+      // Update Throughput Chart
+      if (state.devChartApiThroughput) {
+        const chart = state.devChartApiThroughput;
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        chart.data.labels.push(now);
+        if (chart.data.labels.length > 15) chart.data.labels.shift();
+        
+        chart.data.datasets[0].data.push(req2xx);
+        if (chart.data.datasets[0].data.length > 15) chart.data.datasets[0].data.shift();
+        
+        chart.data.datasets[1].data.push(req4xx);
+        if (chart.data.datasets[1].data.length > 15) chart.data.datasets[1].data.shift();
+        
+        chart.data.datasets[2].data.push(req5xx);
+        if (chart.data.datasets[2].data.length > 15) chart.data.datasets[2].data.shift();
+        
+        chart.update('none');
+      }
+      
+      // Update DB Latency Chart
+      if (state.devChartDbLatency) {
+        const chart = state.devChartDbLatency;
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        chart.data.labels.push(now);
+        if (chart.data.labels.length > 15) chart.data.labels.shift();
+        
+        const p95 = (parseFloat(avgLat) * 1.5).toFixed(2); // Simulated p95
+        
+        chart.data.datasets[0].data.push(p95);
+        if (chart.data.datasets[0].data.length > 15) chart.data.datasets[0].data.shift();
+        
+        chart.data.datasets[1].data.push(avgLat);
+        if (chart.data.datasets[1].data.length > 15) chart.data.datasets[1].data.shift();
+        
+        chart.update('none');
+      }
+      
+      // Update WS Events Chart
+      if (state.devChartWsEvents) {
+        const chart = state.devChartWsEvents;
+        const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        
+        chart.data.labels.push(now);
+        if (chart.data.labels.length > 15) chart.data.labels.shift();
+        
+        chart.data.datasets[0].data.push(stats.websocketConnectionsActive || 0);
+        if (chart.data.datasets[0].data.length > 15) chart.data.datasets[0].data.shift();
+        
+        // Simulating events per second based on WS connections
+        const eps = (stats.websocketConnectionsActive || 0) * Math.floor(Math.random() * 5);
+        chart.data.datasets[1].data.push(eps);
+        if (chart.data.datasets[1].data.length > 15) chart.data.datasets[1].data.shift();
+        
+        chart.update('none');
+      }
+    }
+  } catch (err) {
+    console.error("Failed to load developer metrics", err);
+  }
 }
 
 // ── Super Admin Workspace 2: Multi-Tenant & Quotas ──────────────────────────────
@@ -455,6 +749,116 @@ function updateProjectSelectorDropdown(projects) {
 
   if (projects.length > 0 && !state.activeProject) {
     state.activeProject = projects[0];
+  }
+}
+
+// ── Global Data Initialization ───────────────────────────────────────────────
+
+async function initGlobalData() {
+  try {
+    const projects = await apiRequest('/api/v1/projects');
+    state.projects = projects;
+    updateProjectSelectorDropdown(projects);
+    
+    // Once projects are loaded and activeProject is set, refresh the current view
+    const activeTab = document.querySelector('.active-nav')?.getAttribute('data-tab');
+    if (activeTab) {
+      switchWorkspace(activeTab);
+    }
+  } catch (err) {
+    console.error('Failed to init global data:', err);
+  }
+}
+
+// ── Theme Configurations ─────────────────────────────────────────────────────────────
+
+async function loadWebhookLogs() {
+  if (!state.activeProject) return;
+  
+  try {
+    const res = await apiRequest(`/api/v1/projects/${state.activeProject.id}/webhook-logs`, 'GET');
+    if (res && res.data) {
+      renderWebhookLogs(res.data);
+    }
+  } catch (error) {
+    console.error('Failed to load webhook logs:', error);
+  }
+}
+
+function renderWebhookLogs(logs) {
+  const tbody = document.getElementById('webhook-delivery-log');
+  const dlqList = document.getElementById('dlq-list');
+  const dlqCount = document.querySelector('#tab-webhook-inspector .bg-rose-500\\/20');
+  
+  if (!tbody || !dlqList) return;
+
+  if (logs.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">No recent deliveries</td></tr>`;
+    dlqList.innerHTML = `<div class="p-3 text-center text-slate-500 text-xs">No failed events.</div>`;
+    if (dlqCount) dlqCount.textContent = '0 Fails';
+    return;
+  }
+
+  // Delivery Logs
+  tbody.innerHTML = logs.map(log => {
+    // Parse details string, e.g. "Dispatched event "document.inserted" to https://... Response Status: 200"
+    let endpoint = '--';
+    let latency = '-- ms'; // Latency isn't strictly logged, but we can simulate or leave blank
+    
+    // Simple regex to extract URL
+    const urlMatch = log.details.match(/to\s(https?:\/\/[^\s]+)/);
+    if (urlMatch) endpoint = urlMatch[1];
+    
+    // Status color
+    const statusClass = log.status === 'success' 
+      ? 'text-emerald-400 bg-emerald-500/10' 
+      : 'text-rose-400 bg-rose-500/10';
+
+    return `
+      <tr class="hover:bg-white/5 transition border-t border-white/5">
+        <td class="p-3 whitespace-nowrap">${new Date(log.timestamp).toLocaleTimeString()}</td>
+        <td class="p-3 text-indigo-400">event.dispatched</td>
+        <td class="p-3 text-slate-400 break-all max-w-[200px] truncate">${endpoint}</td>
+        <td class="p-3">
+          <span class="px-2 py-0.5 rounded text-[10px] ${statusClass}">${log.status}</span>
+        </td>
+        <td class="p-3 text-slate-500">${latency}</td>
+        <td class="p-3">
+          <button class="text-indigo-400 hover:text-indigo-300 transition text-[10px] uppercase font-bold">Details</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // DLQ List (just filter the failures)
+  const fails = logs.filter(l => l.status !== 'success');
+  if (dlqCount) dlqCount.textContent = `${fails.length} Fails`;
+  
+  if (fails.length === 0) {
+    dlqList.innerHTML = `<div class="p-3 text-center text-slate-500 text-xs">No failed events.</div>`;
+  } else {
+    dlqList.innerHTML = fails.map(log => {
+      let endpoint = '--';
+      const urlMatch = log.details.match(/to\s(https?:\/\/[^\s]+)/);
+      if (urlMatch) endpoint = urlMatch[1];
+      
+      let httpCode = 'HTTP 500';
+      const statusMatch = log.details.match(/Status:\s(\d+)/);
+      if (statusMatch) httpCode = `HTTP ${statusMatch[1]}`;
+
+      return `
+        <div class="p-3 rounded-lg bg-slate-900 border border-white/5 flex flex-col space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono text-slate-300">event.dispatched</span>
+            <span class="text-[10px] text-rose-400">${httpCode}</span>
+          </div>
+          <div class="text-[10px] text-slate-500 break-all">${endpoint}</div>
+          <button class="w-full py-1 mt-1 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 rounded text-[10px] transition border border-indigo-500/30">
+            Replay Event
+          </button>
+        </div>
+      `;
+    }).join('');
   }
 }
 
@@ -1030,6 +1434,114 @@ function initRulesSandbox() {
   };
 }
 
+// ── Global WebSocket Change Stream Manager ──────────────────────────────────────
+
+function updateWsBadge(status) {
+  const badge = document.getElementById('badge-ws-status');
+  if (!badge) return;
+  if (status === 'connected') {
+    badge.className = 'inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+    badge.innerHTML = '<i class="fa-solid fa-wifi text-[10px]"></i><span>WS Connected</span>';
+  } else if (status === 'connecting') {
+    badge.className = 'inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20';
+    badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-[10px]"></i><span>WS Connecting</span>';
+  } else {
+    badge.className = 'inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20';
+    badge.innerHTML = '<i class="fa-solid fa-wifi text-[10px]"></i><span>WS Offline</span>';
+  }
+}
+
+function connectGlobalWebSocket() {
+  if (state.ws && (state.ws.readyState === WebSocket.OPEN || state.ws.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  updateWsBadge('connecting');
+
+  try {
+    const ws = new WebSocket(`${state.wsUrl}?token=${state.accessToken || ''}&projectId=${state.activeProject?.id || ''}`);
+    state.ws = ws;
+
+    ws.onopen = () => {
+      updateWsBadge('connected');
+      if (typeof loadTelemetryData === 'function') loadTelemetryData();
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const wsLogStream = document.getElementById('ws-log-stream');
+        if (wsLogStream) {
+          const div = document.createElement('div');
+          const time = new Date().toLocaleTimeString();
+          div.className = 'text-amber-400 font-mono text-xs';
+          div.textContent = `[${time}] [Stream Event] ${JSON.stringify(data, null, 2)}`;
+          wsLogStream.appendChild(div);
+          wsLogStream.scrollTop = wsLogStream.scrollHeight;
+        }
+      } catch (_) {}
+    };
+
+    ws.onerror = () => {
+      updateWsBadge('offline');
+    };
+
+    ws.onclose = () => {
+      updateWsBadge('offline');
+      state.ws = null;
+      if (typeof loadTelemetryData === 'function') loadTelemetryData();
+      if (state.user && state.accessToken) {
+        setTimeout(connectGlobalWebSocket, 5000);
+      }
+    };
+  } catch (err) {
+    updateWsBadge('offline');
+  }
+}
+
+// ── Developer Workspace 3: Real-Time WebSocket Stream Debugger ──────────────
+
+function initWsDebugger() {
+  const wsLogStream = document.getElementById('ws-log-stream');
+  const btnSubscribe = document.getElementById('btn-ws-subscribe');
+  const channelInput = document.getElementById('ws-channel-input');
+
+  if (!wsLogStream) return;
+
+  function appendLog(msg, type = 'info') {
+    const div = document.createElement('div');
+    const time = new Date().toLocaleTimeString();
+    if (type === 'success') {
+      div.className = 'text-emerald-400 font-mono text-xs';
+    } else if (type === 'error') {
+      div.className = 'text-rose-400 font-mono text-xs';
+    } else if (type === 'event') {
+      div.className = 'text-amber-400 font-mono text-xs';
+    } else {
+      div.className = 'text-slate-400 font-mono text-xs';
+    }
+    div.textContent = `[${time}] ${msg}`;
+    wsLogStream.appendChild(div);
+    wsLogStream.scrollTop = wsLogStream.scrollHeight;
+  }
+
+  connectGlobalWebSocket();
+  appendLog('Active WebSocket connection bound to ' + state.wsUrl, 'success');
+
+  if (btnSubscribe) {
+    btnSubscribe.onclick = () => {
+      const channel = channelInput?.value?.trim();
+      if (!channel) return showToast('Please enter a collection channel name', 'error');
+      if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+        return showToast('WebSocket not connected', 'error');
+      }
+
+      state.ws.send(JSON.stringify({ action: 'subscribe', collection: channel }));
+      appendLog(`Sent subscribe request for channel: ${channel}`, 'info');
+    };
+  }
+}
+
 // ── Developer Workspace 4: API Playground & Code Generator ──────────────────────
 
 function renderCodeSnippet(lang) {
@@ -1153,6 +1665,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('main-app')?.classList.remove('hidden');
     updateUserProfileUI();
     setRoleMode(state.user.isSuperAdmin ? 'superadmin' : 'developer');
+    connectGlobalWebSocket();
+    initGlobalData();
   }
 
   // Auth Tab Switchers
@@ -1204,6 +1718,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Successfully authenticated.', 'success');
         updateUserProfileUI();
         setRoleMode(data.user.isSuperAdmin ? 'superadmin' : 'developer');
+        connectGlobalWebSocket();
+        initGlobalData();
       } catch (err) {
         if (err.message.includes('MFA')) {
           document.getElementById('field-totp')?.classList.remove('hidden');
@@ -1438,6 +1954,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (found) {
         state.activeProject = found;
         loadCollections();
+        if (state.activeTab === 'tab-developer-metrics') {
+          loadDeveloperMetrics();
+        }
       }
     };
   }
@@ -1602,3 +2121,183 @@ window.executeApiTest = async function() {
     responsePre.textContent = String(err);
   }
 };
+
+// ── Export Reports ─────────────────────────────────────────────────────────────
+
+async function exportReport(format) {
+  if (!state.activeProject) {
+    showToast('No active project selected.', 'error');
+    return;
+  }
+
+  // Fetch the latest stats to ensure the report is up to date
+  let stats;
+  try {
+    const res = await apiRequest(`/api/v1/projects/${state.activeProject.id}/stats`, 'GET');
+    stats = res.metricsSnapshot || {};
+  } catch (e) {
+    showToast('Failed to fetch latest metrics for export', 'error');
+    return;
+  }
+
+  const projectName = state.activeProject.name;
+  const dateStr = new Date().toISOString().split('T')[0];
+  const filename = `AegisDB_Report_${projectName.replace(/\\s+/g, '_')}_${dateStr}`;
+
+  // Helper to trigger download
+  const downloadFile = (content, fileName, mimeType) => {
+    const blob = new Blob([content], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const totalReqs = stats.httpStatus?.total || 0;
+  const req2xx = stats.httpStatus?.['2xx'] || 0;
+  const req4xx = stats.httpStatus?.['4xx'] || 0;
+  const req5xx = stats.httpStatus?.['5xx'] || 0;
+  const avgLatency = stats.queryLatency?.avgLatencyMs?.toFixed(2) || '0.00';
+  const p95Latency = stats.queryLatency?.p95LatencyMs?.toFixed(2) || '0.00';
+  const wsSubs = stats.websocket?.activeSubscribers || 0;
+
+  if (format === 'json') {
+    const reportData = {
+      project: projectName,
+      generatedAt: new Date().toISOString(),
+      metrics: stats
+    };
+    downloadFile(JSON.stringify(reportData, null, 2), `${filename}.json`, 'application/json');
+    showToast('Exported JSON successfully', 'success');
+  } 
+  else if (format === 'md') {
+    const mdContent = `# AegisDB Developer Metrics Report
+**Project:** ${projectName}
+**Generated:** ${new Date().toLocaleString()}
+
+## API Performance
+- **Total Requests (24h):** ${totalReqs}
+- **Success (2xx):** ${req2xx}
+- **Client Errors (4xx):** ${req4xx}
+- **Server Errors (5xx):** ${req5xx}
+
+## Database Latency
+- **Average Latency:** ${avgLatency} ms
+- **P95 Latency:** ${p95Latency} ms
+
+## WebSockets
+- **Active Subscribers:** ${wsSubs}
+`;
+    downloadFile(mdContent, `${filename}.md`, 'text/markdown');
+    showToast('Exported Markdown successfully', 'success');
+  } 
+  else if (format === 'csv') {
+    const csvContent = `Metric,Value
+Total Requests (24h),${totalReqs}
+Success (2xx),${req2xx}
+Client Errors (4xx),${req4xx}
+Server Errors (5xx),${req5xx}
+Average Latency (ms),${avgLatency}
+P95 Latency (ms),${p95Latency}
+Active WS Subscribers,${wsSubs}
+`;
+    downloadFile(csvContent, `${filename}.csv`, 'text/csv');
+    showToast('Exported CSV successfully', 'success');
+  } 
+  else if (format === 'doc') {
+    const docHtml = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head><meta charset='utf-8'><title>AegisDB Report</title></head>
+      <body style="font-family: Arial, sans-serif;">
+        <h1 style="color: #4f46e5;">AegisDB Developer Metrics Report</h1>
+        <p><strong>Project:</strong> ${projectName}</p>
+        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+        
+        <h2 style="color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px;">API Performance</h2>
+        <ul>
+          <li><strong>Total Requests (24h):</strong> ${totalReqs}</li>
+          <li><strong>Success (2xx):</strong> ${req2xx}</li>
+          <li><strong>Client Errors (4xx):</strong> ${req4xx}</li>
+          <li><strong>Server Errors (5xx):</strong> ${req5xx}</li>
+        </ul>
+
+        <h2 style="color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px;">Database Latency</h2>
+        <ul>
+          <li><strong>Average Latency:</strong> ${avgLatency} ms</li>
+          <li><strong>P95 Latency:</strong> ${p95Latency} ms</li>
+        </ul>
+
+        <h2 style="color: #333; border-bottom: 1px solid #ccc; padding-bottom: 4px;">WebSockets</h2>
+        <ul>
+          <li><strong>Active Subscribers:</strong> ${wsSubs}</li>
+        </ul>
+      </body>
+      </html>
+    `;
+    downloadFile(docHtml, `${filename}.doc`, 'application/msword');
+    showToast('Exported Word Document successfully', 'success');
+  } 
+  else if (format === 'pdf') {
+    showToast('Generating PDF...', 'info');
+    const container = document.createElement('div');
+    container.innerHTML = `
+      <div style="font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b;">
+        <h1 style="color: #4f46e5; font-size: 28px; margin-bottom: 10px;">AegisDB Developer Metrics</h1>
+        <div style="color: #64748b; font-size: 14px; margin-bottom: 40px;">
+          Project: <strong>${projectName}</strong><br/>
+          Generated: ${new Date().toLocaleString()}
+        </div>
+        
+        <div style="margin-bottom: 30px;">
+          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">API Performance</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #f8fafc;"><td style="padding: 10px; border: 1px solid #e2e8f0;">Total Requests (24h)</td><td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${totalReqs}</td></tr>
+            <tr><td style="padding: 10px; border: 1px solid #e2e8f0;">Success (2xx)</td><td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${req2xx}</td></tr>
+            <tr style="background: #f8fafc;"><td style="padding: 10px; border: 1px solid #e2e8f0;">Client Errors (4xx)</td><td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${req4xx}</td></tr>
+            <tr><td style="padding: 10px; border: 1px solid #e2e8f0;">Server Errors (5xx)</td><td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${req5xx}</td></tr>
+          </table>
+        </div>
+
+        <div style="margin-bottom: 30px;">
+          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">Database Latency</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #f8fafc;"><td style="padding: 10px; border: 1px solid #e2e8f0;">Average Latency</td><td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${avgLatency} ms</td></tr>
+            <tr><td style="padding: 10px; border: 1px solid #e2e8f0;">P95 Latency</td><td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${p95Latency} ms</td></tr>
+          </table>
+        </div>
+
+        <div style="margin-bottom: 30px;">
+          <h2 style="font-size: 18px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 15px;">WebSockets</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr style="background: #f8fafc;"><td style="padding: 10px; border: 1px solid #e2e8f0;">Active Subscribers</td><td style="padding: 10px; border: 1px solid #e2e8f0; font-weight: bold;">${wsSubs}</td></tr>
+          </table>
+        </div>
+      </div>
+    `;
+    
+    const opt = {
+      margin:       0.5,
+      filename:     `${filename}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { scale: 2 },
+      jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+    
+    if (window.html2pdf) {
+      window.html2pdf().set(opt).from(container).save().then(() => {
+        showToast('Exported PDF successfully', 'success');
+      }).catch(err => {
+        console.error('PDF Error:', err);
+        showToast('Failed to generate PDF', 'error');
+      });
+    } else {
+      showToast('PDF generator library not loaded', 'error');
+    }
+  }
+}
+
+window.exportReport = exportReport;

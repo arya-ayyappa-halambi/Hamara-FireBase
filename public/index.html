@@ -47,6 +47,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 
+  <!-- HTML2PDF CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
   <style>
     /* Custom Glassmorphism & Micro-Interactions */
     body {
@@ -225,9 +228,9 @@
             <span class="w-2 h-2 rounded-full bg-emerald-400 live-pulse"></span>
             <span>Server Online</span>
           </span>
-          <span id="badge-ws-status" class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span id="badge-ws-status" class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-500/10 text-slate-400 border border-slate-500/20">
             <i class="fa-solid fa-wifi text-[10px]"></i>
-            <span>WS Connected</span>
+            <span>WS Offline</span>
           </span>
         </div>
 
@@ -286,6 +289,10 @@
           <!-- DEVELOPER NAVIGATION WORKSPACES -->
           <div id="section-nav-developer" class="space-y-1">
             <div class="sidebar-header-title text-[10px] font-bold uppercase tracking-wider text-indigo-400 px-3 mb-2">Developer Workspace</div>
+            <button data-tab="tab-developer-metrics" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-chart-pie text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Metrics Dashboard</span>
+            </button>
             <button data-tab="tab-project-management" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-folder-open text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Project Management</span>
@@ -305,6 +312,10 @@
             <button data-tab="tab-rules-sandbox" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-lock text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Rules & Sandbox</span>
+            </button>
+            <button data-tab="tab-webhook-inspector" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-network-wired text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Webhook Inspector</span>
             </button>
             <button data-tab="tab-ws-debugger" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-bolt text-base text-indigo-400 w-5"></i>
@@ -391,6 +402,24 @@
               <h3 class="text-sm font-semibold text-white">SQLite WAL Query Performance (ms)</h3>
               <div class="h-64">
                 <canvas id="chart-query-latency"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Operations Charts Grid (Super Admin) -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white">Threat & Security Operations</h3>
+              <p class="text-xs text-slate-400">Failed logins, SSRF blocks, revoked tokens (last 15m)</p>
+              <div class="h-64">
+                <canvas id="chart-admin-threats"></canvas>
+              </div>
+            </div>
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white">Global Database Operations</h3>
+              <p class="text-xs text-slate-400">Total operations executed across the entire platform</p>
+              <div class="h-64">
+                <canvas id="chart-admin-global-ops"></canvas>
               </div>
             </div>
           </div>
@@ -614,6 +643,143 @@
         </section>
 
         <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: DEVELOPER METRICS DASHBOARD (DEVELOPER MODE)         -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-developer-metrics" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-chart-pie text-indigo-500"></i>
+                <span>Developer Metrics</span>
+              </h2>
+              <p class="text-sm text-slate-400 mt-1">Live performance & telemetry scoped to your active project.</p>
+            </div>
+            <div class="flex space-x-2">
+              <button id="btn-refresh-dev-metrics" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl border border-white/10 transition flex items-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Refresh</span>
+              </button>
+              
+              <!-- Export Dropdown -->
+              <div class="relative group">
+                <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center space-x-2">
+                  <i class="fa-solid fa-download"></i>
+                  <span>Export Report</span>
+                  <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
+                </button>
+                <div class="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
+                  <button onclick="exportReport('json')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-code w-4"></i> <span>Export as JSON</span>
+                  </button>
+                  <button onclick="exportReport('md')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                    <i class="fa-brands fa-markdown w-4"></i> <span>Export as Markdown</span>
+                  </button>
+                  <button onclick="exportReport('csv')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-csv w-4"></i> <span>Export as Excel (CSV)</span>
+                  </button>
+                  <button onclick="exportReport('doc')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-word w-4"></i> <span>Export as Word (.doc)</span>
+                  </button>
+                  <button onclick="exportReport('pdf')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-pdf w-4"></i> <span>Export as PDF</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KPI Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-blue-500 relative overflow-hidden group">
+              <div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <i class="fa-solid fa-server text-8xl text-blue-400"></i>
+              </div>
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Total API Requests (24h)</div>
+              <div class="text-3xl font-black text-white tracking-tight" id="dev-kpi-api-requests">--</div>
+              <div class="text-xs text-blue-400 mt-2 font-medium flex items-center space-x-1">
+                <i class="fa-solid fa-arrow-trend-up"></i><span>Tracking active throughput</span>
+              </div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-emerald-500 relative overflow-hidden group">
+              <div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <i class="fa-solid fa-bolt text-8xl text-emerald-400"></i>
+              </div>
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Average Query Latency</div>
+              <div class="flex items-baseline space-x-1">
+                <div class="text-3xl font-black text-white tracking-tight" id="dev-kpi-query-latency">--</div>
+                <div class="text-sm text-slate-400 font-medium">ms</div>
+              </div>
+              <div class="text-xs text-emerald-400 mt-2 font-medium flex items-center space-x-1">
+                <i class="fa-solid fa-gauge-high"></i><span>Database performance</span>
+              </div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-purple-500 relative overflow-hidden group">
+              <div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <i class="fa-solid fa-users text-8xl text-purple-400"></i>
+              </div>
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Active WS Subscribers</div>
+              <div class="text-3xl font-black text-white tracking-tight" id="dev-kpi-ws-subs">--</div>
+              <div class="text-xs text-purple-400 mt-2 font-medium flex items-center space-x-1">
+                <i class="fa-solid fa-satellite-dish"></i><span>Real-time listeners</span>
+              </div>
+            </div>
+            <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-amber-500 relative overflow-hidden group">
+              <div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                <i class="fa-solid fa-hard-drive text-8xl text-amber-400"></i>
+              </div>
+              <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Storage Used</div>
+              <div class="text-3xl font-black text-white tracking-tight" id="dev-kpi-storage">--%</div>
+              <div class="text-xs text-amber-400 mt-2 font-medium flex items-center space-x-1">
+                <i class="fa-solid fa-chart-pie"></i><span>Against quota limits</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Charts Grid (5 Charts) -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Chart 1: API Request Throughput -->
+            <div class="glass-panel rounded-2xl p-5 col-span-1 lg:col-span-2">
+              <h3 class="text-sm font-semibold text-slate-200 mb-4">API Request Throughput & Status Distribution</h3>
+              <div class="h-64 relative">
+                <canvas id="chart-dev-api-throughput"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 2: DB Latency Percentiles -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h3 class="text-sm font-semibold text-slate-200 mb-4">Database Query Latency Percentiles (ms)</h3>
+              <div class="h-56 relative">
+                <canvas id="chart-dev-db-latency"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 3: Active WebSocket Listeners -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h3 class="text-sm font-semibold text-slate-200 mb-4">WebSocket Subs vs Event Broadcast Rate</h3>
+              <div class="h-56 relative">
+                <canvas id="chart-dev-ws-events"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 4: Storage Consumption -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h3 class="text-sm font-semibold text-slate-200 mb-4">Storage Consumption & Quota Progress</h3>
+              <div class="h-56 relative">
+                <canvas id="chart-dev-storage"></canvas>
+              </div>
+            </div>
+
+            <!-- Chart 5: Security Rules Evaluation -->
+            <div class="glass-panel rounded-2xl p-5">
+              <h3 class="text-sm font-semibold text-slate-200 mb-4">Security Rules Evaluation Outcomes</h3>
+              <div class="h-56 relative">
+                <canvas id="chart-dev-security-rules"></canvas>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
         <!-- WORKSPACE: PROJECT MANAGEMENT (DEVELOPER MODE)                  -->
         <!-- ════════════════════════════════════════════════════════════════ -->
         <section id="tab-project-management" class="workspace-panel space-y-6 hidden">
@@ -831,6 +997,85 @@
         </section>
 
         <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: WEBHOOK & DLQ INSPECTOR (DEVELOPER MODE)             -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-webhook-inspector" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-network-wired text-indigo-500"></i>
+                <span>Webhook & DLQ Inspector</span>
+              </h2>
+              <p class="text-sm text-slate-400 mt-1">Monitor webhook deliveries, inspect payloads, and replay failed events from the DLQ.</p>
+            </div>
+            <div class="flex space-x-2">
+              <button class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl border border-white/10 transition flex items-center space-x-2">
+                <i class="fa-solid fa-broom"></i>
+                <span>Clear Logs</span>
+              </button>
+              <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center space-x-2">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Refresh DLQ</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left: Webhook Configuration & Delivery Log -->
+            <div class="lg:col-span-2 space-y-6">
+              <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+                <h3 class="text-sm font-semibold text-white">Live Delivery Logs</h3>
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                      <tr>
+                        <th class="p-3">Time</th>
+                        <th class="p-3">Event Type</th>
+                        <th class="p-3">Endpoint URL</th>
+                        <th class="p-3">Status</th>
+                        <th class="p-3">Latency</th>
+                        <th class="p-3">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="webhook-delivery-log" class="divide-y divide-white/5 font-mono">
+                      <!-- Populated via JS -->
+                      <tr><td colspan="6" class="p-4 text-center text-slate-500">No recent deliveries</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right: Dead Letter Queue (DLQ) -->
+            <div class="space-y-6">
+              <div class="glass-panel p-6 rounded-2xl border border-rose-500/30 space-y-4 bg-rose-950/10">
+                <div class="flex items-center justify-between">
+                  <h3 class="text-sm font-semibold text-rose-400 flex items-center space-x-2">
+                    <i class="fa-solid fa-skull-crossbones"></i>
+                    <span>Dead Letter Queue (DLQ)</span>
+                  </h3>
+                  <span class="px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 text-[10px] font-bold border border-rose-500/30">3 Fails</span>
+                </div>
+                <p class="text-[10px] text-slate-400">Events that failed delivery after max retries.</p>
+                <div id="dlq-list" class="space-y-2 custom-scrollbar overflow-y-auto max-h-96">
+                  <!-- Example DLQ Item -->
+                  <div class="p-3 rounded-lg bg-slate-900 border border-white/5 flex flex-col space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-mono text-slate-300">document.created</span>
+                      <span class="text-[10px] text-rose-400">HTTP 500</span>
+                    </div>
+                    <div class="text-[10px] text-slate-500 break-all">https://api.example.com/hooks/aegis</div>
+                    <button class="w-full py-1 mt-1 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 rounded text-[10px] transition border border-indigo-500/30">
+                      Replay Event
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
         <!-- WORKSPACE 3: WEBSOCKET STREAM DEBUGGER (DEVELOPER MODE)         -->
         <!-- ════════════════════════════════════════════════════════════════ -->
         <section id="tab-ws-debugger" class="workspace-panel space-y-6 hidden">
@@ -842,18 +1087,36 @@
               </h2>
               <p class="text-xs text-slate-400 mt-1">Subscribe to collection channels and monitor live change events</p>
             </div>
+            <div id="ws-status-badge" class="px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-xs font-semibold border border-white/10 flex items-center space-x-2">
+              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span>Disconnected</span>
+            </div>
           </div>
 
-          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
-            <div class="flex items-center space-x-3">
-              <input type="text" id="ws-channel-input" class="flex-1 px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="Collection channel name (e.g. todos)">
-              <button id="btn-ws-subscribe" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
-                Subscribe Channel
-              </button>
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <div class="flex items-center space-x-3">
+                <input type="text" id="ws-channel-input" class="flex-1 px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="Collection channel name (e.g. todos)">
+                <button id="btn-ws-subscribe" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">
+                  Subscribe Channel
+                </button>
+                <button id="btn-ws-disconnect" class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold transition hidden">
+                  Disconnect
+                </button>
+              </div>
+
+              <div id="ws-log-stream" class="h-96 bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 custom-scrollbar overflow-y-auto space-y-2">
+                <div class="text-slate-500">[WS] Waiting for connection...</div>
+              </div>
             </div>
 
-            <div id="ws-log-stream" class="h-96 bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 custom-scrollbar overflow-y-auto space-y-2">
-              <div class="text-slate-500">[WS] Connected to WebSocket change stream on ws://localhost:3000</div>
+            <!-- Event Payload Inspector -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white">Event Payload Inspector</h3>
+              <p class="text-[10px] text-slate-400">Click on any event in the stream to inspect its raw JSON payload here.</p>
+              <pre id="ws-event-inspector" class="h-80 bg-slate-950 p-4 rounded-xl font-mono text-[10px] text-indigo-300 custom-scrollbar overflow-y-auto overflow-x-auto border border-white/5 break-all whitespace-pre-wrap">
+// Select an event...
+              </pre>
             </div>
           </div>
         </section>

@@ -9,6 +9,7 @@ import { AppError, ApiResponse } from '../types/auth.types';
 import { ProjectStats, CreateProjectResult } from '../types/project.types';
 import { auditLogService } from '../services/audit-log.service';
 import { webhookService } from '../services/webhook.service';
+import { metricsService } from '../services/metrics.service';
 
 function getOwnerId(req: Request): string {
   const sub = req.user?.sub;
@@ -37,6 +38,31 @@ export async function listProjects(req: Request, res: Response, next: NextFuncti
       message: 'Projects retrieved successfully.',
       data: projects,
     } as ApiResponse<ProjectStats[]>);
+  } catch (err) { next(err); }
+}
+
+export async function getProjectStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    // For now, returning global snapshot as a proxy for project stats.
+    const metricsSnapshot = metricsService.getJsonSnapshot();
+    res.status(200).json({
+      success: true,
+      message: 'Project stats retrieved successfully.',
+      data: { metricsSnapshot },
+    });
+  } catch (err) { next(err); }
+}
+
+export async function getWebhookLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const logs = auditLogService.getWebhookLogs(ownerId);
+    res.status(200).json({
+      success: true,
+      message: 'Webhook logs retrieved successfully.',
+      data: logs,
+    });
   } catch (err) { next(err); }
 }
 

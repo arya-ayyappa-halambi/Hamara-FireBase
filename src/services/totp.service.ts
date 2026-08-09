@@ -65,6 +65,10 @@ function legacyVerifyCode(secret: string, code: string, window: number = 1): boo
 // ── TOTP Service ──────────────────────────────────────────────────────────────
 
 export class TotpService {
+  constructor() {
+    authenticator.options = { window: 1 };
+  }
+
   /**
    * Generates a random Base32 secret key (using otplib standard)
    */
@@ -101,14 +105,14 @@ export class TotpService {
       if (authenticator.verify({ token: cleanCode, secret })) {
         return true;
       }
-    } catch {
+    } catch (err) {
       // otplib may throw on malformed secrets; fall through to legacy
     }
 
     // Fallback: legacy HMAC-based TOTP (for old custom-encoded secrets)
     try {
       return legacyVerifyCode(secret, cleanCode);
-    } catch {
+    } catch (err) {
       return false;
     }
   }

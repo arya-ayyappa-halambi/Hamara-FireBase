@@ -11,17 +11,20 @@ import { securityAdvisorService } from '../security/advisor.service';
 import { auditLogService } from '../services/audit-log.service';
 import { backupService } from '../services/backup.service';
 import { rateLimiterService } from '../services/rate-limiter.service';
+import { metricsService } from '../services/metrics.service';
 
 export async function getStats(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const stats = adminService.getSystemStats();
     const rateLimiting = rateLimiterService.getTelemetry();
+    const metricsSnapshot = metricsService.getJsonSnapshot();
     res.status(200).json({
       success: true,
       message: 'System statistics retrieved.',
       data: {
         ...stats,
-        rateLimiting
+        rateLimiting,
+        metricsSnapshot
       },
     } as ApiResponse<any>);
   } catch (err) { next(err); }

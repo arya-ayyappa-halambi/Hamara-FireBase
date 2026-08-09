@@ -186,8 +186,14 @@ export async function loginUser(dto: LoginDto & { totpCode?: string }): Promise<
 
 export async function setupMfa(userId: string): Promise<{ secret: string; otpAuthUrl: string }> {
   const db = getDb();
-  const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId) as any;
+  const user = db.prepare('SELECT id, email, mfaEnabled, mfaSecret FROM users WHERE id = ?').get(userId) as any;
   if (!user) throw new AppError('User not found.', 404);
+
+  // If MFA is already enabled, we shouldn't overwrite the secret here
+  // because it would break their existing authenticator app configuration
+  if (user.mfaEnabled === 1 && user.mfaSecret) {
+    throw new AppError('MFA is already enabled. Please disable it first before setting it up again.', 400);
+  }
 
   const { totpService } = await import('../services/totp.service');
   const secret = totpService.generateSecret();

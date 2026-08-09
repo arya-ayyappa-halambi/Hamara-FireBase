@@ -31,11 +31,10 @@ export class ProjectAuthService {
       throw new AppError('Project not found.', 404);
     }
 
-    // 2. Enforce Project Auth Config
+    // Enforce Project Auth Config
     let authConfig = projectRow.authConfig ? JSON.parse(projectRow.authConfig) : {};
     
-    // Default open if email config isn't explicitly set (or based on user approval, open by default)
-    if (provider === 'email' && authConfig.email === false) {
+    if (provider === 'email' && (authConfig.email === false || authConfig.email?.enabled === false)) {
       throw new AppError('Email registration is disabled for this project.', 403);
     }
 
@@ -85,6 +84,14 @@ export class ProjectAuthService {
 
   async loginUser(projectId: string, email: string, passwordText: string) {
     const db = getDb();
+    const projectRow = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId) as any;
+    if (projectRow?.authConfig) {
+      let authConfig = JSON.parse(projectRow.authConfig);
+      if (authConfig.email === false || authConfig.email?.enabled === false) {
+        throw new AppError('Email authentication is disabled for this project.', 403);
+      }
+    }
+
     const user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND email = ?').get(projectId, email) as any;
 
     if (!user) {

@@ -58,7 +58,23 @@ export class AuditLogService {
         ORDER BY timestamp DESC
         LIMIT ? OFFSET ?
       `).all(limit, offset) as AuditLog[];
-    } catch (_) {
+    } catch (e) {
+      console.error('Failed to get recent logs:', e);
+      return [];
+    }
+  }
+
+  getWebhookLogs(projectId: string, limit = 50): AuditLog[] {
+    try {
+      const db = getReaderDb();
+      return db.prepare(`
+        SELECT * FROM audit_logs
+        WHERE projectId = ? AND actionType = 'webhook_dispatch'
+        ORDER BY timestamp DESC
+        LIMIT ?
+      `).all(projectId, limit) as AuditLog[];
+    } catch (e) {
+      console.error('Failed to get webhook logs:', e);
       return [];
     }
   }

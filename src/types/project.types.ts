@@ -39,6 +39,7 @@ export interface AdminSystemStats {
   memoryUsageMb: number;
   uptimeSeconds: number;
   cpuUsagePercent?: number;
+  activeWebSockets?: number;
 }
 
 export interface UpdateRateLimitDto {

@@ -14,6 +14,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import jwt from 'jsonwebtoken';
 import { URL } from 'url';
 import { JwtPayload } from '../types/auth.types';
+import { metricsService } from '../services/metrics.service';
 
 export type ChangeEventType = 'document:inserted' | 'document:updated' | 'document:deleted';
 
@@ -21,6 +22,7 @@ interface AuthenticatedSocket extends WebSocket {
   isAlive?: boolean;
   user?: JwtPayload;
   subscriptions?: Set<string>; // set of collection names
+  projectId?: string;
 }
 
 class WebSocketService {
@@ -34,11 +36,16 @@ class WebSocketService {
     this.wss.on('connection', (ws: AuthenticatedSocket, req) => {
       ws.isAlive = true;
       ws.subscriptions = new Set();
-
-      // 1. Check for token in URL query string: ws://localhost:3000?token=...
+      // 1. Check for token in URL query string: ws://localhost:3000?token=...&projectId=...
       const requestUrl = req.url ?? '/';
       const parsedUrl = new URL(requestUrl, 'http://localhost');
       const token = parsedUrl.searchParams.get('token');
+      const projectId = parsedUrl.searchParams.get('projectId');
+
+      if (projectId) {
+        ws.projectId = projectId;
+      }
+      metricsService.incWsConnections(ws.projectId);
 
       if (token) {
         this.authenticateSocket(ws, token);
@@ -61,6 +68,7 @@ class WebSocketService {
 
       // Cleanup on disconnect
       ws.on('close', () => {
+        metricsService.decWsConnections(ws.projectId);
         this.cleanupSocket(ws);
       });
     });
@@ -84,6 +92,13 @@ class WebSocketService {
     });
 
     console.log('⚡ Real-time WebSocket change stream engine initialized');
+  }
+
+  /**
+   * Get total count of active connected client sockets.
+   */
+  getActiveConnectionsCount(): number {
+    return this.wss ? this.wss.clients.size : 0;
   }
 
   // ── Authentication ────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { getDb } from '../db/sqlite.connection';
 import { rateLimitConfig } from '../middleware/rateLimit.middleware';
 import { AdminSystemStats, UpdateRateLimitDto } from '../types/project.types';
 import { userStore } from '../store/user.store';
+import { wsService } from '../realtime/websocket.service';
 import os from 'os';
 
 export class AdminService {
@@ -65,6 +66,7 @@ export class AdminService {
       memoryUsageMb,
       uptimeSeconds,
       cpuUsagePercent: Number(cpuUsagePercent.toFixed(1)),
+      activeWebSockets: wsService.getActiveConnectionsCount(),
     };
   }
 
