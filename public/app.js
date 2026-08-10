@@ -284,11 +284,11 @@ function initTelemetryCharts() {
     state.telemetryChartCpuMemory = new Chart(ctx1, {
       type: 'line',
       data: {
-        labels: ['12m ago', '10m ago', '8m ago', '6m ago', '4m ago', '2m ago', 'Now'],
+        labels: ['-', '-', '-', '-', '-', '-', 'Now'],
         datasets: [
           {
             label: 'CPU Load (%)',
-            data: [1.2, 1.5, 2.1, 1.8, 2.4, 1.9, 1.8],
+            data: [0, 0, 0, 0, 0, 0, 0],
             borderColor: '#f59e0b',
             backgroundColor: 'rgba(245, 158, 11, 0.1)',
             fill: true,
@@ -296,7 +296,7 @@ function initTelemetryCharts() {
           },
           {
             label: 'Heap Allocated (MB)',
-            data: [38, 40, 42, 41, 44, 43, 42],
+            data: [0, 0, 0, 0, 0, 0, 0],
             borderColor: '#6366f1',
             backgroundColor: 'rgba(99, 102, 241, 0.1)',
             fill: true,
@@ -325,7 +325,7 @@ function initTelemetryCharts() {
         datasets: [
           {
             label: 'WAL Mode Latency (ms)',
-            data: [0.35, 0.48, 0.42, 0.38, 1.12],
+            data: [0, 0, 0, 0, 0],
             backgroundColor: ['#10b981', '#6366f1', '#a855f7', '#f43f5e', '#3b82f6'],
             borderRadius: 6,
           },
@@ -351,7 +351,7 @@ function initTelemetryCharts() {
         labels: ['Failed Logins', 'SSRF Blocks', 'Revoked Tokens', 'Rate Limited'],
         datasets: [{
           label: 'Events (Last 15m)',
-          data: [12, 3, 5, 45],
+          data: [0, 0, 0, 0],
           backgroundColor: '#ef4444',
           borderRadius: 4
         }]
@@ -374,7 +374,7 @@ function initTelemetryCharts() {
       data: {
         labels: ['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'SEARCH'],
         datasets: [{
-          data: [1500, 850, 120, 10, 50],
+          data: [0, 0, 0, 0, 0],
           backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#a855f7'],
           borderWidth: 0
         }]
@@ -479,6 +479,27 @@ async function loadTelemetryData() {
         }
       }
 
+      // Update Tenants Ops Chart
+      if (state.telemetryChartTenants && stats.metricsSnapshot && stats.metricsSnapshot.dbOperations) {
+        const dbOps = stats.metricsSnapshot.dbOperations;
+        const newOps = [
+          dbOps.select.count,
+          dbOps.insert.count,
+          dbOps.update.count,
+          dbOps.delete.count,
+          dbOps.search.count
+        ];
+        state.telemetryChartTenants.data.datasets[0].data = newOps;
+        state.telemetryChartTenants.update('none');
+      }
+
+      // Update Threats Chart
+      if (state.telemetryChartThreats && stats.metricsSnapshot) {
+        const rateLimitHits = stats.metricsSnapshot.rateLimitHitsTotal || 0;
+        state.telemetryChartThreats.data.datasets[0].data = [0, 0, 0, rateLimitHits];
+        state.telemetryChartThreats.update('none');
+      }
+
       const logStream = document.getElementById('server-log-stream');
       if (logStream) {
         const time = new Date().toLocaleTimeString();
@@ -568,7 +589,7 @@ function initDeveloperMetricsCharts() {
       data: {
         labels: ['Used (MB)', 'Available (MB)'],
         datasets: [{
-          data: [15, 85],
+          data: [0, 100],
           backgroundColor: ['#f59e0b', '#334155'],
           borderWidth: 0
         }]
@@ -584,8 +605,8 @@ function initDeveloperMetricsCharts() {
       data: {
         labels: ['read', 'write', 'update', 'delete'],
         datasets: [
-          { label: 'Allowed', data: [120, 45, 10, 5], backgroundColor: '#10b981' },
-          { label: 'Denied', data: [5, 12, 3, 2], backgroundColor: '#ef4444' }
+          { label: 'Allowed', data: [0, 0, 0, 0], backgroundColor: '#10b981' },
+          { label: 'Denied', data: [0, 0, 0, 0], backgroundColor: '#ef4444' }
         ]
       },
       options: {
