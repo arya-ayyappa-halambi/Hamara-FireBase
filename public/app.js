@@ -1672,7 +1672,7 @@ async function handleFilesUpload(files) {
     }
 
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('biometric', file);
     
     try {
       await apiRequest('/api/v1/storage/upload', 'POST', formData, true);

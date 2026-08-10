@@ -31,6 +31,14 @@ export const ALLOWED_MIME_TYPES = [
   'image/jpeg',
   'image/png',
   'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'audio/mpeg',
+  'audio/wav',
+  'video/mp4',
+  'text/plain',
+  'text/csv',
 ] as const;
 
 export type AllowedMimeType = typeof ALLOWED_MIME_TYPES[number];
