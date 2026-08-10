@@ -1708,6 +1708,9 @@ async function loadAssetsList() {
           <a href="${state.baseUrl}/api/v1/storage/assets/${a.id}/download" target="_blank" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
             <i class="fa-solid fa-download"></i> Download
           </a>
+          <button onclick="deleteAsset('${a.id}')" class="ml-2 px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
+            <i class="fa-solid fa-trash"></i> Delete
+          </button>
         </td>
       </tr>
     `
@@ -1717,6 +1720,18 @@ async function loadAssetsList() {
     tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">No assets uploaded yet.</td></tr>`;
   }
 }
+
+async function deleteAsset(id) {
+  if (!confirm('Are you sure you want to delete this asset? This action cannot be undone.')) return;
+  try {
+    await apiRequest(`/api/v1/storage/assets/${id}`, 'DELETE');
+    showToast('Asset deleted successfully.', 'success');
+    loadAssetsList();
+  } catch (err) {
+    showToast(`Failed to delete asset: ${err.message}`, 'error');
+  }
+}
+
 
 // ── MFA & Account Security Handlers ───────────────────────────────────────────
 
