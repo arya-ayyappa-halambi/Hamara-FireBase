@@ -1623,6 +1623,72 @@ print(response.json())`,
 
 // ── Developer Workspace 5: Asset Vault ─────────────────────────────────────────
 
+function initStorageUpload() {
+  const dropZone = document.getElementById('drop-zone');
+  const fileInput = document.getElementById('input-file-vault');
+  if (!dropZone || !fileInput) return;
+
+  dropZone.addEventListener('click', () => fileInput.click());
+
+  dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('border-indigo-500', 'bg-indigo-500/10');
+  });
+
+  dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+  });
+
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-indigo-500', 'bg-indigo-500/10');
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFilesUpload(e.dataTransfer.files);
+    }
+  });
+
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleFilesUpload(e.target.files);
+      fileInput.value = '';
+    }
+  });
+}
+
+async function handleFilesUpload(files) {
+  if (!state.activeProject) {
+    showToast('Please select a project first to upload assets.', 'error');
+    return;
+  }
+
+  showToast(`Uploading ${files.length} file(s)...`, 'info');
+  let successCount = 0;
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (file.size > 50 * 1024 * 1024) {
+      showToast(`File ${file.name} exceeds 50MB limit.`, 'error');
+      continue;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      await apiRequest('/api/v1/storage/upload', 'POST', formData, true);
+      successCount++;
+    } catch (err) {
+      showToast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+    }
+  }
+
+  if (successCount > 0) {
+    showToast(`Successfully uploaded ${successCount} file(s).`, 'success');
+    loadAssetsList();
+  }
+}
+
+
 async function loadAssetsList() {
   const tableBody = document.getElementById('table-assets-body');
   if (!tableBody) return;
@@ -1677,6 +1743,8 @@ async function openMfaSetupModal() {
 
 document.addEventListener('DOMContentLoaded', () => {
   initInactivityTracker();
+  initStorageUpload();
+
 
   // Check existing session
   if (state.user && state.accessToken) {
