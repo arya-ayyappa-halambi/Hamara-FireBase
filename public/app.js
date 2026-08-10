@@ -213,7 +213,7 @@ function switchWorkspace(tabId) {
   document.querySelectorAll('.workspace-panel').forEach((panel) => {
     panel.classList.add('hidden');
   });
-  document.querySelectorAll('.nav-item').forEach((item) => {
+  document.querySelectorAll('.nav-item[data-tab]').forEach((item) => {
     item.classList.remove('active-nav', 'bg-indigo-600/30', 'border-indigo-500/30', 'text-white');
     item.classList.add('text-slate-300');
   });
@@ -1968,7 +1968,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (btnRoleDev) btnRoleDev.onclick = () => setRoleMode('developer');
 
   // Sidebar Nav Item Click Handlers
-  document.querySelectorAll('.nav-item').forEach((item) => {
+  document.querySelectorAll('.nav-item[data-tab]').forEach((item) => {
     item.onclick = () => switchWorkspace(item.getAttribute('data-tab'));
   });
 
@@ -2301,3 +2301,155 @@ Active WS Subscribers,${wsSubs}
 }
 
 window.exportReport = exportReport;
+
+// --- Feature Modals ---
+const featureDetails = {
+  storage: {
+    title: "High-Concurrency Storage",
+    icon: "fa-bolt",
+    desc: "AegisDB uses SQLite configured in WAL (Write-Ahead Logging) mode, enabling massive read concurrency and non-blocking writes out of the box.",
+    details: [
+      "Zero configuration required for WAL mode.",
+      "Supports thousands of concurrent readers.",
+      "Atomic commits ensure data integrity.",
+      "Optimized for modern NVMe drives."
+    ]
+  },
+  encryption: {
+    title: "Envelope Encryption",
+    icon: "fa-key",
+    desc: "All sensitive fields defined in your schema are automatically encrypted at rest using military-grade encryption.",
+    details: [
+      "AES-256 GCM authenticated encryption.",
+      "Unique Data Encryption Key (DEK) per document.",
+      "DEKs wrapped by a master Key Encryption Key (KEK).",
+      "Key rotation capabilities via the Security Ops panel."
+    ]
+  },
+  sandbox: {
+    title: "VM Security Sandbox",
+    icon: "fa-shield-virus",
+    desc: "Firebase-style security rules are compiled and executed in a strict, isolated Node.js VM sandbox.",
+    details: [
+      "Prevents arbitrary code execution.",
+      "Access to incoming request data, existing document data, and auth claims.",
+      "Configurable timeout to prevent infinite loops.",
+      "Seamless integration with REST and WebSocket APIs."
+    ]
+  },
+  auth: {
+    title: "Advanced Authentication",
+    icon: "fa-fingerprint",
+    desc: "Built-in identity management that goes beyond standard JWTs to ensure rock-solid session security.",
+    details: [
+      "TOTP-based Multi-Factor Authentication (MFA).",
+      "Single-use refresh token family rotation.",
+      "Automatic compromised token detection and revocation.",
+      "Session invalidation across all devices instantly."
+    ]
+  },
+  telemetry: {
+    title: "Real-Time Telemetry",
+    icon: "fa-chart-pie",
+    desc: "Full observability into your database instances with built-in Prometheus endpoints and live metrics.",
+    details: [
+      "Monitor CPU, RAM, and Disk I/O usage.",
+      "Live WebSocket connection tracking.",
+      "P95 query latency and throughput stats.",
+      "Exportable JSON and PDF reporting."
+    ]
+  },
+  isolation: {
+    title: "Multi-Tenant Isolation",
+    icon: "fa-cubes",
+    desc: "Deploy multiple independent projects on a single AegisDB instance without any cross-contamination.",
+    details: [
+      "Strict logical separation of databases.",
+      "Independent schemas, rules, and users per project.",
+      "Isolated API keys and webhook configurations.",
+      "Perfect for SaaS architectures and agency models."
+    ]
+  }
+};
+
+window.showFeatureModal = function(featureId) {
+  const data = featureDetails[featureId];
+  if (!data) return;
+  
+  document.getElementById('feature-modal-title').textContent = data.title;
+  document.getElementById('feature-modal-desc').textContent = data.desc;
+  
+  const iconEl = document.getElementById('feature-modal-icon');
+  iconEl.className = 'fa-solid ' + data.icon;
+  
+  const detailsEl = document.getElementById('feature-modal-details');
+  detailsEl.innerHTML = '<ul class="list-disc pl-4 space-y-1">' + 
+    data.details.map(d => '<li>' + d + '</li>').join('') + 
+    '</ul>';
+    
+  document.getElementById('modal-feature-detail').classList.remove('hidden');
+};
+
+// --- Interactive Tutorial (Driver.js) ---
+window.startTutorial = function() {
+  if (typeof window.driver === 'undefined') {
+    showToast('Tutorial library is still loading. Please try again in a moment.', 'warning');
+    return;
+  }
+  
+  const driverObj = window.driver.js.driver;
+  
+  const tour = driverObj({
+    showProgress: true,
+    animate: true,
+    steps: [
+      {
+        element: '#sidebar',
+        popover: {
+          title: 'Sidebar Navigation',
+          description: 'This is your main navigation hub. From here you can access Project Management, Data Browser, and Security settings.',
+          side: 'right',
+          align: 'start'
+        }
+      },
+      {
+        element: '[data-tab="tab-project-management"]',
+        popover: {
+          title: 'Project Management',
+          description: 'AegisDB supports multi-tenancy. Create projects here to isolate your databases, users, and rules.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-data-browser"]',
+        popover: {
+          title: 'Data Browser',
+          description: 'Your Firebase-style database console. You can view collections, documents, and run ad-hoc queries here.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-rules-sandbox"]',
+        popover: {
+          title: 'Security Rules Sandbox',
+          description: 'Define who can read and write your data using our advanced Node.js VM Security Rules.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '#btn-tutorial',
+        popover: {
+          title: 'Revisit Anytime',
+          description: 'You can restart this tutorial anytime from this button.',
+          side: 'right',
+          align: 'center'
+        }
+      }
+    ]
+  });
+  
+  tour.drive();
+};

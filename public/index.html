@@ -109,6 +109,11 @@
       100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
   </style>
+  <!-- Driver.js for interactive tutorials -->
+  <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+  <style>
+    .driver-active .driver-overlay,.driver-active *{pointer-events:none}.driver-active .driver-active-element,.driver-active .driver-active-element *,.driver-popover,.driver-popover *{pointer-events:auto}@keyframes animate-fade-in{0%{opacity:0}to{opacity:1}}.driver-fade .driver-overlay{animation:animate-fade-in .2s ease-in-out}.driver-fade .driver-popover{animation:animate-fade-in .2s}.driver-popover{all:unset;box-sizing:border-box;color:#2d2d2d;margin:0;padding:15px;border-radius:5px;min-width:250px;max-width:300px;box-shadow:0 1px 10px #0006;z-index:1000000000;position:fixed;top:0;right:0;background-color:#fff}.driver-popover *{font-family:Helvetica Neue,Inter,ui-sans-serif,"Apple Color Emoji",Helvetica,Arial,sans-serif}.driver-popover-title{font:19px/normal sans-serif;font-weight:700;display:block;position:relative;line-height:1.5;zoom:1;margin:0}.driver-popover-close-btn{all:unset;position:absolute;top:0;right:0;width:32px;height:28px;cursor:pointer;font-size:18px;font-weight:500;color:#d2d2d2;z-index:1;text-align:center;transition:color;transition-duration:.2s}.driver-popover-close-btn:hover{color:#2d2d2d}.driver-popover-title[style*=block]+.driver-popover-description{margin-top:5px}.driver-popover-description{margin-bottom:0;font:14px/normal sans-serif;line-height:1.5;font-weight:400;zoom:1}.driver-popover-footer{margin-top:15px;text-align:right;zoom:1;display:flex;align-items:center;justify-content:space-between}.driver-popover-progress-text{font-size:13px;font-weight:400;color:#a2a2a2;zoom:1}.driver-popover-footer button{all:unset;display:inline-block;box-sizing:border-box;padding:3px 7px;text-decoration:none;text-shadow:1px 1px 0 #fff;background-color:#fff;color:#2d2d2d;font:12px/normal sans-serif;cursor:pointer;outline:0;zoom:1;line-height:1.3;border:1px solid #ccc;border-radius:3px}.driver-popover-footer .driver-popover-btn-disabled{opacity:.5;pointer-events:none}:not(body):has(> .driver-active-element){overflow:hidden!important}.driver-popover-footer button:hover{background-color:#f7f7f7}.driver-popover-navigation-btns{display:flex;flex-grow:1;justify-content:flex-end}.driver-popover-navigation-btns button+button{margin-left:4px}.driver-popover-arrow{content:"";position:absolute;border:5px solid #fff}.driver-popover-arrow-side-over{display:none}.driver-popover-arrow-side-left{left:100%;border-right-color:transparent;border-bottom-color:transparent;border-top-color:transparent}.driver-popover-arrow-side-right{right:100%;border-left-color:transparent;border-bottom-color:transparent;border-top-color:transparent}.driver-popover-arrow-side-top{top:100%;border-right-color:transparent;border-bottom-color:transparent;border-left-color:transparent}.driver-popover-arrow-side-bottom{bottom:100%;border-left-color:transparent;border-top-color:transparent;border-right-color:transparent}.driver-popover-arrow-side-center{display:none}.driver-popover-arrow-side-left.driver-popover-arrow-align-start,.driver-popover-arrow-side-right.driver-popover-arrow-align-start{top:15px}.driver-popover-arrow-side-top.driver-popover-arrow-align-start,.driver-popover-arrow-side-bottom.driver-popover-arrow-align-start{left:15px}.driver-popover-arrow-align-end.driver-popover-arrow-side-left,.driver-popover-arrow-align-end.driver-popover-arrow-side-right{bottom:15px}.driver-popover-arrow-side-top.driver-popover-arrow-align-end,.driver-popover-arrow-side-bottom.driver-popover-arrow-align-end{right:15px}.driver-popover-arrow-side-left.driver-popover-arrow-align-center,.driver-popover-arrow-side-right.driver-popover-arrow-align-center{top:50%;margin-top:-5px}.driver-popover-arrow-side-top.driver-popover-arrow-align-center,.driver-popover-arrow-side-bottom.driver-popover-arrow-align-center{left:50%;margin-left:-5px}.driver-popover-arrow-none{display:none}
+  </style>
 </head>
 <body class="text-slate-100 min-h-screen flex flex-col custom-scrollbar overflow-x-hidden antialiased select-none">
 
@@ -339,6 +344,10 @@
             <button data-tab="tab-about" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-circle-info text-base text-slate-400 w-5"></i>
               <span class="nav-text">About AegisDB</span>
+            </button>
+            <button onclick="startTutorial()" id="btn-tutorial" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/10 transition mt-2 border border-indigo-500/20">
+              <i class="fa-solid fa-lightbulb text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Interactive Tour</span>
             </button>
           </div>
         </div>
@@ -1492,49 +1501,147 @@ const docs = await aegis.collection('todos').get();</code></pre>
         <!-- ════════════════════════════════════════════════════════════════ -->
         <!-- WORKSPACE: ABOUT                                                -->
         <!-- ════════════════════════════════════════════════════════════════ -->
-        <section id="tab-about" class="workspace-panel space-y-6 hidden">
-          <div class="glass-panel p-8 rounded-2xl border border-white/10 space-y-6 max-w-4xl">
-            <div class="flex items-center space-x-4">
-              <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white text-2xl">
+        <section id="tab-about" class="workspace-panel space-y-8 hidden animate-fade-in">
+          <!-- Hero Section -->
+          <div class="relative overflow-hidden glass-panel p-10 rounded-3xl border border-white/10 max-w-5xl mx-auto group">
+            <!-- Decorative Gradients -->
+            <div class="absolute -top-24 -right-24 w-48 h-48 bg-indigo-600/30 blur-[80px] rounded-full group-hover:bg-indigo-500/40 transition-colors duration-700"></div>
+            <div class="absolute -bottom-24 -left-24 w-64 h-64 bg-purple-600/20 blur-[100px] rounded-full group-hover:bg-purple-500/30 transition-colors duration-700"></div>
+            
+            <div class="relative z-10 flex flex-col md:flex-row items-center md:items-start gap-8">
+              <div class="flex-shrink-0 w-24 h-24 rounded-3xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-indigo-500 flex items-center justify-center text-white text-5xl shadow-2xl shadow-indigo-500/50 transform group-hover:scale-105 group-hover:-rotate-3 transition-transform duration-500">
                 <i class="fa-solid fa-shield-halved"></i>
               </div>
-              <div>
-                <h2 class="text-xl font-bold text-white">AegisDB v2.5 Enterprise</h2>
-                <p class="text-xs text-slate-400">High-Performance Dynamic Schema Database Engine</p>
+              <div class="flex-1 text-center md:text-left space-y-4">
+                <div>
+                  <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-xs font-medium mb-3">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Enterprise Edition</span>
+                  </div>
+                  <h2 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">AegisDB v2.5</h2>
+                  <p class="text-lg text-slate-300 mt-2 font-medium">The High-Performance Dynamic Schema Database Engine</p>
+                </div>
+                <p class="text-sm text-slate-400 leading-relaxed max-w-2xl mx-auto md:mx-0">
+                  AegisDB is an enterprise-grade backend-as-a-service (BaaS) that bridges the gap between massive concurrency and uncompromising security. Engineered for modern web architectures, it combines SQLite WAL-mode performance with military-grade two-tier envelope encryption.
+                </p>
+                <div class="flex flex-wrap gap-3 pt-2 justify-center md:justify-start">
+                  <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 hover:border-indigo-400/50 transition-colors cursor-default"><i class="fa-solid fa-code text-indigo-400 mr-1.5"></i>Node.js VM</span>
+                  <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 hover:border-indigo-400/50 transition-colors cursor-default"><i class="fa-solid fa-database text-emerald-400 mr-1.5"></i>SQLite WAL</span>
+                  <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 hover:border-indigo-400/50 transition-colors cursor-default"><i class="fa-solid fa-lock text-rose-400 mr-1.5"></i>AES-256 GCM</span>
+                  <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 hover:border-indigo-400/50 transition-colors cursor-default"><i class="fa-brands fa-js text-yellow-400 mr-1.5"></i>Firebase API</span>
+                </div>
               </div>
             </div>
+          </div>
+
+          <!-- Features Grid -->
+          <div class="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <!-- Feature Card 1 -->
+            <div onclick="showFeatureModal('storage')" class="cursor-pointer glass-panel p-6 rounded-2xl border border-white/10 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-500/30 transition-all duration-300 group relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div class="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-xl mb-4 group-hover:bg-indigo-500 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-bolt"></i>
+              </div>
+              <h3 class="text-base font-bold text-white mb-2 relative z-10">High-Concurrency Storage</h3>
+              <p class="text-xs text-slate-400 leading-relaxed relative z-10">Leverages SQLite in WAL (Write-Ahead Logging) mode to support highly concurrent read/write operations with zero configuration overhead.</p>
+            </div>
             
-            <p class="text-xs text-slate-300 leading-relaxed">
-              AegisDB is an enterprise-grade, high-concurrency database system combining SQLite WAL mode storage, two-tier envelope encryption (DEK/KEK), TOTP multi-factor authentication, single-use refresh token family rotation, Node.js VM security rules sandbox, and full Firebase API compatibility.
-            </p>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-              <div class="space-y-3">
-                <h3 class="text-sm font-semibold text-white border-b border-white/10 pb-2">Core Features</h3>
-                <ul class="text-xs text-slate-400 space-y-2 list-none">
-                  <li><i class="fa-solid fa-bolt text-indigo-400 w-4"></i> <strong>SQLite WAL Mode</strong> for high-concurrency reads & writes</li>
-                  <li><i class="fa-solid fa-key text-indigo-400 w-4"></i> <strong>Envelope Encryption</strong> (DEK/KEK) for sensitive fields</li>
-                  <li><i class="fa-solid fa-shield text-indigo-400 w-4"></i> <strong>VM Sandbox Rules</strong> for advanced data validation</li>
-                  <li><i class="fa-solid fa-chart-line text-indigo-400 w-4"></i> <strong>Prometheus Telemetry</strong> and Real-Time system stats</li>
-                  <li><i class="fa-solid fa-users text-indigo-400 w-4"></i> <strong>Multi-Tenant Architecture</strong> with strict isolation</li>
-                </ul>
+            <!-- Feature Card 2 -->
+            <div onclick="showFeatureModal('encryption')" class="cursor-pointer glass-panel p-6 rounded-2xl border border-white/10 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-purple-500/10 hover:border-purple-500/30 transition-all duration-300 group relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-purple-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div class="w-12 h-12 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 text-xl mb-4 group-hover:bg-purple-500 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-key"></i>
               </div>
+              <h3 class="text-base font-bold text-white mb-2 relative z-10">Envelope Encryption</h3>
+              <p class="text-xs text-slate-400 leading-relaxed relative z-10">Enterprise-grade DEK/KEK encryption hierarchy. Data is encrypted at rest using AES-256 GCM, securing sensitive fields from unauthorized access.</p>
+            </div>
 
-              <div class="space-y-3">
-                <h3 class="text-sm font-semibold text-white border-b border-white/10 pb-2">Operational Manual</h3>
-                <ul class="text-xs text-slate-400 space-y-2 list-none">
-                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Project Management:</strong> Create projects to isolate your databases.</li>
-                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Authentication:</strong> Configure identity providers in the Auth tab.</li>
-                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Data & Documents:</strong> Manage collections and query documents manually.</li>
-                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>API Keys:</strong> Generate keys in Project Management to authenticate REST requests.</li>
-                  <li><i class="fa-solid fa-book text-emerald-400 w-4"></i> <strong>Telemetry:</strong> View real-time CPU & memory metrics as a Super Admin.</li>
-                </ul>
+            <!-- Feature Card 3 -->
+            <div onclick="showFeatureModal('sandbox')" class="cursor-pointer glass-panel p-6 rounded-2xl border border-white/10 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-emerald-500/10 hover:border-emerald-500/30 transition-all duration-300 group relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div class="w-12 h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 text-xl mb-4 group-hover:bg-emerald-500 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-shield-virus"></i>
               </div>
+              <h3 class="text-base font-bold text-white mb-2 relative z-10">VM Security Sandbox</h3>
+              <p class="text-xs text-slate-400 leading-relaxed relative z-10">Execute complex data validation rules safely. The Node.js VM sandbox allows dynamic rule evaluation without compromising system integrity.</p>
+            </div>
+
+            <!-- Feature Card 4 -->
+            <div onclick="showFeatureModal('auth')" class="cursor-pointer glass-panel p-6 rounded-2xl border border-white/10 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-rose-500/10 hover:border-rose-500/30 transition-all duration-300 group relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div class="w-12 h-12 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-400 text-xl mb-4 group-hover:bg-rose-500 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-fingerprint"></i>
+              </div>
+              <h3 class="text-base font-bold text-white mb-2 relative z-10">Advanced Authentication</h3>
+              <p class="text-xs text-slate-400 leading-relaxed relative z-10">Built-in TOTP multi-factor authentication (MFA) and single-use refresh token family rotation for ironclad identity and session management.</p>
+            </div>
+
+            <!-- Feature Card 5 -->
+            <div onclick="showFeatureModal('telemetry')" class="cursor-pointer glass-panel p-6 rounded-2xl border border-white/10 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-sky-500/10 hover:border-sky-500/30 transition-all duration-300 group relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-sky-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div class="w-12 h-12 rounded-xl bg-sky-500/10 flex items-center justify-center text-sky-400 text-xl mb-4 group-hover:bg-sky-500 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-chart-pie"></i>
+              </div>
+              <h3 class="text-base font-bold text-white mb-2 relative z-10">Real-Time Telemetry</h3>
+              <p class="text-xs text-slate-400 leading-relaxed relative z-10">Deep observability powered by Prometheus endpoints. Monitor CPU, memory, and query performance in real-time through the Super Admin console.</p>
+            </div>
+
+            <!-- Feature Card 6 -->
+            <div onclick="showFeatureModal('isolation')" class="cursor-pointer glass-panel p-6 rounded-2xl border border-white/10 hover:-translate-y-1.5 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-500/30 transition-all duration-300 group relative overflow-hidden">
+              <div class="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div class="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400 text-xl mb-4 group-hover:bg-amber-500 group-hover:text-white transition-colors duration-300">
+                <i class="fa-solid fa-cubes"></i>
+              </div>
+              <h3 class="text-base font-bold text-white mb-2 relative z-10">Multi-Tenant Isolation</h3>
+              <p class="text-xs text-slate-400 leading-relaxed relative z-10">Architected for multi-tenancy. Projects operate in strict isolation, ensuring data privacy and preventing cross-contamination of resources.</p>
+            </div>
+          </div>
+          
+          <!-- Call to Action / Footer -->
+          <div class="max-w-5xl mx-auto glass-panel p-6 rounded-2xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+            <div class="flex items-center space-x-4 text-slate-300">
+              <div class="w-10 h-10 rounded-full bg-indigo-500/10 flex items-center justify-center border border-indigo-500/20">
+                <i class="fa-solid fa-server text-indigo-400"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-semibold text-white">Production Ready</h4>
+                <p class="text-xs text-slate-400">AegisDB is designed to run anywhere with zero external dependencies.</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <a href="#" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition-colors flex items-center space-x-2">
+                <i class="fa-solid fa-book"></i>
+                <span>Documentation</span>
+              </a>
+              <button onclick="document.querySelector('[data-tab=\'tab-project-management\']').click()" class="px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5 flex items-center space-x-2">
+                <i class="fa-solid fa-rocket"></i>
+                <span>Get Started</span>
+              </button>
             </div>
           </div>
         </section>
 
       </main>
+    </div>
+  </div>
+
+  <!-- Feature Detail Modal -->
+  <div id="modal-feature-detail" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md transition-opacity">
+    <div class="glass-panel rounded-2xl p-6 max-w-lg w-full border border-white/10 space-y-4 relative shadow-2xl">
+      <button onclick="document.getElementById('modal-feature-detail').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+      <div id="feature-modal-icon-bg" class="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-2xl mb-2">
+        <i id="feature-modal-icon" class="fa-solid fa-bolt"></i>
+      </div>
+      <h3 id="feature-modal-title" class="text-xl font-bold text-white">Title</h3>
+      <p id="feature-modal-desc" class="text-sm text-slate-300 leading-relaxed">Description goes here.</p>
+      <div id="feature-modal-details" class="pt-4 border-t border-white/10 text-xs text-slate-400 space-y-3">
+        <!-- Bullets generated by JS -->
+      </div>
+      <div class="flex justify-end pt-2">
+        <button onclick="document.getElementById('modal-feature-detail').classList.add('hidden')" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-semibold transition">Close</button>
+      </div>
     </div>
   </div>
 
