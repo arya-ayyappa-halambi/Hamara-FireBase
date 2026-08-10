@@ -108,14 +108,54 @@
       70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
       100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
+    .driver-popover.driver-theme-glass {
+      background-color: rgba(15, 23, 42, 0.85) !important;
+      backdrop-filter: blur(12px) !important;
+      -webkit-backdrop-filter: blur(12px) !important;
+      border: 1px solid rgba(99, 102, 241, 0.3) !important;
+      color: #e2e8f0 !important;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 20px rgba(99, 102, 241, 0.1) !important;
+    }
+    .driver-popover.driver-theme-glass .driver-popover-title {
+      color: #fff !important;
+      font-size: 16px !important;
+      margin-bottom: 8px !important;
+    }
+    .driver-popover.driver-theme-glass .driver-popover-description {
+      color: #94a3b8 !important;
+      font-size: 13px !important;
+    }
+    .driver-popover.driver-theme-glass .driver-popover-footer button {
+      background-color: rgba(99, 102, 241, 0.1) !important;
+      border: 1px solid rgba(99, 102, 241, 0.3) !important;
+      color: #a5b4fc !important;
+      text-shadow: none !important;
+      border-radius: 6px !important;
+      padding: 5px 10px !important;
+      transition: all 0.2s !important;
+    }
+    .driver-popover.driver-theme-glass .driver-popover-footer button:hover {
+      background-color: rgba(99, 102, 241, 0.25) !important;
+      color: #fff !important;
+    }
+    .driver-popover.driver-theme-glass .driver-popover-progress-text {
+      color: #64748b !important;
+    }
+    .driver-popover.driver-theme-glass .driver-popover-arrow {
+      display: none !important;
+    }
   </style>
   <!-- Driver.js for interactive tutorials -->
   <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
   <style>
     .driver-active .driver-overlay,.driver-active *{pointer-events:none}.driver-active .driver-active-element,.driver-active .driver-active-element *,.driver-popover,.driver-popover *{pointer-events:auto}@keyframes animate-fade-in{0%{opacity:0}to{opacity:1}}.driver-fade .driver-overlay{animation:animate-fade-in .2s ease-in-out}.driver-fade .driver-popover{animation:animate-fade-in .2s}.driver-popover{all:unset;box-sizing:border-box;color:#2d2d2d;margin:0;padding:15px;border-radius:5px;min-width:250px;max-width:300px;box-shadow:0 1px 10px #0006;z-index:1000000000;position:fixed;top:0;right:0;background-color:#fff}.driver-popover *{font-family:Helvetica Neue,Inter,ui-sans-serif,"Apple Color Emoji",Helvetica,Arial,sans-serif}.driver-popover-title{font:19px/normal sans-serif;font-weight:700;display:block;position:relative;line-height:1.5;zoom:1;margin:0}.driver-popover-close-btn{all:unset;position:absolute;top:0;right:0;width:32px;height:28px;cursor:pointer;font-size:18px;font-weight:500;color:#d2d2d2;z-index:1;text-align:center;transition:color;transition-duration:.2s}.driver-popover-close-btn:hover{color:#2d2d2d}.driver-popover-title[style*=block]+.driver-popover-description{margin-top:5px}.driver-popover-description{margin-bottom:0;font:14px/normal sans-serif;line-height:1.5;font-weight:400;zoom:1}.driver-popover-footer{margin-top:15px;text-align:right;zoom:1;display:flex;align-items:center;justify-content:space-between}.driver-popover-progress-text{font-size:13px;font-weight:400;color:#a2a2a2;zoom:1}.driver-popover-footer button{all:unset;display:inline-block;box-sizing:border-box;padding:3px 7px;text-decoration:none;text-shadow:1px 1px 0 #fff;background-color:#fff;color:#2d2d2d;font:12px/normal sans-serif;cursor:pointer;outline:0;zoom:1;line-height:1.3;border:1px solid #ccc;border-radius:3px}.driver-popover-footer .driver-popover-btn-disabled{opacity:.5;pointer-events:none}:not(body):has(> .driver-active-element){overflow:hidden!important}.driver-popover-footer button:hover{background-color:#f7f7f7}.driver-popover-navigation-btns{display:flex;flex-grow:1;justify-content:flex-end}.driver-popover-navigation-btns button+button{margin-left:4px}.driver-popover-arrow{content:"";position:absolute;border:5px solid #fff}.driver-popover-arrow-side-over{display:none}.driver-popover-arrow-side-left{left:100%;border-right-color:transparent;border-bottom-color:transparent;border-top-color:transparent}.driver-popover-arrow-side-right{right:100%;border-left-color:transparent;border-bottom-color:transparent;border-top-color:transparent}.driver-popover-arrow-side-top{top:100%;border-right-color:transparent;border-bottom-color:transparent;border-left-color:transparent}.driver-popover-arrow-side-bottom{bottom:100%;border-left-color:transparent;border-top-color:transparent;border-right-color:transparent}.driver-popover-arrow-side-center{display:none}.driver-popover-arrow-side-left.driver-popover-arrow-align-start,.driver-popover-arrow-side-right.driver-popover-arrow-align-start{top:15px}.driver-popover-arrow-side-top.driver-popover-arrow-align-start,.driver-popover-arrow-side-bottom.driver-popover-arrow-align-start{left:15px}.driver-popover-arrow-align-end.driver-popover-arrow-side-left,.driver-popover-arrow-align-end.driver-popover-arrow-side-right{bottom:15px}.driver-popover-arrow-side-top.driver-popover-arrow-align-end,.driver-popover-arrow-side-bottom.driver-popover-arrow-align-end{right:15px}.driver-popover-arrow-side-left.driver-popover-arrow-align-center,.driver-popover-arrow-side-right.driver-popover-arrow-align-center{top:50%;margin-top:-5px}.driver-popover-arrow-side-top.driver-popover-arrow-align-center,.driver-popover-arrow-side-bottom.driver-popover-arrow-align-center{left:50%;margin-left:-5px}.driver-popover-arrow-none{display:none}
+
+    .nav-item:focus {
+      outline: none !important;
+    }
   </style>
 </head>
-<body class="text-slate-100 min-h-screen flex flex-col custom-scrollbar overflow-x-hidden antialiased select-none">
+<body class="text-slate-100 h-screen flex flex-col overflow-hidden antialiased select-none bg-[#090d16]">
 
   <!-- ========================================== -->
   <!-- AUTHENTICATION SCREEN                      -->
@@ -302,7 +342,7 @@
               <i class="fa-solid fa-folder-open text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Project Management</span>
             </button>
-            <button data-tab="tab-data-browser" class="nav-item active-nav w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-white bg-indigo-600/30 border border-indigo-500/30 transition">
+            <button data-tab="tab-data-browser" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-database text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Data & Documents</span>
             </button>
@@ -345,7 +385,7 @@
               <i class="fa-solid fa-circle-info text-base text-slate-400 w-5"></i>
               <span class="nav-text">About AegisDB</span>
             </button>
-            <button onclick="startTutorial()" id="btn-tutorial" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/10 transition mt-2 border border-indigo-500/20">
+            <button onclick="startTutorial()" id="btn-tutorial" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/10 transition mt-2">
               <i class="fa-solid fa-lightbulb text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Interactive Tour</span>
             </button>
@@ -1609,10 +1649,10 @@ const docs = await aegis.collection('todos').get();</code></pre>
               </div>
             </div>
             <div class="flex gap-3">
-              <a href="#" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition-colors flex items-center space-x-2">
+              <button onclick="document.getElementById('modal-documentation').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition-colors flex items-center space-x-2">
                 <i class="fa-solid fa-book"></i>
                 <span>Documentation</span>
-              </a>
+              </button>
               <button onclick="document.querySelector('[data-tab=\'tab-project-management\']').click()" class="px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5 flex items-center space-x-2">
                 <i class="fa-solid fa-rocket"></i>
                 <span>Get Started</span>
@@ -1622,6 +1662,62 @@ const docs = await aegis.collection('todos').get();</code></pre>
         </section>
 
       </main>
+    </div>
+  </div>
+
+  <!-- Documentation Modal -->
+  <div id="modal-documentation" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md transition-opacity">
+    <div class="glass-panel rounded-2xl p-6 max-w-3xl w-full max-h-[80vh] flex flex-col border border-white/10 space-y-4 relative shadow-2xl">
+      <div class="flex justify-between items-center border-b border-white/10 pb-4">
+        <h3 class="text-xl font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-book-open text-indigo-400"></i>
+          <span>AegisDB Developer Documentation</span>
+        </h3>
+        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="overflow-y-auto custom-scrollbar flex-1 pr-4 space-y-8 text-sm text-slate-300">
+        
+        <div>
+          <h4 class="text-white font-semibold text-base mb-2">1. Initializing the Client</h4>
+          <p class="mb-3 text-slate-400">AegisDB can be integrated into any frontend or backend application using our lightweight SDK. Establish a secure connection using your project credentials.</p>
+          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>import { AegisDB } from '@aegisdb/sdk';
+
+const db = new AegisDB({
+  projectId: 'aegis-prod-1',
+  apiKey: 'ak_live_...'
+});</code></pre>
+        </div>
+        
+        <div>
+          <h4 class="text-white font-semibold text-base mb-2">2. Real-Time Data Sync</h4>
+          <p class="mb-3 text-slate-400">Subscribe to collections or specific documents to receive lightning-fast updates over WebSockets. Our SQLite WAL integration pushes events instantly.</p>
+          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>db.collection('users').onSnapshot((snapshot) => {
+  console.log('Real-time updates received:', snapshot.docs);
+  // Update your UI reactively here
+});</code></pre>
+        </div>
+        
+        <div>
+          <h4 class="text-white font-semibold text-base mb-2">3. Node.js VM Security Rules</h4>
+          <p class="mb-3 text-slate-400">AegisDB uses a secure V8 isolate (VM sandbox) to evaluate read/write conditions safely without risking server stability.</p>
+          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-amber-300 font-mono text-xs overflow-x-auto"><code>// Example Security Rule
+export default function allowWrite(request, resource) {
+  // Only allow if user is authenticated and is the data owner
+  return request.auth != null && request.auth.uid === resource.data.ownerId;
+}</code></pre>
+        </div>
+        
+        <div>
+          <h4 class="text-white font-semibold text-base mb-2">4. Envelope Encryption (AES-256 GCM)</h4>
+          <p class="mb-3 text-slate-400">When storing highly sensitive data, AegisDB automatically encrypts fields at rest using AES-256 GCM based on your schema configuration. Decryption is transparent to the SDK as long as the client is authorized.</p>
+        </div>
+
+      </div>
+      <div class="pt-4 border-t border-white/10 flex justify-end">
+        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5">Understood</button>
+      </div>
     </div>
   </div>
 

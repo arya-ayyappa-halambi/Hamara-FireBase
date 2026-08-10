@@ -2397,12 +2397,24 @@ window.startTutorial = function() {
     return;
   }
   
+  document.getElementById('sidebar')?.classList.remove('sidebar-collapsed');
+
   const driverObj = window.driver.js.driver;
   
   const tour = driverObj({
     showProgress: true,
     animate: true,
+    popoverClass: 'driver-theme-glass',
     steps: [
+      {
+        element: 'header',
+        popover: {
+          title: 'Top Navigation & Roles',
+          description: 'Switch between Super Admin and Developer roles, manage active projects, and see server status.',
+          side: 'bottom',
+          align: 'start'
+        }
+      },
       {
         element: '#sidebar',
         popover: {
@@ -2435,6 +2447,24 @@ window.startTutorial = function() {
         popover: {
           title: 'Security Rules Sandbox',
           description: 'Define who can read and write your data using our advanced Node.js VM Security Rules.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-developer-metrics"]',
+        popover: {
+          title: 'Real-Time Metrics',
+          description: 'Monitor database query latency, websocket subscribers, and security rule evaluations live.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-about"]',
+        popover: {
+          title: 'About AegisDB',
+          description: 'Learn more about the platform architecture, tech stack, and explore detailed feature cards.',
           side: 'right',
           align: 'center'
         }

@@ -27,7 +27,8 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 - **👑 Role Context Scope Switcher**: Dynamic web console supporting Super Admin global platform management mode and Project / Developer scoped views.
 - **🧪 Interactive API Key Tester**: Built-in developer console tool to securely test Project API keys against live endpoints via an integrated REST client.
 - **🔎 Document Search & Pagination**: Effortlessly browse large datasets with built-in client-side pagination (100 docs per page) and real-time field filtering in the Data Browser.
-
+- **🗺️ Interactive Guided Tours**: Integrated Driver.js with a custom glassmorphic theme to provide step-by-step onboarding for new developers.
+- **✨ Enterprise Glassmorphism UI**: Beautiful, modern dashboard featuring blurred glass panels, dynamic modal overlays, and independent scroll zones.
 ---
 
 ## 🚀 Getting Started
