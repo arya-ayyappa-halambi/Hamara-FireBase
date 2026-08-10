@@ -28,7 +28,7 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 - **🧪 Interactive API Key Tester**: Built-in developer console tool to securely test Project API keys against live endpoints via an integrated REST client.
 - **🔎 Document Search & Pagination**: Effortlessly browse large datasets with built-in client-side pagination (100 docs per page) and real-time field filtering in the Data Browser.
 - **🗺️ Interactive Guided Tours**: Integrated Driver.js with a custom glassmorphic theme to provide step-by-step onboarding for new developers.
-- **✨ Enterprise Glassmorphism UI**: Beautiful, modern dashboard featuring blurred glass panels, dynamic modal overlays, and independent scroll zones.
+- **✨ Enterprise Glassmorphism UI**: Beautiful, modern dashboard featuring blurred glass panels, dynamic modal overlays, and independent scroll zones. Includes a completely unified dark glassmorphic login screen with a full-screen, crossfading dynamic feature carousel.
 ---
 
 ## 🚀 Getting Started

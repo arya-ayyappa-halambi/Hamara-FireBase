@@ -1100,6 +1100,20 @@ async function createNewProject() {
     document.getElementById('input-new-project-name').value = '';
     showToast(`Project "${name}" created successfully!`, 'success');
     loadMyProjects();
+
+    // Show modal with new keys
+    const modal = document.getElementById('modal-rotate-keys');
+    if (modal) {
+      const titleEl = document.getElementById('rotate-keys-title');
+      const warningEl = document.getElementById('rotate-keys-warning');
+      if (titleEl) titleEl.textContent = 'Project Created:';
+      if (warningEl) warningEl.textContent = 'Please copy these keys now. For security reasons, they will not be shown again.';
+      
+      document.getElementById('rotate-keys-project-name').textContent = name;
+      document.getElementById('rotate-keys-api-key').textContent = data.rawApiKey || 'Missing API Key';
+      document.getElementById('rotate-keys-service-key').textContent = data.rawServiceKey || 'Missing Service Key';
+      modal.classList.remove('hidden');
+    }
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -1129,6 +1143,11 @@ async function rotateProjectKeys(projectId, projectName) {
     // Show modal with new keys
     const modal = document.getElementById('modal-rotate-keys');
     if (modal) {
+      const titleEl = document.getElementById('rotate-keys-title');
+      const warningEl = document.getElementById('rotate-keys-warning');
+      if (titleEl) titleEl.textContent = 'Keys Rotated:';
+      if (warningEl) warningEl.textContent = 'Your old keys have been invalidated immediately. Please update your applications with these new keys. They will not be shown again.';
+      
       document.getElementById('rotate-keys-project-name').textContent = projectName;
       document.getElementById('rotate-keys-api-key').textContent = data.rawApiKey;
       document.getElementById('rotate-keys-service-key').textContent = data.rawServiceKey;
