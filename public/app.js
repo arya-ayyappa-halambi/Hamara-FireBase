@@ -1131,8 +1131,19 @@ async function createNewProject() {
       if (warningEl) warningEl.textContent = 'Please copy these keys now. For security reasons, they will not be shown again.';
       
       document.getElementById('rotate-keys-project-name').textContent = name;
-      document.getElementById('rotate-keys-api-key').textContent = data.rawApiKey || 'Missing API Key';
-      document.getElementById('rotate-keys-service-key').textContent = data.rawServiceKey || 'Missing Service Key';
+      
+      const apiKeyEl = document.getElementById('rotate-keys-api-key');
+      const serviceKeyEl = document.getElementById('rotate-keys-service-key');
+      
+      const apiKey = data.rawApiKey || 'Missing API Key';
+      const serviceKey = data.rawServiceKey || 'Missing Service Key';
+      
+      apiKeyEl.setAttribute('data-key', apiKey);
+      serviceKeyEl.setAttribute('data-key', serviceKey);
+      
+      apiKeyEl.textContent = apiKey.substring(0, 9) + '••••••••••••••••••••••••••••••••';
+      serviceKeyEl.textContent = serviceKey.substring(0, 9) + '••••••••••••••••••••••••••••••••';
+      
       modal.classList.remove('hidden');
     }
   } catch (err) {
@@ -1170,8 +1181,19 @@ async function rotateProjectKeys(projectId, projectName) {
       if (warningEl) warningEl.textContent = 'Your old keys have been invalidated immediately. Please update your applications with these new keys. They will not be shown again.';
       
       document.getElementById('rotate-keys-project-name').textContent = projectName;
-      document.getElementById('rotate-keys-api-key').textContent = data.rawApiKey;
-      document.getElementById('rotate-keys-service-key').textContent = data.rawServiceKey;
+      
+      const apiKeyEl = document.getElementById('rotate-keys-api-key');
+      const serviceKeyEl = document.getElementById('rotate-keys-service-key');
+      
+      const apiKey = data.rawApiKey;
+      const serviceKey = data.rawServiceKey;
+      
+      apiKeyEl.setAttribute('data-key', apiKey);
+      serviceKeyEl.setAttribute('data-key', serviceKey);
+      
+      apiKeyEl.textContent = apiKey.substring(0, 9) + '••••••••••••••••••••••••••••••••';
+      serviceKeyEl.textContent = serviceKey.substring(0, 9) + '••••••••••••••••••••••••••••••••';
+      
       modal.classList.remove('hidden');
     }
   } catch (err) {

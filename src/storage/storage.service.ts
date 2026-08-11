@@ -171,6 +171,21 @@ export async function saveAssetMetadata(
   transforms?: { width?: number; height?: number; format?: string }
 ): Promise<PublicAssetMetadata> {
 
+  // SECURITY FEATURE: Verify file magic bytes match the claimed mime type
+  const { fromFile } = await import('file-type');
+  const typeResult = await fromFile(file.path);
+  
+  if (typeResult) {
+    if (typeResult.mime !== file.mimetype) {
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      throw new AppError(`Security violation: File signature (${typeResult.mime}) does not match claimed type (${file.mimetype}).`, 400);
+    }
+  } else if (!file.mimetype.startsWith('text/') && file.mimetype !== 'application/csv') {
+    // If not detected by file-type and it's not a text/csv file, it's suspicious.
+    if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+    throw new AppError(`Security violation: Could not verify file signature for non-text type (${file.mimetype}).`, 400);
+  }
+
   if (projectId) {
     const db = getDb();
     const project = db.prepare('SELECT maxAssetSizeBytes, maxStorageBytes FROM projects WHERE id = ?').get(projectId) as any;

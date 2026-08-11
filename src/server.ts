@@ -15,6 +15,8 @@ import 'dotenv/config'; // must be first — loads .env before anything else rea
 
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import hpp from 'hpp';
 
 import authRouter        from './auth/auth.routes';
 import dbRouter          from './db/db.routes';
@@ -65,6 +67,11 @@ function createApp(): Application {
   const app = express();
 
   // ── Global Security & CORS Middleware ────────────────────────────────────
+  app.use(helmet({
+    contentSecurityPolicy: false, // Let custom securityHeaders handle CSP
+    crossOriginEmbedderPolicy: false // Prevent breaking local UI assets
+  }));
+  app.use(hpp());
   app.use(securityHeaders);
   app.use(dynamicCors);
 

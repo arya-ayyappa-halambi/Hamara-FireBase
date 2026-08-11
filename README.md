@@ -134,8 +134,10 @@ npx ts-node src/scripts/migrate-envelope-encryption.ts
 | **Password Tampering** | Mandatory TOTP Password Change | Password changes strictly require TOTP code validation if MFA is enabled. |
 | **Database Data Leak** | Two-Tier Envelope Encryption | AES-256-GCM field encryption with HKDF Master KEK wrapping 256-bit project DEKs. |
 | **Key Compromise** | Non-Destructive Key Rotation | Re-wraps project DEKs with new keys without corrupting encrypted field data. |
-| **Cross-Site Scripting** | Strict Content Security Policy | Restricts script, style, and font sources to trusted local & CDN origins. |
+| **Cross-Site Scripting (XSS)** | Helmet Security Headers | Strict Content Security Policy and HTTP headers restricting script, style, and font sources. |
+| **HTTP Parameter Pollution** | HPP Middleware | Protects against parameter pollution attacks by safely parsing duplicate query strings. |
 | **SQL Injection** | Strict Regex & Parameterization | Collection names sanitized with `/^[a-zA-Z][a-zA-Z0-9_-]{1,63}$/` and parameterized SQL. |
+| **API Key Leaks** | Dashboard Key Masking | Project API and Service keys are visually masked in the dashboard and securely copied via data attributes. |
 
 ---
 
