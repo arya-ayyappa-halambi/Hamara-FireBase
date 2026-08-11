@@ -1949,7 +1949,11 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 <p class="text-xs text-slate-400">AegisDB is designed to run anywhere with zero external dependencies.</p>
               </div>
             </div>
-            <div class="flex gap-3">
+            <div class="flex flex-wrap gap-3 mt-4 md:mt-0">
+              <button onclick="document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors flex items-center space-x-2">
+                <i class="fa-solid fa-robot"></i>
+                <span>AI / Dev Context</span>
+              </button>
               <button onclick="document.getElementById('modal-documentation').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition-colors flex items-center space-x-2">
                 <i class="fa-solid fa-book"></i>
                 <span>Documentation</span>
@@ -2132,6 +2136,74 @@ console.log('Deployment status:', deployment.status);</code></pre>
         </section>
 
       </main>
+    </div>
+  </div>
+
+  <!-- AI Agent Context Modal -->
+  <div id="modal-ai-context" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md transition-opacity">
+    <div class="glass-panel rounded-2xl p-6 max-w-4xl w-full max-h-[85vh] flex flex-col border border-white/10 space-y-4 relative shadow-2xl">
+      <div class="flex justify-between items-center border-b border-white/10 pb-4">
+        <h3 class="text-xl font-bold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-robot text-emerald-400"></i>
+          <span>AI Agent & Developer Context Manual</span>
+        </h3>
+        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="text-slate-400 hover:text-white transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="overflow-y-auto custom-scrollbar flex-1 pr-4 space-y-8 text-sm text-slate-300">
+        
+        <div>
+          <h4 class="text-white font-semibold text-base mb-2">🧠 Context for AI Agents</h4>
+          <p class="mb-3 text-slate-400">When an AI agent (Copilot, Gemini) is instructed to "Migrate this app to use AegisDB" or "Build a frontend for AegisDB", it should understand:</p>
+          <ul class="list-disc list-inside space-y-2 text-slate-400">
+            <li><strong>Architecture:</strong> AegisDB is a RESTful API and WebSocket backend. No proprietary heavy SDKs required; standard <code class="text-indigo-300 bg-slate-800 px-1 rounded">fetch()</code> works perfectly.</li>
+            <li><strong>Authentication:</strong> Pass your Project API Key in the <code class="text-indigo-300 bg-slate-800 px-1 rounded">x-aegis-api-key</code> HTTP header.</li>
+            <li><strong class="text-rose-400">Security Rule:</strong> Do NOT hardcode the API key. Use <code class="text-indigo-300 bg-slate-800 px-1 rounded">localStorage</code>, environments, or prompt the user.</li>
+            <li><strong>Data Operations:</strong> AegisDB uses JSON Document structures within Collections.</li>
+            <li><strong>File Storage:</strong> Supports FormData upload with Magic Byte validation for security.</li>
+          </ul>
+        </div>
+        
+        <div>
+          <h4 class="text-white font-semibold text-base mb-2">🛠️ Migration Prompt Template</h4>
+          <p class="mb-3 text-slate-400">Use this prompt to instruct your AI to migrate an existing app to AegisDB:</p>
+          <div class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-300 italic text-sm">
+            "I want to migrate my frontend application to use AegisDB as its backend. AegisDB is a RESTful BaaS running on http://localhost:3000. Please update my API calls to point to AegisDB. Ensure that the Project API Key is passed via the x-aegis-api-key header in all fetch requests. Do not hardcode the API key; instead, retrieve it from localStorage.getItem('aegisApiKey') or prompt the user for it. Update my database inserts to POST to /api/v1/db/collections/&lt;collection_name&gt;/docs, and file uploads to POST to /api/v1/storage/upload using FormData."
+          </div>
+        </div>
+        
+        <div>
+          <h4 class="text-white font-semibold text-base mb-2">📡 Standard API Fetch Wrapper</h4>
+          <p class="mb-3 text-slate-400">When integrating AegisDB, provide this standard wrapper to your AI so it knows how to make requests securely:</p>
+          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>async function aegisFetch(endpoint, method = 'GET', body = null) {
+  const apiKey = localStorage.getItem('aegisApiKey'); // Never hardcode!
+  if (!apiKey) throw new Error('API Key missing. Please configure it in settings.');
+
+  const headers = { 'x-aegis-api-key': apiKey };
+  const options = { method, headers };
+
+  if (body) {
+    if (body instanceof FormData) {
+      options.body = body; // Browser sets multipart boundary
+    } else {
+      headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(body);
+    }
+  }
+
+  const response = await fetch(`http://localhost:3000${endpoint}`, options);
+  const data = await response.json();
+  
+  if (!response.ok) throw new Error(data.message || 'API Request Failed');
+  return data;
+}</code></pre>
+        </div>
+
+      </div>
+      <div class="pt-4 border-t border-white/10 flex justify-end">
+        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5">Got it!</button>
+      </div>
     </div>
   </div>
 
