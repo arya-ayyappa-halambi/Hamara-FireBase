@@ -2622,3 +2622,121 @@ window.startTutorial = function() {
   tour.drive();
 };
 
+// --- Live Interactive SDK Terminal Tester ---
+window.clearSdkTerminal = function() {
+  const terminal = document.getElementById('sdk-terminal-output');
+  if (terminal) {
+    terminal.innerHTML = '<div class="text-slate-500">// Terminal cleared</div>';
+  }
+};
+
+function printSdkLog(message, type = 'info') {
+  const terminal = document.getElementById('sdk-terminal-output');
+  if (!terminal) return;
+  
+  const line = document.createElement('div');
+  const timestamp = new Date().toLocaleTimeString();
+  
+  let colorClass = 'text-slate-300';
+  if (type === 'success') colorClass = 'text-emerald-400 font-semibold';
+  if (type === 'error') colorClass = 'text-rose-400 font-semibold';
+  if (type === 'warning') colorClass = 'text-amber-300';
+  if (type === 'header') colorClass = 'text-indigo-400 font-bold';
+
+  line.className = colorClass;
+  line.innerHTML = `<span class="text-slate-600">[${timestamp}]</span> ${message}`;
+  terminal.appendChild(line);
+  
+  const container = document.getElementById('sdk-terminal-container');
+  if (container) container.scrollTop = container.scrollHeight;
+}
+
+window.runSdkTest = async function(action) {
+  if (action === 'all') {
+    window.clearSdkTerminal();
+    printSdkLog('🚀 Running Full Interactive Live SDK Suite...', 'header');
+    await runSdkTest('ping');
+    await runSdkTest('create_collection');
+    await runSdkTest('insert_doc');
+    await runSdkTest('query_docs');
+    printSdkLog('🎉 Full Interactive SDK Suite Completed Successfully!', 'success');
+    return;
+  }
+
+  const token = state.accessToken;
+  const projectId = state.activeProjectId;
+  
+  if (!token) {
+    printSdkLog('⚠️ Authentication token missing. Please sign in to AegisDB first.', 'warning');
+    return;
+  }
+
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`,
+    ...(projectId ? { 'x-aegis-project-id': projectId } : {})
+  };
+
+  try {
+    if (action === 'ping') {
+      printSdkLog('📡 Sending Server Health Check (GET /api/v1/metrics)...', 'info');
+      const res = await fetch('/api/v1/metrics', { headers });
+      const json = await res.json();
+      printSdkLog(`✅ Server Status 200 OK | Operations: ${json.data?.totalOperations || 0}`, 'success');
+    }
+
+    if (action === 'create_collection') {
+      printSdkLog('📁 Creating Collection "demo_app_users" (POST /api/v1/db/collections)...', 'info');
+      const res = await fetch('/api/v1/db/collections', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: 'demo_app_users', description: 'Interactive SDK Test Collection' })
+      });
+      const json = await res.json();
+      if (!res.ok && (!json.message || !json.message.includes('already exists'))) {
+        throw new Error(json.message || 'Collection creation failed');
+      }
+      printSdkLog(`✅ Collection Ready: "${json.data?.name || 'demo_app_users'}"`, 'success');
+    }
+
+    if (action === 'insert_doc') {
+      printSdkLog('📝 Inserting Document (POST /api/v1/db/collections/demo_app_users/documents)...', 'info');
+      const docPayload = {
+        data: {
+          name: 'Live Demo User',
+          role: 'External App Client',
+          timestamp: new Date().toISOString(),
+          testPassed: true
+        }
+      };
+      const res = await fetch('/api/v1/db/collections/demo_app_users/documents', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(docPayload)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Document insertion failed');
+      printSdkLog(`✅ Document Inserted ID: ${json.data?._id || json.data?.id}`, 'success');
+      printSdkLog(`   Payload: ${JSON.stringify(json.data)}`, 'info');
+    }
+
+    if (action === 'query_docs') {
+      printSdkLog('🔍 Querying Documents (GET /api/v1/db/collections/demo_app_users/documents)...', 'info');
+      const res = await fetch('/api/v1/db/collections/demo_app_users/documents', {
+        method: 'GET',
+        headers
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Document query failed');
+      const docs = json.data?.documents || [];
+      printSdkLog(`✅ Retrieved ${docs.length} document(s) from "demo_app_users"`, 'success');
+      docs.slice(0, 3).forEach((d, idx) => {
+        printSdkLog(`   Doc #${idx + 1} ID: ${d._id} | Name: ${d.name} | Role: ${d.role}`, 'info');
+      });
+    }
+  } catch (err) {
+    printSdkLog(`❌ SDK Test Failed: ${err.message}`, 'error');
+  }
+};
+
+

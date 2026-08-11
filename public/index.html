@@ -677,6 +677,10 @@
               <i class="fa-solid fa-hard-drive text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Media Asset Vault</span>
             </button>
+            <button data-tab="tab-docs" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-book-bookmark text-base text-indigo-400 w-5"></i>
+              <span class="nav-text">Docs & SDK Guide</span>
+            </button>
           </div>
 
           <div class="pt-4 border-t border-white/10 space-y-1">
@@ -1962,6 +1966,175 @@ const docs = await aegis.collection('todos').get();</code></pre>
               </button>
             </div>
           </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: DATABASE & SDK DOCUMENTATION                          -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-docs" class="workspace-panel space-y-8 hidden animate-fade-in max-w-6xl mx-auto">
+          
+          <!-- Hero Header -->
+          <div class="glass-panel p-8 rounded-3xl border border-indigo-500/20 relative overflow-hidden bg-gradient-to-r from-indigo-900/40 via-purple-900/20 to-slate-900/50">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+              <div class="space-y-2">
+                <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-semibold">
+                  <i class="fa-solid fa-database text-indigo-400"></i>
+                  <span>Database Hosting & Integration Guide</span>
+                </div>
+                <h2 class="text-3xl font-extrabold text-white tracking-tight">Using AegisDB to Host Your Project's Database</h2>
+                <p class="text-sm text-slate-300 max-w-2xl">
+                  AegisDB provides a multi-tenant backend-as-a-service engine. Reference <code class="text-amber-300 bg-black/40 px-1.5 py-0.5 rounded font-mono">@aegis/sdk</code> in your external projects to automatically manage collections, store documents, upload files, and trigger hoster deployments.
+                </p>
+              </div>
+              <div class="flex gap-3">
+                <button onclick="runSdkTest('all')" class="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all flex items-center space-x-2">
+                  <i class="fa-solid fa-play"></i>
+                  <span>Run Live SDK Suite</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interactive Live SDK Tester Panel -->
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="flex items-center justify-between border-b border-white/10 pb-4">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <i class="fa-solid fa-terminal"></i>
+                </div>
+                <div>
+                  <h3 class="text-base font-bold text-white">Live Interactive SDK & Database Tester</h3>
+                  <p class="text-xs text-slate-400">Test API requests against your active server (`http://localhost:3000`) live in your browser.</p>
+                </div>
+              </div>
+              <button onclick="clearSdkTerminal()" class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white text-xs font-medium transition">Clear Terminal</button>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap gap-3">
+              <button onclick="runSdkTest('ping')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+                <i class="fa-solid fa-heartbeat text-emerald-400"></i>
+                <span>1. Server Health Check</span>
+              </button>
+              <button onclick="runSdkTest('create_collection')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+                <i class="fa-solid fa-folder-plus text-amber-400"></i>
+                <span>2. Create Collection</span>
+              </button>
+              <button onclick="runSdkTest('insert_doc')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+                <i class="fa-solid fa-file-circle-plus text-sky-400"></i>
+                <span>3. Insert Document</span>
+              </button>
+              <button onclick="runSdkTest('query_docs')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+                <i class="fa-solid fa-magnifying-glass text-purple-400"></i>
+                <span>4. Query Documents</span>
+              </button>
+            </div>
+
+            <!-- Styled Terminal Console -->
+            <div class="rounded-xl bg-[#050811] border border-white/10 p-4 font-mono text-xs text-slate-300 h-64 overflow-y-auto custom-scrollbar shadow-inner" id="sdk-terminal-container">
+              <div id="sdk-terminal-output" class="space-y-1">
+                <div class="text-slate-500">// AegisDB Interactive SDK Terminal</div>
+                <div class="text-slate-400">Ready. Click any button above or run `node test_database_sdk.js` in your terminal to test out the database integration.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Documentation Steps & Code Snippets Grid -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            <!-- Step 1: SDK Installation & Linking -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <div class="flex items-center space-x-3">
+                <span class="w-7 h-7 rounded-lg bg-indigo-500 text-white font-bold text-xs flex items-center justify-center">1</span>
+                <h3 class="text-base font-bold text-white">Installing & Linking `@aegis/sdk`</h3>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">
+                Build the SDK inside this repository, then link it locally or list it in your external project's <code class="text-indigo-300 font-mono">package.json</code>.
+              </p>
+              <div class="bg-[#0b0f19] p-3.5 rounded-xl border border-white/10 text-xs font-mono text-amber-300 space-y-2">
+                <div><span class="text-slate-500"># 1. Build and link the SDK inside Aegis project:</span></div>
+                <div><span class="text-indigo-400">cd</span> sdk && npm run build && npm link</div>
+                <div class="pt-1"><span class="text-slate-500"># 2. In your external project directory:</span></div>
+                <div><span class="text-indigo-400">npm link</span> @aegis/sdk</div>
+                <div class="pt-1"><span class="text-slate-500"># Or add direct file reference in package.json:</span></div>
+                <div class="text-slate-300">"@aegis/sdk": "file:../Hamara-FireBase-main 2/sdk"</div>
+              </div>
+            </div>
+
+            <!-- Step 2: Node.js / Terminal Test Script -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <div class="flex items-center space-x-3">
+                <span class="w-7 h-7 rounded-lg bg-indigo-500 text-white font-bold text-xs flex items-center justify-center">2</span>
+                <h3 class="text-base font-bold text-white">Testing via CLI Script</h3>
+              </div>
+              <p class="text-xs text-slate-400 leading-relaxed">
+                Run the provided integration test script directly from your terminal to verify database CRUD operations against the live host.
+              </p>
+              <div class="bg-[#0b0f19] p-3.5 rounded-xl border border-white/10 text-xs font-mono text-emerald-300 space-y-2">
+                <div><span class="text-slate-500"># Make sure Aegis server is running:</span></div>
+                <div>npm run dev</div>
+                <div class="pt-1"><span class="text-slate-500"># Execute the automated database test script:</span></div>
+                <div>node test_database_sdk.js</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- SDK Code Examples Section -->
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-6">
+            <div class="flex items-center space-x-3 border-b border-white/10 pb-4">
+              <i class="fa-solid fa-code text-indigo-400 text-lg"></i>
+              <h3 class="text-lg font-bold text-white">External Project Code Implementation</h3>
+            </div>
+
+            <div class="space-y-4">
+              <!-- Code Example 1: Client Initialization & Auth -->
+              <div>
+                <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">1. Client Initialization & Authentication</h4>
+                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>import Aegis from '@aegis/sdk';
+
+// Initialize SDK pointing to your host server
+const aegis = new Aegis({ baseUrl: 'http://localhost:3000' });
+
+// Authenticate developer or project user
+await aegis.auth.login('developer@example.com', 'Password123!');
+console.log('Authenticated User ID:', aegis.auth.getUser()?.id);</code></pre>
+              </div>
+
+              <!-- Code Example 2: Database Operations -->
+              <div>
+                <h4 class="text-xs font-bold text-amber-300 uppercase tracking-wider mb-2">2. Collection Creation & Document CRUD</h4>
+                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>// 1. Create a dynamic collection
+await aegis.db.createCollection('app_orders', 'Customer purchases');
+
+// 2. Insert a document into 'app_orders'
+const newOrder = await aegis.db.createDocument('app_orders', {
+  customer: 'Alice',
+  totalAmount: 149.99,
+  status: 'completed',
+  items: ['Headphones', 'Keyboard']
+});
+
+// 3. Query documents from 'app_orders'
+const orders = await aegis.db.queryDocuments('app_orders');
+console.log('Retrieved Orders:', orders);</code></pre>
+              </div>
+
+              <!-- Code Example 3: Project Deployment -->
+              <div>
+                <h4 class="text-xs font-bold text-emerald-300 uppercase tracking-wider mb-2">3. Hosting Project Deployments via HosterClient</h4>
+                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>// Upload project zip bundle and deploy via Aegis hoster engine
+const deployment = await aegis.hoster.deploy(zipBlob, {
+  name: 'my-frontend-service',
+  startCommand: 'npm start'
+});
+
+console.log('Deployment status:', deployment.status);</code></pre>
+              </div>
+
+            </div>
+          </div>
+
         </section>
 
       </main>
