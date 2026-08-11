@@ -744,13 +744,13 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <h3 class="text-sm font-semibold text-white">System CPU & Memory Stream</h3>
-              <div class="h-64">
+              <div class="h-64 relative">
                 <canvas id="chart-cpu-memory"></canvas>
               </div>
             </div>
             <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <h3 class="text-sm font-semibold text-white">SQLite WAL Query Performance (ms)</h3>
-              <div class="h-64">
+              <div class="h-64 relative">
                 <canvas id="chart-query-latency"></canvas>
               </div>
             </div>
@@ -761,14 +761,14 @@
             <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <h3 class="text-sm font-semibold text-white">Threat & Security Operations</h3>
               <p class="text-xs text-slate-400">Failed logins, SSRF blocks, revoked tokens (last 15m)</p>
-              <div class="h-64">
+              <div class="h-64 relative">
                 <canvas id="chart-admin-threats"></canvas>
               </div>
             </div>
             <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <h3 class="text-sm font-semibold text-white">Global Database Operations</h3>
               <p class="text-xs text-slate-400">Total operations executed across the entire platform</p>
-              <div class="h-64">
+              <div class="h-64 relative">
                 <canvas id="chart-admin-global-ops"></canvas>
               </div>
             </div>
