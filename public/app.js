@@ -2787,4 +2787,30 @@ window.runSdkTest = async function(action) {
   }
 };
 
+// ── Security & Anti-Inspection (Client-Side) ───────────────────────────────
+document.addEventListener('contextmenu', event => event.preventDefault());
+
+document.addEventListener('keydown', (e) => {
+  // Disable F12
+  if (e.key === 'F12') {
+    e.preventDefault();
+  }
+  // Disable Ctrl+Shift+I / Cmd+Option+I (Inspect)
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
+    e.preventDefault();
+  }
+  // Disable Ctrl+Shift+J / Cmd+Option+J (Console)
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'J') {
+    e.preventDefault();
+  }
+  // Disable Ctrl+Shift+C / Cmd+Option+C (Inspect Element)
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+    e.preventDefault();
+  }
+  // Disable Ctrl+U / Cmd+Option+U (View Source)
+  if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+    e.preventDefault();
+  }
+});
+
 
