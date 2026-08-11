@@ -2520,14 +2520,29 @@ window.startTutorial = function() {
     return;
   }
   
+  // Ensure sidebar is open and role mode is set to developer for tour navigation
   document.getElementById('sidebar')?.classList.remove('sidebar-collapsed');
+  if (typeof setRoleMode === 'function') {
+    setRoleMode('developer');
+  }
 
   const driverObj = window.driver.js.driver;
   
   const tour = driverObj({
     showProgress: true,
     animate: true,
+    smoothScroll: true,
     popoverClass: 'driver-theme-glass',
+    onHighlightStarted: (element) => {
+      if (element) {
+        // Ensure element is smoothly scrolled into the sidebar center
+        element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+        // Automatically activate tab content view when highlighting tab buttons
+        if (element.hasAttribute && element.hasAttribute('data-tab')) {
+          element.click();
+        }
+      }
+    },
     steps: [
       {
         element: 'header',
@@ -2606,3 +2621,4 @@ window.startTutorial = function() {
   
   tour.drive();
 };
+

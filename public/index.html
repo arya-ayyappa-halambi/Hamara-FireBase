@@ -109,12 +109,24 @@
       100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
     }
     .driver-popover.driver-theme-glass {
-      background-color: rgba(15, 23, 42, 0.85) !important;
-      backdrop-filter: blur(12px) !important;
-      -webkit-backdrop-filter: blur(12px) !important;
-      border: 1px solid rgba(99, 102, 241, 0.3) !important;
+      background-color: rgba(15, 23, 42, 0.92) !important;
+      backdrop-filter: blur(16px) !important;
+      -webkit-backdrop-filter: blur(16px) !important;
+      border: 1px solid rgba(99, 102, 241, 0.4) !important;
       color: #e2e8f0 !important;
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5), 0 0 20px rgba(99, 102, 241, 0.1) !important;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(99, 102, 241, 0.25) !important;
+      transition: opacity 0.3s ease, transform 0.3s ease !important;
+      animation: driverPopoverSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    }
+    @keyframes driverPopoverSlideIn {
+      from { opacity: 0; transform: translateY(8px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .driver-overlay {
+      transition: all 0.3s ease !important;
+    }
+    .driver-active-element {
+      transition: all 0.3s ease !important;
     }
     .driver-popover.driver-theme-glass .driver-popover-title {
       color: #fff !important;
@@ -126,17 +138,18 @@
       font-size: 13px !important;
     }
     .driver-popover.driver-theme-glass .driver-popover-footer button {
-      background-color: rgba(99, 102, 241, 0.1) !important;
-      border: 1px solid rgba(99, 102, 241, 0.3) !important;
+      background-color: rgba(99, 102, 241, 0.15) !important;
+      border: 1px solid rgba(99, 102, 241, 0.35) !important;
       color: #a5b4fc !important;
       text-shadow: none !important;
       border-radius: 6px !important;
       padding: 5px 10px !important;
-      transition: all 0.2s !important;
+      transition: all 0.2s ease !important;
     }
     .driver-popover.driver-theme-glass .driver-popover-footer button:hover {
-      background-color: rgba(99, 102, 241, 0.25) !important;
+      background-color: rgba(99, 102, 241, 0.35) !important;
       color: #fff !important;
+      transform: translateY(-1px);
     }
     .driver-popover.driver-theme-glass .driver-popover-progress-text {
       color: #64748b !important;
