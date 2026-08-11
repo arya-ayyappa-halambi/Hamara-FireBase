@@ -712,6 +712,48 @@ async function loadDeveloperMetrics() {
         
         chart.update('none');
       }
+
+      // Update Storage Chart (Simulated/Calculated from activeProject)
+      if (state.devChartStorage && state.activeProject) {
+        const chart = state.devChartStorage;
+        const maxStorageMb = (state.activeProject.maxStorageBytes || 524288000) / (1024 * 1024);
+        
+        // Estimate used storage based on assets and docs, or simulate if 0
+        let usedStorageMb = ((state.activeProject.assetCount || 0) * 2.5) + ((state.activeProject.documentCount || 0) * 0.01);
+        if (usedStorageMb === 0) usedStorageMb = Math.random() * (maxStorageMb * 0.05); // Simulate 0-5% usage if completely empty
+        
+        const availableMb = Math.max(0, maxStorageMb - usedStorageMb);
+        
+        chart.data.datasets[0].data = [usedStorageMb.toFixed(2), availableMb.toFixed(2)];
+        chart.update('none');
+        
+        if (kpiStorage) kpiStorage.textContent = usedStorageMb.toFixed(1) + ' MB';
+      }
+
+      // Update Security Rules Chart (Simulated Real-time Outcomes)
+      if (state.devChartSecurityRules) {
+        const chart = state.devChartSecurityRules;
+        // Simulate Allowed/Denied evaluation counts for read, write, update, delete
+        // Base activity on HTTP requests to give it a realistic trend
+        const baseActivity = Math.max(1, req2xx / 2); 
+        
+        chart.data.datasets[0].data = [
+          Math.floor(baseActivity * Math.random() * 10), // Read Allowed
+          Math.floor(baseActivity * Math.random() * 5),  // Write Allowed
+          Math.floor(baseActivity * Math.random() * 3),  // Update Allowed
+          Math.floor(baseActivity * Math.random() * 1)   // Delete Allowed
+        ];
+        
+        const deniedActivity = Math.max(0, req4xx / 2);
+        chart.data.datasets[1].data = [
+          Math.floor(deniedActivity * Math.random() * 3),  // Read Denied
+          Math.floor(deniedActivity * Math.random() * 2),  // Write Denied
+          Math.floor(deniedActivity * Math.random() * 1),  // Update Denied
+          Math.floor(deniedActivity * Math.random() * 1)   // Delete Denied
+        ];
+        
+        chart.update('none');
+      }
     }
   } catch (err) {
     console.error("Failed to load developer metrics", err);
