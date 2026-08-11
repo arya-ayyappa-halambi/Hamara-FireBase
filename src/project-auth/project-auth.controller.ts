@@ -94,6 +94,12 @@ export async function handleOAuthProvider(req: Request, res: Response, next: Nex
 export async function deleteProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const projectId = getResolvedProjectId(req);
+    
+    // Security: Only allow Service Role or Project Owner
+    if (!req.isServiceRole && (!req.user || (req.user as any).isProjectUser)) {
+      throw new AppError('Access denied: This operation requires a Service Role Key or Project Owner privileges.', 403);
+    }
+
     const userId = req.params.id;
     
     await projectAuthService.deleteUser(projectId, userId);
@@ -108,6 +114,12 @@ export async function deleteProjectUser(req: Request, res: Response, next: NextF
 export async function listProjectUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const projectId = getResolvedProjectId(req);
+    
+    // Security: Only allow Service Role or Project Owner
+    if (!req.isServiceRole && (!req.user || (req.user as any).isProjectUser)) {
+      throw new AppError('Access denied: This operation requires a Service Role Key or Project Owner privileges.', 403);
+    }
+
     // Directly query the db for simplicity here (or move to service)
     const db = require('../db/sqlite.connection').getDb();
     const users = db.prepare('SELECT id, email, provider, createdAt, lastLoginAt FROM project_users WHERE projectId = ? ORDER BY createdAt DESC').all(projectId);
@@ -145,6 +157,12 @@ export async function attestApp(req: Request, res: Response, next: NextFunction)
 export async function updateUserRole(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const projectId = getResolvedProjectId(req);
+    
+    // Security: Only allow Service Role or Project Owner
+    if (!req.isServiceRole && (!req.user || (req.user as any).isProjectUser)) {
+      throw new AppError('Access denied: This operation requires a Service Role Key or Project Owner privileges.', 403);
+    }
+
     const userId = req.params.id;
     const { role, customClaims } = req.body;
     
