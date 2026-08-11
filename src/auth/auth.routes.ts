@@ -10,12 +10,18 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController } from './auth.controller';
+import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig } from './auth.controller';
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt } from '../middleware/auth.middleware';
 
 const router = Router();
+
+// ── GET /config ───────────────────────────────────────────────────────────────
+router.get('/config', getConfig);
+
+// ── POST /google ──────────────────────────────────────────────────────────────
+router.post('/google', googleLogin);
 
 // ── POST /register ────────────────────────────────────────────────────────────
 router.post(

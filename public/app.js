@@ -270,6 +270,8 @@ function switchWorkspace(tabId) {
     renderCodeSnippet('js');
   } else if (tabId === 'tab-asset-vault') {
     loadAssetsList();
+  } else if (tabId === 'tab-settings') {
+    loadPlatformSettings();
   }
 }
 
@@ -1724,6 +1726,67 @@ function initStorageUpload() {
   });
 }
 
+// ── Google Auth Handlers ──────────────────────────────────────────────────────
+
+async function initGoogleAuth() {
+  try {
+    const res = await fetch('/api/v1/auth/config');
+    const { data } = await res.json();
+    if (data && data.googleAuthEnabled && data.googleClientId) {
+      document.getElementById('google-auth-container').classList.remove('hidden');
+      
+      const btn = document.getElementById('btn-custom-google-login');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          const redirectUri = window.location.origin;
+          const nonce = Math.random().toString(36).substring(2);
+          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${data.googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
+          window.location.href = authUrl;
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to init Google Auth', err);
+  }
+}
+
+async function handleGoogleCredentialResponse(response) {
+  try {
+    const data = await apiRequest('/api/v1/auth/google', 'POST', { token: response.credential });
+    state.accessToken = data.token;
+    state.refreshToken = data.refreshToken;
+    state.user = data.user;
+    localStorage.setItem('aegis_access_token', data.token);
+    localStorage.setItem('aegis_refresh_token', data.refreshToken);
+    localStorage.setItem('aegis_user', JSON.stringify(data.user));
+
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('main-app').classList.remove('hidden');
+    showToast('Successfully authenticated with Google.', 'success');
+    updateUserProfileUI();
+    setRoleMode(data.user.isSuperAdmin ? 'superadmin' : 'developer');
+    connectGlobalWebSocket();
+    initGlobalData();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function loadPlatformSettings() {
+  if (!state.user?.isSuperAdmin) return;
+  const card = document.getElementById('card-platform-settings');
+  if (card) card.classList.remove('hidden');
+  try {
+    const data = await apiRequest('/api/v1/admin/platform-settings');
+    if (data) {
+      document.getElementById('setting-google-client-id').value = data.googleClientId || '';
+      document.getElementById('toggle-google-auth').checked = data.googleAuthEnabled || false;
+    }
+  } catch (err) {
+    showToast('Failed to load platform settings', 'error');
+  }
+}
+
 async function handleFilesUpload(files) {
   if (!state.activeProject) {
     showToast('Please select a project first to upload assets.', 'error');
@@ -1825,9 +1888,29 @@ async function openMfaSetupModal() {
 
 // ── Auth & Initialization Event Handlers ───────────────────────────────────────
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  initGoogleAuth();
   initInactivityTracker();
   initStorageUpload();
+
+  // Check for Google Auth Redirect Hash
+  if (window.location.hash.includes('id_token=')) {
+    const params = new URLSearchParams(window.location.hash.substring(1));
+    const idToken = params.get('id_token');
+    if (idToken) {
+      window.location.hash = ''; // Clear hash
+      try {
+        const data = await apiRequest('/api/v1/auth/google', 'POST', { token: idToken });
+        state.accessToken = data.token;
+        state.user = data.user;
+        localStorage.setItem('aegis_access_token', data.token);
+        localStorage.setItem('aegis_user', JSON.stringify(data.user));
+        showToast('Successfully signed in with Google!', 'success');
+      } catch (err) {
+        showToast(err.message || 'Google login failed', 'error');
+      }
+    }
+  }
 
 
   // Check existing session
@@ -2059,6 +2142,21 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('aegis_user', JSON.stringify(state.user));
         updateUserProfileUI();
         showToast('Profile name updated.', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Save Platform Settings Button
+  const btnSavePlatform = document.getElementById('btn-save-platform-settings');
+  if (btnSavePlatform) {
+    btnSavePlatform.onclick = async () => {
+      const googleClientId = document.getElementById('setting-google-client-id')?.value;
+      const googleAuthEnabled = document.getElementById('toggle-google-auth')?.checked;
+      try {
+        await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { googleClientId, googleAuthEnabled });
+        showToast('Platform settings updated successfully. Reload page to see changes on login.', 'success');
       } catch (err) {
         showToast(err.message, 'error');
       }

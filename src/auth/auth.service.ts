@@ -116,6 +116,39 @@ function toPublicUser(user: User): PublicUser {
 
 // ── Auth Business Logic ───────────────────────────────────────────────────────
 
+export async function googleLoginUser(email: string, name: string): Promise<AuthResponseData> {
+  const normalizedEmail = email.toLowerCase().trim();
+  let user = await userStore.findByEmail(normalizedEmail);
+
+  if (!user) {
+    // Auto-register the Google user with a random un-guessable password
+    const randomPassword = crypto.randomBytes(32).toString('hex');
+    const passwordHash = await hashPassword(randomPassword);
+    const now = new Date();
+    
+    const newUser: User = {
+      id: uuidv4(),
+      email: normalizedEmail,
+      name: name.trim(),
+      passwordHash,
+      isSuperAdmin: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    user = await userStore.create(newUser);
+
+    try {
+      projectService.createProject(user.id, 'Default Project');
+    } catch (e) { /* Ignore if project creation fails */ }
+  }
+
+  const token = generateToken(user);
+  const refreshToken = await issueRefreshToken(user.id);
+
+  return { user: toPublicUser(user), token, refreshToken };
+}
+
 /** Register a new user and issue both access JWT & refresh token. */
 export async function registerUser(dto: RegisterDto): Promise<AuthResponseData> {
   const { email, password, name } = dto;

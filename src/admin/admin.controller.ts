@@ -5,13 +5,51 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { adminService } from './admin.service';
-import { ApiResponse } from '../types/auth.types';
+import { ApiResponse, AppError } from '../types/auth.types';
 import { AdminSystemStats } from '../types/project.types';
 import { securityAdvisorService } from '../security/advisor.service';
 import { auditLogService } from '../services/audit-log.service';
 import { backupService } from '../services/backup.service';
 import { rateLimiterService } from '../services/rate-limiter.service';
 import { metricsService } from '../services/metrics.service';
+import { getDb } from '../db/sqlite.connection';
+
+export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const db = getDb();
+    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId FROM platform_settings WHERE id = ?').get('default') as any;
+    res.status(200).json({
+      success: true,
+      message: 'Platform settings retrieved.',
+      data: {
+        googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
+        googleClientId: settings ? settings.googleClientId : ''
+      }
+    });
+  } catch (err) { next(err); }
+}
+
+export async function updatePlatformSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { googleAuthEnabled, googleClientId } = req.body;
+    
+    // Convert boolean to 1/0 for sqlite
+    const isEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
+    
+    const db = getDb();
+    db.prepare('UPDATE platform_settings SET googleAuthEnabled = ?, googleClientId = ? WHERE id = ?')
+      .run(isEnabled, googleClientId || '', 'default');
+      
+    res.status(200).json({
+      success: true,
+      message: 'Platform settings updated successfully.',
+      data: {
+        googleAuthEnabled: isEnabled === 1,
+        googleClientId: googleClientId || ''
+      }
+    });
+  } catch (err) { next(err); }
+}
 
 export async function getStats(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {

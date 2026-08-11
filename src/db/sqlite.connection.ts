@@ -151,6 +151,15 @@ export function initSqlite(): void {
       FOREIGN KEY (ownerId, projectId, collectionName) REFERENCES collections(ownerId, projectId, name) ON DELETE CASCADE
     );
 
+    -- 5. Platform Settings Table
+    CREATE TABLE IF NOT EXISTS platform_settings (
+      id TEXT PRIMARY KEY,
+      googleAuthEnabled INTEGER DEFAULT 0,
+      googleClientId TEXT
+    );
+    
+    INSERT OR IGNORE INTO platform_settings (id, googleAuthEnabled, googleClientId) VALUES ('default', 0, '');
+
     CREATE INDEX IF NOT EXISTS idx_docs_owner_proj_coll ON documents(ownerId, projectId, collectionName);
 
     -- Project Encryption Keys Table (Envelope Encryption DEK/KEK)

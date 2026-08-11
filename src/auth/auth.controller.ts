@@ -9,9 +9,50 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa, disableMfa, changePassword, updateUserProfile } from './auth.service';
+import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa, disableMfa, changePassword, updateUserProfile, googleLoginUser } from './auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData, AppError } from '../types/auth.types';
 import { failedLoginService } from '../services/failed-login-limiter.service';
+import { verifyGoogleToken } from './auth.google';
+import { getDb } from '../db/sqlite.connection';
+
+// ── Google Auth & Config ──────────────────────────────────────────────────────
+
+export async function getConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const db = getDb();
+    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId FROM platform_settings WHERE id = ?').get('default') as any;
+    
+    res.status(200).json({
+      success: true,
+      message: 'Auth config retrieved',
+      data: {
+        googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
+        googleClientId: settings ? settings.googleClientId : ''
+      }
+    });
+  } catch (err) { next(err); }
+}
+
+export async function googleLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const ip = req.ip || 'unknown';
+  try {
+    const { token } = req.body;
+    if (!token) throw new AppError('Google token is required.', 400);
+
+    const { email, name } = await verifyGoogleToken(token);
+    
+    const data = await googleLoginUser(email, name);
+    failedLoginService.recordSuccessfulLogin(ip, email);
+
+    const response: ApiResponse<AuthResponseData> = {
+      success: true,
+      message: 'Logged in with Google successfully.',
+      data,
+    };
+
+    res.status(200).json(response);
+  } catch (err) { next(err); }
+}
 
 // ── Register ──────────────────────────────────────────────────────────────────
 

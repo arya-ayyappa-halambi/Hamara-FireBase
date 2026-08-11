@@ -29,6 +29,22 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 - **🔎 Document Search & Pagination**: Effortlessly browse large datasets with built-in client-side pagination (100 docs per page) and real-time field filtering in the Data Browser.
 - **🗺️ Interactive Guided Tours**: Integrated Driver.js with a custom glassmorphic theme to provide step-by-step onboarding for new developers.
 - **✨ Enterprise Glassmorphism UI**: Beautiful, modern dashboard featuring blurred glass panels, dynamic modal overlays, and independent scroll zones. Includes a completely unified dark glassmorphic login screen with a full-screen, crossfading dynamic feature carousel.
+
+### Google OAuth 2.0 Integration
+- **Google OAuth 2.0 Integration**: Secure admin login using standard Google Identity Services. (Enable it via the Settings tab inside the dashboard).
+- **Core Platform**: Handles project isolation and core architecture.
+- **Data Collections**: Seamless integration with Firebase for drop-in data replacement.
+- **Storage/Asset Vault**: Securely manage user uploads and binaries.
+- **Authentication**: Native JWT + Google OAuth for Admin access.
+
+### Setting up Google OAuth 2.0
+1. Create an OAuth Client ID in your [Google Cloud Console](https://console.cloud.google.com).
+2. Add your server URL (e.g., `http://localhost:3000`) to both **Authorized JavaScript origins** and **Authorized redirect URIs**.
+3. Log into the AegisDB Admin Dashboard using the default credentials.
+4. Go to the **Settings** tab.
+5. Paste your Google Client ID, turn on the toggle, and click **Save**.
+6. The Google Login button will now appear on your login screen!
+
 ---
 
 ## 🚀 Getting Started

@@ -11,7 +11,9 @@ import {
   getSecurityAdvisorReport,
   getAuditLogs,
   listBackups,
-  createBackup
+  createBackup,
+  getPlatformSettings,
+  updatePlatformSettings
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -20,6 +22,9 @@ const router = Router();
 // Only allow Super Admins
 router.use(authenticateJwt, requireSuperAdmin);
 router.use(apiLimiter);
+
+router.get('/platform-settings', getPlatformSettings);
+router.patch('/platform-settings', updatePlatformSettings);
 
 router.get('/stats', getStats);
 router.get('/users', getUsers);

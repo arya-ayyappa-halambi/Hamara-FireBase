@@ -28,7 +28,7 @@
     "express": "^4.19.2",
     "express-rate-limit": "^8.6.1",
     "file-type": "^16.5.4",
-    "google-auth-library": "^11.0.0",
+    "google-auth-library": "^11.0.1",
     "helmet": "^8.3.0",
     "hpp": "^0.2.3",
     "jimp": "^1.6.1",
