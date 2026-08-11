@@ -114,6 +114,8 @@ export interface AuthResponseData {
   user: PublicUser;
   token: string;
   refreshToken: string;
+  mfaRequired?: boolean;
+  requiresPasswordSetup?: boolean;
 }
 
 // ── Custom Error Types ────────────────────────────────────────────────────────

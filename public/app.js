@@ -1906,6 +1906,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('aegis_access_token', data.token);
         localStorage.setItem('aegis_user', JSON.stringify(data.user));
         showToast('Successfully signed in with Google!', 'success');
+        
+        if (data.requiresPasswordSetup) {
+          document.getElementById('modal-initial-password').classList.remove('hidden');
+        }
       } catch (err) {
         showToast(err.message || 'Google login failed', 'error');
       }
@@ -2118,6 +2122,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
+  // Initial Password Setup Form (Google Auth)
+  const formInitialPwd = document.getElementById('form-initial-password');
+  if (formInitialPwd) {
+    formInitialPwd.onsubmit = async (e) => {
+      e.preventDefault();
+      const newPassword = document.getElementById('input-initial-password').value;
+      try {
+        await apiRequest('/api/v1/auth/set-initial-password', 'POST', { newPassword });
+        showToast('Permanent password set successfully!', 'success');
+        document.getElementById('modal-initial-password').classList.add('hidden');
+        formInitialPwd.reset();
+      } catch (err) {
+        showToast(err.message || 'Failed to set password', 'error');
+      }
+    };
+  }
+
   // Save Session Timeout Button
   const btnSaveTimeout = document.getElementById('btn-save-timeout');
   if (btnSaveTimeout) {
@@ -2135,13 +2156,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (btnSaveProfile) {
     btnSaveProfile.onclick = async () => {
       const name = document.getElementById('setting-name')?.value;
+      const email = document.getElementById('setting-email')?.value;
+      const currentPassword = document.getElementById('setting-profile-current-pwd')?.value;
+      
       if (!name) return;
       try {
-        await apiRequest('/api/v1/auth/profile', 'PATCH', { name });
+        await apiRequest('/api/v1/auth/profile', 'PATCH', { name, email, currentPassword });
         state.user.name = name;
+        if (email) state.user.email = email;
         localStorage.setItem('aegis_user', JSON.stringify(state.user));
+        
+        // clear password field
+        const pwdField = document.getElementById('setting-profile-current-pwd');
+        if (pwdField) pwdField.value = '';
+        
         updateUserProfileUI();
-        showToast('Profile name updated.', 'success');
+        showToast('Profile updated successfully.', 'success');
       } catch (err) {
         showToast(err.message, 'error');
       }

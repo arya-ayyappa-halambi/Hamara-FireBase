@@ -1777,7 +1777,11 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 </div>
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Email Address</label>
-                  <input type="email" id="setting-email" readonly class="w-full px-4 py-2.5 rounded-xl glass-input text-xs bg-slate-950/90 text-slate-400 cursor-not-allowed" placeholder="admin@aegisdb.dev">
+                  <input type="email" id="setting-email" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="admin@aegisdb.dev">
+                </div>
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Current Password (Required for Email Change)</label>
+                  <input type="password" id="setting-profile-current-pwd" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="Verify identity">
                 </div>
                 <button id="btn-save-profile" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition active:scale-95">
                   Update Profile
@@ -2191,6 +2195,30 @@ console.log('Deployment status:', deployment.status);</code></pre>
     </div>
   </div>
 
+  <!-- Modal: Initial Password Setup -->
+  <div id="modal-initial-password" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="relative w-full max-w-md p-8 overflow-hidden border rounded-3xl bg-slate-900/50 border-slate-700/50 backdrop-blur-xl shadow-2xl">
+      <div class="absolute inset-0 z-0 pointer-events-none bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent"></div>
+      
+      <div class="relative z-10 flex flex-col space-y-6">
+        <div>
+          <h2 class="text-2xl font-bold tracking-tight text-white">Set Your Password</h2>
+          <p class="mt-2 text-sm text-slate-400">Since you signed in with Google for the first time, please set a password to enable email login.</p>
+        </div>
+
+        <form id="form-initial-password" class="space-y-4">
+          <div class="space-y-1">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">New Password</label>
+            <input type="password" id="input-initial-password" class="w-full px-4 py-3 text-sm text-white transition-all bg-slate-950/50 border border-slate-700/50 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-600" placeholder="Minimum 8 characters" required />
+          </div>
+          <div class="flex justify-end gap-3 pt-4">
+            <button type="submit" class="px-4 py-2 text-sm font-medium text-white transition-colors bg-indigo-500 rounded-xl hover:bg-indigo-400">Set Password</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- AI Agent Context Modal -->
   <div id="modal-ai-context" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md transition-opacity">
     <div class="glass-panel rounded-2xl p-6 max-w-4xl w-full max-h-[85vh] flex flex-col border border-white/10 space-y-4 relative shadow-2xl">
@@ -2594,6 +2622,6 @@ export default function allowWrite(request, resource) {
   </div>
 
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=10"></script>
+  <script src="app.js?v=11"></script>
 </body>
 </html>

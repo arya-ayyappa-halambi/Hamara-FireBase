@@ -252,15 +252,34 @@ export async function changePasswordController(req: Request, res: Response, next
   } catch (err) { next(err); }
 }
 
+export async function setInitialPasswordController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { newPassword } = req.body;
+    if (!newPassword) throw new AppError('New password is required.', 400);
+
+    const { setInitialPassword } = await import('./auth.service');
+    await setInitialPassword(userId, newPassword);
+    
+    res.status(200).json({
+      success: true,
+      message: 'Initial password set successfully.',
+      data: null
+    });
+  } catch (err) { next(err); }
+}
+
 export async function updateProfileController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const userId = (req as any).user?.sub || (req as any).user?.id;
     if (!userId) throw new AppError('Authentication required.', 401);
 
-    const { name } = req.body;
+    const { name, email, currentPassword } = req.body;
     if (!name) throw new AppError('Name is required.', 400);
 
-    const updatedUser = await updateUserProfile(userId, name);
+    const updatedUser = await updateUserProfile(userId, name, email, currentPassword);
     res.status(200).json({
       success: true,
       message: 'Profile updated successfully.',

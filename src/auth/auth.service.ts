@@ -119,6 +119,7 @@ function toPublicUser(user: User): PublicUser {
 export async function googleLoginUser(email: string, name: string): Promise<AuthResponseData> {
   const normalizedEmail = email.toLowerCase().trim();
   let user = await userStore.findByEmail(normalizedEmail);
+  let isNewUser = false;
 
   if (!user) {
     // Auto-register the Google user with a random un-guessable password
@@ -137,6 +138,7 @@ export async function googleLoginUser(email: string, name: string): Promise<Auth
     };
 
     user = await userStore.create(newUser);
+    isNewUser = true;
 
     try {
       projectService.createProject(user.id, 'Default Project');
@@ -146,7 +148,7 @@ export async function googleLoginUser(email: string, name: string): Promise<Auth
   const token = generateToken(user);
   const refreshToken = await issueRefreshToken(user.id);
 
-  return { user: toPublicUser(user), token, refreshToken };
+  return { user: toPublicUser(user), token, refreshToken, requiresPasswordSetup: isNewUser };
 }
 
 /** Register a new user and issue both access JWT & refresh token. */
@@ -307,17 +309,60 @@ export async function changePassword(
   return true;
 }
 
-export async function updateUserProfile(userId: string, name: string): Promise<any> {
+export async function setInitialPassword(userId: string, newPassword: string): Promise<boolean> {
+  if (!newPassword || newPassword.length < 8) {
+    throw new AppError('New password must be at least 8 characters long.', 400);
+  }
+
+  const db = getDb();
+  const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found.', 404);
+
+  // Directly hash and update without requiring old password
+  const newHash = await hashPassword(newPassword);
+
+  db.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
+    .run(newHash, new Date().toISOString(), userId);
+    
+  return true;
+}
+
+export async function updateUserProfile(userId: string, name: string, email?: string, currentPassword?: string): Promise<any> {
   if (!name || name.trim().length === 0) {
     throw new AppError('Name cannot be empty.', 400);
   }
 
   const db = getDb();
-  const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId) as any;
+  const user = db.prepare('SELECT id, email, passwordHash FROM users WHERE id = ?').get(userId) as any;
   if (!user) throw new AppError('User not found.', 404);
 
   const cleanName = name.trim();
-  db.prepare('UPDATE users SET name = ?, updatedAt = ? WHERE id = ?').run(cleanName, new Date().toISOString(), userId);
+  let cleanEmail = user.email;
+
+  if (email && email.trim() !== '' && email.trim() !== user.email) {
+    cleanEmail = email.trim().toLowerCase();
+    
+    // Require current password for email changes
+    if (!currentPassword) {
+      throw new AppError('Current password is required to change email address.', 400);
+    }
+    
+    // Verify password
+    const argon2 = await import('argon2');
+    const isValid = await argon2.verify(user.passwordHash, currentPassword);
+    if (!isValid) {
+      throw new AppError('Incorrect current password.', 401);
+    }
+
+    // Check uniqueness
+    const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(cleanEmail, userId);
+    if (existing) {
+      throw new AppError('Email address is already in use by another account.', 409);
+    }
+  }
+
+  db.prepare('UPDATE users SET name = ?, email = ?, updatedAt = ? WHERE id = ?')
+    .run(cleanName, cleanEmail, new Date().toISOString(), userId);
   
   const updatedUser = await userStore.findById(userId);
   return updatedUser ? toPublicUser(updatedUser) : null;
