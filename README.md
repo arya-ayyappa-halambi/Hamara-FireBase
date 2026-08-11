@@ -138,6 +138,8 @@ npx ts-node src/scripts/migrate-envelope-encryption.ts
 | **HTTP Parameter Pollution** | HPP Middleware | Protects against parameter pollution attacks by safely parsing duplicate query strings. |
 | **SQL Injection** | Strict Regex & Parameterization | Collection names sanitized with `/^[a-zA-Z][a-zA-Z0-9_-]{1,63}$/` and parameterized SQL. |
 | **API Key Leaks** | Dashboard Key Masking | Project API and Service keys are visually masked in the dashboard and securely copied via data attributes. |
+| **Client Data Harvesting** | Strict Project Auth Isolation | Admin-level project endpoints (like listing all users) are completely isolated and require a backend Service Role Key or Dashboard Owner JWT. |
+| **Dashboard UI Inspection** | Frontend Inspection Deterrence | The developer console blocks right-click context menus and common DevTools keyboard shortcuts (F12, Inspect, Console) to deter casual tampering. |
 
 ---
 
