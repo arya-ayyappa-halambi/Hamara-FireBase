@@ -2166,10 +2166,35 @@ console.log('Deployment status:', deployment.status);</code></pre>
         </div>
         
         <div>
-          <h4 class="text-white font-semibold text-base mb-2">🛠️ Migration Prompt Template</h4>
-          <p class="mb-3 text-slate-400">Use this prompt to instruct your AI to migrate an existing app to AegisDB:</p>
-          <div class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-300 italic text-sm">
-            "I want to migrate my frontend application to use AegisDB as its backend. AegisDB is a RESTful BaaS running on http://localhost:3000. Please update my API calls to point to AegisDB. Ensure that the Project API Key is passed via the x-aegis-api-key header in all fetch requests. Do not hardcode the API key; instead, retrieve it from localStorage.getItem('aegisApiKey') or prompt the user for it. Update my database inserts to POST to /api/v1/db/collections/&lt;collection_name&gt;/docs, and file uploads to POST to /api/v1/storage/upload using FormData."
+          <h4 class="text-white font-semibold text-base mb-2">🛠️ AI Prompt Templates</h4>
+          <p class="mb-3 text-slate-400">Use these prompts to instruct your AI to build or migrate apps using AegisDB:</p>
+          
+          <div class="space-y-4">
+            <!-- Migration Prompt -->
+            <div>
+              <div class="text-xs font-semibold text-indigo-400 mb-1">Option A: Migrate Existing App</div>
+              <div class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-300 italic text-sm relative group">
+                <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-500/50 hover:text-emerald-400 bg-slate-800/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/5" title="Copy Prompt">
+                  <i class="fa-solid fa-copy"></i>
+                </button>
+                <div class="pr-8">
+                  "I want to migrate my frontend application to use AegisDB as its backend. AegisDB is a RESTful BaaS running on http://localhost:3000. Please update my API calls to point to AegisDB. Ensure that the Project API Key is passed via the x-aegis-api-key header in all fetch requests. Do not hardcode the API key; instead, retrieve it from localStorage.getItem('aegisApiKey') or prompt the user for it. Update my database inserts to POST to /api/v1/db/collections/&lt;collection_name&gt;/docs, and file uploads to POST to /api/v1/storage/upload using FormData."
+                </div>
+              </div>
+            </div>
+
+            <!-- New Project Prompt -->
+            <div>
+              <div class="text-xs font-semibold text-emerald-400 mb-1">Option B: Build New App from Scratch</div>
+              <div class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-300 italic text-sm relative group">
+                <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-500/50 hover:text-emerald-400 bg-slate-800/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/5" title="Copy Prompt">
+                  <i class="fa-solid fa-copy"></i>
+                </button>
+                <div class="pr-8">
+                  "I want to build a new frontend web application that uses AegisDB as its backend. AegisDB is a RESTful BaaS running locally on http://localhost:3000. Build the UI and connect it to AegisDB using standard fetch(). Ensure that the Project API Key is passed via the x-aegis-api-key header in all requests. Do not hardcode the API key; prompt the user for it or use localStorage. Database inserts should POST to /api/v1/db/collections/&lt;collection_name&gt;/docs, and file uploads should POST to /api/v1/storage/upload using FormData."
+                </div>
+              </div>
+            </div>
           </div>
         </div>
         
