@@ -2201,7 +2201,11 @@ console.log('Deployment status:', deployment.status);</code></pre>
         <div>
           <h4 class="text-white font-semibold text-base mb-2">📡 Standard API Fetch Wrapper</h4>
           <p class="mb-3 text-slate-400">When integrating AegisDB, provide this standard wrapper to your AI so it knows how to make requests securely:</p>
-          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>async function aegisFetch(endpoint, method = 'GET', body = null) {
+          <div class="relative group">
+            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-500/50 hover:text-emerald-400 bg-slate-800/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/5" title="Copy Code">
+              <i class="fa-solid fa-copy"></i>
+            </button>
+            <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto pr-12"><code>async function aegisFetch(endpoint, method = 'GET', body = null) {
   const apiKey = localStorage.getItem('aegisApiKey'); // Never hardcode!
   if (!apiKey) throw new Error('API Key missing. Please configure it in settings.');
 
@@ -2223,6 +2227,7 @@ console.log('Deployment status:', deployment.status);</code></pre>
   if (!response.ok) throw new Error(data.message || 'API Request Failed');
   return data;
 }</code></pre>
+          </div>
         </div>
 
       </div>
