@@ -826,8 +826,8 @@ async function loadWebhookLogs() {
   
   try {
     const res = await apiRequest(`/api/v1/projects/${state.activeProject.id}/webhook-logs`, 'GET');
-    if (res && res.data) {
-      renderWebhookLogs(res.data);
+    if (res && Array.isArray(res)) {
+      renderWebhookLogs(res);
     }
   } catch (error) {
     console.error('Failed to load webhook logs:', error);
