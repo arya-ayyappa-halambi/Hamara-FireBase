@@ -3126,7 +3126,7 @@ window.runSdkTest = async function(action) {
   }
 
   const token = state.accessToken;
-  const projectId = state.activeProjectId;
+  const projectId = state.activeProject?.id;
   
   if (!token) {
     printSdkLog('⚠️ Authentication token missing. Please sign in to AegisDB first.', 'warning');
