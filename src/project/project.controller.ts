@@ -59,7 +59,12 @@ export async function getProjectStats(req: Request, res: Response, next: NextFun
 export async function getWebhookLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
-    const logs = auditLogService.getWebhookLogs(ownerId);
+    const projectId = req.params.id;
+    
+    // Verify project ownership
+    projectService.getProjectById(projectId, ownerId);
+
+    const logs = auditLogService.getWebhookLogs(projectId);
     res.status(200).json({
       success: true,
       message: 'Webhook logs retrieved successfully.',
