@@ -1095,7 +1095,7 @@ function renderMyProjectsTable(projects) {
   tableBody.innerHTML = projects.map(p => {
     const authCfg = p.authConfig;
     const authBadges = authCfg
-      ? Object.entries(authCfg).filter(([,v]) => v).map(([k]) =>
+      ? Object.entries(authCfg).filter(([,v]) => v === true || v?.enabled).map(([k]) =>
           `<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">${k}</span>`
         ).join(' ') || '<span class="text-slate-500 text-[10px]">None</span>'
       : '<span class="text-slate-500 text-[10px]">Not configured</span>';
