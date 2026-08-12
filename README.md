@@ -173,11 +173,11 @@ To start the AegisDB engine locally:
 | :--- | :--- | :--- |
 | `POST` | `/collections` | Register collection with JSON Schema & Rules |
 | `GET` | `/collections` | List project collections |
-| `POST` | `/collections/:name/docs` | Insert JSON document (auto-creates collection) |
-| `GET` | `/collections/:name/docs` | Query documents with limit, offset & filters |
-| `GET` | `/collections/:name/docs/:id` | Fetch document by ID |
-| `PATCH` | `/collections/:name/docs/:id` | Merge update JSON document |
-| `DELETE` | `/collections/:name/docs/:id` | Delete document |
+| `POST` | `/collections/:name/documents` | Insert JSON document (auto-creates collection) |
+| `GET` | `/collections/:name/documents` | Query documents with limit, offset & filters |
+| `GET` | `/collections/:name/documents/:id` | Fetch document by ID |
+| `PATCH` | `/collections/:name/documents/:id` | Merge update JSON document |
+| `DELETE` | `/collections/:name/documents/:id` | Delete document |
 | `GET` | `/collections/:name/realtime` | SSE Change Data Capture (CDC) stream |
 
 ### Storage Services (`/api/v1/storage`)
@@ -233,10 +233,10 @@ When an AI agent is instructed to "Migrate this app to use AegisDB" or "Build a 
 Use these prompts to instruct your AI to build or migrate apps using AegisDB:
 
 #### Option A: Migrate Existing App
-> *"I want to migrate my frontend application to use AegisDB as its backend. AegisDB is a RESTful BaaS running on `http://localhost:3000`. Please update my API calls to point to AegisDB. Ensure that the Project API Key is passed via the `x-aegis-api-key` header in all fetch requests. Do not hardcode the API key; instead, retrieve it from `localStorage.getItem('aegisApiKey')` or prompt the user for it. Update my database inserts to POST to `/api/v1/db/collections/<collection_name>/docs`, and file uploads to POST to `/api/v1/storage/upload` using FormData."*
+> *"I want to migrate my frontend application to use AegisDB as its backend. AegisDB is a RESTful BaaS running on `http://localhost:3000`. Please update my API calls to point to AegisDB. Ensure that the Project API Key is passed via the `x-aegis-api-key` header in all fetch requests. Do not hardcode the API key; instead, retrieve it from `localStorage.getItem('aegisApiKey')` or prompt the user for it. Update my database inserts to POST to `/api/v1/db/collections/<collection_name>/documents`, and file uploads to POST to `/api/v1/storage/upload` using FormData."*
 
 #### Option B: Build New App from Scratch
-> *"I want to build a new frontend web application that uses AegisDB as its backend. AegisDB is a RESTful BaaS running locally on `http://localhost:3000`. Build the UI and connect it to AegisDB using standard fetch(). Ensure that the Project API Key is passed via the `x-aegis-api-key` header in all requests. Do not hardcode the API key; prompt the user for it or use localStorage. Database inserts should POST to `/api/v1/db/collections/<collection_name>/docs`, and file uploads should POST to `/api/v1/storage/upload` using FormData."*
+> *"I want to build a new frontend web application that uses AegisDB as its backend. AegisDB is a RESTful BaaS running locally on `http://localhost:3000`. Build the UI and connect it to AegisDB using standard fetch(). Ensure that the Project API Key is passed via the `x-aegis-api-key` header in all requests. Do not hardcode the API key; prompt the user for it or use localStorage. Database inserts should POST to `/api/v1/db/collections/<collection_name>/documents`, and file uploads should POST to `/api/v1/storage/upload` using FormData."*
 
 ### 📡 Standard API Fetch Wrapper Example
 When integrating AegisDB, use this standard wrapper for your requests:
