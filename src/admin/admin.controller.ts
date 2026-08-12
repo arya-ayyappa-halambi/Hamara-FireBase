@@ -42,16 +42,22 @@ export async function getPlatformSettings(_req: Request, res: Response, next: Ne
 
 export async function updatePlatformSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { 
-      googleAuthEnabled, googleClientId, 
-      backupMode, backupIntervalMinutes, 
-      s3BucketName, s3Region, s3AccessKey, s3SecretKey 
-    } = req.body;
+    const db = getDb();
+    const current = db.prepare('SELECT * FROM platform_settings WHERE id = ?').get('default') as any;
     
+    // Merge new values with current values
+    const googleAuthEnabled = req.body.googleAuthEnabled !== undefined ? req.body.googleAuthEnabled : current.googleAuthEnabled;
+    const googleClientId = req.body.googleClientId !== undefined ? req.body.googleClientId : current.googleClientId;
+    const backupMode = req.body.backupMode !== undefined ? req.body.backupMode : current.backupMode;
+    const backupIntervalMinutes = req.body.backupIntervalMinutes !== undefined ? req.body.backupIntervalMinutes : current.backupIntervalMinutes;
+    const s3BucketName = req.body.s3BucketName !== undefined ? req.body.s3BucketName : current.s3BucketName;
+    const s3Region = req.body.s3Region !== undefined ? req.body.s3Region : current.s3Region;
+    const s3AccessKey = req.body.s3AccessKey !== undefined ? req.body.s3AccessKey : current.s3AccessKey;
+    const s3SecretKey = req.body.s3SecretKey !== undefined ? req.body.s3SecretKey : current.s3SecretKey;
+
     // Convert boolean to 1/0 for sqlite
     const isEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
     
-    const db = getDb();
     db.prepare(`
       UPDATE platform_settings 
       SET googleAuthEnabled = ?, 
