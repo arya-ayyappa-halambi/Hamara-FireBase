@@ -102,7 +102,19 @@ For extremely sensitive account changes, AegisDB enforces a Dual Verification Lo
 
 ---
 
-## 6. AegisDB Operations Manual
+## 6. Dual-Target Disaster Recovery & Backup System
+
+AegisDB includes a fully automated, cryptographically secure Dual-Target Backup engine to ensure absolute data durability.
+
+- **Atomic SQLite Snapshots:** Utilizes SQLite's Online Backup API to safely capture point-in-time snapshots of the database without locking the main thread or causing read/write downtime.
+- **Local File System Backups:** Saves heavily compressed `.sqlite3.bak` files directly to the local server, providing an ultra-fast Recovery Time Objective (RTO).
+- **AWS S3 Cloud Backups:** Seamlessly streams multipart upload backups to remote Amazon S3 buckets, ensuring off-site redundancy.
+- **Generation ID Tracking:** Every backup snapshot is tagged with a unique **Generation ID** timestamp, ensuring complete version history and preventing accidental data overwrites.
+- **Manual & Scheduled Triggers:** Backups can be scheduled as background cron jobs or triggered manually via the Global Platform Settings in the Developer Console. The UI provides real-time status indicators on the progress of both Local and S3 backup processes.
+
+---
+
+## 7. AegisDB Operations Manual
 
 ### Booting the Server
 To start the AegisDB engine locally:
