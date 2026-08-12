@@ -8,93 +8,129 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)
 
 ---
-
-## ✨ Architectural Features & Capabilities
-
-- **🔐 Asymmetric RS256 JWKS Token Signing**: RSA 2048-bit key pair generation and public key exposition at `GET /.well-known/jwks.json` for external service token verification.
-- **🔑 Two-Tier Envelope Encryption (DEK / KEK)**: 256-bit per-project Data Encryption Keys (DEKs) wrapped using a HKDF-SHA256 derived Master Key Encryption Key (KEK). Transparent AES-256-GCM field encryption (`x-encrypted: true`) with non-destructive key rotation.
-- **🔒 Pure TOTP Multi-Factor Authentication (MFA)**: Pure RFC 6238 HMAC-SHA1 TOTP generator/verifier. Base32 secrets, dynamic QR code image URIs, setup/verify endpoints, and login enforcement.
-- **🛡️ Secure TOTP Disabling & Password Change Enforcement**: Disabling TOTP MFA or changing account passwords strictly requires dual verification (account password + valid 6-digit TOTP code).
-- 🔒 **Secure Email Modification**: Platform super-admins and project developers can securely modify their account email addresses via the dashboard, rigorously guarded by current password re-authentication and uniqueness validations to facilitate safe platform handover and credential rotation.
-- **⏱️ Configurable Inactivity Session Timeout**: User-configurable session timeout (5m, 15m, 30m, 60m, or Disabled) with real-time user activity tracking (`mousemove`, `keydown`, `click`, `scroll`, `touchstart`).
-- **🍏 Mac-Style Hover Auto-Expanding Sidebar**: Glassmorphic sidebar with ☰ Hamburger toggle for Pinned vs Collapsed mode, featuring Mac-style smooth auto-expansion on hover.
-- **⛔ 15-Minute Failed Login Lockout Policy**: Tracks 5 consecutive failed login attempts per `IP:Email` combination and enforces an automatic 15-minute temporary lockout (`HTTP 429`).
-- **☁️ Continuous WAL Replication (Litestream)**: 1-second continuous WAL replication to AWS S3, MinIO, or Cloudflare R2 object storage targets with Point-in-Time Recovery (PITR).
-- **📦 Multi-Driver Storage Abstraction**: Pluggable storage abstraction supporting `LocalStorageDriver` (disk-bound) and `S3StorageDriver` (AWS S3, MinIO, Cloudflare R2), dynamically selected via `STORAGE_DRIVER=s3|local`.
-- **🛡️ VM Sandbox Rules**: Node.js `vm2` sandbox for executing custom JavaScript security and validation rules on collections.
-- **📊 Real-Time Prometheus Telemetry**: Standardized Prometheus exposition metrics collecting CPU usage, resident memory size, heap statistics, `http_requests_total`, `rate_limit_hits_total`, and active WebSockets. Includes a live dashboard polling real-time CPU/Memory data.
-- **📄 Multi-Format Telemetry Export**: 1-click generation of project metrics and telemetry reports natively in JSON, Markdown, Excel (CSV), MS Word (.doc), and formatted PDF, completely generated client-side without backend overhead.
-- **⚡ Real-Time Data Streams**: Native WebSocket support broadcasting live change stream events (insert, update, delete) to subscribed clients instantly.
-- **👑 Role Context Scope Switcher**: Dynamic web console supporting Super Admin global platform management mode and Project / Developer scoped views.
-- **🧪 Interactive API Key Tester**: Built-in developer console tool to securely test Project API keys against live endpoints via an integrated REST client.
-- **🔎 Document Search & Pagination**: Effortlessly browse large datasets with built-in client-side pagination (100 docs per page) and real-time field filtering in the Data Browser.
-- **🗺️ Interactive Guided Tours**: Integrated Driver.js with a custom glassmorphic theme to provide step-by-step onboarding for new developers.
-- **✨ Enterprise Glassmorphism UI**: Beautiful, modern dashboard featuring blurred glass panels, dynamic modal overlays, and independent scroll zones. Includes a completely unified dark glassmorphic login screen with a full-screen, crossfading dynamic feature carousel.
-
-### Google OAuth 2.0 Integration
-- **Google OAuth 2.0 Integration**: Secure admin login using standard Google Identity Services. (Enable it via the Settings tab inside the dashboard).
-- **Core Platform**: Handles project isolation and core architecture.
-- **Data Collections**: Seamless integration with Firebase for drop-in data replacement.
-- **Storage/Asset Vault**: Securely manage user uploads and binaries.
-- **Authentication**: Native JWT + Google OAuth for Admin access.
-
-### Setting up Google OAuth 2.0
-1. Create an OAuth Client ID in your [Google Cloud Console](https://console.cloud.google.com).
-2. Add your server URL (e.g., `http://localhost:3000`) to both **Authorized JavaScript origins** and **Authorized redirect URIs**.
-3. Log into the AegisDB Admin Dashboard using the default credentials.
-4. Go to the **Settings** tab.
-5. Paste your Google Client ID, turn on the toggle, and click **Save**.
-6. The Google Login button will now appear on your login screen!
+AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, extremely performant, and provides developers with a full suite of cloud services out-of-the-box, bundled with a stunning glassmorphic developer console.
 
 ---
 
-## 🚀 Getting Started
+## 1. What is AegisDB & Its Purpose?
 
-### Prerequisites
-- [Node.js](https://nodejs.org/en/) (v18+) **OR** [Docker](https://www.docker.com/) & Docker Compose
+**AegisDB** was created to bridge the gap between heavy enterprise cloud providers (like AWS, GCP, Firebase) and the need for localized, hyper-fast, secure, and privacy-respecting self-hosted databases. 
 
-### 🐳 Installation (Recommended: Docker)
+**Purpose:** To give developers a "Firebase in a box." You can run AegisDB on a single server, a Raspberry Pi, or a massive AWS EC2 instance, and instantly get:
+- A document-oriented NoSQL interface backed by the blistering speed of SQLite.
+- Real-time data sync using WebSockets.
+- File storage and object management.
+- Complete identity, access management, and multi-factor authentication (MFA).
 
-```bash
-# 1. Clone the repository
-git clone https://github.com/aryaayyappa/Hamara-FireBase.git
-cd Hamara-FireBase
-
-# 2. Start the engine in background
-docker compose up --build -d
-```
-
-Access the Developer Console at **`http://localhost:3000`**.
+**How it works:** AegisDB uses a lightweight Node.js/Express backend coupled with a highly tuned SQLite WAL-mode database (Write-Ahead Logging). This allows ultra-fast concurrent reads and serialized writes. The frontend is a zero-build-step Vanilla JS Single Page Application (SPA) styled with Tailwind CSS, meaning it loads instantly without requiring heavy frameworks or compilation pipelines.
 
 ---
 
-### 💻 Installation (Local / Development)
+## 2. Comprehensive Security Architecture
 
-```bash
-# 1. Install dependencies
-npm install
+AegisDB is built with a "security-first, zero-trust" philosophy. Every layer of the application is hardened against modern web threats.
 
-# 2. Build TypeScript source
-npm run build
+### Cryptography & Data Protection
+- **Two-Tier Envelope Encryption (DEK/KEK):** At-rest data is encrypted using a Master Key Encryption Key (KEK) derived via HKDF-SHA256. This master key wraps per-project Data Encryption Keys (DEKs). Field-level data inside your database is encrypted using AES-256-GCM authenticated encryption. This means that even if a bad actor steals your `.sqlite` file, all sensitive fields are entirely unreadable without the KEK.
+- **Non-Destructive Key Rotation:** Administrators can rotate encryption keys seamlessly. Because of the DEK/KEK envelope architecture, rotating the Master Key does not require decrypting and re-encrypting the entire database.
+- **Asymmetric RS256 JWKS Token Signing:** All JWT session tokens are signed using an RSA-2048 bit private key. The public keys are exposed via a standard `/.well-known/jwks.json` endpoint, allowing external microservices to cryptographically verify AegisDB tokens without contacting the database directly.
 
-# 3. Start development server with Nodemon
-npm run dev
-```
+### VM Sandbox Security Rules
+- **Execution Isolation:** Collection access is governed by JavaScript security rules executed inside a secure Node.js `vm2` sandbox. 
+- **Validation:** Developers can write custom JS functions (e.g., `if (data.age < 18) throw new Error("Too young")`) that AegisDB executes in an isolated thread. The `vm2` module strips out dangerous Node.js globals (like `process`, `fs`, `require`), preventing arbitrary remote code execution (RCE) while still allowing deeply complex, custom business logic to validate incoming requests.
+
+### Threat Mitigations
+- **15-Minute Brute-Force Lockout:** The system tracks consecutive failed logins by both IP address and Email pairs. Exactly 5 failed attempts trigger an automatic, unbypassable 15-minute HTTP 429 lockout.
+- **Inactivity Session Timeout:** Users can configure their console session to automatically terminate after 5m, 15m, 30m, or 60m of mouse/keyboard inactivity. This ensures open browser tabs don't compromise security.
+- **Strict Content Security Policy (CSP):** XSS attacks are mitigated via a strict CSP header that restricts scripts, styles, and fonts to trusted CDN origins (like `cdnjs.cloudflare.com` and `cdn.jsdelivr.net`) and completely blocks inline script execution `unsafe-inline`.
+- **Dynamic Rate Limiting:** Super Admins can adjust the rate-limiting windows (e.g., Auth endpoints vs. API endpoints) dynamically from the UI without restarting the server.
 
 ---
 
-## 🛠️ CLI Utilities & Test Commands
+## 3. UI & Frontend Capabilities (The Glassmorphic Console)
 
-```bash
-# Run TOTP MFA, Prometheus Metrics & Storage Driver Integration Tests
-npx ts-node tests/mfa-metrics-storage.test.ts
+The AegisDB frontend was engineered to feel like a premium, native desktop application.
 
-# Run Envelope Encryption & Key Rotation Integration Tests
-npx ts-node tests/envelope-encryption.test.ts
+- **Mac-Style Auto-Expanding Sidebar:** The primary navigation uses a collapsible sidebar. When collapsed, hovering over it triggers a fluid, Mac-OS-style width expansion, allowing rapid navigation without permanently taking up horizontal screen real estate.
+- **Premium Glassmorphism:** The entire UI utilizes backdrop-filters, subtle borders, and deep gradients to create a modern, translucent "glass" aesthetic.
+- **FontAwesome Iconography:** Emojis have been entirely replaced with crisp, scalable FontAwesome SVG icons. This ensures visual consistency across operating systems and gives the application a professional, enterprise look.
+- **Responsive Toast Notifications:** Real-time feedback is provided via non-blocking, sliding toast notifications for both successes and errors.
 
-# Execute Database Migration to Two-Tier Envelope Encryption
-npx ts-node src/scripts/migrate-envelope-encryption.ts
-```
+---
+
+## 4. Feature Breakdown: User (Developer) vs. Super Admin
+
+AegisDB utilizes a **Role Context Scope Switcher**. Users can toggle their dashboard view depending on their permissions. Standard Users only see the Project Developer context.
+
+### User (Project Developer) Features
+*Standard users operate strictly within isolated projects. They do not have access to global infrastructure.*
+- **Project Management:** Create multiple independent databases under a single user account.
+- **API Keys & Scopes:** Generate API keys linked specifically to individual projects.
+- **Interactive API Key Tester:** A built-in Postman-like REST client right inside the console. Developers can select an API Key, choose a method (GET/POST), enter a JSON payload, and fire live requests against their database to test their endpoints.
+- **Advanced Data Browser:** 
+  - **Pagination:** Handles massive datasets efficiently with built-in client-side pagination (displays 100 documents per page seamlessly).
+  - **Filtering:** Instant search bar filters the current data view, rendering specific JSON keys immediately.
+  - **Clipboard Integration:** Developers can click a single button to copy raw JSON payloads of any document.
+- **Storage Vault:** Upload and manage binary assets (images, PDFs) with pluggable storage drivers (Local Disk, AWS S3, Cloudflare R2).
+
+### Super Admin Features
+*The global overseer of the entire AegisDB instance.*
+- **Live Infrastructure Telemetry:** A real-time dashboard powered by `Chart.js` polling `/api/v1/admin/stats`. Displays live CPU usage, V8 Memory Heap allocation, active WebSocket connections, and SQLite WAL query latency. Data refreshes automatically every 3 seconds or via a manual "Refresh Metrics" button.
+- **Rate Limit Governance:** Adjust the global request throttles to defend against DDoS or traffic spikes.
+- **Global Security Auditing:** Access system-wide logs, encryption statuses, and MFA compliance metrics across all users.
+
+---
+
+## 5. TOTP Multi-Factor Authentication (MFA) Manual
+
+AegisDB strictly adheres to the RFC 6238 HMAC-SHA1 protocol for Time-Based One-Time Passwords (TOTP).
+
+### How to Enable TOTP
+1. Log into your account and navigate to **Settings > Security**.
+2. Click **Setup MFA**.
+3. AegisDB will cryptographically generate a unique `Base32` secret specifically for your account.
+4. A QR Code will be rendered on the screen.
+5. Open an Authenticator app (e.g., Google Authenticator, Authy, Apple Passwords).
+6. Scan the QR code.
+7. Enter the 6-digit pin generated by your app into the AegisDB input box to verify sync.
+8. Your account is now secured. All future logins will require both your password and a live 6-digit pin.
+
+### Dual Verification Lock
+For extremely sensitive account changes, AegisDB enforces a Dual Verification Lock.
+- **Disabling MFA:** You cannot simply click "Disable." You must provide your current account password *and* a live 6-digit TOTP code.
+- **Changing Passwords:** Even if a session token is hijacked, an attacker cannot change your password without providing your current password *and* the current TOTP pin.
+
+---
+
+## 6. AegisDB Operations Manual
+
+### Booting the Server
+To start the AegisDB engine locally:
+1. Ensure dependencies are installed: `npm install`
+2. Start the development server: `npm run dev`
+3. Open your browser to `http://localhost:3000`
+
+### Initial Setup
+1. On the login screen, click **Register Account** to create your first user. The first user is automatically granted Super Admin privileges.
+2. Follow the TOTP manual above to secure the root account.
+
+### Creating a Project & Inserting Data
+1. Switch your scope to **Project Developer** using the top navigation bar.
+2. Navigate to **API Keys & Projects** and create a new project (e.g., "E-Commerce App").
+3. Generate a new API Key for that project.
+4. Navigate to the **API Tester** tab.
+5. Select your new API key from the dropdown. 
+6. Set the Method to **POST**, the Collection to `users`, and enter a JSON body:
+   ```json
+   { "name": "Alice", "role": "admin" }
+   ```
+7. Click **Send Request**. AegisDB will automatically create the `users` collection and insert the document!
+8. Navigate to **Data Browser** to view your newly created documents with full pagination.
+
+### Viewing Real-Time Telemetry
+1. Switch your scope back to **Super Admin**.
+2. Click on the **Telemetry** (Graph icon) tab.
+3. Watch the CPU and Memory charts update in real-time as background tasks run. You can manually force a synchronization by clicking the spinning **Refresh Metrics** button.
 
 ---
 

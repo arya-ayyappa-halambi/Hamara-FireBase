@@ -12,6 +12,7 @@ export interface Project {
   maxAssetSizeBytes: number;
   maxStorageBytes: number;
   authConfig: string | null;
+  backupConfig: string | null;
   createdAt: string;
   updatedAt: string;
 }

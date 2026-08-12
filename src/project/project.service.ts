@@ -39,6 +39,7 @@ export class ProjectService {
       maxAssetSizeBytes: 10485760,
       maxStorageBytes: 1073741824,
       authConfig: null,
+      backupConfig: null,
     };
 
     return { project, rawApiKey: keys.anonKey, rawServiceKey: keys.serviceKey };
@@ -72,6 +73,7 @@ export class ProjectService {
       maxAssetSizeBytes: r.maxAssetSizeBytes,
       maxStorageBytes: r.maxStorageBytes,
       authConfig: r.authConfig ? JSON.parse(r.authConfig) : null,
+      backupConfig: r.backupConfig ? JSON.parse(r.backupConfig) : null,
       collectionCount: Number(r.collectionCount || 0),
       documentCount: Number(r.documentCount || 0),
       assetCount: Number(r.assetCount || 0),
@@ -91,7 +93,8 @@ export class ProjectService {
     if (!row) return undefined;
     return {
       ...row,
-      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null
+      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null,
+      backupConfig: row.backupConfig ? JSON.parse(row.backupConfig) : null
     };
   }
 
@@ -107,7 +110,8 @@ export class ProjectService {
     if (!row) return undefined;
     return {
       ...row,
-      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null
+      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null,
+      backupConfig: row.backupConfig ? JSON.parse(row.backupConfig) : null
     };
   }
 
@@ -123,7 +127,8 @@ export class ProjectService {
     if (!row) return undefined;
     return {
       ...row,
-      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null
+      authConfig: row.authConfig ? JSON.parse(row.authConfig) : null,
+      backupConfig: row.backupConfig ? JSON.parse(row.backupConfig) : null
     };
   }
 
@@ -175,15 +180,16 @@ export class ProjectService {
 
     const maxAssetSizeBytes = patch.maxAssetSizeBytes ?? proj.maxAssetSizeBytes ?? 10485760; // 10MB default
     const maxStorageBytes = patch.maxStorageBytes ?? proj.maxStorageBytes ?? 1073741824; // 1GB default
+    const backupConfig = patch.backupConfig ?? proj.backupConfig ?? null;
     const now = new Date().toISOString();
 
     db.prepare(`
       UPDATE projects 
-      SET maxAssetSizeBytes = ?, maxStorageBytes = ?, updatedAt = ?
+      SET maxAssetSizeBytes = ?, maxStorageBytes = ?, backupConfig = ?, updatedAt = ?
       WHERE id = ? AND ownerId = ?
-    `).run(maxAssetSizeBytes, maxStorageBytes, now, projectId, ownerId);
+    `).run(maxAssetSizeBytes, maxStorageBytes, backupConfig, now, projectId, ownerId);
 
-    return { ...proj, maxAssetSizeBytes, maxStorageBytes, updatedAt: now };
+    return { ...proj, maxAssetSizeBytes, maxStorageBytes, backupConfig, updatedAt: now };
   }
 
   /**

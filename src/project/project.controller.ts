@@ -10,6 +10,8 @@ import { ProjectStats, CreateProjectResult } from '../types/project.types';
 import { auditLogService } from '../services/audit-log.service';
 import { webhookService } from '../services/webhook.service';
 import { metricsService } from '../services/metrics.service';
+import { projectBackupService } from '../services/project-backup.service';
+import path from 'path';
 
 function getOwnerId(req: Request): string {
   const sub = req.user?.sub;
@@ -192,6 +194,62 @@ export async function deleteWebhook(req: Request, res: Response, next: NextFunct
     });
 
     res.status(200).json({ success: true, message: 'Webhook deleted successfully.' });
+  } catch (err) { next(err); }
+}
+
+export async function getBackupConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const { id } = req.params;
+    const project = projectService.getProjectById(id, ownerId);
+    if (!project) throw new AppError('Project not found.', 404);
+    
+    const backupConfig = project.backupConfig ? JSON.parse(project.backupConfig) : {};
+    res.status(200).json({ success: true, data: backupConfig });
+  } catch (err) { next(err); }
+}
+
+export async function updateBackupConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const { id } = req.params;
+    const { backupConfig } = req.body;
+    
+    projectService.updateProject(ownerId, id, { backupConfig: JSON.stringify(backupConfig) });
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'project_config_update',
+      projectId: id,
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Project backup config updated.`
+    });
+
+    res.status(200).json({ success: true, message: 'Backup config updated successfully.' });
+  } catch (err) { next(err); }
+}
+
+export async function triggerBackup(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const { id } = req.params;
+    
+    const backupFilePath = await projectBackupService.exportProjectJson(id, ownerId);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'project_backup_trigger',
+      projectId: id,
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Project JSON backup generated manually.`
+    });
+
+    // Provide the file as a download
+    res.download(backupFilePath, path.basename(backupFilePath));
   } catch (err) { next(err); }
 }
 

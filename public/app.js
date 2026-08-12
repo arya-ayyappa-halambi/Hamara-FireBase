@@ -1116,6 +1116,9 @@ function renderMyProjectsTable(projects) {
         <button onclick="selectProjectForBrowsing('${p.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-arrow-right"></i> Browse
         </button>
+        <button onclick="openProjectBackupModal('${p.id}', '${p.name}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] font-semibold transition">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Backup
+        </button>
         <button onclick="rotateProjectKeys('${p.id}', '${p.name}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-key"></i> Rotate
         </button>
@@ -1192,6 +1195,85 @@ async function deleteProjectById(projectId, projectName) {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+async function openProjectBackupModal(projectId, projectName) {
+  const modal = document.getElementById('modal-project-backup');
+  if (!modal) return;
+  
+  document.getElementById('label-project-backup-title').textContent = `Backup Config: ${projectName}`;
+  document.getElementById('input-project-backup-id').value = projectId;
+  
+  // Clear old values
+  document.getElementById('input-proj-s3-bucket').value = '';
+  document.getElementById('input-proj-s3-region').value = '';
+  document.getElementById('input-proj-s3-access').value = '';
+  document.getElementById('input-proj-s3-secret').value = '';
+  
+  try {
+    const data = await apiRequest(`/api/v1/projects/${projectId}/backup-config`);
+    if (data) {
+      document.getElementById('input-proj-s3-bucket').value = data.s3BucketName || '';
+      document.getElementById('input-proj-s3-region').value = data.s3Region || '';
+      document.getElementById('input-proj-s3-access').value = data.s3AccessKey || '';
+      document.getElementById('input-proj-s3-secret').value = data.s3SecretKey || '';
+      
+      // Render Backup Statuses
+      if (data.lastBackupAt) {
+        document.getElementById('label-proj-last-backup-time').textContent = new Date(data.lastBackupAt).toLocaleString();
+        if (data.s3BucketName) {
+          // Automated project backups run daily
+          const nextTime = new Date(new Date(data.lastBackupAt).getTime() + 24 * 60 * 60 * 1000);
+          document.getElementById('label-proj-next-backup-time').textContent = nextTime.toLocaleString();
+        } else {
+          document.getElementById('label-proj-next-backup-time').textContent = 'Not Scheduled';
+        }
+      } else {
+        document.getElementById('label-proj-last-backup-time').textContent = 'Never';
+        document.getElementById('label-proj-next-backup-time').textContent = 'N/A';
+      }
+
+      const lBadge = document.getElementById('badge-proj-local-status');
+      if (data.lastBackupStatus === 'success') {
+        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
+        lBadge.textContent = 'Completed';
+      } else if (data.lastBackupStatus === 'failed') {
+        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
+        lBadge.textContent = 'Failed';
+      } else {
+        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
+        lBadge.textContent = 'None';
+      }
+
+      const s3Badge = document.getElementById('badge-proj-s3-status');
+      if (data.lastBackupS3Status === 'success') {
+        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
+        s3Badge.textContent = 'Completed';
+      } else if (data.lastBackupS3Status === 'failed') {
+        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
+        s3Badge.textContent = 'Failed';
+      } else {
+        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
+        s3Badge.textContent = 'None';
+      }
+      
+      // Populate locations
+      const locEl = document.getElementById('label-proj-local-location');
+      if (locEl) {
+        locEl.textContent = data.lastBackupLocation || '';
+        locEl.title = data.lastBackupLocation || '';
+      }
+      const s3UrlEl = document.getElementById('label-proj-s3-url');
+      if (s3UrlEl) {
+        s3UrlEl.textContent = data.lastBackupS3Url || '';
+        s3UrlEl.title = data.lastBackupS3Url || '';
+      }
+    }
+  } catch (err) {
+    showToast('Failed to load project backup config.', 'error');
+  }
+  
+  modal.classList.remove('hidden');
 }
 
 async function rotateProjectKeys(projectId, projectName) {
@@ -1781,6 +1863,62 @@ async function loadPlatformSettings() {
     if (data) {
       document.getElementById('setting-google-client-id').value = data.googleClientId || '';
       document.getElementById('toggle-google-auth').checked = data.googleAuthEnabled || false;
+      document.getElementById('setting-backup-mode').value = data.backupMode || 'none';
+      document.getElementById('setting-backup-interval').value = data.backupIntervalMinutes || '';
+      document.getElementById('setting-s3-bucket').value = data.s3BucketName || '';
+      document.getElementById('setting-s3-region').value = data.s3Region || '';
+      document.getElementById('setting-s3-access').value = data.s3AccessKey || '';
+      document.getElementById('setting-s3-secret').value = data.s3SecretKey || '';
+
+      // Render Backup Statuses
+      if (data.lastBackupAt) {
+        document.getElementById('label-global-last-backup-time').textContent = new Date(data.lastBackupAt).toLocaleString();
+        if (data.backupIntervalMinutes && data.backupMode !== 'none') {
+          const nextTime = new Date(new Date(data.lastBackupAt).getTime() + data.backupIntervalMinutes * 60000);
+          document.getElementById('label-global-next-backup-time').textContent = nextTime.toLocaleString();
+        } else {
+          document.getElementById('label-global-next-backup-time').textContent = 'Not Scheduled';
+        }
+      } else {
+        document.getElementById('label-global-last-backup-time').textContent = 'Never';
+        document.getElementById('label-global-next-backup-time').textContent = 'N/A';
+      }
+
+      const lBadge = document.getElementById('badge-global-local-status');
+      if (data.lastBackupStatus === 'success') {
+        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
+        lBadge.textContent = 'Completed';
+      } else if (data.lastBackupStatus === 'failed') {
+        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
+        lBadge.textContent = 'Failed';
+      } else {
+        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
+        lBadge.textContent = 'None';
+      }
+
+      const s3Badge = document.getElementById('badge-global-s3-status');
+      if (data.lastBackupS3Status === 'success') {
+        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
+        s3Badge.textContent = 'Completed';
+      } else if (data.lastBackupS3Status === 'failed') {
+        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
+        s3Badge.textContent = 'Failed';
+      } else {
+        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
+        s3Badge.textContent = 'None';
+      }
+
+      // Populate locations
+      const locEl = document.getElementById('label-global-local-location');
+      if (locEl) {
+        locEl.textContent = data.lastBackupLocation || '';
+        locEl.title = data.lastBackupLocation || '';
+      }
+      const s3UrlEl = document.getElementById('label-global-s3-url');
+      if (s3UrlEl) {
+        s3UrlEl.textContent = data.lastBackupS3Url || '';
+        s3UrlEl.title = data.lastBackupS3Url || '';
+      }
     }
   } catch (err) {
     showToast('Failed to load platform settings', 'error');
@@ -2189,6 +2327,143 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Platform settings updated successfully. Reload page to see changes on login.', 'success');
       } catch (err) {
         showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Save Global Backup Settings
+  const btnSaveBackupSettings = document.getElementById('btn-save-backup-settings');
+  if (btnSaveBackupSettings) {
+    btnSaveBackupSettings.onclick = async () => {
+      const backupMode = document.getElementById('setting-backup-mode').value;
+      const backupIntervalMinutes = parseInt(document.getElementById('setting-backup-interval').value || '1440', 10);
+      const s3BucketName = document.getElementById('setting-s3-bucket').value;
+      const s3Region = document.getElementById('setting-s3-region').value;
+      const s3AccessKey = document.getElementById('setting-s3-access').value;
+      const s3SecretKey = document.getElementById('setting-s3-secret').value;
+      try {
+        btnSaveBackupSettings.disabled = true;
+        btnSaveBackupSettings.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { 
+          backupMode, backupIntervalMinutes, s3BucketName, s3Region, s3AccessKey, s3SecretKey 
+        });
+        showToast('Global Backup settings updated successfully.', 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnSaveBackupSettings.disabled = false;
+        btnSaveBackupSettings.innerHTML = 'Save Backup Settings';
+      }
+    };
+  }
+
+  // Trigger Global Backup
+  const btnTriggerGlobalBackup = document.getElementById('btn-trigger-global-backup');
+  if (btnTriggerGlobalBackup) {
+    btnTriggerGlobalBackup.onclick = async () => {
+      if (!confirm('Are you sure you want to trigger a full database backup now? This might affect performance briefly.')) return;
+      try {
+        btnTriggerGlobalBackup.disabled = true;
+        btnTriggerGlobalBackup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Triggering...';
+        const res = await apiRequest('/api/v1/admin/backups', 'POST');
+        showToast(res.message || 'Backup initiated successfully.', 'success');
+        
+        // Refresh UI to show updated backup status
+        await loadPlatformSettings();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnTriggerGlobalBackup.disabled = false;
+        btnTriggerGlobalBackup.innerHTML = 'Trigger Manual Backup';
+      }
+    };
+  }
+
+  // Save Project Backup Config
+  const btnSaveProjectBackup = document.getElementById('btn-save-project-backup');
+  if (btnSaveProjectBackup) {
+    btnSaveProjectBackup.onclick = async () => {
+      const projectId = document.getElementById('input-project-backup-id').value;
+      if (!projectId) return;
+      
+      const s3BucketName = document.getElementById('input-proj-s3-bucket').value;
+      const s3Region = document.getElementById('input-proj-s3-region').value;
+      const s3AccessKey = document.getElementById('input-proj-s3-access').value;
+      const s3SecretKey = document.getElementById('input-proj-s3-secret').value;
+      
+      try {
+        btnSaveProjectBackup.disabled = true;
+        btnSaveProjectBackup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        await apiRequest(`/api/v1/projects/${projectId}/backup-config`, 'PATCH', {
+          s3BucketName, s3Region, s3AccessKey, s3SecretKey
+        });
+        showToast('Project backup configuration saved successfully.', 'success');
+        document.getElementById('modal-project-backup').classList.add('hidden');
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnSaveProjectBackup.disabled = false;
+        btnSaveProjectBackup.innerHTML = 'Save Project Backup Config';
+      }
+    };
+  }
+
+  // Trigger Project Backup
+  const btnTriggerProjectBackup = document.getElementById('btn-trigger-project-backup');
+  if (btnTriggerProjectBackup) {
+    btnTriggerProjectBackup.onclick = async () => {
+      const projectId = document.getElementById('input-project-backup-id').value;
+      if (!projectId) return;
+      
+      try {
+        btnTriggerProjectBackup.disabled = true;
+        btnTriggerProjectBackup.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Exporting...';
+        
+        // This endpoint will return a file buffer (gzip) which we should download,
+        // or a JSON message if it triggers an S3 upload. The backend might just export JSON.
+        // Let's use fetch directly to handle the blob download.
+        
+        const token = state.accessToken;
+        const res = await fetch(`${state.baseUrl}/api/v1/projects/${projectId}/backup`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'x-aegis-project-id': projectId
+          }
+        });
+        
+        if (!res.ok) {
+          const errorData = await res.json();
+          throw new Error(errorData.message || 'Backup failed');
+        }
+        
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const data = await res.json();
+            showToast(data.message || 'Backup successful', 'success');
+        } else {
+            // It's a file download
+            const blob = await res.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `project_backup_${projectId}_${Date.now()}.json.gz`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+            showToast('JSON Export downloaded successfully!', 'success');
+        }
+        
+        // Refresh UI to show updated backup status
+        const projectName = document.getElementById('label-project-backup-title').textContent.replace('Backup Config: ', '');
+        await openProjectBackupModal(projectId, projectName);
+        
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnTriggerProjectBackup.disabled = false;
+        btnTriggerProjectBackup.innerHTML = 'Export JSON Now';
       }
     };
   }
@@ -2667,6 +2942,17 @@ const featureDetails = {
       "Independent schemas, rules, and users per project.",
       "Isolated API keys and webhook configurations.",
       "Perfect for SaaS architectures and agency models."
+    ]
+  },
+  backup: {
+    title: "Dual-Target Backups",
+    icon: "fa-cloud-arrow-up",
+    desc: "Automated disaster recovery via simultaneous snapshots to Local File Systems and AWS S3 endpoints with end-to-end encryption.",
+    details: [
+      "Atomic SQLite snapshots for instantaneous local restores.",
+      "AES-256 encrypted multipart uploads to AWS S3-compatible endpoints.",
+      "Customizable cron-based scheduling per instance.",
+      "Dashboard visibility into sync status and next run times."
     ]
   }
 };

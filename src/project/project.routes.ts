@@ -13,7 +13,10 @@ import {
   deleteWebhook,
   rotateApiKey,
   getProjectStats,
-  getWebhookLogs
+  getWebhookLogs,
+  getBackupConfig,
+  updateBackupConfig,
+  triggerBackup
 } from './project.controller';
 
 const router = Router();
@@ -30,6 +33,10 @@ router.delete('/:id', deleteProject);
 router.post('/:id/rotate-keys', rotateApiKey);
 router.get('/:id/auth-config', getAuthConfig);
 router.patch('/:id/auth-config', updateAuthConfig);
+
+router.get('/:id/backup-config', getBackupConfig);
+router.patch('/:id/backup-config', updateBackupConfig);
+router.post('/:id/backup', triggerBackup);
 
 // Webhook endpoints
 router.get('/:id/webhooks', listWebhooks);

@@ -17,13 +17,24 @@ import { getDb } from '../db/sqlite.connection';
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const db = getDb();
-    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId FROM platform_settings WHERE id = ?').get('default') as any;
+    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, backupMode, backupIntervalMinutes, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url FROM platform_settings WHERE id = ?').get('default') as any;
     res.status(200).json({
       success: true,
       message: 'Platform settings retrieved.',
       data: {
         googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
-        googleClientId: settings ? settings.googleClientId : ''
+        googleClientId: settings ? settings.googleClientId : '',
+        backupMode: settings ? settings.backupMode : 'none',
+        backupIntervalMinutes: settings ? settings.backupIntervalMinutes : 1440,
+        s3BucketName: settings ? settings.s3BucketName : '',
+        s3Region: settings ? settings.s3Region : '',
+        s3AccessKey: settings ? settings.s3AccessKey : '',
+        s3SecretKey: settings ? settings.s3SecretKey : '',
+        lastBackupAt: settings ? settings.lastBackupAt : null,
+        lastBackupStatus: settings ? settings.lastBackupStatus : null,
+        lastBackupS3Status: settings ? settings.lastBackupS3Status : null,
+        lastBackupLocation: settings ? settings.lastBackupLocation : null,
+        lastBackupS3Url: settings ? settings.lastBackupS3Url : null,
       }
     });
   } catch (err) { next(err); }
@@ -31,21 +42,55 @@ export async function getPlatformSettings(_req: Request, res: Response, next: Ne
 
 export async function updatePlatformSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { googleAuthEnabled, googleClientId } = req.body;
+    const { 
+      googleAuthEnabled, googleClientId, 
+      backupMode, backupIntervalMinutes, 
+      s3BucketName, s3Region, s3AccessKey, s3SecretKey 
+    } = req.body;
     
     // Convert boolean to 1/0 for sqlite
     const isEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
     
     const db = getDb();
-    db.prepare('UPDATE platform_settings SET googleAuthEnabled = ?, googleClientId = ? WHERE id = ?')
-      .run(isEnabled, googleClientId || '', 'default');
+    db.prepare(`
+      UPDATE platform_settings 
+      SET googleAuthEnabled = ?, 
+          googleClientId = ?,
+          backupMode = ?,
+          backupIntervalMinutes = ?,
+          s3BucketName = ?,
+          s3Region = ?,
+          s3AccessKey = ?,
+          s3SecretKey = ?
+      WHERE id = ?
+    `).run(
+      isEnabled, 
+      googleClientId || '', 
+      backupMode || 'none',
+      backupIntervalMinutes || 1440,
+      s3BucketName || '',
+      s3Region || '',
+      s3AccessKey || '',
+      s3SecretKey || '',
+      'default'
+    );
+    
+    // Refresh backup scheduler
+    backupService.stopScheduler();
+    backupService.startScheduler();
       
     res.status(200).json({
       success: true,
       message: 'Platform settings updated successfully.',
       data: {
         googleAuthEnabled: isEnabled === 1,
-        googleClientId: googleClientId || ''
+        googleClientId: googleClientId || '',
+        backupMode: backupMode || 'none',
+        backupIntervalMinutes: backupIntervalMinutes || 1440,
+        s3BucketName: s3BucketName || '',
+        s3Region: s3Region || '',
+        s3AccessKey: s3AccessKey || '',
+        s3SecretKey: s3SecretKey || ''
       }
     });
   } catch (err) { next(err); }
@@ -205,6 +250,10 @@ export async function listBackups(_req: Request, res: Response, next: NextFuncti
 export async function createBackup(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const backup = await backupService.createBackup();
+    if (!backup) {
+      res.status(400).json({ success: false, message: 'Backup system is disabled (backupMode is none).' });
+      return;
+    }
 
     auditLogService.logAction({
       actorId: req.user?.sub,

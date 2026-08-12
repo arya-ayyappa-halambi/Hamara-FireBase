@@ -151,14 +151,21 @@ export function initSqlite(): void {
       FOREIGN KEY (ownerId, projectId, collectionName) REFERENCES collections(ownerId, projectId, name) ON DELETE CASCADE
     );
 
-    -- 5. Platform Settings Table
+    -- Platform settings table schema
     CREATE TABLE IF NOT EXISTS platform_settings (
       id TEXT PRIMARY KEY,
       googleAuthEnabled INTEGER DEFAULT 0,
-      googleClientId TEXT
+      googleClientId TEXT,
+      backupMode TEXT DEFAULT 'none',
+      backupIntervalMinutes INTEGER DEFAULT 1440,
+      s3BucketName TEXT,
+      s3Region TEXT,
+      s3AccessKey TEXT,
+      s3SecretKey TEXT,
+      lastBackupAt TEXT,
+      lastBackupStatus TEXT,
+      lastBackupS3Status TEXT
     );
-    
-    INSERT OR IGNORE INTO platform_settings (id, googleAuthEnabled, googleClientId) VALUES ('default', 0, '');
 
     CREATE INDEX IF NOT EXISTS idx_docs_owner_proj_coll ON documents(ownerId, projectId, collectionName);
 
@@ -280,6 +287,26 @@ export function initSqlite(): void {
     // Already exists
   }
 
+  // Backup configuration columns for platform_settings
+  const platformCols = [
+    { name: 'backupMode', def: "TEXT DEFAULT 'none'" },
+    { name: 'backupIntervalMinutes', def: 'INTEGER DEFAULT 1440' },
+    { name: 's3BucketName', def: 'TEXT' },
+    { name: 's3Region', def: 'TEXT' },
+    { name: 's3AccessKey', def: 'TEXT' },
+    { name: 's3SecretKey', def: 'TEXT' }
+  ];
+  for (const col of platformCols) {
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN ${col.name} ${col.def};`);
+    } catch {}
+  }
+
+  // Backup config for projects
+  try {
+    db.exec(`ALTER TABLE projects ADD COLUMN backupConfig TEXT;`);
+  } catch {}
+
   // Column migration checks for projectId
   ['collections', 'documents', 'assets', 'deployments'].forEach((tbl) => {
     try {
@@ -381,6 +408,20 @@ export function initSqlite(): void {
     }
   } catch (e) {
     // Ignore if table doesn't have the column yet or other db errors
+  }
+
+  // Ensure default platform settings exist
+  try {
+    db.exec(`ALTER TABLE platform_settings ADD COLUMN lastBackupLocation TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE platform_settings ADD COLUMN lastBackupS3Url TEXT;`);
+  } catch {}
+
+  try {
+    db.exec(`INSERT OR IGNORE INTO platform_settings (id, googleAuthEnabled, googleClientId, backupMode, backupIntervalMinutes, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url) VALUES ('default', 0, '', 'none', 1440, '', '', '', '', null, null, null, null, null);`);
+  } catch (e) {
+    console.error('Failed to insert default platform settings', e);
   }
 
   // Seed Super Admin Account if absent
