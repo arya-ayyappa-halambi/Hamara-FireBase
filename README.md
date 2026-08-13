@@ -168,6 +168,13 @@ To start the AegisDB engine locally:
 | `POST` | `/mfa/verify` | Verify 6-digit TOTP code and enable MFA on profile |
 | `POST` | `/mfa/disable` | Disable TOTP MFA (requires password + 6-digit TOTP verification) |
 
+### Project User Authentication (`/api/v1/project-auth`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/register` | Register a new end-user for a specific project |
+| `POST` | `/login` | Authenticate project end-user via Email/Password |
+| `POST` | `/oauth/:provider` | Authenticate project user via OAuth (e.g., Google OAuth2) |
+
 ### Database Services (`/api/v1/db`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
@@ -199,6 +206,9 @@ To start the AegisDB engine locally:
 | **Password Tampering** | Mandatory TOTP Password Change | Password changes strictly require TOTP code validation if MFA is enabled. |
 | **Database Data Leak** | Two-Tier Envelope Encryption | AES-256-GCM field encryption with HKDF Master KEK wrapping 256-bit project DEKs. |
 | **Key Compromise** | Non-Destructive Key Rotation | Re-wraps project DEKs with new keys without corrupting encrypted field data. |
+| **PII Data Leak (Emails)** | Blind Indexing & HMAC-SHA256 | Emails are normalized, encrypted with AES-GCM at rest, and queries use a server-side peppered HMAC-SHA256 hash. |
+| **Cascading Data Loss** | Safe Migration Transactions | Enforces `PRAGMA foreign_keys = OFF` during schema migrations to prevent unintended cascading deletes. |
+| **Key Misalignment** | Key Unification Audits | Ensures unified Project KEKs across all users within a single project, verifying DEK decryption integrity before migrations. |
 | **Cross-Site Scripting (XSS)** | Helmet Security Headers | Strict Content Security Policy and HTTP headers restricting script, style, and font sources. |
 | **HTTP Parameter Pollution** | HPP Middleware | Protects against parameter pollution attacks by safely parsing duplicate query strings. |
 | **SQL Injection** | Strict Regex & Parameterization | Collection names sanitized with `/^[a-zA-Z][a-zA-Z0-9_-]{1,63}$/` and parameterized SQL. |
@@ -270,3 +280,32 @@ async function aegisFetch(endpoint, method = 'GET', body = null) {
 
 ## 📄 License
 This project is licensed under the MIT License.
+
+### Production Deployment & HTTPS
+
+AegisDB does not terminate TLS (HTTPS) on its own. In a production environment, you **must** deploy AegisDB behind a TLS-terminating reverse proxy (like Nginx, Caddy, or Traefik) to encrypt traffic and protect API keys and JWT tokens in transit.
+
+**Example Caddyfile:**
+```
+aegisdb.yourdomain.com {
+    reverse_proxy localhost:3000
+}
+```
+
+**Example Nginx config:**
+```nginx
+server {
+    listen 443 ssl;
+    server_name aegisdb.yourdomain.com;
+    ssl_certificate /path/to/cert.pem;
+    ssl_certificate_key /path/to/key.pem;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```

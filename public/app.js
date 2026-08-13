@@ -3,6 +3,18 @@
 //  AegisDB High-End Enterprise Dashboard Controller.
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str).replace(/[&<>'"]/g, tag => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;'
+  }[tag] || tag));
+}
+
 const state = {
   baseUrl: window.location.origin,
   wsUrl: window.location.origin.replace(/^http/, 'ws'),
@@ -756,7 +768,7 @@ async function loadProjectsList() {
     renderProjectsTable(projects);
     updateProjectSelectorDropdown(projects);
   } catch (err) {
-    if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">${err.message}</td></tr>`;
+    if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
   }
 }
 
@@ -773,7 +785,7 @@ function renderProjectsTable(projects) {
     .map(
       (p) => `
     <tr class="hover:bg-white/5 transition">
-      <td class="p-4 font-semibold text-white">${p.name}</td>
+      <td class="p-4 font-semibold text-white">${escapeHTML(p.name)}</td>
       <td class="p-4 text-slate-400">${p.id}</td>
       <td class="p-4 text-slate-400">${p.ownerId}</td>
       <td class="p-4 text-indigo-400 font-semibold">${((p.maxStorageBytes || 1073741824) / (1024 * 1024 * 1024)).toFixed(1)} GB</td>
@@ -793,7 +805,7 @@ function updateProjectSelectorDropdown(projects) {
   if (!dropdown) return;
 
   dropdown.innerHTML = projects
-    .map((p) => `<option value="${p.id}" ${state.activeProject?.id === p.id ? 'selected' : ''}>${p.name}</option>`)
+    .map((p) => `<option value="${p.id}" ${state.activeProject?.id === p.id ? 'selected' : ''}>${escapeHTML(p.name)}</option>`)
     .join('');
 
   if (projects.length > 0 && !state.activeProject) {
@@ -867,7 +879,7 @@ function renderWebhookLogs(logs) {
       <tr class="hover:bg-white/5 transition border-t border-white/5">
         <td class="p-3 whitespace-nowrap">${new Date(log.timestamp).toLocaleTimeString()}</td>
         <td class="p-3 text-indigo-400">event.dispatched</td>
-        <td class="p-3 text-slate-400 break-all max-w-[200px] truncate">${endpoint}</td>
+        <td class="p-3 text-slate-400 break-all max-w-[200px] truncate">${escapeHTML(endpoint)}</td>
         <td class="p-3">
           <span class="px-2 py-0.5 rounded text-[10px] ${statusClass}">${log.status}</span>
         </td>
@@ -901,7 +913,7 @@ function renderWebhookLogs(logs) {
             <span class="text-xs font-mono text-slate-300">event.dispatched</span>
             <span class="text-[10px] text-rose-400">${httpCode}</span>
           </div>
-          <div class="text-[10px] text-slate-500 break-all">${endpoint}</div>
+          <div class="text-[10px] text-slate-500 break-all">${escapeHTML(endpoint)}</div>
           <button class="w-full py-1 mt-1 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 rounded text-[10px] transition border border-indigo-500/30">
             Replay Event
           </button>
@@ -951,7 +963,7 @@ async function loadUserManagement() {
     if (badgeCount) badgeCount.textContent = `${usersList.length} users`;
     renderUsersTable(usersList);
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-400">${err.message}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
   }
 }
 
@@ -966,8 +978,8 @@ function renderUsersTable(users) {
 
   tableBody.innerHTML = users.map(u => `
     <tr class="hover:bg-white/5 transition">
-      <td class="p-4 font-semibold text-white">${u.name || 'N/A'}</td>
-      <td class="p-4 text-slate-300">${u.email}</td>
+      <td class="p-4 font-semibold text-white">${escapeHTML(u.name || 'N/A')}</td>
+      <td class="p-4 text-slate-300">${escapeHTML(u.email)}</td>
       <td class="p-4">
         ${u.isSuperAdmin
           ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-crown text-[9px] mr-1"></i>Super Admin</span>'
@@ -983,10 +995,10 @@ function renderUsersTable(users) {
       <td class="p-4 text-slate-400 font-mono text-[10px]">${u.readRateLimit || 100}r / ${u.writeRateLimit || 50}w</td>
       <td class="p-4 text-slate-400">${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}</td>
       <td class="p-4 text-right space-x-2">
-        <button onclick="openEditUserLimits('${u.id}', '${u.email}', ${u.maxProjects || 5}, ${u.readRateLimit || 100}, ${u.writeRateLimit || 50})" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
+        <button onclick="openEditUserLimits('${u.id}', '${escapeHTML(u.email)}', ${u.maxProjects || 5}, ${u.readRateLimit || 100}, ${u.writeRateLimit || 50})" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-sliders"></i> Limits
         </button>
-        ${u.mfaEnabled ? `<button onclick="resetUserMfa('${u.id}', '${u.email}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
+        ${u.mfaEnabled ? `<button onclick="resetUserMfa('${u.id}', '${escapeHTML(u.email)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-shield-halved"></i> Reset MFA
         </button>` : ''}
         ${!u.isSuperAdmin ? `<button onclick="deleteUserById('${u.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
@@ -1079,7 +1091,7 @@ async function loadMyProjects() {
     renderMyProjectsTable(projects);
     updateProjectSelectorDropdown(projects);
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-400">${err.message}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
   }
 }
 
@@ -1102,7 +1114,7 @@ function renderMyProjectsTable(projects) {
 
     return `
     <tr class="hover:bg-white/5 transition">
-      <td class="p-4 font-semibold text-white">${p.name}</td>
+      <td class="p-4 font-semibold text-white">${escapeHTML(p.name)}</td>
       <td class="p-4 text-slate-400 font-mono text-[10px]">${p.id.substring(0, 8)}...</td>
       <td class="p-4">
         <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${p.collectionCount || 0}</span>
@@ -1116,13 +1128,13 @@ function renderMyProjectsTable(projects) {
         <button onclick="selectProjectForBrowsing('${p.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-arrow-right"></i> Browse
         </button>
-        <button onclick="openProjectBackupModal('${p.id}', '${p.name}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] font-semibold transition">
+        <button onclick="openProjectBackupModal('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-cloud-arrow-up"></i> Backup
         </button>
-        <button onclick="rotateProjectKeys('${p.id}', '${p.name}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
+        <button onclick="rotateProjectKeys('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-key"></i> Rotate
         </button>
-        <button onclick="deleteProjectById('${p.id}', '${p.name}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
+        <button onclick="deleteProjectById('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-trash"></i> Delete
         </button>
       </td>
@@ -1359,7 +1371,7 @@ async function loadCollections() {
       document.getElementById('table-documents-body').innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-500">No collections exist yet. Click "New Collection" to create one.</td></tr>`;
     }
   } catch (err) {
-    showToast(`Failed to load collections: ${err.message}`, 'error');
+    showToast(`Failed to load collections: ${escapeHTML(err.message)}`, 'error');
   }
 }
 
@@ -1370,13 +1382,13 @@ function renderCollectionChips(collections) {
   container.innerHTML = collections
     .map(
       (c) => `
-    <button onclick="selectCollectionByName('${c.name}')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center space-x-2 ${
+    <button onclick="selectCollectionByName('${escapeHTML(c.name)}')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center space-x-2 ${
       state.activeCollection?.name === c.name
         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
         : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/5'
     }">
       <i class="fa-solid fa-folder text-indigo-300 text-xs"></i>
-      <span>${c.name}</span>
+      <span>${escapeHTML(c.name)}</span>
       <span class="px-1.5 py-0.5 rounded-full text-[10px] bg-white/10 text-slate-300">${c.documentCount || 0}</span>
     </button>
   `
@@ -1431,7 +1443,7 @@ async function loadDocuments(collectionName, offset = 0, limit = 100) {
     
     renderDocumentsTable(filteredDocs);
   } catch (err) {
-    tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">${err.message}</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
   }
 }
 
@@ -1477,22 +1489,22 @@ function renderDocumentsTable(docs) {
 
       return `
       <tr class="hover:bg-white/5 transition">
-        <td class="p-3 font-semibold text-indigo-300 text-[10px]">${_id}</td>
+        <td class="p-3 font-semibold text-indigo-300 text-[10px]">${escapeHTML(_id)}</td>
         <td class="p-3 text-slate-300 max-w-xs">
           ${
             isEncrypted
               ? '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mr-2"><i class="fa-solid fa-lock text-[9px] mr-1"></i>x-encrypted</span>'
               : ''
           }
-          <code class="text-[10px]">${truncated}</code>
+          <code class="text-[10px]">${escapeHTML(truncated)}</code>
         </td>
         <td class="p-3 text-slate-400 text-[10px]">${_createdAt ? new Date(_createdAt).toLocaleString() : 'N/A'}</td>
         <td class="p-3 text-slate-400 text-[10px]">${_updatedAt ? new Date(_updatedAt).toLocaleString() : 'N/A'}</td>
         <td class="p-3 text-right space-x-2">
-          <button onclick="viewDocumentDetail('${_id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition" title="View full document">
+          <button onclick="viewDocumentDetail('${escapeHTML(_id)}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition" title="View full document">
             <i class="fa-solid fa-eye"></i>
           </button>
-          <button onclick="deleteDocument('${_id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete document">
+          <button onclick="deleteDocument('${escapeHTML(_id)}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete document">
             <i class="fa-solid fa-trash"></i>
           </button>
         </td>
@@ -1601,7 +1613,7 @@ function initRulesSandbox() {
       }
     } catch (err) {
       output.className = 'text-amber-400 font-bold';
-      output.textContent = `⚠️ Syntax Error: ${err.message}`;
+      output.textContent = `⚠️ Syntax Error: ${escapeHTML(err.message)}`;
     }
   };
 }
@@ -1948,7 +1960,7 @@ async function handleFilesUpload(files) {
       await apiRequest('/api/v1/storage/upload', 'POST', formData, true);
       successCount++;
     } catch (err) {
-      showToast(`Failed to upload ${file.name}: ${err.message}`, 'error');
+      showToast(`Failed to upload ${file.name}: ${escapeHTML(err.message)}`, 'error');
     }
   }
 
@@ -1971,7 +1983,7 @@ async function loadAssetsList() {
         (a) => `
       <tr class="hover:bg-white/5 transition">
         <td class="p-3 font-semibold text-indigo-300">${a.id}</td>
-        <td class="p-3 text-white">${a.originalName}</td>
+        <td class="p-3 text-white">${escapeHTML(a.originalName)}</td>
         <td class="p-3 text-slate-400">${a.mimeType}</td>
         <td class="p-3 text-slate-400">${(a.sizeBytes / 1024).toFixed(1)} KB</td>
         <td class="p-3 text-right">
@@ -1998,7 +2010,7 @@ async function deleteAsset(id) {
     showToast('Asset deleted successfully.', 'success');
     loadAssetsList();
   } catch (err) {
-    showToast(`Failed to delete asset: ${err.message}`, 'error');
+    showToast(`Failed to delete asset: ${escapeHTML(err.message)}`, 'error');
   }
 }
 
@@ -2514,7 +2526,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Document inserted successfully!', 'success');
         loadDocuments(state.activeCollection.name);
       } catch (err) {
-        showToast(`Invalid JSON or API error: ${err.message}`, 'error');
+        showToast(`Invalid JSON or API error: ${escapeHTML(err.message)}`, 'error');
       }
     };
   }
@@ -2954,6 +2966,17 @@ const featureDetails = {
       "Customizable cron-based scheduling per instance.",
       "Dashboard visibility into sync status and next run times."
     ]
+  },
+  security_audit: {
+    title: "Security & Incident Recovery",
+    icon: "fa-shield-heart",
+    desc: "Robust mechanisms to securely recover from catastrophic failures and ensure zero data loss during complex schema migrations.",
+    details: [
+      "Zero data loss recovery from SQLite cascading deletes.",
+      "Re-encrypted internal platform users securely.",
+      "Unified project KEKs and verified DEK integrity.",
+      "Implemented HMAC-SHA256 blind indexing for PII."
+    ]
   }
 };
 
@@ -3197,7 +3220,7 @@ window.runSdkTest = async function(action) {
       });
     }
   } catch (err) {
-    printSdkLog(`❌ SDK Test Failed: ${err.message}`, 'error');
+    printSdkLog(`❌ SDK Test Failed: ${escapeHTML(err.message)}`, 'error');
   }
 };
 

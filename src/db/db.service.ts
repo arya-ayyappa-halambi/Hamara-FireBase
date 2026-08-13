@@ -485,7 +485,7 @@ class SqliteDbStore {
     const db = getDb();
     
     // Retrieve current version
-    const versionRow = db.prepare('SELECT version FROM documents WHERE id = ?').get(docId) as { version: number } | undefined;
+    const versionRow = db.prepare('SELECT version FROM documents WHERE id = ? AND ownerId = ? AND projectId = ?').get(docId, ownerId, projectId) as { version: number } | undefined;
     const nextVersion = (versionRow?.version || 1) + 1;
 
     const updated: Document = {

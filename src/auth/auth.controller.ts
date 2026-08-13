@@ -62,6 +62,10 @@ export async function register(
   next: NextFunction,
 ): Promise<void> {
   try {
+    // Basic bot protection honeypot
+    if (req.body._hp_bot_catch) {
+      throw new AppError('Suspicious activity detected.', 403);
+    }
     const dto: RegisterDto = {
       email:    req.body.email,
       password: req.body.password,

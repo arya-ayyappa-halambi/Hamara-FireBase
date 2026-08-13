@@ -5,8 +5,9 @@ import { projectService } from '../project/project.service';
 import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { webhookService } from '../services/webhook.service';
+import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 
-const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
+const ARGON2_OPTIONS: any = {
   type: argon2.argon2id,
   memoryCost: 65536,
   timeCost: 3,
@@ -41,13 +42,16 @@ export class ProjectAuthService {
     if (!email || !email.includes('@')) {
       throw new AppError('Invalid email address.', 400);
     }
+    
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailHash = envelopeEncryptionService.hashBlindIndex(normalizedEmail);
 
     if (provider === 'email' && (!passwordText || passwordText.length < 6)) {
       throw new AppError('Password must be at least 6 characters.', 400);
     }
 
     // 3. Check if user exists
-    const existing = db.prepare('SELECT id FROM project_users WHERE projectId = ? AND email = ?').get(projectId, email);
+    const existing = db.prepare('SELECT id FROM project_users WHERE projectId = ? AND emailHash = ?').get(projectId, emailHash);
     if (existing) {
       throw new AppError('Email already registered in this project.', 409);
     }
@@ -57,21 +61,23 @@ export class ProjectAuthService {
     const userId = uuidv4();
     const now = new Date().toISOString();
 
+    const encEmail = envelopeEncryptionService.encryptField(normalizedEmail, projectId);
+
     // 5. Insert
     db.prepare(`
-      INSERT INTO project_users (id, projectId, email, passwordHash, provider, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, projectId, email, passwordHash, provider, now, now);
+      INSERT INTO project_users (id, projectId, email, emailHash, passwordHash, provider, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, projectId, JSON.stringify(encEmail), emailHash, passwordHash, provider, now, now);
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'user.signed_up', {
       id: userId,
-      email,
+      email: normalizedEmail,
       provider,
       createdAt: now,
     });
 
-    return this.generateAuthResponse(userId, projectId, email);
+    return this.generateAuthResponse(userId, projectId, normalizedEmail);
   }
 
   async deleteUser(projectId: string, userId: string) {
@@ -92,7 +98,10 @@ export class ProjectAuthService {
       }
     }
 
-    const user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND email = ?').get(projectId, email) as any;
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailHash = envelopeEncryptionService.hashBlindIndex(normalizedEmail);
+
+    const user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND emailHash = ?').get(projectId, emailHash) as any;
 
     if (!user) {
       throw new AppError('Invalid credentials.', 401);
@@ -111,7 +120,7 @@ export class ProjectAuthService {
     const now = new Date().toISOString();
     db.prepare('UPDATE project_users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?').run(now, now, user.id);
 
-    return this.generateAuthResponse(user.id, projectId, user.email);
+    return this.generateAuthResponse(user.id, projectId, normalizedEmail);
   }
 
   private generateAuthResponse(userId: string, projectId: string, email: string) {

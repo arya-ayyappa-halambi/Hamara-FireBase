@@ -121,8 +121,8 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   // High-privilege service role bypasses all Security Rules!
   if (req.isServiceRole === true) return;
 
-  // Default to allowing access if no rules are defined (backwards compatibility)
-  let rulesObj: { read?: boolean | string; write?: boolean | string } = { read: true, write: true };
+  // Default to denying access if no rules are defined
+  let rulesObj: { read?: boolean | string; write?: boolean | string } = { read: false, write: false };
   
   if (collection.rules) {
     try {
@@ -158,7 +158,7 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
     };
     allowed = evaluateExpression(rule, { auth, data, resource, request: requestContext });
   } else {
-    allowed = true;
+    allowed = false;
   }
 
   if (!allowed) {

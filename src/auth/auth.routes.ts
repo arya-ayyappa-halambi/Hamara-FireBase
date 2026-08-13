@@ -59,7 +59,7 @@ router.post('/set-initial-password', authenticateJwt, setInitialPasswordControll
 
 // ── TOTP MFA Routes ───────────────────────────────────────────────────────────
 router.post('/mfa/setup', authenticateJwt, setupMfaController);
-router.post('/mfa/verify', authenticateJwt, verifyMfaController);
+router.post('/mfa/verify', authenticateJwt, checkFailedLoginLockout, verifyMfaController);
 router.post('/mfa/disable', authenticateJwt, disableMfaController);
 
 export default router;

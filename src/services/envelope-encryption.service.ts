@@ -33,6 +33,21 @@ export class EnvelopeEncryptionService {
   // Retrieve or create project DEK
   getOrCreateProjectDek(projectId: string): Buffer {
     const db = getDb();
+    
+    if (projectId === 'SYSTEM') {
+      const row = db.prepare('SELECT dekEncrypted, dekIv, dekTag FROM system_keys WHERE id = ?').get('SYSTEM') as any;
+      if (row) return this.decryptDek(row.dekEncrypted, row.dekIv, row.dekTag);
+
+      const newDek = crypto.randomBytes(32);
+      const { encryptedDek, iv, tag } = this.encryptDek(newDek);
+      const now = new Date().toISOString();
+      db.prepare(`
+        INSERT INTO system_keys (id, dekEncrypted, dekIv, dekTag, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run('SYSTEM', encryptedDek, iv, tag, now, now);
+      return newDek;
+    }
+
     const row = db.prepare('SELECT dekEncrypted, dekIv, dekTag FROM project_keys WHERE projectId = ?').get(projectId) as any;
 
     if (row) {
@@ -84,11 +99,20 @@ export class EnvelopeEncryptionService {
     const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedObj.v, 'hex')), decipher.final()]);
     return JSON.parse(decrypted.toString('utf8'));
   }
+  
+  // Deterministic Blind Index for lookups (e.g. Email)
+  hashBlindIndex(value: string): string {
+    if (!value) return '';
+    const pepper = process.env.EMAIL_HASH_PEPPER;
+    if (!pepper) throw new Error('EMAIL_HASH_PEPPER environment variable is missing');
+    return crypto.createHmac('sha256', pepper).update(value.trim().toLowerCase()).digest('hex');
+  }
 
   // Rotate Project DEK (re-wraps DEK and re-encrypts all document fields)
   rotateProjectKey(projectId: string): { status: string; projectId: string } {
     const db = getDb();
     const newDek = crypto.randomBytes(32);
+    const safeProjectId = projectId === 'SYSTEM' ? 'sys_global_dek' : projectId;
 
     const { encryptedDek, iv, tag } = this.encryptDek(newDek);
     const now = new Date().toISOString();
@@ -101,7 +125,7 @@ export class EnvelopeEncryptionService {
         dekIv = excluded.dekIv,
         dekTag = excluded.dekTag,
         updatedAt = excluded.updatedAt
-    `).run(projectId, encryptedDek, iv, tag, now, now);
+    `).run(safeProjectId, encryptedDek, iv, tag, now, now);
 
     return { status: 'success', projectId };
   }

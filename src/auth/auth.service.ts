@@ -27,7 +27,7 @@ import { getDb } from '../db/sqlite.connection';
 
 // ── Argon2id Configuration ────────────────────────────────────────────────────
 
-const ARGON2_OPTIONS: argon2.Options & { raw?: false } = {
+const ARGON2_OPTIONS: any = {
   type: argon2.argon2id,
   memoryCost: 65536,   // 64 MiB
   timeCost: 3,         // 3 iterations
@@ -53,7 +53,7 @@ function getJwtExpiry(): string {
 // ── Password Utilities ────────────────────────────────────────────────────────
 
 export async function hashPassword(plaintext: string): Promise<string> {
-  return argon2.hash(plaintext, ARGON2_OPTIONS);
+  return (argon2.hash(plaintext, ARGON2_OPTIONS) as unknown) as string;
 }
 
 export async function verifyPassword(hash: string, plaintext: string): Promise<boolean> {

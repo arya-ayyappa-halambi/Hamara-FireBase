@@ -3,6 +3,7 @@ import { projectAuthService } from './project-auth.service';
 import { AppError } from '../types/auth.types';
 import { failedLoginService } from '../services/failed-login-limiter.service';
 import jwt from 'jsonwebtoken';
+import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 
 function getResolvedProjectId(req: Request): string {
   // 1. Set securely by api-key middleware
@@ -35,6 +36,10 @@ function getResolvedProjectId(req: Request): string {
 export async function registerProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const projectId = getResolvedProjectId(req);
+    // Basic bot protection honeypot
+    if (req.body._hp_bot_catch) {
+      throw new AppError('Suspicious activity detected.', 403);
+    }
     const { email, password, provider } = req.body;
     
     const result = await projectAuthService.registerUser(projectId, email, password, provider);
@@ -122,8 +127,16 @@ export async function listProjectUsers(req: Request, res: Response, next: NextFu
 
     // Directly query the db for simplicity here (or move to service)
     const db = require('../db/sqlite.connection').getDb();
-    const users = db.prepare('SELECT id, email, provider, createdAt, lastLoginAt FROM project_users WHERE projectId = ? ORDER BY createdAt DESC').all(projectId);
+    const usersRaw = db.prepare('SELECT id, email, provider, createdAt, lastLoginAt FROM project_users WHERE projectId = ? ORDER BY createdAt DESC').all(projectId) as any[];
     
+    const users = usersRaw.map(u => ({
+      ...u,
+      email: envelopeEncryptionService.decryptField(
+        typeof u.email === 'string' && u.email.startsWith('{') ? JSON.parse(u.email) : u.email,
+        projectId
+      ) || u.email
+    }));
+
     res.status(200).json({
       success: true,
       message: 'Users retrieved successfully.',

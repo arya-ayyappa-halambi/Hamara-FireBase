@@ -45,7 +45,7 @@ import { securityHeaders, dynamicCors } from './middleware/security.middleware';
  * The server will refuse to start rather than run with dangerous defaults.
  */
 function validateEnv(): void {
-  const required = ['JWT_SECRET'] as const;
+  const required = ['JWT_SECRET', 'EMAIL_HASH_PEPPER'] as const;
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {
@@ -57,6 +57,12 @@ function validateEnv(): void {
   const secret = process.env.JWT_SECRET!;
   if (secret.length < 32) {
     console.error('❌ JWT_SECRET is too short. Use at least 32 characters.');
+    process.exit(1);
+  }
+
+  const pepper = process.env.EMAIL_HASH_PEPPER!;
+  if (pepper.length < 32) {
+    console.error('❌ EMAIL_HASH_PEPPER is too short. Use at least 32 characters.');
     process.exit(1);
   }
 }

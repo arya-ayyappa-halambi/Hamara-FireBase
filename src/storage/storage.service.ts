@@ -172,6 +172,7 @@ export async function saveAssetMetadata(
 ): Promise<PublicAssetMetadata> {
 
   // SECURITY FEATURE: Verify file magic bytes match the claimed mime type
+  // @ts-ignore
   const { fromFile } = await import('file-type');
   const typeResult = await fromFile(file.path);
   

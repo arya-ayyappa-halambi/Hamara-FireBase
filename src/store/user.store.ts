@@ -7,6 +7,7 @@
 
 import { User } from '../types/auth.types';
 import { getDb } from '../db/sqlite.connection';
+import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 
 // ── Interface ─────────────────────────────────────────────────────────────────
 
@@ -41,6 +42,7 @@ export interface UserStore {
 interface RawUserRow {
   id: string;
   email: string;
+  emailHash: string;
   name: string;
   passwordHash: string;
   isSuperAdmin: number;
@@ -59,8 +61,26 @@ interface RawUserRow {
 }
 
 function mapRowToUser(row: RawUserRow): User {
+  const email = envelopeEncryptionService.decryptField(
+    typeof row.email === 'string' && row.email.startsWith('{') ? JSON.parse(row.email) : row.email, 
+    'SYSTEM'
+  ) || row.email;
+
+  const name = envelopeEncryptionService.decryptField(
+    typeof row.name === 'string' && row.name.startsWith('{') ? JSON.parse(row.name) : row.name, 
+    'SYSTEM'
+  ) || row.name;
+  
+  let mfaSecret = row.mfaSecret;
+  if (mfaSecret && typeof mfaSecret === 'string' && mfaSecret.startsWith('{')) {
+    mfaSecret = envelopeEncryptionService.decryptField(JSON.parse(mfaSecret), 'SYSTEM');
+  }
+
   return {
     ...row,
+    email,
+    name,
+    mfaSecret,
     isSuperAdmin: Boolean(row.isSuperAdmin),
     mfaEnabled: row.mfaEnabled ?? 0,
     createdAt: new Date(row.createdAt),
@@ -73,8 +93,9 @@ function mapRowToUser(row: RawUserRow): User {
 class SqliteUserStore implements UserStore {
   async findByEmail(email: string): Promise<User | undefined> {
     const normalised = email.toLowerCase().trim();
+    const hash = envelopeEncryptionService.hashBlindIndex(normalised);
     const db = getDb();
-    const row = db.prepare('SELECT * FROM users WHERE email = ?').get(normalised) as RawUserRow | undefined;
+    const row = db.prepare('SELECT * FROM users WHERE emailHash = ?').get(hash) as RawUserRow | undefined;
     return row ? mapRowToUser(row) : undefined;
   }
 
@@ -86,6 +107,7 @@ class SqliteUserStore implements UserStore {
 
   async create(user: User): Promise<User> {
     const normalised = user.email.toLowerCase().trim();
+    const emailHash = envelopeEncryptionService.hashBlindIndex(normalised);
     const createdAtStr = user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt);
     const updatedAtStr = user.updatedAt instanceof Date ? user.updatedAt.toISOString() : String(user.updatedAt);
 
@@ -96,13 +118,16 @@ class SqliteUserStore implements UserStore {
       updatedAt: new Date(updatedAtStr),
     };
 
+    const encEmail = envelopeEncryptionService.encryptField(normalised, 'SYSTEM');
+    const encName = envelopeEncryptionService.encryptField(record.name, 'SYSTEM');
+
     const db = getDb();
     try {
       const stmt = db.prepare(`
-        INSERT INTO users (id, email, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
-      stmt.run(record.id, record.email, record.name, record.passwordHash, record.isSuperAdmin ? 1 : 0, createdAtStr, updatedAtStr);
+      stmt.run(record.id, JSON.stringify(encEmail), emailHash, JSON.stringify(encName), record.passwordHash, record.isSuperAdmin ? 1 : 0, createdAtStr, updatedAtStr);
       return record;
     } catch (err: unknown) {
       if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {

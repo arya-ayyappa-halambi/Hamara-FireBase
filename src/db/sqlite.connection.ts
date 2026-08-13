@@ -82,23 +82,26 @@ export function initSqlite(): void {
   const db = getDb();
 
   db.exec(`
-    -- 1. Users Table
+    -- 1. Users Table (Platform Administrators/Developers)
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
+      email TEXT NOT NULL,
+      emailHash TEXT UNIQUE NOT NULL,
       name TEXT NOT NULL,
       passwordHash TEXT NOT NULL,
       isSuperAdmin INTEGER DEFAULT 0,
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
-      apiLimit INTEGER DEFAULT 100,
+      apiLimit INTEGER DEFAULT 10000,
       readLimit INTEGER DEFAULT 50000,
       writeLimit INTEGER DEFAULT 20000,
       readsCount INTEGER DEFAULT 0,
       writesCount INTEGER DEFAULT 0,
       lockoutMinutes INTEGER DEFAULT 1440,
       lockedUntil TEXT,
-      billingMonthStart TEXT
+      billingMonthStart TEXT,
+      mfaEnabled INTEGER DEFAULT 0,
+      mfaSecret TEXT
     );
 
     -- Run migrations for existing users table
@@ -180,6 +183,16 @@ export function initSqlite(): void {
       FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE
     );
 
+    -- System Encryption Keys Table
+    CREATE TABLE IF NOT EXISTS system_keys (
+      id TEXT PRIMARY KEY,
+      dekEncrypted TEXT NOT NULL,
+      dekIv TEXT NOT NULL,
+      dekTag TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
     -- 5. Assets Table (Biometric storage)
     CREATE TABLE IF NOT EXISTS assets (
       id TEXT PRIMARY KEY,
@@ -237,13 +250,16 @@ export function initSqlite(): void {
       id TEXT PRIMARY KEY,
       projectId TEXT NOT NULL,
       email TEXT NOT NULL,
+      emailHash TEXT NOT NULL,
       passwordHash TEXT,
       provider TEXT NOT NULL DEFAULT 'email',
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
       lastLoginAt TEXT,
+      role TEXT DEFAULT 'viewer',
+      customClaims TEXT,
       FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
-      UNIQUE(projectId, email)
+      UNIQUE(projectId, emailHash)
     );
 
     CREATE INDEX IF NOT EXISTS idx_project_users_project ON project_users(projectId);
@@ -254,6 +270,7 @@ export function initSqlite(): void {
       timestamp TEXT NOT NULL,
       actorId TEXT,
       actorEmail TEXT,
+      actorEmailHash TEXT,
       actionType TEXT NOT NULL,
       projectId TEXT,
       ipAddress TEXT,
