@@ -1,0 +1,35 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  security-audit:
+    name: Security Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for gitleaks to scan history/diffs
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The Gitleaks action will automatically scan the PR diff or push diff for secrets
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: NPM Audit (Production)
+        # We only want to fail on high or critical vulnerabilities in production deps
+        run: npm audit --production --audit-level=high

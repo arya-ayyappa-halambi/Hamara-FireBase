@@ -106,8 +106,15 @@ export function initSqlite(): void {
 
     -- Run migrations for existing users table
     PRAGMA table_info(users);
+  `);
 
+  try {
+    db.exec('ALTER TABLE platform_settings ADD COLUMN backupRetentionDays INTEGER DEFAULT 7');
+  } catch (e: any) {
+    // Ignore if column already exists
+  }
 
+  db.exec(`
     -- 2. Projects Table
     CREATE TABLE IF NOT EXISTS projects (
       id TEXT PRIMARY KEY,
@@ -162,6 +169,7 @@ export function initSqlite(): void {
       maintenanceMode INTEGER DEFAULT 0,
       backupMode TEXT DEFAULT 'none',
       backupIntervalMinutes INTEGER DEFAULT 1440,
+      backupRetentionDays INTEGER DEFAULT 7,
       s3BucketName TEXT,
       s3Region TEXT,
       s3AccessKey TEXT,

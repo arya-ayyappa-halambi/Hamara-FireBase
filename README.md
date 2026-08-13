@@ -110,7 +110,9 @@ AegisDB includes a fully automated, cryptographically secure Dual-Target Backup 
 - **Local File System Backups:** Saves heavily compressed `.sqlite3.bak` files directly to the local server, providing an ultra-fast Recovery Time Objective (RTO).
 - **AWS S3 Cloud Backups:** Seamlessly streams multipart upload backups to remote Amazon S3 buckets, ensuring off-site redundancy.
 - **Generation ID Tracking:** Every backup snapshot is tagged with a unique **Generation ID** timestamp, ensuring complete version history and preventing accidental data overwrites.
+- **Automated Backup Cleanup & Retention:** Old backups (both Local and S3) are automatically cleaned up based on a configurable **Backup Retention (Days)** setting to prevent storage exhaustion, while always preserving at least one recent backup for safety.
 - **Manual & Scheduled Triggers:** Backups can be scheduled as background cron jobs or triggered manually via the Global Platform Settings in the Developer Console. The UI provides real-time status indicators on the progress of both Local and S3 backup processes.
+
 
 ---
 

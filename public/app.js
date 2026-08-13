@@ -94,6 +94,7 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
   const config = {
     method,
     headers,
+    cache: 'no-store',
     body: body ? (isFormData ? body : JSON.stringify(body)) : null,
   };
 
@@ -1881,14 +1882,15 @@ async function loadPlatformSettings() {
     if (data) {
       document.getElementById('setting-google-client-id').value = data.googleClientId || '';
       document.getElementById('toggle-google-auth').checked = data.googleAuthEnabled || false;
-      const maintToggle = document.getElementById('toggle-maintenance-mode');
-      if (maintToggle) maintToggle.checked = data.maintenanceMode || false;
       document.getElementById('setting-backup-mode').value = data.backupMode || 'none';
       document.getElementById('setting-backup-interval').value = data.backupIntervalMinutes || '';
+      document.getElementById('setting-backup-retention-days').value = data.backupRetentionDays || '7';
       document.getElementById('setting-s3-bucket').value = data.s3BucketName || '';
       document.getElementById('setting-s3-region').value = data.s3Region || '';
       document.getElementById('setting-s3-access').value = data.s3AccessKey || '';
       document.getElementById('setting-s3-secret').value = data.s3SecretKey || '';
+      const maintToggle = document.getElementById('toggle-maintenance-mode');
+      if (maintToggle) maintToggle.checked = data.maintenanceMode || false;
 
       // Render Backup Statuses
       if (data.lastBackupAt) {
@@ -2047,6 +2049,14 @@ async function openMfaSetupModal() {
 // ── Auth & Initialization Event Handlers ───────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Check maintenance mode immediately
+  try {
+    await apiRequest('/api/v1/system/status');
+  } catch (err) {
+    // If maintenance mode is active, it will automatically show the overlay and throw here.
+    console.warn('System is under maintenance.');
+  }
+
   initGoogleAuth();
   initInactivityTracker();
   initStorageUpload();
@@ -2130,6 +2140,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('aegis_refresh_token', data.refreshToken);
         localStorage.setItem('aegis_user', JSON.stringify(data.user));
 
+        // Before proceeding, check if system is in maintenance mode and user is not superadmin
+        try {
+          await apiRequest('/api/v1/system/status');
+        } catch (statusErr) {
+          if (statusErr.message === 'System is under maintenance' || statusErr.message.includes('maintenance')) {
+            // Re-hide main app and clear session since they are not allowed
+            localStorage.removeItem('aegis_access_token');
+            localStorage.removeItem('aegis_refresh_token');
+            localStorage.removeItem('aegis_user');
+            state.accessToken = null;
+            state.user = null;
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('main-app').classList.add('hidden');
+            showToast('System is in maintenance. Super Admin access only.', 'error');
+            return;
+          }
+        }
+
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('main-app').classList.remove('hidden');
         showToast('Successfully authenticated.', 'success');
@@ -2138,7 +2166,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         connectGlobalWebSocket();
         initGlobalData();
       } catch (err) {
-        if (err.message.includes('MFA')) {
+        if (err.message && err.message.includes('MFA')) {
           document.getElementById('field-totp')?.classList.remove('hidden');
         }
         showToast(err.message, 'error');
@@ -2372,6 +2400,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSaveBackupSettings.onclick = async () => {
       const backupMode = document.getElementById('setting-backup-mode').value;
       const backupIntervalMinutes = parseInt(document.getElementById('setting-backup-interval').value || '1440', 10);
+      const backupRetentionDays = parseInt(document.getElementById('setting-backup-retention-days').value || '7', 10);
       const s3BucketName = document.getElementById('setting-s3-bucket').value;
       const s3Region = document.getElementById('setting-s3-region').value;
       const s3AccessKey = document.getElementById('setting-s3-access').value;
@@ -2380,9 +2409,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnSaveBackupSettings.disabled = true;
         btnSaveBackupSettings.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
         await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { 
-          backupMode, backupIntervalMinutes, s3BucketName, s3Region, s3AccessKey, s3SecretKey 
+          backupMode, backupIntervalMinutes, backupRetentionDays, s3BucketName, s3Region, s3AccessKey, s3SecretKey 
         });
         showToast('Global Backup settings updated successfully.', 'success');
+        await loadPlatformSettings();
       } catch (err) {
         showToast(err.message, 'error');
       } finally {

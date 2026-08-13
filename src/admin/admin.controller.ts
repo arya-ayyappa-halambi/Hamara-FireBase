@@ -17,7 +17,7 @@ import { getDb } from '../db/sqlite.connection';
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const db = getDb();
-    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, backupMode, backupIntervalMinutes, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url FROM platform_settings WHERE id = ?').get('default') as any;
+    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, backupMode, backupIntervalMinutes, backupRetentionDays, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url FROM platform_settings WHERE id = ?').get('default') as any;
     res.status(200).json({
       success: true,
       message: 'Platform settings retrieved.',
@@ -26,6 +26,7 @@ export async function getPlatformSettings(_req: Request, res: Response, next: Ne
         googleClientId: settings ? settings.googleClientId : '',
         backupMode: settings ? settings.backupMode : 'none',
         backupIntervalMinutes: settings ? settings.backupIntervalMinutes : 1440,
+        backupRetentionDays: settings ? settings.backupRetentionDays : 7,
         s3BucketName: settings ? settings.s3BucketName : '',
         s3Region: settings ? settings.s3Region : '',
         s3AccessKey: settings ? settings.s3AccessKey : '',
@@ -50,6 +51,7 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     const googleClientId = req.body.googleClientId !== undefined ? req.body.googleClientId : current.googleClientId;
     const backupMode = req.body.backupMode !== undefined ? req.body.backupMode : current.backupMode;
     const backupIntervalMinutes = req.body.backupIntervalMinutes !== undefined ? req.body.backupIntervalMinutes : current.backupIntervalMinutes;
+    const backupRetentionDays = req.body.backupRetentionDays !== undefined ? req.body.backupRetentionDays : current.backupRetentionDays;
     const s3BucketName = req.body.s3BucketName !== undefined ? req.body.s3BucketName : current.s3BucketName;
     const s3Region = req.body.s3Region !== undefined ? req.body.s3Region : current.s3Region;
     const s3AccessKey = req.body.s3AccessKey !== undefined ? req.body.s3AccessKey : current.s3AccessKey;
@@ -65,6 +67,7 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
           googleClientId = ?,
           backupMode = ?,
           backupIntervalMinutes = ?,
+          backupRetentionDays = ?,
           s3BucketName = ?,
           s3Region = ?,
           s3AccessKey = ?,
@@ -76,6 +79,7 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
       googleClientId || '', 
       backupMode || 'none',
       backupIntervalMinutes || 1440,
+      backupRetentionDays || 7,
       s3BucketName || '',
       s3Region || '',
       s3AccessKey || '',
@@ -96,6 +100,7 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
         googleClientId: googleClientId || '',
         backupMode: backupMode || 'none',
         backupIntervalMinutes: backupIntervalMinutes || 1440,
+        backupRetentionDays: backupRetentionDays || 7,
         s3BucketName: s3BucketName || '',
         s3Region: s3Region || '',
         s3AccessKey: s3AccessKey || '',
