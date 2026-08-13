@@ -25,6 +25,7 @@ import projectAuthRouter from './project-auth/project-auth.routes';
 import hosterRouter      from './hoster/hoster.routes';
 import projectRouter     from './project/project.routes';
 import adminRouter       from './admin/admin.routes';
+import systemRouter      from './system/system.routes';
 import { globalErrorHandler, notFoundHandler } from './middleware/error.middleware';
 import { authLimiter, apiLimiter } from './middleware/rateLimit.middleware';
 import { ensureUploadDir }   from './storage/storage.service';
@@ -37,6 +38,7 @@ import jwksRouter from './routes/jwks.routes';
 import metricsRouter      from './routes/metrics.routes';
 import { metricsService } from './services/metrics.service';
 import { securityHeaders, dynamicCors } from './middleware/security.middleware';
+import { maintenanceModeMiddleware } from './middleware/maintenance.middleware';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -127,6 +129,9 @@ function createApp(): Application {
     });
   });
 
+  // ── Maintenance Mode ─────────────────────────────────────────────────────
+  app.use(maintenanceModeMiddleware);
+
   // ── API Routes ───────────────────────────────────────────────────────────
   app.use('/api/v1/auth',     authLimiter, authRouter);
   app.use('/api/v1/project-auth', projectAuthRouter);
@@ -135,6 +140,7 @@ function createApp(): Application {
   app.use('/api/v1/storage',  storageRouter);
   app.use('/api/v1/hoster',   hosterRouter);
   app.use('/api/v1/admin',    adminRouter);
+  app.use('/api/v1/system',   systemRouter);
 
   // ── Multi-Region Logical Sync Replication Route ──────────────────────────────────
   app.post('/api/v1/replication/sync', (req, res, next) => {

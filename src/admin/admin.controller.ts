@@ -54,6 +54,7 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     const s3Region = req.body.s3Region !== undefined ? req.body.s3Region : current.s3Region;
     const s3AccessKey = req.body.s3AccessKey !== undefined ? req.body.s3AccessKey : current.s3AccessKey;
     const s3SecretKey = req.body.s3SecretKey !== undefined ? req.body.s3SecretKey : current.s3SecretKey;
+    const maintenanceMode = req.body.maintenanceMode !== undefined ? req.body.maintenanceMode : current.maintenanceMode;
 
     // Convert boolean to 1/0 for sqlite
     const isEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
@@ -67,7 +68,8 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
           s3BucketName = ?,
           s3Region = ?,
           s3AccessKey = ?,
-          s3SecretKey = ?
+          s3SecretKey = ?,
+          maintenanceMode = ?
       WHERE id = ?
     `).run(
       isEnabled, 
@@ -78,6 +80,7 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
       s3Region || '',
       s3AccessKey || '',
       s3SecretKey || '',
+      maintenanceMode === true || maintenanceMode === 'true' || maintenanceMode === 1 ? 1 : 0,
       'default'
     );
     

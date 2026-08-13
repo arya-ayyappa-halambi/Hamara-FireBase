@@ -100,6 +100,12 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
   let res = await fetch(`${state.baseUrl}${endpoint}`, config);
   const json = await res.json().catch(() => ({}));
 
+  if (res.status === 503 && json.error === 'MAINTENANCE_MODE') {
+    const maintenanceEl = document.getElementById('view-maintenance');
+    if (maintenanceEl) maintenanceEl.classList.remove('hidden');
+    throw new Error('System is under maintenance');
+  }
+
   if (!res.ok || json.success === false) {
     throw new Error(json.message || `API Error (${res.status})`);
   }
@@ -1875,6 +1881,8 @@ async function loadPlatformSettings() {
     if (data) {
       document.getElementById('setting-google-client-id').value = data.googleClientId || '';
       document.getElementById('toggle-google-auth').checked = data.googleAuthEnabled || false;
+      const maintToggle = document.getElementById('toggle-maintenance-mode');
+      if (maintToggle) maintToggle.checked = data.maintenanceMode || false;
       document.getElementById('setting-backup-mode').value = data.backupMode || 'none';
       document.getElementById('setting-backup-interval').value = data.backupIntervalMinutes || '';
       document.getElementById('setting-s3-bucket').value = data.s3BucketName || '';
@@ -2094,6 +2102,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       fieldName.classList.remove('hidden');
     };
   }
+
 
   // Auth Form Submission
   const authForm = document.getElementById('auth-form');
@@ -2338,6 +2347,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { googleClientId, googleAuthEnabled });
         showToast('Platform settings updated successfully. Reload page to see changes on login.', 'success');
       } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  const toggleMaintenance = document.getElementById('toggle-maintenance-mode');
+  if (toggleMaintenance) {
+    toggleMaintenance.onchange = async () => {
+      const maintenanceMode = toggleMaintenance.checked;
+      try {
+        await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { maintenanceMode });
+        showToast(`Maintenance mode ${maintenanceMode ? 'enabled' : 'disabled'}.`, 'success');
+      } catch (err) {
+        toggleMaintenance.checked = !maintenanceMode; // revert
         showToast(err.message, 'error');
       }
     };

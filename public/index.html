@@ -509,6 +509,8 @@
                 <span>Continue with Google</span>
               </button>
             </div>
+            
+
           </form>
         </div>
       </div>
@@ -1039,7 +1041,21 @@
                 <div class="text-xs text-slate-500 p-4 text-center border border-dashed border-slate-800 rounded-xl">No accounts currently locked out.</div>
               </div>
             </div>
-
+            <!-- System Maintenance Mode -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-traffic-light text-yellow-400"></i>
+                <span>Global System Maintenance Mode</span>
+              </h3>
+              <p class="text-xs text-slate-400">When enabled, all non-admin API traffic will be blocked. The UI will show a maintenance overlay to standard users.</p>
+              <div class="flex items-center justify-between mt-4">
+                <span class="text-sm font-medium text-slate-300">Enable Maintenance Mode</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="toggle-maintenance-mode" class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                </label>
+              </div>
+            </div>
             <!-- Global Database Backup Configuration -->
             <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4 md:col-span-2">
               <h3 class="text-sm font-semibold text-white flex items-center space-x-2">

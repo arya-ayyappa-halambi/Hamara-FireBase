@@ -159,6 +159,7 @@ export function initSqlite(): void {
       id TEXT PRIMARY KEY,
       googleAuthEnabled INTEGER DEFAULT 0,
       googleClientId TEXT,
+      maintenanceMode INTEGER DEFAULT 0,
       backupMode TEXT DEFAULT 'none',
       backupIntervalMinutes INTEGER DEFAULT 1440,
       s3BucketName TEXT,
@@ -311,7 +312,8 @@ export function initSqlite(): void {
     { name: 's3BucketName', def: 'TEXT' },
     { name: 's3Region', def: 'TEXT' },
     { name: 's3AccessKey', def: 'TEXT' },
-    { name: 's3SecretKey', def: 'TEXT' }
+    { name: 's3SecretKey', def: 'TEXT' },
+    { name: 'maintenanceMode', def: 'INTEGER DEFAULT 0' }
   ];
   for (const col of platformCols) {
     try {

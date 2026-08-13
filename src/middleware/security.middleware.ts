@@ -24,8 +24,15 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
 export const dynamicCors = cors((req: Request, callback: (err: Error | null, options?: cors.CorsOptions) => void) => {
   const origin = req.headers.origin;
 
-  // Allow server-to-server or local dev origins
-  if (!origin || origin.includes('localhost') || origin.includes('127.0.0.1')) {
+  // Allow server-to-server or local dev origins (including local network IPs)
+  if (
+    !origin || 
+    origin.includes('localhost') || 
+    origin.includes('127.0.0.1') ||
+    origin.startsWith('http://192.168.') ||
+    origin.startsWith('http://10.') ||
+    origin.startsWith('http://172.')
+  ) {
     return callback(null, { origin: true, credentials: true });
   }
 
