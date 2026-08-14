@@ -75,7 +75,15 @@ export class RestoreService {
       fs.unlinkSync(gzipPath);
 
       // Force restart to cleanly reload connection and env
-      setTimeout(() => process.exit(0), 1000);
+      setTimeout(() => {
+        const { spawn } = require('child_process');
+        const child = spawn(process.argv[0], process.argv.slice(1), {
+          detached: true,
+          stdio: 'inherit'
+        });
+        child.unref();
+        process.exit(0);
+      }, 1000);
 
     } catch (err) {
       if (fs.existsSync(extractPath)) fs.unlinkSync(extractPath);
