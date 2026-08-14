@@ -70,6 +70,34 @@ export class RestoreService {
       fs.copyFileSync(extractPath, activeDbPath);
       
       this.updateEnvVariable('ENCRYPTION_KEY', passkey);
+
+      // 5. Restore Embedded Environment Secrets
+      const restoredDb = new Database(activeDbPath, { readonly: true });
+      try {
+        const envRow = restoredDb.prepare('SELECT envData FROM system_env_backup WHERE id = ?').get('latest') as any;
+        if (envRow) {
+          const { envelopeEncryptionService } = require('./envelope-encryption.service');
+          // Temporarily mock process.env.ENCRYPTION_KEY to passkey so envelopeEncryptionService can decrypt it
+          const originalKey = process.env.ENCRYPTION_KEY;
+          process.env.ENCRYPTION_KEY = passkey;
+          
+          const encryptedEnv = JSON.parse(envRow.envData);
+          const decryptedEnvString = envelopeEncryptionService.decryptField(encryptedEnv, 'SYSTEM');
+          
+          if (decryptedEnvString) {
+            const envData = JSON.parse(decryptedEnvString);
+            if (envData.JWT_SECRET) this.updateEnvVariable('JWT_SECRET', envData.JWT_SECRET);
+            if (envData.EMAIL_HASH_PEPPER) this.updateEnvVariable('EMAIL_HASH_PEPPER', envData.EMAIL_HASH_PEPPER);
+            console.log('✅ Successfully restored JWT_SECRET and EMAIL_HASH_PEPPER from backup file.');
+          }
+          
+          process.env.ENCRYPTION_KEY = originalKey;
+        }
+      } catch (err) {
+        console.warn('⚠️ No embedded environment secrets found in backup or failed to decrypt.', err.message);
+      } finally {
+        restoredDb.close();
+      }
       
       fs.unlinkSync(extractPath);
       fs.unlinkSync(gzipPath);

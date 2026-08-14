@@ -47,7 +47,7 @@ import { maintenanceModeMiddleware } from './middleware/maintenance.middleware';
  * The server will refuse to start rather than run with dangerous defaults.
  */
 function validateEnv(): void {
-  const required = ['JWT_SECRET', 'EMAIL_HASH_PEPPER'] as const;
+  const required = ['JWT_SECRET', 'EMAIL_HASH_PEPPER', 'RECOVERY_PIN', 'ENCRYPTION_KEY'] as const;
   const missing = required.filter((key) => !process.env[key]);
 
   if (missing.length > 0) {

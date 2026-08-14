@@ -46,6 +46,15 @@ export class BackupService {
 
     const now = new Date().toISOString();
     try {
+      // 0. Auto-embed encrypted environment secrets into the backup
+      const { envelopeEncryptionService } = require('./envelope-encryption.service');
+      const envData = JSON.stringify({
+        JWT_SECRET: process.env.JWT_SECRET,
+        EMAIL_HASH_PEPPER: process.env.EMAIL_HASH_PEPPER
+      });
+      const encryptedEnv = envelopeEncryptionService.encryptField(envData, 'SYSTEM');
+      db.prepare('INSERT OR REPLACE INTO system_env_backup (id, envData) VALUES (?, ?)').run('latest', JSON.stringify(encryptedEnv));
+
       // 1. Perform non-blocking online backup using better-sqlite3 backup API
       await db.backup(tempFile);
 

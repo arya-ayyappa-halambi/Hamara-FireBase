@@ -202,6 +202,12 @@ export function initSqlite(): void {
       updatedAt TEXT NOT NULL
     );
 
+    -- System Environment Backup Table
+    CREATE TABLE IF NOT EXISTS system_env_backup (
+      id TEXT PRIMARY KEY,
+      envData TEXT NOT NULL
+    );
+
     -- 5. Assets Table (Biometric storage)
     CREATE TABLE IF NOT EXISTS assets (
       id TEXT PRIMARY KEY,
