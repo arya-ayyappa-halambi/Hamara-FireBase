@@ -94,7 +94,7 @@ export class RestoreService {
           process.env.ENCRYPTION_KEY = originalKey;
         }
       } catch (err) {
-        console.warn('⚠️ No embedded environment secrets found in backup or failed to decrypt.', err.message);
+        console.warn('⚠️ No embedded environment secrets found in backup or failed to decrypt.', (err as Error).message);
       } finally {
         restoredDb.close();
       }

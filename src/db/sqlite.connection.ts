@@ -476,10 +476,13 @@ function seedSuperAdminSync(db: Database.Database): void {
       const now = new Date().toISOString();
       // Synchronously hash admin password
       argon2.hash(acc.pass).then((hash) => {
+        const pepper = process.env.EMAIL_HASH_PEPPER || 'default_pepper';
+        const emailHash = crypto.createHmac('sha256', pepper).update(acc.email).digest('hex');
+
         db.prepare(`
-          INSERT INTO users (id, email, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, 1, ?, ?)
-        `).run(adminId, acc.email, 'Super Admin', hash, now, now);
+          INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+          VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+        `).run(adminId, acc.email, emailHash, 'Super Admin', hash, now, now);
 
         // Auto-create Default Project for Super Admin
         const keys = generateProjectKeys();
