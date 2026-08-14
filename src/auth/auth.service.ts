@@ -430,3 +430,112 @@ export async function logoutUser(refreshToken: string): Promise<void> {
   const db = getDb();
   db.prepare('DELETE FROM refresh_tokens WHERE id = ?').run(id);
 }
+
+// ── Password Recovery ─────────────────────────────────────────────────────────
+
+import nodemailer from 'nodemailer';
+
+export async function requestPasswordReset(email: string): Promise<void> {
+  const db = getDb();
+  const pepper = process.env.EMAIL_HASH_PEPPER;
+  if (!pepper) throw new AppError('Server misconfiguration: missing EMAIL_HASH_PEPPER.', 500);
+
+  const emailHash = crypto.createHmac('sha256', pepper).update(email.toLowerCase()).digest('hex');
+  const user = db.prepare('SELECT * FROM users WHERE emailHash = ?').get(emailHash) as any;
+
+  // To prevent enumeration, silently succeed if user doesn't exist
+  if (!user) return;
+
+  // Check SMTP Configuration
+  const {
+    SMTP_HOST,
+    SMTP_PORT,
+    SMTP_USER,
+    SMTP_PASS,
+    SMTP_FROM,
+    FRONTEND_URL
+  } = process.env;
+
+  if (!SMTP_HOST || !SMTP_USER || !SMTP_PASS) {
+    console.warn(`[AUTH] Password reset requested for ${email}, but SMTP is not configured in .env`);
+    return;
+  }
+
+  // Generate JWT Token (15m expiry)
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) throw new AppError('Server misconfiguration: missing JWT_SECRET.', 500);
+
+  const token = jwt.sign(
+    { sub: user.id, type: 'password_reset' },
+    jwtSecret,
+    { expiresIn: '15m' }
+  );
+
+  // Create Reset Link
+  const origin = FRONTEND_URL || 'http://localhost:3000';
+  const resetLink = `${origin}/reset-password?token=${token}`;
+
+  // Send Email
+  const transporter = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: parseInt(SMTP_PORT || '587', 10),
+    secure: SMTP_PORT === '465',
+    auth: {
+      user: SMTP_USER,
+      pass: SMTP_PASS,
+    },
+  });
+
+  try {
+    await transporter.sendMail({
+      from: SMTP_FROM || '"AegisDB" <noreply@aegisdb.dev>',
+      to: email,
+      subject: 'Password Reset Request - AegisDB',
+      text: `You requested a password reset. Click the link below to set a new password.\n\n${resetLink}\n\nIf you did not request this, please ignore this email. This link will expire in 15 minutes.`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <h2>Password Reset Request</h2>
+          <p>You requested a password reset for your AegisDB account.</p>
+          <p>Click the button below to set a new password. This link will expire in 15 minutes.</p>
+          <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; color: white; background-color: #007bff; text-decoration: none; border-radius: 5px;">Reset Password</a>
+          <p>If you did not request this, please safely ignore this email.</p>
+        </div>
+      `
+    });
+  } catch (err) {
+    console.error('[AUTH] Failed to send password reset email:', err);
+    // Do not throw to maintain anti-enumeration
+  }
+}
+
+export async function executePasswordReset(token: string, newPassword: string): Promise<void> {
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret) throw new AppError('Server misconfiguration: missing JWT_SECRET.', 500);
+
+  try {
+    const decoded = jwt.verify(token, jwtSecret) as any;
+    if (decoded.type !== 'password_reset') {
+      throw new AppError('Invalid token type', 400);
+    }
+
+    const db = getDb();
+    const userId = decoded.sub;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+
+    if (!user) throw new AppError('Invalid token', 400);
+
+    const newPasswordHash = await argon2.hash(newPassword);
+
+    const stmt = db.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?');
+    stmt.run(newPasswordHash, new Date().toISOString(), userId);
+
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      throw new AppError('Reset token has expired. Please request a new one.', 400);
+    }
+    if (err instanceof jwt.JsonWebTokenError) {
+      throw new AppError('Invalid reset token.', 400);
+    }
+    throw err;
+  }
+}

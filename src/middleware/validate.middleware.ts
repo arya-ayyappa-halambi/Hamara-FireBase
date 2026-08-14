@@ -134,3 +134,26 @@ export const refreshTokenSchema: ValidationSchema = {
     minLength: 1,
   },
 };
+
+/** Validation schema for POST /api/v1/auth/forgot-password */
+export const forgotPasswordSchema: ValidationSchema = {
+  email: {
+    type: 'email',
+    required: true,
+  },
+};
+
+/** Validation schema for POST /api/v1/auth/reset-password */
+export const resetPasswordSchema: ValidationSchema = {
+  token: {
+    type: 'string',
+    required: true,
+    minLength: 1,
+  },
+  password: {
+    type: 'string',
+    required: true,
+    minLength: 8,
+    maxLength: 128,
+  },
+};

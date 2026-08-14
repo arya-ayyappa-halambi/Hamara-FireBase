@@ -10,8 +10,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController } from './auth.controller';
-import { validateBody, registerSchema, loginSchema, refreshTokenSchema } from '../middleware/validate.middleware';
+import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword } from './auth.controller';
+import { validateBody, registerSchema, loginSchema, refreshTokenSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt } from '../middleware/auth.middleware';
 
@@ -56,6 +56,18 @@ router.post(
 router.patch('/profile', authenticateJwt, updateProfileController);
 router.post('/change-password', authenticateJwt, changePasswordController);
 router.post('/set-initial-password', authenticateJwt, setInitialPasswordController);
+
+// ── Password Recovery ─────────────────────────────────────────────────────────
+router.post(
+  '/forgot-password',
+  validateBody(forgotPasswordSchema),
+  forgotPassword
+);
+router.post(
+  '/reset-password',
+  validateBody(resetPasswordSchema),
+  resetPassword
+);
 
 // ── TOTP MFA Routes ───────────────────────────────────────────────────────────
 router.post('/mfa/setup', authenticateJwt, setupMfaController);

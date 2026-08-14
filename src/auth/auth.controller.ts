@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
-import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa, disableMfa, changePassword, updateUserProfile, googleLoginUser } from './auth.service';
+import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa, disableMfa, changePassword, updateUserProfile, googleLoginUser, requestPasswordReset, executePasswordReset } from './auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData, AppError } from '../types/auth.types';
 import { failedLoginService } from '../services/failed-login-limiter.service';
 import { verifyGoogleToken } from './auth.google';
@@ -288,6 +288,30 @@ export async function updateProfileController(req: Request, res: Response, next:
       success: true,
       message: 'Profile updated successfully.',
       data: { user: updatedUser }
+    });
+  } catch (err) { next(err); }
+}
+
+// ── Password Recovery ─────────────────────────────────────────────────────────
+
+export async function forgotPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = req.body;
+    await requestPasswordReset(email);
+    res.status(200).json({
+      success: true,
+      message: 'If an account matches that email, a reset request has been logged and an email has been sent if SMTP is configured.',
+    });
+  } catch (err) { next(err); }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { token, password } = req.body;
+    await executePasswordReset(token, password);
+    res.status(200).json({
+      success: true,
+      message: 'Password has been successfully reset.',
     });
   } catch (err) { next(err); }
 }

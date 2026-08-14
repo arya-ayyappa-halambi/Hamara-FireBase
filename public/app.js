@@ -2114,6 +2114,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
 
+  const btnForgotPassword = document.getElementById('btn-forgot-password');
+  if (btnForgotPassword) {
+    btnForgotPassword.onclick = async () => {
+      const email = document.getElementById('input-email').value;
+      if (!email) {
+        showToast('Please enter your email address first', 'error');
+        return;
+      }
+      try {
+        const data = await apiRequest('/api/v1/auth/forgot-password', 'POST', { email });
+        showToast(data.message, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
   // Auth Form Submission
   const authForm = document.getElementById('auth-form');
   if (authForm) {

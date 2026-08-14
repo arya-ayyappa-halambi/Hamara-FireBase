@@ -14,6 +14,7 @@
 import 'dotenv/config'; // must be first — loads .env before anything else reads process.env
 
 import express, { Application, Request, Response } from 'express';
+import * as path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import hpp from 'hpp';
@@ -111,6 +112,10 @@ function createApp(): Application {
 
   // ── Static Files (Web Dashboard) ───────────────────────────────────────────
   app.use(express.static('public'));
+
+  app.get('/reset-password', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/reset-password.html'));
+  });
 
   // ── Public Well-Known & Metrics Endpoints ─────────────────────────────────
   app.use('/', jwksRouter);

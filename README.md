@@ -129,6 +129,13 @@ To start the AegisDB engine locally:
 1. On the login screen, click **Register Account** to create your first user. The first user is automatically granted Super Admin privileges.
 2. Follow the TOTP manual above to secure the root account.
 
+### Admin Password Recovery
+If the Super Admin loses their password, they can force a reset directly from the server CLI (bypassing the UI). Run:
+```bash
+npm run reset-admin
+```
+This will safely reset the Super Admin's password to `admin123`. You should immediately log in and change this.
+
 ### Creating a Project & Inserting Data
 1. Switch your scope to **Project Developer** using the top navigation bar.
 2. Navigate to **API Keys & Projects** and create a new project (e.g., "E-Commerce App").
@@ -167,6 +174,8 @@ To start the AegisDB engine locally:
 | `POST` | `/logout` | Revoke refresh token |
 | `PATCH` | `/profile` | Update user profile name |
 | `POST` | `/change-password` | Update account password (requires TOTP verification if MFA enabled) |
+| `POST` | `/forgot-password` | Request password reset email (Anti-enumeration enabled) |
+| `POST` | `/reset-password` | Execute password reset via email JWT token |
 | `POST` | `/mfa/setup` | Generate Base32 secret key & `otpauth://` QR URI |
 | `POST` | `/mfa/verify` | Verify 6-digit TOTP code and enable MFA on profile |
 | `POST` | `/mfa/disable` | Disable TOTP MFA (requires password + 6-digit TOTP verification) |
