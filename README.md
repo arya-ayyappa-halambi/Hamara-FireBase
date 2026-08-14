@@ -72,12 +72,14 @@ AegisDB utilizes a **Role Context Scope Switcher**. Users can toggle their dashb
   - **Filtering:** Instant search bar filters the current data view, rendering specific JSON keys immediately.
   - **Clipboard Integration:** Developers can click a single button to copy raw JSON payloads of any document.
 - **Storage Vault:** Upload and manage binary assets (images, PDFs) with pluggable storage drivers (Local Disk, AWS S3, Cloudflare R2).
+- **Secure Password Recovery:** Automated SMTP email recovery flow with cryptographically secure, time-limited reset links.
 
 ### Super Admin Features
 *The global overseer of the entire AegisDB instance.*
 - **Live Infrastructure Telemetry:** A real-time dashboard powered by `Chart.js` polling `/api/v1/admin/stats`. Displays live CPU usage, V8 Memory Heap allocation, active WebSocket connections, and SQLite WAL query latency. Data refreshes automatically every 3 seconds or via a manual "Refresh Metrics" button.
 - **Rate Limit Governance:** Adjust the global request throttles to defend against DDoS or traffic spikes.
 - **Global Security Auditing:** Access system-wide logs, encryption statuses, and MFA compliance metrics across all users.
+- **Emergency CLI Password Reset:** Admins locked out of the UI can regain access directly from the server terminal via the `npm run reset-admin` command, completely bypassing the UI for extreme emergency recovery.
 
 ---
 
