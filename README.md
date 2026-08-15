@@ -285,10 +285,149 @@ async function aegisFetch(endpoint, method = 'GET', body = null) {
 
 ---
 
+---
+
+## 9. ⚖️ Traffic Control, Management & High-Availability Load Balancing
+
+AegisDB provides enterprise-grade traffic governance, algorithmic rate limiting, and horizontal load balancing architectures designed to handle millions of requests with sub-millisecond response times.
+
+```
+                            ┌─────────────────────────────────────────┐
+                            │    Incoming Traffic (HTTPS / WSS)       │
+                            └────────────────────┬────────────────────┘
+                                                 │
+                                                 ▼
+                            ┌─────────────────────────────────────────┐
+                            │      Layer 7 Load Balancer / Proxy      │
+                            │      (Nginx / Caddy / Cloudflare)       │
+                            │   • Round-Robin / Least-Connections     │
+                            │   • WebSocket Sticky Sessions (ip_hash) │
+                            │   • SSL/TLS Termination                 │
+                            └────────┬──────────────────────┬─────────┘
+                                     │                      │
+                   ┌─────────────────┴────────┐   ┌─────────┴────────────────┐
+                   ▼                          ▼   ▼                          ▼
+        ┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
+        │  AegisDB Worker #1   │   │  AegisDB Worker #2   │   │  AegisDB Worker #N   │
+        │ • Token Bucket Thrott│   │ • Token Bucket Thrott│   │ • Token Bucket Thrott│
+        │ • VM Sandbox Engine  │   │ • VM Sandbox Engine  │   │ • VM Sandbox Engine  │
+        │ • JWT / JWKS Auth    │   │ • JWT / JWKS Auth    │   │ • JWT / JWKS Auth    │
+        └──────────┬───────────┘   └──────────┬───────────┘   └──────────┬───────────┘
+                   │                          │                          │
+                   └──────────────────────────┼──────────────────────────┘
+                                              │
+                                              ▼
+                            ┌─────────────────────────────────────────┐
+                            │     High-Performance Storage Engine     │
+                            │   • SQLite Write-Ahead Logging (WAL)    │
+                            │   • Parallel Non-Blocking Reads         │
+                            │   • Serialized Microsecond Writes       │
+                            │   • PRAGMA busy_timeout = 5000ms        │
+                            └─────────────────────────────────────────┘
+```
+
+### 🚦 Algorithmic Token Bucket Rate Limiting
+AegisDB implements continuous token bucket mechanics (`src/services/rate-limiter.service.ts`) to prevent DDoS attacks, API abuse, and credential stuffing.
+- **Dual-Tier Throttling**:
+  - **Auth Tier (`authLimit`)**: Enforces tight throttles on login, registration, and MFA endpoints (e.g. 10 requests per 15 minutes).
+  - **API Tier (`apiLimit`)**: Optimized for high-throughput database queries and file asset streaming (e.g. 120+ requests per minute).
+- **Dynamic Runtime Reconfiguration**: Super Admins can adjust rate limits on-the-fly via the Developer Console or via `PATCH /api/v1/admin/rate-limits` without restarting the server.
+- **Standardized RFC HTTP Headers**: Every response returns live rate limit metadata:
+  ```http
+  X-RateLimit-Limit: 120
+  X-RateLimit-Remaining: 118
+  X-RateLimit-Reset: 1786789200
+  Retry-After: 12 (When 429 Too Many Requests is triggered)
+  ```
+- **Real-Time Prometheus Telemetry**: Exposes live rate limit hit gauges and counters at `GET /metrics`.
+
+---
+
+### 🌐 High-Availability Load Balancing Architectures
+
+#### 1. Nginx Load Balancer with WebSocket Sticky Sessions
+For multi-instance deployments, use Nginx with `least_conn` algorithm and `ip_hash` to ensure real-time WebSockets and SSE streams remain sticky to the same worker:
+
+```nginx
+upstream aegisdb_cluster {
+    least_conn;
+    ip_hash; # Sticky sessions for real-time WebSockets & SSE
+    server 127.0.0.1:3000 max_fails=3 fail_timeout=10s;
+    server 127.0.0.1:3001 max_fails=3 fail_timeout=10s;
+    server 127.0.0.1:3002 max_fails=3 fail_timeout=10s;
+}
+
+server {
+    listen 80;
+    listen 443 ssl http2;
+    server_name api.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
+
+    # Health check for automated failover
+    location /health {
+        proxy_pass http://aegisdb_cluster/health;
+        proxy_next_upstream error timeout http_500 http_502 http_503;
+    }
+
+    # API & Dashboard Routing
+    location / {
+        proxy_pass http://aegisdb_cluster;
+        proxy_http_version 1.1;
+
+        # WebSocket & SSE upgrade headers
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # Timeouts for persistent WebSockets
+        proxy_read_timeout 86400s;
+        proxy_send_timeout 86400s;
+    }
+}
+```
+
+#### 2. Caddy High-Availability Load Balancer
+Caddy provides automated HTTPS, active health checking, and reverse proxy load balancing out-of-the-box:
+
+```caddy
+api.yourdomain.com {
+    reverse_proxy 127.0.0.1:3000 127.0.0.1:3001 127.0.0.1:3002 {
+        lb_policy least_conn
+        health_uri /health
+        health_interval 5s
+        health_timeout 2s
+    }
+}
+```
+
+#### 3. PM2 Zero-Downtime Cluster Mode
+To utilize all available CPU cores on a single high-spec server:
+```bash
+# Start AegisDB in cluster mode across all CPU cores
+pm2 start dist/server.js -i max --name aegisdb
+
+# Zero-downtime rolling reload during updates
+pm2 reload aegisdb
+```
+
+---
+
+### ⚡ SQLite High-Concurrency Engine
+AegisDB leverages SQLite's Write-Ahead Logging (WAL) architecture:
+- **Unlimited Parallel Readers**: Read operations (`GET /documents`) do not block other readers or writers.
+- **Serialized Microsecond Writes**: Write operations (`POST/PATCH/DELETE`) execute in sub-millisecond transactions.
+- **Busy Timeout Queuing**: Configured with `PRAGMA busy_timeout = 5000;` so simultaneous requests gracefully queue and resolve without throw-and-fail locking.
+
+---
+
 ## 📄 License & Production Deployment
 
 This project is licensed under the MIT License.
-
 ### Production Deployment & HTTPS
 In production, deploy AegisDB behind a TLS-terminating reverse proxy (like Nginx, Caddy, or Traefik):
 
