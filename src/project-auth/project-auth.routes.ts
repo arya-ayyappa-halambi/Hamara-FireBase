@@ -7,7 +7,9 @@ import {
   deleteProjectUser,
   attestApp,
   updateUserRole,
-  getPublicProjectAuthConfig
+  getPublicProjectAuthConfig,
+  exportProjectUserData,
+  deleteProjectUserSelf
 } from './project-auth.controller';
 import { authenticateApiKeyOrJwt } from '../middleware/apikey.middleware';
 import { enforceAppCheck } from '../middleware/appcheck.middleware';
@@ -30,6 +32,10 @@ router.post('/attest', attestApp);
 router.post('/register', enforceAppCheck, registerProjectUser);
 router.post('/login', checkFailedLoginLockout, enforceAppCheck, loginProjectUser);
 router.post('/oauth/:provider', enforceAppCheck, handleOAuthProvider);
+
+// GDPR Art. 17 & 20 End-User Data Portability and Account Erasure
+router.get('/export-data', enforceAppCheck, exportProjectUserData);
+router.delete('/account', enforceAppCheck, deleteProjectUserSelf);
 
 // Admin routes for managing project users
 router.get('/users', enforceAppCheck, listProjectUsers);

@@ -3367,32 +3367,95 @@ window.runSdkTest = async function(action) {
   } catch (err) {
     printSdkLog(`❌ SDK Test Failed: ${escapeHTML(err.message)}`, 'error');
   }
+// ── GDPR Data Portability & Account Erasure (Client-Side) ───────────────────
+
+window.exportMyData = async function() {
+  try {
+    showToast('Generating data export bundle...', 'info');
+    const token = state.token || localStorage.getItem('token');
+    const res = await fetch('/api/v1/auth/export-data', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to export account data.');
+    }
+
+    const jsonStr = JSON.stringify(data.data, null, 2);
+    const blob = new Blob([jsonStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aegisdb_data_export_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('Data export downloaded successfully!', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to export data', 'error');
+  }
 };
 
-// ── Security & Anti-Inspection (Client-Side) ───────────────────────────────
-document.addEventListener('contextmenu', event => event.preventDefault());
+window.openDeleteAccountModal = function() {
+  const pwdInput = document.getElementById('delete-account-password');
+  const totpInput = document.getElementById('delete-account-totp');
+  const confirmInput = document.getElementById('delete-account-confirm-text');
+  if (pwdInput) pwdInput.value = '';
+  if (totpInput) totpInput.value = '';
+  if (confirmInput) confirmInput.value = '';
+  document.getElementById('modal-delete-account')?.classList.remove('hidden');
+};
 
-document.addEventListener('keydown', (e) => {
-  // Disable F12
-  if (e.key === 'F12') {
-    e.preventDefault();
+window.executeAccountDeletion = async function() {
+  const pwd = document.getElementById('delete-account-password')?.value?.trim();
+  const totp = document.getElementById('delete-account-totp')?.value?.trim();
+  const confirmText = document.getElementById('delete-account-confirm-text')?.value?.trim();
+
+  if (!pwd) {
+    showToast('Please enter your account password to confirm deletion.', 'warning');
+    return;
   }
-  // Disable Ctrl+Shift+I / Cmd+Option+I (Inspect)
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
-    e.preventDefault();
+
+  if (confirmText !== 'DELETE') {
+    showToast('Please type DELETE in capital letters to confirm.', 'warning');
+    return;
   }
-  // Disable Ctrl+Shift+J / Cmd+Option+J (Console)
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'J') {
-    e.preventDefault();
+
+  const btn = document.getElementById('btn-confirm-delete-account');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Shredding...'; }
+
+  try {
+    const token = state.token || localStorage.getItem('token');
+    const res = await fetch('/api/v1/auth/account', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ password: pwd, totpCode: totp || undefined })
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to delete account.');
+    }
+
+    document.getElementById('modal-delete-account')?.classList.add('hidden');
+    showToast('Account permanently erased. Redirecting...', 'success');
+
+    setTimeout(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.reload();
+    }, 1500);
+
+  } catch (err) {
+    showToast(err.message || 'Account deletion failed', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Permanently Delete'; }
   }
-  // Disable Ctrl+Shift+C / Cmd+Option+C (Inspect Element)
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
-    e.preventDefault();
-  }
-  // Disable Ctrl+U / Cmd+Option+U (View Source)
-  if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
-    e.preventDefault();
-  }
-});
+};
 
 

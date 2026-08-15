@@ -107,7 +107,7 @@ export async function deleteProjectUser(req: Request, res: Response, next: NextF
 
     const userId = req.params.id;
     
-    await projectAuthService.deleteUser(projectId, userId);
+    await projectAuthService.deleteProjectUser(projectId, userId, undefined, false);
     
     res.status(200).json({
       success: true,
@@ -217,4 +217,58 @@ export async function getPublicProjectAuthConfig(req: Request, res: Response, ne
     res.status(200).json({ success: true, data: publicConfig });
   } catch (err) { next(err); }
 }
+
+// ── End-User Data Portability & Account Erasure (GDPR Art. 17 & 20) ───────────
+
+export async function exportProjectUserData(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const userId = (req as any).projectUser?.sub || (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required. Provide a valid Bearer token.', 401);
+
+    const exportData = await projectAuthService.exportUserData(projectId, userId);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="project_user_data_${userId.substring(0, 8)}.json"`);
+    res.status(200).json({
+      success: true,
+      message: 'User data export generated successfully.',
+      data: exportData
+    });
+  } catch (err) { next(err); }
+}
+
+export async function deleteProjectUserSelf(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const userId = (req as any).projectUser?.sub || (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required. Provide a valid Bearer token.', 401);
+
+    const { password } = req.body;
+    const result = await projectAuthService.deleteProjectUser(projectId, userId, password, true);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: null
+    });
+  } catch (err) { next(err); }
+}
+
+export async function deleteProjectUserAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const { userId } = req.params;
+    if (!userId) throw new AppError('User ID is required.', 400);
+
+    const result = await projectAuthService.deleteProjectUser(projectId, userId, undefined, false);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: null
+    });
+  } catch (err) { next(err); }
+}
+
 

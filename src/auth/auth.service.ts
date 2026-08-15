@@ -539,3 +539,146 @@ export async function executePasswordReset(token: string, newPassword: string): 
     throw err;
   }
 }
+
+/**
+ * GDPR Article 20 / CCPA Data Portability: Export full developer profile and project summaries.
+ */
+export async function exportDeveloperData(userId: string): Promise<Record<string, any>> {
+  const db = getDb();
+  const user = db.prepare('SELECT id, email, name, isSuperAdmin, createdAt, updatedAt, mfaEnabled FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found', 404);
+
+  const projects = db.prepare('SELECT id, name, createdAt, updatedAt, authConfig FROM projects WHERE ownerId = ?').all(userId) as any[];
+  const projectSummaries: any[] = [];
+
+  for (const proj of projects) {
+    const collections = db.prepare('SELECT name FROM collections WHERE projectId = ?').all(proj.id) as any[];
+    const docCount = db.prepare('SELECT COUNT(*) as count FROM documents WHERE projectId = ?').get(proj.id) as any;
+    const assetCount = db.prepare('SELECT COUNT(*) as count FROM assets WHERE projectId = ?').get(proj.id) as any;
+    const projectUsersCount = db.prepare('SELECT COUNT(*) as count FROM project_users WHERE projectId = ?').get(proj.id) as any;
+
+    projectSummaries.push({
+      id: proj.id,
+      name: proj.name,
+      createdAt: proj.createdAt,
+      updatedAt: proj.updatedAt,
+      collections: collections.map(c => c.name),
+      documentCount: docCount?.count || 0,
+      assetCount: assetCount?.count || 0,
+      projectUsersCount: projectUsersCount?.count || 0,
+    });
+  }
+
+  return {
+    exportDate: new Date().toISOString(),
+    compliance: 'GDPR Article 20 / CCPA § 1798.130 Data Portability',
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      isSuperAdmin: !!user.isSuperAdmin,
+      mfaEnabled: !!user.mfaEnabled,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    },
+    projects: projectSummaries,
+  };
+}
+
+/**
+ * GDPR Article 17 / CCPA § 1798.105: Irreversible Account Deletion & Right to Erasure.
+ * Securely cascades through all owned projects, data encryption keys, documents, assets, and active sessions.
+ */
+export async function deleteDeveloperAccount(userId: string, password: string, totpCode?: string): Promise<{ success: boolean; message: string }> {
+  const db = getDb();
+  const user = db.prepare('SELECT id, email, emailHash, passwordHash, mfaEnabled, mfaSecret, isSuperAdmin FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found', 404);
+
+  // 1. Verify Password
+  const isPasswordValid = await argon2.verify(user.passwordHash, password);
+  if (!isPasswordValid) throw new AppError('Invalid account password.', 401);
+
+  // 2. Verify MFA if enabled
+  if (user.mfaEnabled === 1) {
+    if (!totpCode || !user.mfaSecret) {
+      throw new AppError('MFA verification required: Please provide your 6-digit TOTP code to confirm account deletion.', 400, { mfaRequired: true });
+    }
+    const { totpService } = await import('../services/totp.service');
+    const isValidTotp = totpService.verifyCode(user.mfaSecret, totpCode);
+    if (!isValidTotp) throw new AppError('Invalid TOTP verification code.', 401, { mfaRequired: true });
+  }
+
+  // 3. Safety Check: If user is the ONLY Super Admin, require at least one other Super Admin before deletion
+  if (user.isSuperAdmin === 1) {
+    const adminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE isSuperAdmin = 1').get() as any;
+    if (adminCount?.count <= 1) {
+      const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get() as any;
+      if (totalUsers?.count > 1) {
+        throw new AppError('Cannot delete account: You are the only Super Admin. Please designate another Super Admin first.', 400);
+      }
+    }
+  }
+
+  // 4. Atomic Cascading Deletion
+  const deleteTx = db.transaction(() => {
+    const projects = db.prepare('SELECT id FROM projects WHERE ownerId = ?').all(userId) as { id: string }[];
+    
+    for (const proj of projects) {
+      // Delete asset files from disk if local storage
+      try {
+        const assets = db.prepare('SELECT storedName FROM assets WHERE projectId = ?').all(proj.id) as { storedName: string }[];
+        const fs = require('fs');
+        const path = require('path');
+        const uploadDir = path.join(process.cwd(), 'uploads');
+        for (const asset of assets) {
+          const filePath = path.join(uploadDir, asset.storedName);
+          if (fs.existsSync(filePath)) {
+            fs.unlinkSync(filePath);
+          }
+        }
+      } catch (err) {
+        console.warn(`[Erasure] Could not delete physical assets for project ${proj.id}:`, err);
+      }
+
+      // Purge all project-linked tables
+      db.prepare('DELETE FROM assets WHERE projectId = ?').run(proj.id);
+      db.prepare('DELETE FROM documents WHERE projectId = ?').run(proj.id);
+      db.prepare('DELETE FROM collections WHERE projectId = ?').run(proj.id);
+      db.prepare('DELETE FROM deployments WHERE projectId = ?').run(proj.id);
+      db.prepare('DELETE FROM webhooks WHERE projectId = ?').run(proj.id);
+      db.prepare('DELETE FROM project_users WHERE projectId = ?').run(proj.id);
+      db.prepare('DELETE FROM project_keys WHERE projectId = ?').run(proj.id);
+      db.prepare('DELETE FROM projects WHERE id = ?').run(proj.id);
+    }
+
+    // Delete refresh tokens and user
+    db.prepare('DELETE FROM refresh_tokens WHERE userId = ?').run(userId);
+    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+    // Write Anonymized Audit Tombstone (Zero PII - GDPR Compliant Proof of Erasure)
+    const anonymizedActorHash = crypto.createHash('sha256').update(userId + (process.env.JWT_SECRET || 'aegis-salt')).digest('hex');
+    db.prepare(`
+      INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actorEmailHash, actionType, projectId, ipAddress, status, details)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      uuidv4(),
+      new Date().toISOString(),
+      `DELETED_USER_${anonymizedActorHash.substring(0, 12)}`,
+      'REDACTED_ERASED',
+      anonymizedActorHash,
+      'DEVELOPER_ACCOUNT_ERASED',
+      null,
+      '127.0.0.1',
+      'SUCCESS',
+      JSON.stringify({
+        erasedAt: new Date().toISOString(),
+        deletedProjectsCount: projects.length,
+        compliance: 'GDPR Article 17 Right to Erasure / CCPA § 1798.105'
+      })
+    );
+  });
+
+  deleteTx();
+  return { success: true, message: 'Your account and all associated projects and data have been permanently erased.' };
+}
+

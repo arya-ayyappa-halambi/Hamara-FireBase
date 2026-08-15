@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword } from './auth.controller';
+import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword, exportDataController, deleteAccountController } from './auth.controller';
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt } from '../middleware/auth.middleware';
@@ -56,6 +56,10 @@ router.post(
 router.patch('/profile', authenticateJwt, updateProfileController);
 router.post('/change-password', authenticateJwt, changePasswordController);
 router.post('/set-initial-password', authenticateJwt, setInitialPasswordController);
+
+// ── Data Portability & Account Erasure (GDPR / CCPA) ──────────────────────────
+router.get('/export-data', authenticateJwt, exportDataController);
+router.delete('/account', authenticateJwt, deleteAccountController);
 
 // ── Password Recovery ─────────────────────────────────────────────────────────
 router.post(

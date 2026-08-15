@@ -315,3 +315,45 @@ export async function resetPassword(req: Request, res: Response, next: NextFunct
     });
   } catch (err) { next(err); }
 }
+
+// ── Data Portability & Account Deletion (GDPR / CCPA) ─────────────────────────
+
+export async function exportDataController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { exportDeveloperData } = require('./auth.service');
+    const exportData = await exportDeveloperData(userId);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="aegisdb_data_export_${userId.substring(0, 8)}.json"`);
+    res.status(200).json({
+      success: true,
+      message: 'Data export generated successfully.',
+      data: exportData
+    });
+  } catch (err) { next(err); }
+}
+
+export async function deleteAccountController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { password, totpCode } = req.body;
+    if (!password) {
+      throw new AppError('Password is required to confirm account deletion.', 400);
+    }
+
+    const { deleteDeveloperAccount } = require('./auth.service');
+    const result = await deleteDeveloperAccount(userId, password, totpCode);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: null
+    });
+  } catch (err) { next(err); }
+}
+

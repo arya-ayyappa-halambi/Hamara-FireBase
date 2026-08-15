@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.connection';
 import { AppError } from '../types/auth.types';
@@ -324,6 +325,128 @@ export class ProjectAuthService {
     
     db.prepare('UPDATE project_users SET role = ?, customClaims = ?, updatedAt = ? WHERE projectId = ? AND id = ?')
       .run(role, claimsStr, now, projectId, userId);
+  }
+
+  /**
+   * GDPR Article 20: Export all data associated with a project end-user.
+   */
+  async exportUserData(projectId: string, userId: string): Promise<Record<string, any>> {
+    const db = getDb();
+    const user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND id = ?').get(projectId, userId) as any;
+    if (!user) throw new AppError('User not found in this project.', 404);
+
+    let decryptedEmail = 'Encrypted';
+    try {
+      decryptedEmail = envelopeEncryptionService.decryptField(JSON.parse(user.email), projectId);
+    } catch (_) {}
+
+    // Fetch user-scoped documents across project collections
+    const userDocs: any[] = [];
+    try {
+      const docs = db.prepare('SELECT id, collection, data, createdAt, updatedAt FROM documents WHERE projectId = ?').all(projectId) as any[];
+      for (const d of docs) {
+        if (d.id === userId || (d.data && (d.data.includes(userId) || d.data.includes(decryptedEmail)))) {
+          let parsedData = null;
+          try { parsedData = JSON.parse(d.data); } catch (_) { parsedData = d.data; }
+          userDocs.push({
+            id: d.id,
+            collection: d.collection,
+            data: parsedData,
+            createdAt: d.createdAt,
+            updatedAt: d.updatedAt,
+          });
+        }
+      }
+    } catch (_) {}
+
+    return {
+      exportDate: new Date().toISOString(),
+      compliance: 'GDPR Article 20 / CCPA § 1798.130 Data Portability',
+      projectId,
+      user: {
+        id: user.id,
+        email: decryptedEmail,
+        provider: user.provider,
+        role: user.role || 'viewer',
+        customClaims: user.customClaims ? JSON.parse(user.customClaims) : {},
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+        lastLoginAt: user.lastLoginAt,
+      },
+      associatedDocuments: userDocs,
+    };
+  }
+
+  /**
+   * GDPR Article 17 / CCPA § 1798.105: Irreversible Deletion of Project End-User.
+   */
+  async deleteProjectUser(projectId: string, userId: string, password?: string, isSelfService = false): Promise<{ success: boolean; message: string }> {
+    const db = getDb();
+    const user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND id = ?').get(projectId, userId) as any;
+    if (!user) throw new AppError('User not found in this project.', 404);
+
+    // 1. Password verification for self-service deletions (if password was set)
+    if (isSelfService && user.passwordHash) {
+      if (!password) {
+        throw new AppError('Password is required to confirm account deletion.', 400);
+      }
+      const isPasswordValid = await argon2.verify(user.passwordHash, password);
+      if (!isPasswordValid) throw new AppError('Invalid account password.', 401);
+    }
+
+    // 2. Atomic Cascading Deletion
+    const deleteTx = db.transaction(() => {
+      // Delete user documents
+      try {
+        const docs = db.prepare('SELECT id FROM documents WHERE projectId = ?').all(projectId) as any[];
+        for (const d of docs) {
+          if (d.id === userId) {
+            db.prepare('DELETE FROM documents WHERE projectId = ? AND id = ?').run(projectId, d.id);
+          }
+        }
+      } catch (_) {}
+
+      // Delete refresh tokens for this user
+      db.prepare('DELETE FROM refresh_tokens WHERE userId = ?').run(userId);
+
+      // Delete from project_users
+      db.prepare('DELETE FROM project_users WHERE projectId = ? AND id = ?').run(projectId, userId);
+
+      // Record Anonymized Audit Tombstone
+      const anonymizedActorHash = crypto.createHash('sha256').update(userId + projectId).digest('hex');
+      db.prepare(`
+        INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actorEmailHash, actionType, projectId, ipAddress, status, details)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        uuidv4(),
+        new Date().toISOString(),
+        `DELETED_PROJECT_USER_${anonymizedActorHash.substring(0, 12)}`,
+        'REDACTED_ERASED',
+        anonymizedActorHash,
+        'PROJECT_USER_ERASED',
+        projectId,
+        '127.0.0.1',
+        'SUCCESS',
+        JSON.stringify({
+          erasedAt: new Date().toISOString(),
+          userId,
+          isSelfService,
+          compliance: 'GDPR Article 17 Right to Erasure / CCPA § 1798.105'
+        })
+      );
+    });
+
+    deleteTx();
+
+    // Trigger webhook event
+    try {
+      webhookService.dispatch(projectId, 'user.deleted', {
+        id: userId,
+        deletedAt: new Date().toISOString(),
+      });
+    } catch (_) {}
+
+    return { success: true, message: 'User account and associated records have been permanently erased.' };
   }
 }
 

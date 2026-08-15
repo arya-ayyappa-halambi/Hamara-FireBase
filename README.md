@@ -425,6 +425,42 @@ AegisDB leverages SQLite's Write-Ahead Logging (WAL) architecture:
 
 ---
 
+## 10. ⚖️ Data Privacy Compliance: Right to Erasure & Data Portability
+
+AegisDB is architected to comply with global privacy regulations including **GDPR (Articles 17 & 20)**, **CCPA/CPRA (§ 1798.105 & § 1798.130)**, and **India's DPDP Act 2023 (§ 12)**.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│             TWO-TIER RIGHT TO ERASURE (GDPR ART. 17)                   │
+├────────────────────────────────────────────────────────────────────────┤
+│ 1. Mandatory Identity Verification (Password + TOTP code check)        │
+│ 2. GDPR Art. 20 Data Portability (Download JSON data export)          │
+│ 3. Cascading Cryptographic Shredding:                                  │
+│    • Purge user from SQLite ('users' / 'project_users')                │
+│    • Invalidate all active JWT sessions ('refresh_tokens')             │
+│    • Destroy project Data Encryption Keys (DEKs) in 'project_keys'     │
+│    • Wipe collections, documents, uploaded assets, and webhooks        │
+│ 4. Anonymized Audit Tombstone:                                         │
+│    • Records compliance proof with zero PII retained in 'audit_logs'   │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 📦 GDPR Article 20 / CCPA Data Portability
+Users can download a structured, portable JSON bundle containing their complete account metadata and associated documents:
+- **Developer Account**: `GET /api/v1/auth/export-data` (requires Bearer token)
+- **Project End-User**: `GET /api/v1/project-auth/export-data` (requires `x-aegis-api-key` and Bearer token)
+
+### 🗑️ Right to Erasure ("Right to be Forgotten")
+- **Self-Service Developer Erasure**: `DELETE /api/v1/auth/account`
+  - Body: `{ "password": "...", "totpCode": "123456" }`
+  - Permanently purges the developer, all owned projects, database encryption keys, collections, documents, and disk assets.
+- **Self-Service Project End-User Erasure**: `DELETE /api/v1/project-auth/account`
+  - Body: `{ "password": "..." }`
+  - Erases end-user credentials, active sessions, and personal documents.
+- **Admin-Provisioned Erasure**: `DELETE /api/v1/project-auth/users/:id`
+
+---
+
 ## 📄 License & Production Deployment
 
 This project is licensed under the MIT License.
