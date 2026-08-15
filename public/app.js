@@ -1905,17 +1905,27 @@ async function initGoogleAuth() {
   try {
     const res = await fetch('/api/v1/auth/config');
     const { data } = await res.json();
-    if (data && data.googleAuthEnabled && data.googleClientId) {
-      document.getElementById('google-auth-container').classList.remove('hidden');
+    const container = document.getElementById('google-auth-container');
+    if (data && data.googleAuthEnabled && data.googleClientId && data.googleClientId.trim().length > 0) {
+      if (container) {
+        container.classList.remove('hidden');
+        container.style.display = 'flex';
+      }
       
       const btn = document.getElementById('btn-custom-google-login');
       if (btn) {
-        btn.addEventListener('click', () => {
+        btn.onclick = (e) => {
+          e.preventDefault();
           const redirectUri = window.location.origin;
           const nonce = Math.random().toString(36).substring(2);
-          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${data.googleClientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
+          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(data.googleClientId.trim())}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
           window.location.href = authUrl;
-        });
+        };
+      }
+    } else {
+      if (container) {
+        container.classList.add('hidden');
+        container.style.display = 'none';
       }
     }
   } catch (err) {
@@ -3320,33 +3330,27 @@ window.runSdkTest = async function(action) {
       const res = await fetch('/api/v1/db/collections', {
         method: 'POST',
         headers,
-        body: JSON.stringify({ name: 'demo_app_users', description: 'Interactive SDK Test Collection' })
+        body: JSON.stringify({ name: 'demo_app_users' })
       });
       const json = await res.json();
-      if (!res.ok && (!json.message || !json.message.includes('already exists'))) {
-        throw new Error(json.message || 'Collection creation failed');
-      }
-      printSdkLog(`✅ Collection Ready: "${json.data?.name || 'demo_app_users'}"`, 'success');
+      if (!res.ok) throw new Error(json.message || 'Failed to create collection');
+      printSdkLog(`✅ Collection "demo_app_users" ready!`, 'success');
     }
 
     if (action === 'insert_doc') {
       printSdkLog('📝 Inserting Document (POST /api/v1/db/collections/demo_app_users/documents)...', 'info');
-      const docPayload = {
-        data: {
-          name: 'Live Demo User',
-          role: 'External App Client',
-          timestamp: new Date().toISOString(),
-          testPassed: true
-        }
-      };
       const res = await fetch('/api/v1/db/collections/demo_app_users/documents', {
         method: 'POST',
         headers,
-        body: JSON.stringify(docPayload)
+        body: JSON.stringify({
+          name: 'Alice Johnson',
+          role: 'Lead Security Engineer',
+          tags: ['admin', 'security', 'aegis']
+        })
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || 'Document insertion failed');
-      printSdkLog(`✅ Document Inserted ID: ${json.data?._id || json.data?.id}`, 'success');
+      printSdkLog(`✅ Document Created! ID: ${json.data?._id}`, 'success');
       printSdkLog(`   Payload: ${JSON.stringify(json.data)}`, 'info');
     }
 
@@ -3367,12 +3371,14 @@ window.runSdkTest = async function(action) {
   } catch (err) {
     printSdkLog(`❌ SDK Test Failed: ${escapeHTML(err.message)}`, 'error');
   }
+};
+
 // ── GDPR Data Portability & Account Erasure (Client-Side) ───────────────────
 
 window.exportMyData = async function() {
   try {
     showToast('Generating data export bundle...', 'info');
-    const token = state.token || localStorage.getItem('token');
+    const token = state.accessToken || localStorage.getItem('aegis_access_token');
     const res = await fetch('/api/v1/auth/export-data', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -3409,25 +3415,25 @@ window.openDeleteAccountModal = function() {
 };
 
 window.executeAccountDeletion = async function() {
-  const pwd = document.getElementById('delete-account-password')?.value?.trim();
-  const totp = document.getElementById('delete-account-totp')?.value?.trim();
-  const confirmText = document.getElementById('delete-account-confirm-text')?.value?.trim();
+  const pwd = document.getElementById('delete-account-password')?.value;
+  const totp = document.getElementById('delete-account-totp')?.value;
+  const confirmText = document.getElementById('delete-account-confirm-text')?.value;
+  const btn = document.getElementById('btn-confirm-delete-account');
 
   if (!pwd) {
-    showToast('Please enter your account password to confirm deletion.', 'warning');
+    showToast('Please enter your account password to confirm deletion.', 'error');
     return;
   }
 
   if (confirmText !== 'DELETE') {
-    showToast('Please type DELETE in capital letters to confirm.', 'warning');
+    showToast('Please type DELETE into the confirmation box.', 'error');
     return;
   }
 
-  const btn = document.getElementById('btn-confirm-delete-account');
-  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Shredding...'; }
-
   try {
-    const token = state.token || localStorage.getItem('token');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Erasing...'; }
+
+    const token = state.accessToken || localStorage.getItem('aegis_access_token');
     const res = await fetch('/api/v1/auth/account', {
       method: 'DELETE',
       headers: {
@@ -3458,4 +3464,23 @@ window.executeAccountDeletion = async function() {
   }
 };
 
+// ── Security & Anti-Inspection (Client-Side) ───────────────────────────────
+document.addEventListener('contextmenu', event => event.preventDefault());
 
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'F12') {
+    e.preventDefault();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
+    e.preventDefault();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'J') {
+    e.preventDefault();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+    e.preventDefault();
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+    e.preventDefault();
+  }
+});
