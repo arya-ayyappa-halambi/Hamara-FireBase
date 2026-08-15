@@ -30,8 +30,10 @@ uploads/biometrics/
 workspaces/        # extracted project files for hosted deployments
 uploads/projects/  # temporary zip files (deleted after extraction)
 
-# Phase 4 — SQLite database file
-aegis.db*
+# Phase 4 — SQLite database files
+*.db
+*.db*
+test.env
 
 # Local Backups
 backups/

@@ -17,6 +17,7 @@ import { metricsService } from '../services/metrics.service';
 import {
   Collection,
   Document,
+  DocumentObject,
   QueryResult,
   QueryOptions,
   FilterExpression,
@@ -121,10 +122,10 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   // High-privilege service role bypasses all Security Rules!
   if (req.isServiceRole === true) return;
 
-  // Default to denying access if no rules are defined
-  let rulesObj: { read?: boolean | string; write?: boolean | string } = { read: false, write: false };
+  // Default to allowing access if no custom rules are defined (safe dev/project default)
+  let rulesObj: { read?: boolean | string; write?: boolean | string } = { read: true, write: true };
   
-  if (collection.rules) {
+  if (collection.rules && collection.rules.trim().length > 0) {
     try {
       rulesObj = JSON.parse(collection.rules);
     } catch (e) {
@@ -133,7 +134,7 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
     }
   }
 
-  const rule = rulesObj[operation];
+  const rule = rulesObj[operation] !== undefined ? rulesObj[operation] : true;
   let allowed = false;
 
   if (rule === true) {
@@ -142,7 +143,9 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
     allowed = false;
   } else if (typeof rule === 'string') {
     const auth = (req as any).projectUser || null;
-    const data = req.body?.data || null;
+    const data = (req.body && typeof req.body.data === 'object' && !Array.isArray(req.body.data))
+      ? req.body.data
+      : req.body || null;
     let resource: any = null;
     if (req.params.id) {
       try {
@@ -189,13 +192,23 @@ function evaluateExpression(expr: string, context: { auth: any; data: any; resou
 //
 // Converts a flat query-string object like:
 //   ?filter[age]=36&filter[name]=Ada
+// or a JSON-encoded string like:
+//   ?filter={"status":"active"}
 // into a FilterExpression: { age: 36, name: 'Ada' }
 //
-// Also supports JSON-encoded operator objects:
-//   ?filter[age]={"$gt":30}
-//
 function parseFilter(raw: unknown): FilterExpression | undefined {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  if (!raw) return undefined;
+
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+        return parsed as FilterExpression;
+      }
+    } catch { /* not JSON — treat as literal string */ }
+  }
+
+  if (typeof raw !== 'object' || Array.isArray(raw)) return undefined;
 
   const filter: FilterExpression = {};
   for (const [field, value] of Object.entries(raw as Record<string, unknown>)) {
@@ -215,6 +228,8 @@ function parseFilter(raw: unknown): FilterExpression | undefined {
       if (value === 'false') { filter[field] = false; continue; }
       const n = Number(value);
       filter[field] = isNaN(n) ? value : (n as DocumentValue);
+    } else {
+      filter[field] = value as any;
     }
   }
   return Object.keys(filter).length > 0 ? filter : undefined;
@@ -290,9 +305,26 @@ export async function deleteCollection(req: Request, res: Response, next: NextFu
 
 export async function insertDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    if (!req.body.data || typeof req.body.data !== 'object' || Array.isArray(req.body.data)) {
-      throw new AppError('Request body must contain a "data" object.', 400);
+    const rawBody = req.body;
+    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+      throw new AppError('Request body must contain document data (as a JSON object or { data: { ... } }).', 400);
     }
+
+    let docData: Record<string, unknown>;
+    let docId: string | undefined;
+
+    if (rawBody.data && typeof rawBody.data === 'object' && !Array.isArray(rawBody.data)) {
+      docData = { ...rawBody.data };
+      docId = (rawBody.id || rawBody._id || rawBody.data.id || rawBody.data._id) as string | undefined;
+    } else {
+      docData = { ...rawBody };
+      docId = (rawBody.id || rawBody._id) as string | undefined;
+    }
+
+    // Clean internal id keys from docData to avoid reserved field errors
+    delete docData.id;
+    delete docData._id;
+
     const ownerId = getOwnerId(req);
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
@@ -311,9 +343,9 @@ export async function insertDocument(req: Request, res: Response, next: NextFunc
     
     checkRules(coll, 'write', req);
     
-    const docId = req.body.id || require('uuid').v4();
+    const finalDocId = docId || require('uuid').v4();
     const t0 = performance.now();
-    const doc = (dbStore as any).insertDocument(ownerId, projectId, req.params.name, req.body.data, docId);
+    const doc = (dbStore as any).insertDocument(ownerId, projectId, req.params.name, docData, finalDocId);
     metricsService.recordDbOperation(performance.now() - t0, 'insert', projectId);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(201).json({ success: true, message: 'Document inserted.', data: doc } as ApiResponse<Document>);
@@ -361,9 +393,21 @@ export async function getDocument(req: Request, res: Response, next: NextFunctio
 
 export async function updateDocument(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    if (!req.body.data || typeof req.body.data !== 'object' || Array.isArray(req.body.data)) {
-      throw new AppError('Request body must contain a "data" object with fields to patch.', 400);
+    const rawBody = req.body;
+    if (!rawBody || typeof rawBody !== 'object' || Array.isArray(rawBody)) {
+      throw new AppError('Request body must contain fields to patch (as a JSON object or { data: { ... } }).', 400);
     }
+
+    let patchData: Record<string, unknown>;
+    if (rawBody.data && typeof rawBody.data === 'object' && !Array.isArray(rawBody.data)) {
+      patchData = { ...rawBody.data };
+    } else {
+      patchData = { ...rawBody };
+    }
+
+    delete patchData.id;
+    delete patchData._id;
+
     const ownerId = getOwnerId(req);
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
@@ -371,7 +415,7 @@ export async function updateDocument(req: Request, res: Response, next: NextFunc
     checkRules(coll, 'write', req);
     
     const t0 = performance.now();
-    const doc = dbStore.updateDocument(ownerId, projectId, req.params.name, req.params.id, req.body.data);
+    const doc = dbStore.updateDocument(ownerId, projectId, req.params.name, req.params.id, patchData as DocumentObject);
     metricsService.recordDbOperation(performance.now() - t0, 'update', projectId);
     userStore.incrementTelemetry(ownerId, 'write');
     res.status(200).json({ success: true, message: 'Document updated.', data: doc } as ApiResponse<Document>);

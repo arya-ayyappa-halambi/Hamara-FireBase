@@ -1714,106 +1714,164 @@ const docs = await aegis.collection('todos').get();</code></pre>
         <!-- WORKSPACE: AUTHENTICATION CONFIGURATION                          -->
         <!-- ════════════════════════════════════════════════════════════════ -->
         <section id="tab-auth-config" class="workspace-panel space-y-6 hidden">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
-                <i class="fa-solid fa-users text-indigo-400"></i>
+                <i class="fa-solid fa-shield-halved text-indigo-400"></i>
                 <span>Authentication Configuration</span>
               </h2>
-              <p class="text-xs text-slate-400 mt-1">Configure identity providers for this project.</p>
+              <p class="text-xs text-slate-400 mt-1">Configure identity providers, OAuth credentials, and login policies for your active project.</p>
             </div>
-            <button onclick="saveAuthConfig()" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg transition flex items-center space-x-2">
+            <button onclick="saveAuthConfig()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5 flex items-center space-x-2">
               <i class="fa-solid fa-floppy-disk"></i>
-              <span>Save Settings</span>
+              <span>Save Auth Settings</span>
             </button>
+          </div>
+
+          <!-- Active Project Info Card -->
+          <div class="glass-panel p-4 rounded-2xl border border-indigo-500/20 bg-indigo-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                <i class="fa-solid fa-folder-tree"></i>
+              </div>
+              <div>
+                <span class="text-slate-400 block text-[10px] uppercase tracking-wider font-semibold">Configuring Project</span>
+                <span id="auth-config-active-proj-name" class="font-bold text-white text-sm">Loading Project...</span>
+              </div>
+            </div>
+            <div class="flex items-center space-x-2 font-mono text-[11px] bg-slate-900/80 px-3 py-1.5 rounded-xl border border-white/5">
+              <span class="text-slate-400">ID:</span>
+              <span id="auth-config-active-proj-id" class="text-indigo-300 select-all">—</span>
+            </div>
+          </div>
+
+          <!-- Registration Policy Card -->
+          <div class="glass-panel p-5 rounded-2xl border border-white/10 bg-slate-900/60 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="flex items-center space-x-3.5">
+              <div class="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center text-violet-400">
+                <i class="fa-solid fa-user-shield text-lg"></i>
+              </div>
+              <div>
+                <h3 class="text-sm font-semibold text-white">Public User Registration</h3>
+                <p class="text-[11px] text-slate-400">Allow new users to self-register via Email or OAuth. Disable for Admin-Only provisioning (e.g. Enterprise/College Portals).</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="auth-allow-public-registration" class="sr-only peer" checked>
+              <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-violet-600"></div>
+            </label>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- Email Auth -->
-            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4 hover:border-white/20 transition">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300">
+                  <div class="w-10 h-10 rounded-xl bg-slate-800/80 border border-white/5 flex items-center justify-center text-indigo-400">
                     <i class="fa-solid fa-envelope text-lg"></i>
                   </div>
                   <div>
                     <h3 class="text-sm font-semibold text-white">Email & Password</h3>
-                    <p class="text-[10px] text-slate-400">Standard email/password login</p>
+                    <p class="text-[10px] text-slate-400">Argon2id hashed project user login</p>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="auth-enable-email" class="sr-only peer">
-                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                  <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
                 </label>
               </div>
             </div>
 
             <!-- Google Auth -->
-            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4 hover:border-red-500/30 transition">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-red-400">
+                  <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center text-red-400">
                     <i class="fa-brands fa-google text-lg"></i>
                   </div>
                   <div>
-                    <h3 class="text-sm font-semibold text-white">Google</h3>
-                    <p class="text-[10px] text-slate-400">OAuth2 login with Google</p>
+                    <h3 class="text-sm font-semibold text-white">Google OAuth2</h3>
+                    <p class="text-[10px] text-slate-400">Google Identity Services & ID Token auth</p>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="auth-enable-google" class="sr-only peer">
-                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                  <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                 </label>
               </div>
               <div>
-                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Google Client ID</label>
-                <input type="text" id="auth-clientid-google" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="12345...apps.googleusercontent.com">
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Google Client ID</label>
+                  <span class="text-[10px] text-slate-500">GCP OAuth 2.0 Web Client</span>
+                </div>
+                <div class="relative">
+                  <input type="password" id="auth-clientid-google" class="w-full bg-slate-950 border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-red-500/50 font-mono transition" placeholder="12345...apps.googleusercontent.com">
+                  <button type="button" onclick="toggleSecretVisibility('auth-clientid-google', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition p-1" title="Toggle visibility">
+                    <i class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
             <!-- Apple Auth -->
-            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4 hover:border-white/30 transition">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-white">
+                  <div class="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center text-white">
                     <i class="fa-brands fa-apple text-lg"></i>
                   </div>
                   <div>
-                    <h3 class="text-sm font-semibold text-white">Apple</h3>
-                    <p class="text-[10px] text-slate-400">Sign in with Apple</p>
+                    <h3 class="text-sm font-semibold text-white">Apple Sign In</h3>
+                    <p class="text-[10px] text-slate-400">Sign in with Apple (JWT & JWKS verification)</p>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="auth-enable-apple" class="sr-only peer">
-                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                  <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                 </label>
               </div>
               <div>
-                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Apple Client ID (Service ID)</label>
-                <input type="text" id="auth-clientid-apple" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="com.example.app.signin">
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">Apple Client ID (Service ID)</label>
+                  <span class="text-[10px] text-slate-500">Apple Developer Service ID</span>
+                </div>
+                <div class="relative">
+                  <input type="password" id="auth-clientid-apple" class="w-full bg-slate-950 border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-white/30 font-mono transition" placeholder="com.example.app.signin">
+                  <button type="button" onclick="toggleSecretVisibility('auth-clientid-apple', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition p-1" title="Toggle visibility">
+                    <i class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
               </div>
             </div>
 
             <!-- GitHub Auth -->
-            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4 hover:border-slate-400/30 transition">
               <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-slate-200">
+                  <div class="w-10 h-10 rounded-xl bg-slate-800 border border-white/10 flex items-center justify-center text-slate-200">
                     <i class="fa-brands fa-github text-lg"></i>
                   </div>
                   <div>
-                    <h3 class="text-sm font-semibold text-white">GitHub</h3>
-                    <p class="text-[10px] text-slate-400">OAuth2 login with GitHub</p>
+                    <h3 class="text-sm font-semibold text-white">GitHub OAuth</h3>
+                    <p class="text-[10px] text-slate-400">GitHub OAuth App token authentication</p>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="auth-enable-github" class="sr-only peer">
-                  <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-500"></div>
+                  <div class="w-10 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                 </label>
               </div>
               <div>
-                <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">GitHub Client ID</label>
-                <input type="text" id="auth-clientid-github" class="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-2 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 transition" placeholder="Iv1.xxxxxxxxxxxx">
+                <div class="flex items-center justify-between mb-1.5">
+                  <label class="block text-[10px] font-semibold uppercase tracking-wider text-slate-400">GitHub Client ID</label>
+                  <span class="text-[10px] text-slate-500">GitHub Developer OAuth App ID</span>
+                </div>
+                <div class="relative">
+                  <input type="password" id="auth-clientid-github" class="w-full bg-slate-950 border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-slate-400/50 font-mono transition" placeholder="Iv1.xxxxxxxxxxxx">
+                  <button type="button" onclick="toggleSecretVisibility('auth-clientid-github', this)" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition p-1" title="Toggle visibility">
+                    <i class="fa-solid fa-eye text-xs"></i>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -2149,6 +2207,65 @@ const docs = await aegis.collection('todos').get();</code></pre>
           </div>
 
           
+          <!-- AI Agent & Developer Integration Banner -->
+          <div class="max-w-5xl mx-auto glass-panel p-8 rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-slate-950/80 shadow-2xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 w-80 h-80 bg-emerald-500/10 blur-[100px] rounded-full pointer-events-none"></div>
+            
+            <div class="relative z-10 space-y-6">
+              <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/10 pb-5">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-lg font-bold text-white">AI Agent & Developer Prompt Center</h3>
+                    <p class="text-xs text-slate-400">Zero-error, optimized prompts and context templates for Gemini, Copilot, Cursor & Claude.</p>
+                  </div>
+                </div>
+                <button onclick="document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center space-x-2 w-fit">
+                  <i class="fa-solid fa-book-open"></i>
+                  <span>Open Full AI Manual</span>
+                </button>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Quick Prompt 1: Migration -->
+                <div class="bg-slate-950/60 p-4 rounded-2xl border border-white/10 relative group hover:border-indigo-500/40 transition">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider flex items-center space-x-1.5">
+                      <i class="fa-solid fa-arrow-right-arrow-left"></i>
+                      <span>App Migration Prompt</span>
+                    </span>
+                    <button onclick="navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="I want to migrate my application backend to AegisDB (RESTful BaaS running at http://localhost:3000). Please update all database/API calls to AegisDB. Pass the project API key via the 'x-aegis-api-key' header in all requests (retrieve via localStorage.getItem('aegisApiKey') or config). Perform document inserts via POST /api/v1/db/collections/<collection_name>/documents with payload { data: { ... } } (or plain JSON), document queries via GET /api/v1/db/collections/<collection_name>/documents, updates via PATCH /api/v1/db/collections/<collection_name>/documents/<id>, and file uploads via POST /api/v1/storage/upload using FormData with field 'biometric'. Handle errors gracefully." class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy Migration Prompt">
+                      <i class="fa-solid fa-copy"></i>
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <p class="text-xs text-slate-400 line-clamp-3 italic">
+                    "I want to migrate my application backend to AegisDB (RESTful BaaS running at http://localhost:3000). Please update all database/API calls to AegisDB. Pass the project API key via the 'x-aegis-api-key' header in all requests..."
+                  </p>
+                </div>
+
+                <!-- Quick Prompt 2: New App -->
+                <div class="bg-slate-950/60 p-4 rounded-2xl border border-white/10 relative group hover:border-emerald-500/40 transition">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
+                      <i class="fa-solid fa-plus-circle"></i>
+                      <span>New Project Prompt</span>
+                    </span>
+                    <button onclick="navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="I want to build a new web application backed by AegisDB (RESTful BaaS running at http://localhost:3000). Connect all backend logic using AegisDB REST endpoints. Authenticate every fetch call using the 'x-aegis-api-key' header with the project API key from localStorage.getItem('aegisApiKey'). Use POST /api/v1/db/collections/<collection_name>/documents to save records, GET /api/v1/db/collections/<collection_name>/documents to fetch records, and POST /api/v1/storage/upload for file uploads. Provide a clean UI with real-time reactive updates." class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy New App Prompt">
+                      <i class="fa-solid fa-copy"></i>
+                      <span>Copy</span>
+                    </button>
+                  </div>
+                  <p class="text-xs text-slate-400 line-clamp-3 italic">
+                    "I want to build a new web application backed by AegisDB (RESTful BaaS running at http://localhost:3000). Connect all backend logic using AegisDB REST endpoints. Authenticate every fetch call using 'x-aegis-api-key'..."
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Call to Action / Footer -->
           <div class="max-w-5xl mx-auto glass-panel p-6 rounded-2xl border border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
             <div class="flex items-center space-x-4 text-slate-300">
@@ -2375,155 +2492,293 @@ console.log('Deployment status:', deployment.status);</code></pre>
   </div>
 
   <!-- AI Agent Context Modal -->
-  <div id="modal-ai-context" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md transition-opacity">
-    <div class="glass-panel rounded-2xl p-6 max-w-4xl w-full max-h-[85vh] flex flex-col border border-white/10 space-y-4 relative shadow-2xl">
+  <div id="modal-ai-context" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md transition-opacity">
+    <div class="glass-panel rounded-3xl p-6 md:p-8 max-w-4xl w-full max-h-[90vh] flex flex-col border border-emerald-500/20 bg-slate-950/90 shadow-2xl relative space-y-5">
+      
+      <!-- Header -->
       <div class="flex justify-between items-center border-b border-white/10 pb-4">
-        <h3 class="text-xl font-bold text-white flex items-center space-x-2">
-          <i class="fa-solid fa-robot text-emerald-400"></i>
-          <span>AI Agent & Developer Context Manual</span>
-        </h3>
-        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="text-slate-400 hover:text-white transition">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-lg">
+            <i class="fa-solid fa-robot"></i>
+          </div>
+          <div>
+            <h3 class="text-xl font-bold text-white flex items-center space-x-2">
+              <span>AI Agent & Developer Integration Manual</span>
+              <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Zero-Error Spec</span>
+            </h3>
+            <p class="text-xs text-slate-400">High-efficiency context & copy-ready prompts for Gemini, Copilot, Cursor, and Claude.</p>
+          </div>
+        </div>
+        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
-      <div class="overflow-y-auto custom-scrollbar flex-1 pr-4 space-y-8 text-sm text-slate-300">
-        
-        <div>
-          <h4 class="text-white font-semibold text-base mb-2">🧠 Context for AI Agents</h4>
-          <p class="mb-3 text-slate-400">When an AI agent (Copilot, Gemini) is instructed to "Migrate this app to use AegisDB" or "Build a frontend for AegisDB", it should understand:</p>
-          <ul class="list-disc list-inside space-y-2 text-slate-400">
-            <li><strong>Architecture:</strong> AegisDB is a RESTful API and WebSocket backend. No proprietary heavy SDKs required; standard <code class="text-indigo-300 bg-slate-800 px-1 rounded">fetch()</code> works perfectly.</li>
-            <li><strong>Authentication:</strong> Pass your Project API Key in the <code class="text-indigo-300 bg-slate-800 px-1 rounded">x-aegis-api-key</code> HTTP header.</li>
-            <li><strong class="text-rose-400">Security Rule:</strong> Do NOT hardcode the API key. Use <code class="text-indigo-300 bg-slate-800 px-1 rounded">localStorage</code>, environments, or prompt the user.</li>
-            <li><strong>Data Operations:</strong> AegisDB uses JSON Document structures within Collections.</li>
-            <li><strong>File Storage:</strong> Supports FormData upload with Magic Byte validation for security.</li>
-          </ul>
-        </div>
-        
-        <div>
-          <h4 class="text-white font-semibold text-base mb-2">🛠️ AI Prompt Templates</h4>
-          <p class="mb-3 text-slate-400">Use these prompts to instruct your AI to build or migrate apps using AegisDB:</p>
-          
-          <div class="space-y-4">
-            <!-- Migration Prompt -->
-            <div>
-              <div class="text-xs font-semibold text-indigo-400 mb-1">Option A: Migrate Existing App</div>
-              <div class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-300 italic text-sm relative group">
-                <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-500/50 hover:text-emerald-400 bg-slate-800/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/5" title="Copy Prompt">
-                  <i class="fa-solid fa-copy"></i>
-                </button>
-                <div class="pr-8">
-                  "I want to migrate my frontend application to use AegisDB as its backend. AegisDB is a RESTful BaaS running on http://localhost:3000. Please update my API calls to point to AegisDB. Ensure that the Project API Key is passed via the x-aegis-api-key header in all fetch requests. Do not hardcode the API key; instead, retrieve it from localStorage.getItem('aegisApiKey') or prompt the user for it. Update my database inserts to POST to /api/v1/db/collections/&lt;collection_name&gt;/documents, and file uploads to POST to /api/v1/storage/upload using FormData."
-                </div>
-              </div>
-            </div>
 
-            <!-- New Project Prompt -->
-            <div>
-              <div class="text-xs font-semibold text-emerald-400 mb-1">Option B: Build New App from Scratch</div>
-              <div class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-300 italic text-sm relative group">
-                <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-500/50 hover:text-emerald-400 bg-slate-800/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/5" title="Copy Prompt">
-                  <i class="fa-solid fa-copy"></i>
-                </button>
-                <div class="pr-8">
-                  "I want to build a new frontend web application that uses AegisDB as its backend. AegisDB is a RESTful BaaS running locally on http://localhost:3000. Build the UI and connect it to AegisDB using standard fetch(). Ensure that the Project API Key is passed via the x-aegis-api-key header in all requests. Do not hardcode the API key; prompt the user for it or use localStorage. Database inserts should POST to /api/v1/db/collections/&lt;collection_name&gt;/documents, and file uploads should POST to /api/v1/storage/upload using FormData."
-                </div>
-              </div>
+      <!-- Body Scroll Area -->
+      <div class="overflow-y-auto custom-scrollbar flex-1 pr-3 space-y-6 text-sm text-slate-300">
+        
+        <!-- Key Architecture Points -->
+        <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/10 space-y-3">
+          <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
+            <i class="fa-solid fa-brain text-emerald-400"></i>
+            <span>Core AegisDB Architecture for AI Agents & Developers</span>
+          </h4>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <span class="text-emerald-400 font-semibold block">📍 Base Endpoint</span>
+              <span class="font-mono text-slate-400">http://localhost:3000 (REST & WS)</span>
+            </div>
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <span class="text-emerald-400 font-semibold block">🔑 Authentication</span>
+              <span class="font-mono text-slate-400">Header: x-aegis-api-key: aegis_pk_...</span>
+            </div>
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <span class="text-emerald-400 font-semibold block">📦 Document Endpoints</span>
+              <span class="font-mono text-slate-400">/api/v1/db/collections/&lt;name&gt;/documents (or /docs)</span>
+            </div>
+            <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+              <span class="text-emerald-400 font-semibold block">📁 Storage Endpoint</span>
+              <span class="font-mono text-slate-400">POST /api/v1/storage/upload (FormData: biometric)</span>
             </div>
           </div>
         </div>
         
-        <div>
-          <h4 class="text-white font-semibold text-base mb-2">📡 Standard API Fetch Wrapper</h4>
-          <p class="mb-3 text-slate-400">When integrating AegisDB, provide this standard wrapper to your AI so it knows how to make requests securely:</p>
-          <div class="relative group">
-            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-500/50 hover:text-emerald-400 bg-slate-800/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all border border-white/5" title="Copy Code">
+        <!-- Prompt 1: Migration -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-arrow-right-arrow-left text-indigo-400"></i>
+              <span>Prompt Option 1: Complete App Migration to AegisDB</span>
+            </h4>
+            <span class="text-[10px] text-indigo-400 font-medium">Click to Copy</span>
+          </div>
+          <div class="bg-slate-900/90 p-4 rounded-2xl border border-indigo-500/30 relative group">
+            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 p-2 rounded-xl border border-indigo-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Migration Prompt">
               <i class="fa-solid fa-copy"></i>
+              <span>Copy Prompt</span>
             </button>
-            <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto pr-12"><code>async function aegisFetch(endpoint, method = 'GET', body = null) {
-  const apiKey = localStorage.getItem('aegisApiKey'); // Never hardcode!
-  if (!apiKey) throw new Error('API Key missing. Please configure it in settings.');
+            <pre class="pr-24 text-xs font-mono text-indigo-200 whitespace-pre-wrap leading-relaxed">I want to migrate my frontend application to use AegisDB as its primary backend-as-a-service.
+AegisDB is running locally at http://localhost:3000.
 
-  const headers = { 'x-aegis-api-key': apiKey };
-  const options = { method, headers };
+Please update the project's data layer and API calls following these exact rules:
+1. Base URL & Auth:
+   - Base URL: http://localhost:3000
+   - Authenticate all requests by attaching the header: 'x-aegis-api-key': localStorage.getItem('aegisApiKey') || '<PROJECT_API_KEY>'
+   - Do not hardcode secret keys in production code.
 
-  if (body) {
-    if (body instanceof FormData) {
-      options.body = body; // Browser sets multipart boundary
-    } else {
-      headers['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(body);
-    }
+2. Document Operations (Collection & Document CRUD):
+   - Insert Record: POST http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents
+     Headers: { 'Content-Type': 'application/json', 'x-aegis-api-key': apiKey }
+     Body: { data: { field1: 'value', field2: 'value' } } (or flat JSON payload)
+   - Query Records: GET http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents
+     Optional Filters: ?filter[status]=active&limit=50&sortBy=_createdAt&sortOrder=desc
+   - Get Single Record: GET http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents/&lt;id&gt;
+   - Update Record: PATCH http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents/&lt;id&gt;
+     Body: { data: { status: 'completed' } }
+   - Delete Record: DELETE http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents/&lt;id&gt;
+
+3. File / Asset Uploads:
+   - Upload: POST http://localhost:3000/api/v1/storage/upload using FormData with field 'biometric' (or file attachment).
+   - Retrieve / Stream File: GET http://localhost:3000/api/v1/storage/assets/&lt;assetId&gt;/file
+
+4. Error Handling:
+   - Check response.ok and inspect response JSON ({ success: boolean, message: string, data: any }).
+
+Please refactor all mock/local/Firebase/Supabase storage calls to use these endpoints cleanly.</pre>
+          </div>
+        </div>
+
+        <!-- Prompt 2: New App -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-rocket text-emerald-400"></i>
+              <span>Prompt Option 2: Build New App from Scratch with AegisDB</span>
+            </h4>
+            <span class="text-[10px] text-emerald-400 font-medium">Click to Copy</span>
+          </div>
+          <div class="bg-slate-900/90 p-4 rounded-2xl border border-emerald-500/30 relative group">
+            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 p-2 rounded-xl border border-emerald-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy New App Prompt">
+              <i class="fa-solid fa-copy"></i>
+              <span>Copy Prompt</span>
+            </button>
+            <pre class="pr-24 text-xs font-mono text-emerald-200 whitespace-pre-wrap leading-relaxed">I want to build a modern, high-performance web application powered by AegisDB (BaaS running on http://localhost:3000).
+
+Architectural Requirements:
+1. Connect directly to AegisDB using standard REST fetch() or lightweight client wrapper.
+2. Retrieve the Project API Key from localStorage ('aegisApiKey') or prompt the user gracefully if unset.
+3. Pass 'x-aegis-api-key' in all requests to AegisDB.
+4. Persist data into AegisDB collections using:
+   - POST /api/v1/db/collections/&lt;collection_name&gt;/documents
+   - GET /api/v1/db/collections/&lt;collection_name&gt;/documents
+5. Provide rich error feedback, responsive loading states, and instant UI updates.
+6. Support file attachments by uploading to /api/v1/storage/upload via FormData.</pre>
+          </div>
+        </div>
+
+        <!-- Universal Drop-in AegisClient.js Helper -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
+              <i class="fa-solid fa-code text-amber-400"></i>
+              <span>Universal Drop-in AegisClient.js (Vanilla JS / React / Node.js)</span>
+            </h4>
+            <span class="text-[10px] text-amber-400 font-medium">Ready to Drop into Any Project</span>
+          </div>
+          <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 relative group">
+            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 p-2 rounded-xl border border-amber-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Drop-in Client Code">
+              <i class="fa-solid fa-copy"></i>
+              <span>Copy Code</span>
+            </button>
+            <pre class="pr-24 text-xs font-mono text-amber-300 overflow-x-auto whitespace-pre leading-relaxed"><code>class AegisClient {
+  constructor(options = {}) {
+    this.baseUrl = (options.baseUrl || 'http://localhost:3000').replace(/\/+$/, '');
+    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '');
+    this.token = options.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisToken') : '');
   }
 
-  const response = await fetch(`http://localhost:3000${endpoint}`, options);
-  const data = await response.json();
-  
-  if (!response.ok) throw new Error(data.message || 'API Request Failed');
-  return data;
-}</code></pre>
+  setApiKey(key) {
+    this.apiKey = key;
+    if (typeof localStorage !== 'undefined') localStorage.setItem('aegisApiKey', key);
+  }
+
+  async request(endpoint, options = {}) {
+    const headers = {
+      ...(options.headers || {})
+    };
+    if (this.apiKey) headers['x-aegis-api-key'] = this.apiKey;
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(options.body);
+    }
+
+    const res = await fetch(`${this.baseUrl}${endpoint}`, { ...options, headers });
+    const json = await res.json().catch(() => ({ success: false, message: 'Invalid JSON response' }));
+    if (!res.ok || json.success === false) {
+      throw new Error(json.message || `AegisDB request failed (${res.status})`);
+    }
+    return json.data !== undefined ? json.data : json;
+  }
+
+  // Document & Collection CRUD
+  collection(collectionName) {
+    return {
+      insert: (data, id) => this.request(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents`, {
+        method: 'POST',
+        body: { data, ...(id ? { id } : {}) }
+      }),
+      query: (options = {}) => {
+        const p = new URLSearchParams();
+        if (options.limit) p.set('limit', String(options.limit));
+        if (options.offset) p.set('offset', String(options.offset));
+        if (options.sortBy) p.set('sortBy', options.sortBy);
+        if (options.sortOrder) p.set('sortOrder', options.sortOrder);
+        if (options.filter) p.set('filter', JSON.stringify(options.filter));
+        const q = p.toString() ? `?${p.toString()}` : '';
+        return this.request(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents${q}`, { method: 'GET' });
+      },
+      get: (docId) => this.request(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents/${encodeURIComponent(docId)}`, { method: 'GET' }),
+      update: (docId, patch) => this.request(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents/${encodeURIComponent(docId)}`, {
+        method: 'PATCH',
+        body: { data: patch }
+      }),
+      delete: (docId) => this.request(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents/${encodeURIComponent(docId)}`, { method: 'DELETE' })
+    };
+  }
+
+  // File Uploads
+  async uploadFile(file, filename) {
+    const formData = new FormData();
+    formData.append('biometric', file, filename || (file.name || 'file.jpg'));
+    return this.request('/api/v1/storage/upload', { method: 'POST', body: formData });
+  }
+
+  getFileUrl(assetId) {
+    return `${this.baseUrl}/api/v1/storage/assets/${encodeURIComponent(assetId)}/file`;
+  }
+}
+
+// Export for ES modules / browser globals
+if (typeof window !== 'undefined') window.AegisClient = AegisClient;
+if (typeof module !== 'undefined') module.exports = { AegisClient };</code></pre>
           </div>
         </div>
 
       </div>
-      <div class="pt-4 border-t border-white/10 flex justify-end">
-        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5">Got it!</button>
+
+      <!-- Footer -->
+      <div class="pt-4 border-t border-white/10 flex justify-between items-center">
+        <span class="text-xs text-slate-400">Ready to build or migrate with zero errors.</span>
+        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5">Understood & Ready</button>
       </div>
     </div>
   </div>
 
   <!-- Documentation Modal -->
   <div id="modal-documentation" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md transition-opacity">
-    <div class="glass-panel rounded-2xl p-6 max-w-3xl w-full max-h-[80vh] flex flex-col border border-white/10 space-y-4 relative shadow-2xl">
+    <div class="glass-panel rounded-3xl p-6 md:p-8 max-w-3xl w-full max-h-[85vh] flex flex-col border border-white/10 space-y-5 relative shadow-2xl">
       <div class="flex justify-between items-center border-b border-white/10 pb-4">
         <h3 class="text-xl font-bold text-white flex items-center space-x-2">
           <i class="fa-solid fa-book-open text-indigo-400"></i>
           <span>AegisDB Developer Documentation</span>
         </h3>
-        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="text-slate-400 hover:text-white transition">
+        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
-      <div class="overflow-y-auto custom-scrollbar flex-1 pr-4 space-y-8 text-sm text-slate-300">
+      <div class="overflow-y-auto custom-scrollbar flex-1 pr-4 space-y-6 text-sm text-slate-300">
         
         <div>
-          <h4 class="text-white font-semibold text-base mb-2">1. Initializing the Client</h4>
-          <p class="mb-3 text-slate-400">AegisDB can be integrated into any frontend or backend application using our lightweight SDK. Establish a secure connection using your project credentials.</p>
-          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>import { AegisDB } from '@aegisdb/sdk';
+          <h4 class="text-white font-semibold text-base mb-2">1. Client Initialization (SDK or REST)</h4>
+          <p class="mb-3 text-slate-400">AegisDB can be integrated into any frontend or backend application using our lightweight SDK or standard fetch calls.</p>
+          <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>import { Aegis } from '@aegis/sdk';
 
-const db = new AegisDB({
-  projectId: 'aegis-prod-1',
-  apiKey: 'ak_live_...'
-});</code></pre>
+const aegis = new Aegis({
+  baseUrl: 'http://localhost:3000',
+  apiKey: 'aegis_pk_...' // Your Project API Key
+});
+
+// Or use standard fetch():
+// headers: { 'x-aegis-api-key': 'aegis_pk_...' }</code></pre>
         </div>
         
         <div>
-          <h4 class="text-white font-semibold text-base mb-2">2. Real-Time Data Sync</h4>
-          <p class="mb-3 text-slate-400">Subscribe to collections or specific documents to receive lightning-fast updates over WebSockets. Our SQLite WAL integration pushes events instantly.</p>
-          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>db.collection('users').onSnapshot((snapshot) => {
-  console.log('Real-time updates received:', snapshot.docs);
-  // Update your UI reactively here
+          <h4 class="text-white font-semibold text-base mb-2">2. Document CRUD & Real-Time Sync</h4>
+          <p class="mb-3 text-slate-400">Perform database operations directly on dynamic collections with zero-friction schema validation and transparent field encryption.</p>
+          <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>// Insert a document
+const userDoc = await aegis.db.insertDocument('users', {
+  name: 'Ada Lovelace',
+  email: 'ada@example.com',
+  role: 'admin'
+});
+
+// Query documents
+const activeUsers = await aegis.db.queryDocuments('users', {
+  filter: { role: 'admin' },
+  limit: 20
 });</code></pre>
         </div>
         
         <div>
           <h4 class="text-white font-semibold text-base mb-2">3. Node.js VM Security Rules</h4>
-          <p class="mb-3 text-slate-400">AegisDB uses a secure V8 isolate (VM sandbox) to evaluate read/write conditions safely without risking server stability.</p>
-          <pre class="bg-slate-900/80 p-4 rounded-xl border border-white/10 text-amber-300 font-mono text-xs overflow-x-auto"><code>// Example Security Rule
-export default function allowWrite(request, resource) {
-  // Only allow if user is authenticated and is the data owner
-  return request.auth != null && request.auth.uid === resource.data.ownerId;
+          <p class="mb-3 text-slate-400">AegisDB uses a secure V8 isolate (Node.js VM sandbox) to evaluate read/write conditions safely without risking server stability.</p>
+          <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-amber-300 font-mono text-xs overflow-x-auto"><code>// Collection Security Rule (JSON format)
+{
+  "read": true,
+  "write": "auth != null"
 }</code></pre>
         </div>
         
         <div>
           <h4 class="text-white font-semibold text-base mb-2">4. Envelope Encryption (AES-256 GCM)</h4>
-          <p class="mb-3 text-slate-400">When storing highly sensitive data, AegisDB automatically encrypts fields at rest using AES-256 GCM based on your schema configuration. Decryption is transparent to the SDK as long as the client is authorized.</p>
+          <p class="mb-3 text-slate-400">When storing sensitive data, AegisDB automatically encrypts fields at rest using AES-256 GCM based on project-specific Data Encryption Keys (DEKs).</p>
         </div>
 
       </div>
       <div class="pt-4 border-t border-white/10 flex justify-end">
-        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5">Understood</button>
+        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5">Got it!</button>
       </div>
     </div>
   </div>

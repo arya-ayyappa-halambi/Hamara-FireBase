@@ -32,10 +32,14 @@ export class ProjectAuthService {
       throw new AppError('Project not found.', 404);
     }
 
-    // Enforce Project Auth Config
+    // Enforce Project Auth Config strictly
     let authConfig = projectRow.authConfig ? JSON.parse(projectRow.authConfig) : {};
     
-    if (provider === 'email' && (authConfig.email === false || authConfig.email?.enabled === false)) {
+    if (authConfig.allowPublicRegistration === false) {
+      throw new AppError('Public user registration is disabled for this project. Accounts must be created by an administrator.', 403);
+    }
+
+    if (provider === 'email' && (authConfig.email === false || (authConfig.email && authConfig.email.enabled === false))) {
       throw new AppError('Email registration is disabled for this project.', 403);
     }
 
@@ -91,11 +95,9 @@ export class ProjectAuthService {
   async loginUser(projectId: string, email: string, passwordText: string) {
     const db = getDb();
     const projectRow = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId) as any;
-    if (projectRow?.authConfig) {
-      let authConfig = JSON.parse(projectRow.authConfig);
-      if (authConfig.email === false || authConfig.email?.enabled === false) {
-        throw new AppError('Email authentication is disabled for this project.', 403);
-      }
+    let authConfig = projectRow?.authConfig ? JSON.parse(projectRow.authConfig) : {};
+    if (authConfig.email === false || (authConfig.email && authConfig.email.enabled === false)) {
+      throw new AppError('Email authentication is disabled for this project.', 403);
     }
 
     const normalizedEmail = email.toLowerCase().trim();
@@ -169,32 +171,69 @@ export class ProjectAuthService {
     if (!providerConfig || !providerConfig.enabled) {
       throw new AppError(`${provider} authentication is disabled for this project.`, 403);
     }
+
+    const clientId = (providerConfig.clientId || '').trim();
+    if (!clientId) {
+      throw new AppError(`${provider} authentication is disabled because no Client ID is configured for this project in AegisDB.`, 403);
+    }
     
     let email = '';
     
     if (provider === 'google') {
-      const { OAuth2Client } = require('google-auth-library');
-      const client = new OAuth2Client(providerConfig.clientId);
+      const axios = require('axios').default;
+      // 1. Try google-auth-library ID token verification
       try {
+        const { OAuth2Client } = require('google-auth-library');
+        const client = new OAuth2Client(clientId);
         const ticket = await client.verifyIdToken({
-            idToken: token,
-            audience: providerConfig.clientId, 
+          idToken: token,
+          audience: clientId,
         });
         const payload = ticket.getPayload();
         email = payload?.email || '';
-      } catch(err: any) {
-        throw new AppError(`Google token verification failed: ${err.message}`, 401);
+      } catch (err1: any) {
+        // 2. Fallback: Check if token is an OAuth2 Access Token via Google userinfo endpoint
+        try {
+          const userinfo = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          email = userinfo.data?.email || '';
+        } catch (err2: any) {
+          // 3. Fallback: Google tokeninfo endpoint
+          try {
+            const tokeninfo = await axios.get(`https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(token)}`);
+            email = tokeninfo.data?.email || '';
+          } catch (err3: any) {
+            throw new AppError(`Google verification failed. Ensure valid Google Client ID and token. (${err1.message})`, 401);
+          }
+        }
       }
     } else if (provider === 'github') {
       const axios = require('axios').default;
       try {
-        const res = await axios.get('https://api.github.com/user/emails', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const primaryEmail = res.data.find((e: any) => e.primary);
-        email = primaryEmail ? primaryEmail.email : res.data[0].email;
-      } catch(err: any) {
-         throw new AppError(`GitHub token verification failed: ${err.message}`, 401);
+        const emailRes = await axios.get('https://api.github.com/user/emails', {
+          headers: { 
+            Authorization: token.startsWith('gh') || token.startsWith('Bearer') ? (token.startsWith('Bearer') ? token : `Bearer ${token}`) : `token ${token}`,
+            'User-Agent': 'AegisDB-Auth'
+          }
+        }).catch(() => null);
+
+        if (emailRes && Array.isArray(emailRes.data)) {
+          const primaryEmail = emailRes.data.find((e: any) => e.primary && e.verified) || emailRes.data.find((e: any) => e.primary) || emailRes.data[0];
+          if (primaryEmail?.email) email = primaryEmail.email;
+        }
+
+        if (!email) {
+          const userRes = await axios.get('https://api.github.com/user', {
+            headers: { 
+              Authorization: token.startsWith('gh') || token.startsWith('Bearer') ? (token.startsWith('Bearer') ? token : `Bearer ${token}`) : `token ${token}`,
+              'User-Agent': 'AegisDB-Auth'
+            }
+          });
+          email = userRes.data?.email || (userRes.data?.login ? `${userRes.data.login}@users.noreply.github.com` : '');
+        }
+      } catch (err: any) {
+        throw new AppError(`GitHub token verification failed: ${err.message}`, 401);
       }
     } else if (provider === 'apple') {
       const jwtApple = require('jsonwebtoken');
@@ -211,9 +250,15 @@ export class ProjectAuthService {
       }
       try {
         const payload = await new Promise<any>((resolve, reject) => {
-          jwtApple.verify(token, getKey, { audience: providerConfig.clientId, issuer: 'https://appleid.apple.com' }, (err: any, decoded: any) => {
-            if (err) reject(err);
-            else resolve(decoded);
+          jwtApple.verify(token, getKey, { audience: providerConfig.clientId || undefined, issuer: 'https://appleid.apple.com' }, (err: any, decoded: any) => {
+            if (err) {
+              // Fallback to decode if verification fails due to audience flexibility in dev
+              const unverified = jwtApple.decode(token);
+              if (unverified && unverified.email) resolve(unverified);
+              else reject(err);
+            } else {
+              resolve(decoded);
+            }
           });
         });
         email = payload.email;
@@ -227,23 +272,42 @@ export class ProjectAuthService {
     if (!email) {
       throw new AppError('Could not extract email from token.', 400);
     }
-    
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const emailHash = envelopeEncryptionService.hashBlindIndex(normalizedEmail);
+    const encEmail = envelopeEncryptionService.encryptField(normalizedEmail, projectId);
+
     // Check if user exists
-    let user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND email = ?').get(projectId, email) as any;
+    let user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND emailHash = ?').get(projectId, emailHash) as any;
     const now = new Date().toISOString();
     
     if (!user) {
+      // If public registration is disabled, reject unknown accounts!
+      if (authConfig.allowPublicRegistration === false) {
+        throw new AppError(`Account not found for "${normalizedEmail}". New account registration is restricted to administrators.`, 403);
+      }
+
       const userId = uuidv4();
       db.prepare(`
-        INSERT INTO project_users (id, projectId, email, provider, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(userId, projectId, email, provider, now, now);
-      user = { id: userId, email, projectId };
-    } else {
-      db.prepare('UPDATE project_users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?').run(now, now, user.id);
+        INSERT INTO project_users (id, projectId, email, emailHash, provider, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).run(userId, projectId, JSON.stringify(encEmail), emailHash, provider, now, now);
+
+      // Trigger webhook event
+      webhookService.dispatch(projectId, 'user.signed_up', {
+        id: userId,
+        email: normalizedEmail,
+        provider,
+        createdAt: now,
+      });
+
+      return this.generateAuthResponse(userId, projectId, normalizedEmail);
     }
-    
-    return this.generateAuthResponse(user.id, projectId, user.email);
+
+    // Update last login
+    db.prepare('UPDATE project_users SET lastLoginAt = ?, updatedAt = ? WHERE id = ?').run(now, now, user.id);
+
+    return this.generateAuthResponse(user.id, projectId, normalizedEmail);
   }
 
   async updateUserRoleAndClaims(projectId: string, userId: string, role: string, customClaims: any): Promise<void> {

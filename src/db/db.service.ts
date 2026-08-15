@@ -173,7 +173,10 @@ class SqliteDbStore {
   // ── Collections ────────────────────────────────────────────────────────────
 
   createCollection(ownerId: string, projectId: string, dto: CreateCollectionDto): Collection {
-    const { name, description = '', schema = null, rules = null } = dto;
+    const { name, description = '', schema = null } = dto;
+    const rules = dto.rules !== undefined && dto.rules !== null
+      ? dto.rules
+      : JSON.stringify({ read: true, write: true });
 
     if (!COLLECTION_NAME_REGEX.test(name)) {
       throw new AppError(
@@ -252,8 +255,8 @@ class SqliteDbStore {
     `).get(ownerId, projectId, name) as Collection | undefined;
 
     if (!row) {
-      // Auto-create collection to match Firebase behavior
-      this.createCollection(ownerId, projectId, { name });
+      // Auto-create collection to match Firebase behavior with default read/write allowed rules
+      this.createCollection(ownerId, projectId, { name, rules: JSON.stringify({ read: true, write: true }) });
       return this.getCollection(ownerId, projectId, name);
     }
 

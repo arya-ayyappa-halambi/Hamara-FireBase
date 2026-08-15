@@ -116,13 +116,13 @@ export class ProjectService {
   }
 
   /**
-   * Find project by ID and Owner ID.
+   * Find project by ID and Owner ID (or SuperAdmin override).
    */
-  getProjectById(projectId: string, ownerId: string): Project | undefined {
+  getProjectById(projectId: string, ownerId: string, isSuperAdmin: boolean = false): Project | undefined {
     const db = getDb();
-    const row = db.prepare(`
-      SELECT * FROM projects WHERE id = ? AND ownerId = ?
-    `).get(projectId, ownerId) as any;
+    const row = (isSuperAdmin
+      ? db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId)
+      : db.prepare('SELECT * FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId)) as any;
 
     if (!row) return undefined;
     return {
@@ -138,15 +138,19 @@ export class ProjectService {
   deleteProject(ownerId: string, projectId: string): void {
     const db = getDb();
 
-    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
-    if (!proj) {
-      throw new AppError(`Project "${projectId}" not found.`, 404);
-    }
+    this.validateOwnership(projectId, ownerId);
 
     db.transaction(() => {
+      // 1. Delete documents belonging to collections in this project
+      db.prepare(`
+        DELETE FROM documents 
+        WHERE collectionId IN (SELECT id FROM collections WHERE projectId = ? AND ownerId = ?)
+      `).run(projectId, ownerId);
+
+      // 2. Delete collections
       db.prepare('DELETE FROM collections WHERE projectId = ? AND ownerId = ?').run(projectId, ownerId);
-      db.prepare('DELETE FROM documents WHERE projectId = ? AND ownerId = ?').run(projectId, ownerId);
-      db.prepare('DELETE FROM assets WHERE projectId = ? AND ownerId = ?').run(projectId, ownerId);
+
+      // 3. Delete deployments and project
       db.prepare('DELETE FROM deployments WHERE projectId = ? AND ownerId = ?').run(projectId, ownerId);
       db.prepare('DELETE FROM projects WHERE id = ? AND ownerId = ?').run(projectId, ownerId);
     })();
@@ -155,9 +159,11 @@ export class ProjectService {
   /**
    * Update project auth configuration.
    */
-  updateAuthConfig(projectId: string, ownerId: string, authConfig: any): void {
+  updateAuthConfig(projectId: string, ownerId: string, authConfig: any, isSuperAdmin: boolean = false): void {
     const db = getDb();
-    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
+    const proj = isSuperAdmin
+      ? db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
+      : db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
     if (!proj) throw new AppError('Project not found.', 404);
     
     db.prepare('UPDATE projects SET authConfig = ?, updatedAt = ? WHERE id = ?').run(

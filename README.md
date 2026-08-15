@@ -5,24 +5,24 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 ![AegisDB Engine](https://img.shields.io/badge/AegisDB-Engine-6366f1?style=for-the-badge&logo=shield&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=for-the-badge&logo=typescript&logoColor=white)
 ![SQLite](https://img.shields.io/badge/SQLite-3.0-003b57?style=for-the-badge&logo=sqlite&logoColor=white)
+![OAuth 2.0](https://img.shields.io/badge/OAuth_2.0-Google_|_Apple_|_GitHub-2496ed?style=for-the-badge&logo=google&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)
-
----
-AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, extremely performant, and provides developers with a full suite of cloud services out-of-the-box, bundled with a stunning glassmorphic developer console.
 
 ---
 
 ## 1. What is AegisDB & Its Purpose?
 
-**AegisDB** was created to bridge the gap between heavy enterprise cloud providers (like AWS, GCP, Firebase) and the need for localized, hyper-fast, secure, and privacy-respecting self-hosted databases. 
+**AegisDB** was created to bridge the gap between heavy enterprise cloud providers (like AWS, GCP, Firebase) and the need for localized, hyper-fast, secure, and privacy-respecting self-hosted databases.
 
-**Purpose:** To give developers a "Firebase in a box." You can run AegisDB on a single server, a Raspberry Pi, or a massive AWS EC2 instance, and instantly get:
-- A document-oriented NoSQL interface backed by the blistering speed of SQLite.
-- Real-time data sync using WebSockets.
-- File storage and object management.
-- Complete identity, access management, and multi-factor authentication (MFA).
+**Purpose:** To give developers a "Firebase in a box." You can run AegisDB on a single server, a Raspberry Pi, or a massive cloud VM instance, and instantly get:
+- A document-oriented NoSQL interface backed by the blistering speed of SQLite WAL-mode.
+- Real-time data sync using WebSockets and Server-Sent Events (SSE).
+- Multi-provider authentication (Email/Password, Google OAuth2, Apple Sign-In, GitHub OAuth).
+- Fine-grained Project-Isolated Access Control and enterprise-level Public Registration Policies.
+- File storage and object management with magic byte validation.
+- Complete identity, access management, and Time-Based One-Time Password (TOTP) Multi-Factor Authentication (MFA).
 
-**How it works:** AegisDB uses a lightweight Node.js/Express backend coupled with a highly tuned SQLite WAL-mode database (Write-Ahead Logging). This allows ultra-fast concurrent reads and serialized writes. The frontend is a zero-build-step Vanilla JS Single Page Application (SPA) styled with Tailwind CSS, meaning it loads instantly without requiring heavy frameworks or compilation pipelines.
+**How it works:** AegisDB uses a lightweight Node.js/Express backend with TypeScript, coupled with a highly tuned SQLite WAL-mode database (Write-Ahead Logging). This allows ultra-fast concurrent reads and serialized writes. The frontend is a zero-build-step Vanilla JS Single Page Application (SPA) styled with Tailwind CSS, meaning it loads instantly without requiring heavy frameworks or compilation pipelines.
 
 ---
 
@@ -36,37 +36,72 @@ AegisDB is built with a "security-first, zero-trust" philosophy. Every layer of 
 - **Asymmetric RS256 JWKS Token Signing:** All JWT session tokens are signed using an RSA-2048 bit private key. The public keys are exposed via a standard `/.well-known/jwks.json` endpoint, allowing external microservices to cryptographically verify AegisDB tokens without contacting the database directly.
 
 ### VM Sandbox Security Rules
-- **Execution Isolation:** Collection access is governed by JavaScript security rules executed inside a secure Node.js `vm2` sandbox. 
+- **Execution Isolation:** Collection access is governed by JavaScript security rules executed inside a secure Node.js `vm2` sandbox.
 - **Validation:** Developers can write custom JS functions (e.g., `if (data.age < 18) throw new Error("Too young")`) that AegisDB executes in an isolated thread. The `vm2` module strips out dangerous Node.js globals (like `process`, `fs`, `require`), preventing arbitrary remote code execution (RCE) while still allowing deeply complex, custom business logic to validate incoming requests.
 
 ### Threat Mitigations
 - **15-Minute Brute-Force Lockout:** The system tracks consecutive failed logins by both IP address and Email pairs. Exactly 5 failed attempts trigger an automatic, unbypassable 15-minute HTTP 429 lockout.
 - **Inactivity Session Timeout:** Users can configure their console session to automatically terminate after 5m, 15m, 30m, or 60m of mouse/keyboard inactivity. This ensures open browser tabs don't compromise security.
-- **Strict Content Security Policy (CSP):** XSS attacks are mitigated via a strict CSP header that restricts scripts, styles, and fonts to trusted CDN origins (like `cdnjs.cloudflare.com` and `cdn.jsdelivr.net`) and completely blocks inline script execution `unsafe-inline`.
+- **Strict Content Security Policy (CSP):** XSS attacks are mitigated via a strict CSP header that restricts scripts, styles, and fonts to trusted CDN origins (like `cdnjs.cloudflare.com` and `cdn.jsdelivr.net`) and completely blocks inline script execution.
 - **Dynamic Rate Limiting:** Super Admins can adjust the rate-limiting windows (e.g., Auth endpoints vs. API endpoints) dynamically from the UI without restarting the server.
 
 ---
 
-## 3. UI & Frontend Capabilities (The Glassmorphic Console)
+## 3. Project-Isolated Authenticator & OAuth 2.0 Engine
+
+AegisDB features an enterprise-grade, per-project **Authenticator Hub** enabling isolated identity management, multi-provider OAuth, and configurable provisioning policies for every project independently.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│                        AUTHENTICATOR TAB                               │
+│  Configuring Project: [ Campus Asthra V2 ▾ ]    [ Save Auth Settings ] │
+├────────────────────────────────────────────────────────────────────────┤
+│  🛡️ Public User Registration                         [ Toggle: ON/OFF ]│
+│  Allow self-signup (Open SaaS) vs. Admin-Only Provisioning (Enterprise)│
+├────────────────────────────────────────────────────────────────────────┤
+│  📧 Email & Password        [✓ Enabled]                                │
+│  🌐 Google OAuth2           [✓ Enabled]   Client ID: [•••••••••••• 👁️] │
+│  🍏 Apple Sign In           [  Disabled]  Service ID: [            👁️] │
+│  🐙 GitHub OAuth            [  Disabled]  Client ID: [             👁️] │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Supported Identity Providers
+1. **Email & Password**: Argon2id salted and hashed passwords with rate-limiting and anti-enumeration protections.
+2. **Google OAuth 2.0**: Dual-mode verification supporting Google Identity Services (GIS) ID Tokens via `google-auth-library` and OAuth2 Bearer Access Tokens via `googleapis.com/oauth2/v3/userinfo`.
+3. **Apple Sign In**: Validates Apple Identity JWT tokens against Apple's live public JWKS keysets (`appleid.apple.com/auth/keys`).
+4. **GitHub OAuth**: Authenticates GitHub access tokens directly with the GitHub API (`api.github.com/user`).
+
+### Key Authenticator Capabilities
+- **Zero-Configuration Lockout**: If an OAuth Client ID is empty or cleared in the dashboard, AegisDB automatically disables that provider on both client discovery (`GET /api/v1/project-auth/config`) and server-side verification (`POST /api/v1/project-auth/oauth/:provider` returns `HTTP 403 Forbidden`).
+- **Secret Visibility Eye Toggles**: All sensitive Client ID and secret fields in the Authenticator tab feature built-in eye toggle buttons for effortless inspection and copying.
+- **Complete Project Isolation**: Toggling settings or changing credentials in one project has zero effect on other projects. Every project maintains its own isolated database configuration.
+- **Enterprise Registration Policy (Admin-Only vs. Open Mode)**:
+  - **Open Mode (`allowPublicRegistration = true`)**: Ideal for commercial SaaS products. New users can self-register or sign in via Google/Apple/GitHub, and AegisDB dynamically creates their distinct account.
+  - **Admin-Only Mode (`allowPublicRegistration = false`)**: Ideal for enterprise portals, universities, and private intranets. Only accounts pre-registered by administrators in `project_users` are permitted to log in. Un-provisioned OAuth sign-in attempts are rejected with `HTTP 403 Forbidden: Account not found. New user registration is restricted to administrators.`
+
+---
+
+## 4. UI & Frontend Capabilities (The Glassmorphic Console)
 
 The AegisDB frontend was engineered to feel like a premium, native desktop application.
 
 - **Mac-Style Auto-Expanding Sidebar:** The primary navigation uses a collapsible sidebar. When collapsed, hovering over it triggers a fluid, Mac-OS-style width expansion, allowing rapid navigation without permanently taking up horizontal screen real estate.
 - **Premium Glassmorphism:** The entire UI utilizes backdrop-filters, subtle borders, and deep gradients to create a modern, translucent "glass" aesthetic.
-- **FontAwesome Iconography:** Emojis have been entirely replaced with crisp, scalable FontAwesome SVG icons. This ensures visual consistency across operating systems and gives the application a professional, enterprise look.
+- **FontAwesome Iconography:** Clean, scalable FontAwesome SVG icons ensure visual consistency across operating systems.
 - **Responsive Toast Notifications:** Real-time feedback is provided via non-blocking, sliding toast notifications for both successes and errors.
+- **Live Scope Switcher:** Seamlessly switch between Super Admin global management and Project Developer workspaces in one click.
 
 ---
 
-## 4. Feature Breakdown: User (Developer) vs. Super Admin
-
-AegisDB utilizes a **Role Context Scope Switcher**. Users can toggle their dashboard view depending on their permissions. Standard Users only see the Project Developer context.
+## 5. Feature Breakdown: User (Developer) vs. Super Admin
 
 ### User (Project Developer) Features
 *Standard users operate strictly within isolated projects. They do not have access to global infrastructure.*
 - **Project Management:** Create multiple independent databases under a single user account.
+- **Authenticator Hub:** Manage identity providers, OAuth client IDs, and registration policies per project.
 - **API Keys & Scopes:** Generate API keys linked specifically to individual projects.
-- **Interactive API Key Tester:** A built-in Postman-like REST client right inside the console. Developers can select an API Key, choose a method (GET/POST), enter a JSON payload, and fire live requests against their database to test their endpoints.
+- **Interactive API Key Tester:** A built-in Postman-like REST client right inside the console. Developers can select an API Key, choose a method (GET/POST), enter a JSON payload, and fire live requests against their database.
 - **Advanced Data Browser:** 
   - **Pagination:** Handles massive datasets efficiently with built-in client-side pagination (displays 100 documents per page seamlessly).
   - **Filtering:** Instant search bar filters the current data view, rendering specific JSON keys immediately.
@@ -76,14 +111,14 @@ AegisDB utilizes a **Role Context Scope Switcher**. Users can toggle their dashb
 
 ### Super Admin Features
 *The global overseer of the entire AegisDB instance.*
-- **Live Infrastructure Telemetry:** A real-time dashboard powered by `Chart.js` polling `/api/v1/admin/stats`. Displays live CPU usage, V8 Memory Heap allocation, active WebSocket connections, and SQLite WAL query latency. Data refreshes automatically every 3 seconds or via a manual "Refresh Metrics" button.
+- **Live Infrastructure Telemetry:** A real-time dashboard powered by `Chart.js` polling `/api/v1/admin/stats`. Displays live CPU usage, V8 Memory Heap allocation, active WebSocket connections, and SQLite WAL query latency.
 - **Rate Limit Governance:** Adjust the global request throttles to defend against DDoS or traffic spikes.
 - **Global Security Auditing:** Access system-wide logs, encryption statuses, and MFA compliance metrics across all users.
-- **Emergency CLI Password Reset:** Admins locked out of the UI can regain access directly from the server terminal via the `npm run reset-admin` command, completely bypassing the UI for extreme emergency recovery.
+- **Emergency CLI Password Reset:** Admins locked out of the UI can regain access directly from the server terminal via the `npm run reset-admin` command.
 
 ---
 
-## 5. TOTP Multi-Factor Authentication (MFA) Manual
+## 6. TOTP Multi-Factor Authentication (MFA) Manual
 
 AegisDB strictly adheres to the RFC 6238 HMAC-SHA1 protocol for Time-Based One-Time Passwords (TOTP).
 
@@ -91,70 +126,50 @@ AegisDB strictly adheres to the RFC 6238 HMAC-SHA1 protocol for Time-Based One-T
 1. Log into your account and navigate to **Settings > Security**.
 2. Click **Setup MFA**.
 3. AegisDB will cryptographically generate a unique `Base32` secret specifically for your account.
-4. A QR Code will be rendered on the screen.
-5. Open an Authenticator app (e.g., Google Authenticator, Authy, Apple Passwords).
-6. Scan the QR code.
-7. Enter the 6-digit pin generated by your app into the AegisDB input box to verify sync.
-8. Your account is now secured. All future logins will require both your password and a live 6-digit pin.
+4. Scan the QR code using Google Authenticator, Authy, or Apple Passwords.
+5. Enter the 6-digit pin generated by your app into the verification box.
+6. Your account is now secured. All future logins will require both your password and a live 6-digit pin.
 
 ### Dual Verification Lock
-For extremely sensitive account changes, AegisDB enforces a Dual Verification Lock.
-- **Disabling MFA:** You cannot simply click "Disable." You must provide your current account password *and* a live 6-digit TOTP code.
-- **Changing Passwords:** Even if a session token is hijacked, an attacker cannot change your password without providing your current password *and* the current TOTP pin.
+For sensitive account actions, AegisDB enforces a Dual Verification Lock:
+- **Disabling MFA:** Requires current account password *and* a live 6-digit TOTP code.
+- **Changing Passwords:** Requires current password *and* live TOTP pin.
 
 ---
 
-## 6. Dual-Target Disaster Recovery & Backup System
+## 7. Dual-Target Disaster Recovery & Backup System
 
 AegisDB includes a fully automated, cryptographically secure Dual-Target Backup engine to ensure absolute data durability.
 
-- **Atomic SQLite Snapshots:** Utilizes SQLite's Online Backup API to safely capture point-in-time snapshots of the database without locking the main thread or causing read/write downtime.
-- **Local File System Backups:** Saves heavily compressed `.sqlite3.bak` files directly to the local server, providing an ultra-fast Recovery Time Objective (RTO).
-- **AWS S3 Cloud Backups:** Seamlessly streams multipart upload backups to remote Amazon S3 buckets, ensuring off-site redundancy.
-- **Environment & Credential Embedding:** Crucial `.env` secrets (like `JWT_SECRET` and `EMAIL_HASH_PEPPER`) are automatically encrypted using the master `ENCRYPTION_KEY` and embedded securely into the backup file. When a backup is restored, the environment is seamlessly synchronized, ensuring that all existing user passwords and session tokens instantly validate without any configuration mismatch.
-- **Generation ID Tracking:** Every backup snapshot is tagged with a unique **Generation ID** timestamp, ensuring complete version history and preventing accidental data overwrites.
-- **Automated Backup Cleanup & Retention:** Old backups (both Local and S3) are automatically cleaned up based on a configurable **Backup Retention (Days)** setting to prevent storage exhaustion, while always preserving at least one recent backup for safety.
-- **Manual & Scheduled Triggers:** Backups can be scheduled as background cron jobs or triggered manually via the Global Platform Settings in the Developer Console. The UI provides real-time status indicators on the progress of both Local and S3 backup processes.
-
+- **Atomic SQLite Snapshots:** Utilizes SQLite's Online Backup API to safely capture point-in-time snapshots without read/write downtime.
+- **Local File System Backups:** Saves heavily compressed `.sqlite3.bak` files directly to the local server.
+- **AWS S3 Cloud Backups:** Seamlessly streams multipart upload backups to remote Amazon S3 buckets.
+- **Environment & Credential Embedding:** Crucial `.env` secrets (like `JWT_SECRET` and `EMAIL_HASH_PEPPER`) are automatically encrypted using the master `ENCRYPTION_KEY` and embedded securely into the backup file.
+- **Generation ID Tracking:** Every backup snapshot is tagged with a unique timestamp-based Generation ID.
+- **Automated Backup Cleanup & Retention:** Old backups are automatically pruned based on the configurable retention window.
 
 ---
 
-## 7. AegisDB Operations Manual
+## 8. AegisDB Operations Manual
 
 ### Booting the Server
 To start the AegisDB engine locally:
-1. Ensure dependencies are installed: `npm install`
-2. Start the development server: `npm run dev`
-3. Open your browser to `http://localhost:3000`
+```bash
+npm install
+npm run dev
+```
+Open your browser to `http://localhost:3000`.
 
 ### Initial Setup
 1. On the login screen, click **Register Account** to create your first user. The first user is automatically granted Super Admin privileges.
 2. Follow the TOTP manual above to secure the root account.
 
 ### Admin Password Recovery
-If the Super Admin loses their password, they can force a reset directly from the server CLI (bypassing the UI). Run:
+If the Super Admin loses their password, force a reset directly from the server CLI:
 ```bash
 npm run reset-admin
 ```
-This will safely reset the Super Admin's password to `admin123`. You should immediately log in and change this.
-
-### Creating a Project & Inserting Data
-1. Switch your scope to **Project Developer** using the top navigation bar.
-2. Navigate to **API Keys & Projects** and create a new project (e.g., "E-Commerce App").
-3. Generate a new API Key for that project.
-4. Navigate to the **API Tester** tab.
-5. Select your new API key from the dropdown. 
-6. Set the Method to **POST**, the Collection to `users`, and enter a JSON body:
-   ```json
-   { "name": "Alice", "role": "admin" }
-   ```
-7. Click **Send Request**. AegisDB will automatically create the `users` collection and insert the document!
-8. Navigate to **Data Browser** to view your newly created documents with full pagination.
-
-### Viewing Real-Time Telemetry
-1. Switch your scope back to **Super Admin**.
-2. Click on the **Telemetry** (Graph icon) tab.
-3. Watch the CPU and Memory charts update in real-time as background tasks run. You can manually force a synchronization by clicking the spinning **Refresh Metrics** button.
+This safely resets the Super Admin password to `admin123`.
 
 ---
 
@@ -182,14 +197,17 @@ This will safely reset the Super Admin's password to `admin123`. You should imme
 | `POST` | `/mfa/verify` | Verify 6-digit TOTP code and enable MFA on profile |
 | `POST` | `/mfa/disable` | Disable TOTP MFA (requires password + 6-digit TOTP verification) |
 
-### Project User Authentication (`/api/v1/project-auth`)
+### Project User Authentication & OAuth (`/api/v1/project-auth`)
+*Requires `x-aegis-api-key` header.*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/register` | Register a new end-user for a specific project |
+| `GET` | `/config` | Get public sanitized auth config (enabled providers & client IDs) |
+| `POST` | `/register` | Register a new end-user for a specific project (Subject to Public Registration Policy) |
 | `POST` | `/login` | Authenticate project end-user via Email/Password |
-| `POST` | `/oauth/:provider` | Authenticate project user via OAuth (e.g., Google OAuth2) |
+| `POST` | `/oauth/:provider` | Authenticate user via OAuth (`google`, `apple`, `github`) |
 
 ### Database Services (`/api/v1/db`)
+*Requires `x-aegis-api-key` header or Bearer JWT token.*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `POST` | `/collections` | Register collection with JSON Schema & Rules |
@@ -204,7 +222,7 @@ This will safely reset the Super Admin's password to `admin123`. You should imme
 ### Storage Services (`/api/v1/storage`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/upload` | Multipart file upload |
+| `POST` | `/upload` | Multipart file upload with magic byte inspection |
 | `POST` | `/signed-url` | Generate pre-signed asset download URL |
 | `GET` | `/assets/:storedName` | Download/stream stored file asset |
 
@@ -221,83 +239,58 @@ This will safely reset the Super Admin's password to `admin123`. You should imme
 | **Database Data Leak** | Two-Tier Envelope Encryption | AES-256-GCM field encryption with HKDF Master KEK wrapping 256-bit project DEKs. |
 | **Key Compromise** | Non-Destructive Key Rotation | Re-wraps project DEKs with new keys without corrupting encrypted field data. |
 | **PII Data Leak (Emails)** | Blind Indexing & HMAC-SHA256 | Emails are normalized, encrypted with AES-GCM at rest, and queries use a server-side peppered HMAC-SHA256 hash. |
-| **Cascading Data Loss** | Safe Migration Transactions | Enforces `PRAGMA foreign_keys = OFF` during schema migrations to prevent unintended cascading deletes. |
-| **Key Misalignment** | Key Unification Audits | Ensures unified Project KEKs across all users within a single project, verifying DEK decryption integrity before migrations. |
+| **Cascading Data Loss** | Safe Migration Transactions | Enforces `PRAGMA foreign-keys = OFF` during schema migrations to prevent unintended cascading deletes. |
 | **Cross-Site Scripting (XSS)** | Helmet Security Headers | Strict Content Security Policy and HTTP headers restricting script, style, and font sources. |
 | **HTTP Parameter Pollution** | HPP Middleware | Protects against parameter pollution attacks by safely parsing duplicate query strings. |
 | **SQL Injection** | Strict Regex & Parameterization | Collection names sanitized with `/^[a-zA-Z][a-zA-Z0-9_-]{1,63}$/` and parameterized SQL. |
-| **API Key Leaks** | Dashboard Key Masking | Project API and Service keys are visually masked in the dashboard and securely copied via data attributes. |
-| **Client Data Harvesting** | Strict Project Auth Isolation | Admin-level project endpoints (like listing all users) are completely isolated and require a backend Service Role Key or Dashboard Owner JWT. |
-| **Dashboard UI Inspection** | Frontend Inspection Deterrence | The developer console blocks right-click context menus and common DevTools keyboard shortcuts (F12, Inspect, Console) to deter casual tampering. |
-
----
+| **Client Data Harvesting** | Strict Project Auth Isolation | Admin-level project endpoints are completely isolated and require a backend Service Role Key or Dashboard Owner JWT. |
+| **Zero-Config OAuth Bypasses** | Dynamic Client ID Invalidation | Clearing an OAuth Client ID strictly disables authentication at client discovery and server verification layers. |
 
 ---
 
 ## 🤖 AI Agent & Developer Context Manual
 
-This section provides context, prompts, and details for developers and **AI Agents** (like GitHub Copilot, Gemini, ChatGPT) when migrating an existing frontend (like Campus-Asthra) to use AegisDB, or when building new integrations.
+This section provides context and prompts for developers and **AI Agents** (like GitHub Copilot, Gemini, Claude, Cursor) when connecting an application to AegisDB.
 
 ### 🧠 Context for AI Agents
-When an AI agent is instructed to "Migrate this app to use AegisDB" or "Build a frontend for AegisDB", the agent should understand the following:
-
-1. **Architecture**: AegisDB is a RESTful API and WebSocket-based backend. There are no proprietary heavy SDKs required; standard `fetch()` or `axios` calls work perfectly.
-2. **Authentication**: 
-   - AegisDB uses a Project API Key for frontend requests.
-   - The key must be passed in the `x-aegis-api-key` HTTP header.
-   - **Important Security Rule**: Do NOT hardcode the API key in the frontend repository. Use `localStorage`, environment variables, or a secure prompt so the user can input their API key dynamically.
-3. **Data Operations**: 
-   - AegisDB operates on a standard JSON Document structure within Collections.
-   - Document ID is optionally user-provided or auto-generated by AegisDB if omitted.
-4. **File Storage**:
-   - AegisDB has a built-in object storage (`/api/v1/storage/upload`).
-   - Use `FormData` to upload files with the `file` field. It supports Magic Byte validation to ensure only safe files (like images) are uploaded.
-
-### 🛠️ AI Prompt Templates
-Use these prompts to instruct your AI to build or migrate apps using AegisDB:
-
-#### Option A: Migrate Existing App
-> *"I want to migrate my frontend application to use AegisDB as its backend. AegisDB is a RESTful BaaS running on `http://localhost:3000`. Please update my API calls to point to AegisDB. Ensure that the Project API Key is passed via the `x-aegis-api-key` header in all fetch requests. Do not hardcode the API key; instead, retrieve it from `localStorage.getItem('aegisApiKey')` or prompt the user for it. Update my database inserts to POST to `/api/v1/db/collections/<collection_name>/documents`, and file uploads to POST to `/api/v1/storage/upload` using FormData."*
-
-#### Option B: Build New App from Scratch
-> *"I want to build a new frontend web application that uses AegisDB as its backend. AegisDB is a RESTful BaaS running locally on `http://localhost:3000`. Build the UI and connect it to AegisDB using standard fetch(). Ensure that the Project API Key is passed via the `x-aegis-api-key` header in all requests. Do not hardcode the API key; prompt the user for it or use localStorage. Database inserts should POST to `/api/v1/db/collections/<collection_name>/documents`, and file uploads should POST to `/api/v1/storage/upload` using FormData."*
+When connecting a frontend or mobile application to AegisDB:
+1. **Architecture**: AegisDB is a RESTful API and WebSocket backend. Standard `fetch()` or `axios` calls work directly.
+2. **API Key & Headers**: Pass the Project API Key in the `x-aegis-api-key` HTTP header.
+3. **Live Auth Discovery**: Fetch `GET /api/v1/project-auth/config` with `x-aegis-api-key` to dynamically inspect which identity providers are enabled for the connected project.
+4. **Data Operations**: Insert documents via `POST /api/v1/db/collections/<name>/documents`, query via `GET /api/v1/db/collections/<name>/documents`.
+5. **File Uploads**: Use `FormData` with field `file` sent to `POST /api/v1/storage/upload`.
 
 ### 📡 Standard API Fetch Wrapper Example
-When integrating AegisDB, use this standard wrapper for your requests:
-
 ```javascript
 async function aegisFetch(endpoint, method = 'GET', body = null) {
-  const apiKey = localStorage.getItem('aegisApiKey'); // Never hardcode!
-  if (!apiKey) throw new Error('API Key missing. Please configure it in settings.');
-
+  const apiKey = localStorage.getItem('aegisApiKey') || 'YOUR_PROJECT_API_KEY';
   const headers = { 'x-aegis-api-key': apiKey };
   const options = { method, headers };
 
   if (body) {
     if (body instanceof FormData) {
-      options.body = body; // Let browser set multipart/form-data boundary
+      options.body = body;
     } else {
       headers['Content-Type'] = 'application/json';
       options.body = JSON.stringify(body);
     }
   }
 
-  const response = await fetch(`http://localhost:3000${endpoint}`, options);
+  const response = await fetch(`http://localhost:3000/api/v1${endpoint}`, options);
   const data = await response.json();
-  
-  if (!response.ok) throw new Error(data.message || 'API Request Failed');
+  if (!response.ok) throw new Error(data.message || 'AegisDB Request Failed');
   return data;
 }
 ```
 
 ---
 
-## 📄 License
+## 📄 License & Production Deployment
+
 This project is licensed under the MIT License.
 
 ### Production Deployment & HTTPS
-
-AegisDB does not terminate TLS (HTTPS) on its own. In a production environment, you **must** deploy AegisDB behind a TLS-terminating reverse proxy (like Nginx, Caddy, or Traefik) to encrypt traffic and protect API keys and JWT tokens in transit.
+In production, deploy AegisDB behind a TLS-terminating reverse proxy (like Nginx, Caddy, or Traefik):
 
 **Example Caddyfile:**
 ```

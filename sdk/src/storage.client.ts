@@ -9,22 +9,35 @@ import { AssetMetadata, ApiResponse } from './types.js';
 export class StorageClient {
   private readonly baseUrl: string;
   private readonly auth: AuthClient;
+  private readonly apiKey?: string;
+  private readonly projectId?: string;
 
-  constructor(baseUrl: string, auth: AuthClient) {
+  constructor(baseUrl: string, auth: AuthClient, apiKey?: string, projectId?: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.auth = auth;
+    this.apiKey = apiKey;
+    this.projectId = projectId;
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const token = this.auth.getAccessToken();
-    if (!token) {
-      throw new Error('Authentication required for storage operations.');
-    }
-
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${token}`,
       ...(options.headers as Record<string, string>),
     };
+
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (this.apiKey) {
+      headers['x-aegis-api-key'] = this.apiKey;
+    }
+    if (this.projectId) {
+      headers['x-aegis-project-id'] = this.projectId;
+    }
+
+    if (!token && !this.apiKey) {
+      throw new Error('Authentication required for storage operations. Provide an apiKey or login first.');
+    }
 
     let res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
 
@@ -33,8 +46,10 @@ export class StorageClient {
       try {
         await this.auth.refresh();
         const newToken = this.auth.getAccessToken();
-        headers['Authorization'] = `Bearer ${newToken}`;
-        res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
+        if (newToken) {
+          headers['Authorization'] = `Bearer ${newToken}`;
+          res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
+        }
       } catch {
         // Refresh failed
       }

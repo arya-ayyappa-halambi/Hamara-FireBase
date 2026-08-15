@@ -124,19 +124,26 @@ export async function rotateApiKey(req: Request, res: Response, next: NextFuncti
 export async function getAuthConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
+    const isSuperAdmin = !!req.user?.isSuperAdmin;
     const { id } = req.params;
-    const project = projectService.getProjectById(id, ownerId);
+    const project = projectService.getProjectById(id, ownerId, isSuperAdmin);
     if (!project) throw new AppError('Project not found.', 404);
-    res.status(200).json({ success: true, data: project.authConfig });
+    
+    let parsedConfig = project.authConfig;
+    if (typeof parsedConfig === 'string') {
+      try { parsedConfig = JSON.parse(parsedConfig); } catch (_) {}
+    }
+    res.status(200).json({ success: true, data: parsedConfig || { email: { enabled: true } } });
   } catch (err) { next(err); }
 }
 
 export async function updateAuthConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
+    const isSuperAdmin = !!req.user?.isSuperAdmin;
     const { id } = req.params;
     const { authConfig } = req.body;
-    projectService.updateAuthConfig(id, ownerId, authConfig);
+    projectService.updateAuthConfig(id, ownerId, authConfig, isSuperAdmin);
 
     auditLogService.logAction({
       actorId: req.user?.sub,
@@ -145,10 +152,14 @@ export async function updateAuthConfig(req: Request, res: Response, next: NextFu
       projectId: id,
       ipAddress: req.ip,
       status: 'success',
-      details: `Project auth config updated.`
+      details: 'Project authentication configuration updated.'
     });
 
-    res.status(200).json({ success: true, message: 'Auth config updated successfully.' });
+    res.status(200).json({
+      success: true,
+      message: 'Project auth configuration updated successfully.',
+      data: authConfig,
+    } as ApiResponse<any>);
   } catch (err) { next(err); }
 }
 

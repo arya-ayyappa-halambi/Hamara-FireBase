@@ -38,12 +38,17 @@ router.get(   '/collections/:name', getCollection);
 router.patch( '/collections/:name', updateCollection);
 router.delete('/collections/:name', deleteCollection);
 
-// ── Document Routes ───────────────────────────────────────────────────────────
+// ── Document Routes (Supporting both /documents and /docs aliases) ──────────────
 router.post(  '/collections/:name/documents',      insertDocument);
+router.post(  '/collections/:name/docs',           insertDocument);
 router.get(   '/collections/:name/documents',      queryDocuments);
+router.get(   '/collections/:name/docs',           queryDocuments);
 router.get(   '/collections/:name/documents/:id',  getDocument);
+router.get(   '/collections/:name/docs/:id',       getDocument);
 router.patch( '/collections/:name/documents/:id',  updateDocument);
+router.patch( '/collections/:name/docs/:id',       updateDocument);
 router.delete('/collections/:name/documents/:id',  deleteDocument);
+router.delete('/collections/:name/docs/:id',       deleteDocument);
 router.post(  '/collections/:name/query-vector',   queryVector);
 router.get(   '/collections/:name/realtime',        queryRealtime);
 

@@ -8,6 +8,10 @@ export interface AegisConfig {
   baseUrl?: string;
   /** AegisDB server WebSocket URL (e.g. 'ws://localhost:3000'). Default derived from baseUrl. */
   wsUrl?: string;
+  /** Project API Key (e.g. 'aegis_pk_...' or service key 'aegis_sk_...'). */
+  apiKey?: string;
+  /** Specific Project ID context (optional). */
+  projectId?: string;
   /** Pre-existing access token (optional). */
   accessToken?: string;
   /** Pre-existing refresh token (optional). */

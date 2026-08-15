@@ -9,33 +9,48 @@ import { Collection, DocumentRecord, QueryOptions, QueryResult, ApiResponse } fr
 export class DbClient {
   private readonly baseUrl: string;
   private readonly auth: AuthClient;
+  private readonly apiKey?: string;
+  private readonly projectId?: string;
 
-  constructor(baseUrl: string, auth: AuthClient) {
+  constructor(baseUrl: string, auth: AuthClient, apiKey?: string, projectId?: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, '');
     this.auth = auth;
+    this.apiKey = apiKey;
+    this.projectId = projectId;
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     const token = this.auth.getAccessToken();
-    if (!token) {
-      throw new Error('Authentication required. Call Aegis.auth.login() or Aegis.auth.register() first.');
-    }
-
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
       ...(options.headers as Record<string, string>),
     };
 
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    if (this.apiKey) {
+      headers['x-aegis-api-key'] = this.apiKey;
+    }
+    if (this.projectId) {
+      headers['x-aegis-project-id'] = this.projectId;
+    }
+
+    if (!token && !this.apiKey) {
+      throw new Error('Authentication required. Provide an apiKey in config or call Aegis.auth.login() first.');
+    }
+
     let res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
 
-    // Handle automatic token refresh on 401
+    // Handle automatic token refresh on 401 if refresh token is available
     if (res.status === 401 && this.auth.getRefreshToken()) {
       try {
         await this.auth.refresh();
         const newToken = this.auth.getAccessToken();
-        headers['Authorization'] = `Bearer ${newToken}`;
-        res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
+        if (newToken) {
+          headers['Authorization'] = `Bearer ${newToken}`;
+          res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });
+        }
       } catch {
         // Refresh failed, proceed to error parsing
       }
@@ -78,11 +93,18 @@ export class DbClient {
 
   // ── Documents ───────────────────────────────────────────────────────────────
 
-  async insertDocument(collectionName: string, data: Record<string, unknown>): Promise<DocumentRecord> {
+  async insertDocument(collectionName: string, data: Record<string, unknown>, docId?: string): Promise<DocumentRecord> {
+    const payload: Record<string, unknown> = { data };
+    if (docId) payload.id = docId;
     return this.request<DocumentRecord>(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents`, {
       method: 'POST',
-      body: JSON.stringify({ data }),
+      body: JSON.stringify(payload),
     });
+  }
+
+  /** Alias for insertDocument */
+  async createDocument(collectionName: string, data: Record<string, unknown>, docId?: string): Promise<DocumentRecord> {
+    return this.insertDocument(collectionName, data, docId);
   }
 
   async queryDocuments(collectionName: string, options: QueryOptions = {}): Promise<QueryResult> {
@@ -116,5 +138,19 @@ export class DbClient {
     await this.request<void>(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents/${encodeURIComponent(docId)}`, {
       method: 'DELETE',
     });
+  }
+
+  /**
+   * Fluent Collection reference helper (Firebase / BaaS style)
+   */
+  collection(name: string) {
+    return {
+      insert: (data: Record<string, unknown>, docId?: string) => this.insertDocument(name, data, docId),
+      create: (data: Record<string, unknown>, docId?: string) => this.createDocument(name, data, docId),
+      get: (docId: string) => this.getDocument(name, docId),
+      update: (docId: string, patch: Record<string, unknown>) => this.updateDocument(name, docId, patch),
+      delete: (docId: string) => this.deleteDocument(name, docId),
+      query: (options: QueryOptions = {}) => this.queryDocuments(name, options),
+    };
   }
 }

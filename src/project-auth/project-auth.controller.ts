@@ -192,3 +192,29 @@ export async function updateUserRole(req: Request, res: Response, next: NextFunc
   } catch (err) { next(err); }
 }
 
+export async function getPublicProjectAuthConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const db = require('../db/sqlite.connection').getDb();
+    const proj = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId);
+    let authConfig = proj?.authConfig ? JSON.parse(proj.authConfig) : { email: { enabled: true }, google: { enabled: false } };
+    
+    // Sanitize to only expose public client IDs and registration policy
+    const publicConfig: Record<string, any> = {
+      allowPublicRegistration: authConfig.allowPublicRegistration !== false
+    };
+    if (authConfig.email) publicConfig.email = { enabled: authConfig.email.enabled !== false };
+    
+    const googleId = (authConfig.google?.clientId || '').trim();
+    publicConfig.google = { enabled: !!authConfig.google?.enabled && googleId.length > 0, clientId: googleId };
+
+    const appleId = (authConfig.apple?.clientId || '').trim();
+    publicConfig.apple = { enabled: !!authConfig.apple?.enabled && appleId.length > 0, clientId: appleId };
+
+    const githubId = (authConfig.github?.clientId || '').trim();
+    publicConfig.github = { enabled: !!authConfig.github?.enabled && githubId.length > 0, clientId: githubId };
+
+    res.status(200).json({ success: true, data: publicConfig });
+  } catch (err) { next(err); }
+}
+

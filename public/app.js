@@ -811,12 +811,20 @@ function updateProjectSelectorDropdown(projects) {
   const dropdown = document.getElementById('select-active-project');
   if (!dropdown) return;
 
-  dropdown.innerHTML = projects
+  if (projects && projects.length > 0) {
+    if (!state.activeProject || !projects.some(p => p.id === state.activeProject.id)) {
+      state.activeProject = projects[0];
+    }
+  } else {
+    state.activeProject = null;
+  }
+
+  dropdown.innerHTML = (projects || [])
     .map((p) => `<option value="${p.id}" ${state.activeProject?.id === p.id ? 'selected' : ''}>${escapeHTML(p.name)}</option>`)
     .join('');
 
-  if (projects.length > 0 && !state.activeProject) {
-    state.activeProject = projects[0];
+  if (state.activeProject) {
+    dropdown.value = state.activeProject.id;
   }
 }
 
@@ -1534,62 +1542,126 @@ async function deleteDocument(docId) {
 
 // ── Auth Config Management ──────────────────────────────────────────────────
 
+function toggleSecretVisibility(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  const isPass = input.type === 'password';
+  input.type = isPass ? 'text' : 'password';
+  const icon = btn.querySelector('i');
+  if (icon) {
+    if (isPass) {
+      icon.classList.remove('fa-eye');
+      icon.classList.add('fa-eye-slash');
+      btn.classList.add('text-indigo-400');
+    } else {
+      icon.classList.remove('fa-eye-slash');
+      icon.classList.add('fa-eye');
+      btn.classList.remove('text-indigo-400');
+    }
+  }
+}
+
 async function loadAuthConfig() {
   if (!state.activeProject) return;
+
+  const targetProjectId = state.activeProject.id;
+  const targetProjectName = state.activeProject.name || 'Active Project';
+
+  const nameEl = document.getElementById('auth-config-active-proj-name');
+  const idEl = document.getElementById('auth-config-active-proj-id');
+  if (nameEl) nameEl.textContent = targetProjectName;
+  if (idEl) idEl.textContent = targetProjectId;
+
+  // 1. Immediately reset form fields to clean defaults to prevent cross-project bleed
+  const formPublicReg = document.getElementById('auth-allow-public-registration');
+  const formEmail = document.getElementById('auth-enable-email');
+  const formGoogle = document.getElementById('auth-enable-google');
+  const formGoogleId = document.getElementById('auth-clientid-google');
+  const formApple = document.getElementById('auth-enable-apple');
+  const formAppleId = document.getElementById('auth-clientid-apple');
+  const formGithub = document.getElementById('auth-enable-github');
+  const formGithubId = document.getElementById('auth-clientid-github');
+
+  if (formPublicReg) formPublicReg.checked = true;
+  if (formEmail) formEmail.checked = true;
+  if (formGoogle) formGoogle.checked = false;
+  if (formGoogleId) formGoogleId.value = '';
+  if (formApple) formApple.checked = false;
+  if (formAppleId) formAppleId.value = '';
+  if (formGithub) formGithub.checked = false;
+  if (formGithubId) formGithubId.value = '';
   
   try {
-    const res = await apiRequest(`/api/v1/projects/${state.activeProject.id}/auth-config`);
-    const config = res || {};
+    const res = await apiRequest(`/api/v1/projects/${targetProjectId}/auth-config`);
     
-    // Populate form fields
-    const formEmail = document.getElementById('auth-enable-email');
-    if (formEmail) formEmail.checked = config.email?.enabled || false;
+    // Check if user switched to another project while request was in-flight
+    if (state.activeProject?.id !== targetProjectId) return;
+
+    let config = {};
+    if (typeof res === 'string') {
+      try { config = JSON.parse(res); } catch (_) {}
+    } else if (res && typeof res === 'object') {
+      config = res;
+    }
     
-    const formGoogle = document.getElementById('auth-enable-google');
-    const formGoogleId = document.getElementById('auth-clientid-google');
-    if (formGoogle) formGoogle.checked = config.google?.enabled || false;
+    // 2. Populate accurately for this specific project
+    if (formPublicReg) formPublicReg.checked = config.allowPublicRegistration !== false;
+    if (formEmail) formEmail.checked = config.email ? (config.email.enabled !== false) : true;
+    if (formGoogle) formGoogle.checked = !!config.google?.enabled;
     if (formGoogleId) formGoogleId.value = config.google?.clientId || '';
-    
-    const formApple = document.getElementById('auth-enable-apple');
-    const formAppleId = document.getElementById('auth-clientid-apple');
-    if (formApple) formApple.checked = config.apple?.enabled || false;
+    if (formApple) formApple.checked = !!config.apple?.enabled;
     if (formAppleId) formAppleId.value = config.apple?.clientId || '';
-    
-    const formGithub = document.getElementById('auth-enable-github');
-    const formGithubId = document.getElementById('auth-clientid-github');
-    if (formGithub) formGithub.checked = config.github?.enabled || false;
+    if (formGithub) formGithub.checked = !!config.github?.enabled;
     if (formGithubId) formGithubId.value = config.github?.clientId || '';
     
   } catch (err) {
-    console.error('Failed to load auth config:', err);
-    showToast('Failed to load Auth Config', 'error');
+    console.error(`Failed to load auth config for ${targetProjectName}:`, err);
+    showToast(`Failed to load Auth Config for ${targetProjectName}`, 'error');
   }
 }
 
 async function saveAuthConfig() {
-  if (!state.activeProject) return showToast('No active project', 'error');
+  if (!state.activeProject) return showToast('No active project selected. Select a project first.', 'error');
   
+  const targetProjectId = state.activeProject.id;
+  const targetProjectName = state.activeProject.name || 'Active Project';
+
+  const googleClientId = (document.getElementById('auth-clientid-google')?.value || '').trim();
+  const appleClientId = (document.getElementById('auth-clientid-apple')?.value || '').trim();
+  const githubClientId = (document.getElementById('auth-clientid-github')?.value || '').trim();
+
   const config = {
+    allowPublicRegistration: document.getElementById('auth-allow-public-registration')?.checked !== false,
     email: {
-      enabled: document.getElementById('auth-enable-email')?.checked || false
+      enabled: document.getElementById('auth-enable-email')?.checked !== false
     },
     google: {
       enabled: document.getElementById('auth-enable-google')?.checked || false,
-      clientId: document.getElementById('auth-clientid-google')?.value || ''
+      clientId: googleClientId
     },
     apple: {
       enabled: document.getElementById('auth-enable-apple')?.checked || false,
-      clientId: document.getElementById('auth-clientid-apple')?.value || ''
+      clientId: appleClientId
     },
     github: {
       enabled: document.getElementById('auth-enable-github')?.checked || false,
-      clientId: document.getElementById('auth-clientid-github')?.value || ''
+      clientId: githubClientId
     }
   };
   
   try {
-    await apiRequest(`/api/v1/projects/${state.activeProject.id}/auth-config`, 'PATCH', { authConfig: config });
-    showToast('Auth config saved successfully.', 'success');
+    await apiRequest(`/api/v1/projects/${targetProjectId}/auth-config`, 'PATCH', { authConfig: config });
+    
+    // Update local state copy of the project
+    if (state.activeProject && state.activeProject.id === targetProjectId) {
+      state.activeProject.authConfig = config;
+    }
+    const pInList = state.projects?.find(p => p.id === targetProjectId);
+    if (pInList) {
+      pInList.authConfig = config;
+    }
+
+    showToast(`Auth config saved for project "${targetProjectName}".`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -2610,8 +2682,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (found) {
         state.activeProject = found;
         loadCollections();
-        if (state.activeTab === 'tab-developer-metrics') {
-          loadDeveloperMetrics();
+        
+        // Re-render whatever workspace tab is currently active (e.g. Auth Config, Metrics, Vault)
+        const currentTab = state.activeTab || document.querySelector('.nav-item.active-nav')?.getAttribute('data-tab');
+        if (currentTab) {
+          switchWorkspace(currentTab);
         }
       }
     };
