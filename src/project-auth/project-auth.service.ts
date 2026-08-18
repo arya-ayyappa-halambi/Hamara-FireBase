@@ -128,13 +128,24 @@ export class ProjectAuthService {
 
   private generateAuthResponse(userId: string, projectId: string, email: string) {
     const db = getDb();
-    const userRow = db.prepare('SELECT role, customClaims FROM project_users WHERE id = ?').get(userId) as any;
+    const userRow = db.prepare('SELECT role, customClaims, status, scheduledDeletionAt FROM project_users WHERE id = ?').get(userId) as any;
     const role = userRow?.role || 'viewer';
     let customClaims = {};
     if (userRow?.customClaims) {
       try {
         customClaims = JSON.parse(userRow.customClaims);
       } catch (_) {}
+    }
+
+    let isPendingDeletion = false;
+    let scheduledDeletionAt: string | undefined;
+    let daysRemaining: number | undefined;
+
+    if (userRow?.status === 'pending_deletion' && userRow?.scheduledDeletionAt) {
+      isPendingDeletion = true;
+      scheduledDeletionAt = userRow.scheduledDeletionAt;
+      const diffMs = new Date(userRow.scheduledDeletionAt).getTime() - Date.now();
+      daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
     }
 
     const payload = {
@@ -155,8 +166,14 @@ export class ProjectAuthService {
         email,
         projectId,
         role,
-        customClaims
-      }
+        customClaims,
+        isPendingDeletion,
+        scheduledDeletionAt,
+        daysRemaining
+      },
+      isPendingDeletion,
+      scheduledDeletionAt,
+      daysRemaining
     };
   }
   async handleOAuth(projectId: string, provider: string, token: string) {
@@ -378,9 +395,9 @@ export class ProjectAuthService {
   }
 
   /**
-   * GDPR Article 17 / CCPA § 1798.105: Irreversible Deletion of Project End-User.
+   * GDPR Article 17 / CCPA § 1798.105: 7-Day Project End-User Deletion Request.
    */
-  async deleteProjectUser(projectId: string, userId: string, password?: string, isSelfService = false): Promise<{ success: boolean; message: string }> {
+  async deleteProjectUser(projectId: string, userId: string, password?: string, isSelfService = false): Promise<{ success: boolean; message: string; scheduledDeletionAt: string; daysRemaining: number }> {
     const db = getDb();
     const user = db.prepare('SELECT * FROM project_users WHERE projectId = ? AND id = ?').get(projectId, userId) as any;
     if (!user) throw new AppError('User not found in this project.', 404);
@@ -394,9 +411,119 @@ export class ProjectAuthService {
       if (!isPasswordValid) throw new AppError('Invalid account password.', 401);
     }
 
-    // 2. Atomic Cascading Deletion
-    const deleteTx = db.transaction(() => {
-      // Delete user documents
+    let decryptedEmail = 'project_user@aegis.dev';
+    try {
+      decryptedEmail = envelopeEncryptionService.decryptField(JSON.parse(user.email), projectId);
+    } catch (_) {}
+
+    const now = new Date();
+    const scheduledDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const scheduledDeletionAt = scheduledDate.toISOString();
+    const initiatedAt = now.toISOString();
+
+    const scheduleTx = db.transaction(() => {
+      // 2. Set status to pending_deletion
+      db.prepare(`
+        UPDATE project_users 
+        SET status = 'pending_deletion', deletionInitiatedAt = ?, scheduledDeletionAt = ?, updatedAt = ?
+        WHERE projectId = ? AND id = ?
+      `).run(initiatedAt, scheduledDeletionAt, initiatedAt, projectId, userId);
+
+      // 3. Invalidate existing active deletion requests and record new deletion request
+      db.prepare(`UPDATE account_deletion_requests SET status = 'cancelled', cancelledAt = ? WHERE userId = ? AND status = 'pending'`).run(initiatedAt, userId);
+      db.prepare(`
+        INSERT INTO account_deletion_requests (id, accountType, userId, projectId, userEmail, initiatedAt, gracePeriodDays, scheduledDeletionAt, status)
+        VALUES (?, 'project_user', ?, ?, ?, ?, 7, ?, 'pending')
+      `).run(uuidv4(), userId, projectId, decryptedEmail, initiatedAt, scheduledDeletionAt);
+
+      // 4. Log audit trail
+      db.prepare(`
+        INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actionType, projectId, ipAddress, status, details)
+        VALUES (?, ?, ?, ?, 'PROJECT_USER_DELETION_SCHEDULED', ?, '127.0.0.1', 'SUCCESS', ?)
+      `).run(
+        uuidv4(),
+        initiatedAt,
+        userId,
+        decryptedEmail,
+        projectId,
+        JSON.stringify({
+          gracePeriodDays: 7,
+          scheduledDeletionAt,
+          isSelfService
+        })
+      );
+    });
+
+    scheduleTx();
+
+    return {
+      success: true,
+      message: 'Account scheduled for permanent erasure. You have 7 days to cancel this request.',
+      scheduledDeletionAt,
+      daysRemaining: 7
+    };
+  }
+
+  /**
+   * Cancel pending project end-user account deletion request.
+   */
+  async cancelProjectUserDeletion(projectId: string, userId: string, cancelledBy: 'user' | 'admin' = 'user'): Promise<{ success: boolean; message: string }> {
+    const db = getDb();
+    const user = db.prepare('SELECT id, email, status FROM project_users WHERE projectId = ? AND id = ?').get(projectId, userId) as any;
+    if (!user) throw new AppError('User not found in this project.', 404);
+    if (user.status !== 'pending_deletion') {
+      throw new AppError('This account does not have an active deletion request.', 400);
+    }
+
+    let decryptedEmail = 'project_user@aegis.dev';
+    try {
+      decryptedEmail = envelopeEncryptionService.decryptField(JSON.parse(user.email), projectId);
+    } catch (_) {}
+
+    const now = new Date().toISOString();
+    const cancelTx = db.transaction(() => {
+      db.prepare(`
+        UPDATE project_users 
+        SET status = 'active', deletionInitiatedAt = NULL, scheduledDeletionAt = NULL, updatedAt = ?
+        WHERE projectId = ? AND id = ?
+      `).run(now, projectId, userId);
+
+      db.prepare(`
+        UPDATE account_deletion_requests 
+        SET status = 'cancelled', cancelledAt = ?, cancelledBy = ? 
+        WHERE userId = ? AND status = 'pending'
+      `).run(now, cancelledBy, userId);
+
+      db.prepare(`
+        INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actionType, projectId, ipAddress, status, details)
+        VALUES (?, ?, ?, ?, 'PROJECT_USER_DELETION_CANCELLED', ?, '127.0.0.1', 'SUCCESS', ?)
+      `).run(
+        uuidv4(),
+        now,
+        userId,
+        decryptedEmail,
+        projectId,
+        JSON.stringify({ cancelledBy, restoredAt: now })
+      );
+    });
+
+    cancelTx();
+
+    return {
+      success: true,
+      message: 'Account deletion request has been cancelled. Your account is fully restored and active.'
+    };
+  }
+
+  /**
+   * Permanently purge project user data and documents after 7-day grace period.
+   */
+  async purgeProjectUserPermanent(projectId: string, userId: string): Promise<{ success: boolean; message: string }> {
+    const db = getDb();
+    const user = db.prepare('SELECT id FROM project_users WHERE projectId = ? AND id = ?').get(projectId, userId);
+    if (!user) throw new AppError('User not found in this project.', 404);
+
+    const purgeTx = db.transaction(() => {
       try {
         const docs = db.prepare('SELECT id FROM documents WHERE projectId = ?').all(projectId) as any[];
         for (const d of docs) {
@@ -406,39 +533,30 @@ export class ProjectAuthService {
         }
       } catch (_) {}
 
-      // Delete refresh tokens for this user
       db.prepare('DELETE FROM refresh_tokens WHERE userId = ?').run(userId);
-
-      // Delete from project_users
+      db.prepare(`UPDATE account_deletion_requests SET status = 'completed', deletedAt = ? WHERE userId = ? AND status = 'pending'`).run(new Date().toISOString(), userId);
       db.prepare('DELETE FROM project_users WHERE projectId = ? AND id = ?').run(projectId, userId);
 
-      // Record Anonymized Audit Tombstone
       const anonymizedActorHash = crypto.createHash('sha256').update(userId + projectId).digest('hex');
       db.prepare(`
         INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actorEmailHash, actionType, projectId, ipAddress, status, details)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, 'PROJECT_USER_ERASED', ?, '127.0.0.1', 'SUCCESS', ?)
       `).run(
         uuidv4(),
         new Date().toISOString(),
         `DELETED_PROJECT_USER_${anonymizedActorHash.substring(0, 12)}`,
         'REDACTED_ERASED',
         anonymizedActorHash,
-        'PROJECT_USER_ERASED',
         projectId,
-        '127.0.0.1',
-        'SUCCESS',
         JSON.stringify({
           erasedAt: new Date().toISOString(),
-          userId,
-          isSelfService,
-          compliance: 'GDPR Article 17 Right to Erasure / CCPA § 1798.105'
+          compliance: 'GDPR Article 17 Right to Erasure (7-Day Period Expired)'
         })
       );
     });
 
-    deleteTx();
+    purgeTx();
 
-    // Trigger webhook event
     try {
       webhookService.dispatch(projectId, 'user.deleted', {
         id: userId,
@@ -446,7 +564,7 @@ export class ProjectAuthService {
       });
     } catch (_) {}
 
-    return { success: true, message: 'User account and associated records have been permanently erased.' };
+    return { success: true, message: 'Project user account has been permanently erased.' };
   }
 }
 

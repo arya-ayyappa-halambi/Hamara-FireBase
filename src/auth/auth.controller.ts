@@ -66,10 +66,12 @@ export async function register(
     if (req.body._hp_bot_catch) {
       throw new AppError('Suspicious activity detected.', 403);
     }
-    const dto: RegisterDto = {
+    const dto: RegisterDto & { clientIp?: string; userAgent?: string } = {
       email:    req.body.email,
       password: req.body.password,
       name:     req.body.name,
+      clientIp: req.ip,
+      userAgent: req.headers['user-agent'] as string,
     };
 
     const data = await registerUser(dto);
@@ -97,10 +99,12 @@ export async function login(
   const email = req.body?.email || '';
 
   try {
-    const dto: LoginDto & { totpCode?: string } = {
+    const dto: LoginDto & { totpCode?: string; clientIp?: string; userAgent?: string } = {
       email:    req.body.email,
       password: req.body.password,
       totpCode: req.body.totpCode,
+      clientIp: ip,
+      userAgent: req.headers['user-agent'] as string,
     };
 
     const data = await loginUser(dto);
@@ -352,8 +356,83 @@ export async function deleteAccountController(req: Request, res: Response, next:
     res.status(200).json({
       success: true,
       message: result.message,
+      data: {
+        scheduledDeletionAt: result.scheduledDeletionAt,
+        daysRemaining: result.daysRemaining
+      }
+    });
+  } catch (err) { next(err); }
+}
+
+export async function cancelDeletionController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { cancelDeveloperAccountDeletion } = require('./auth.service');
+    const result = await cancelDeveloperAccountDeletion(userId, 'user');
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
       data: null
     });
   } catch (err) { next(err); }
 }
+
+export async function acceptPolicyController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+    const { version } = req.body;
+    if (!version) throw new AppError('Policy version is required.', 400);
+
+    const { acceptPlatformPolicy } = require('./auth.service');
+    const result = await acceptPlatformPolicy(userId, version);
+
+    res.status(200).json({
+      success: true,
+      message: `Accepted platform policy version ${version} successfully.`,
+      data: result
+    });
+  } catch (err) { next(err); }
+}
+
+export async function getActiveNoticeController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { getActiveUserNotice } = require('./auth.service');
+    const notice = await getActiveUserNotice(userId);
+
+    res.status(200).json({
+      success: true,
+      message: notice ? 'Active compliance notice retrieved.' : 'No active notice.',
+      data: notice
+    });
+  } catch (err) { next(err); }
+}
+
+export async function submitAppealController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const { noticeId, explanation } = req.body;
+    if (!noticeId || !explanation) {
+      throw new AppError('Notice ID and explanation text are required.', 400);
+    }
+
+    const { submitNoticeAppeal } = require('./auth.service');
+    const result = await submitNoticeAppeal(userId, noticeId, explanation);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result
+    });
+  } catch (err) { next(err); }
+}
+
 

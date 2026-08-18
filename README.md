@@ -447,17 +447,46 @@ AegisDB is architected to comply with global privacy regulations including **GDP
 
 ### 📦 GDPR Article 20 / CCPA Data Portability
 Users can download a structured, portable JSON bundle containing their complete account metadata and associated documents:
-- **Developer Account**: `GET /api/v1/auth/export-data` (requires Bearer token)
-- **Project End-User**: `GET /api/v1/project-auth/export-data` (requires `x-aegis-api-key` and Bearer token)
+### 🗑️ 7-Day Cooling-Off Grace Period & Right to Erasure ("Right to be Forgotten")
 
-### 🗑️ Right to Erasure ("Right to be Forgotten")
-- **Self-Service Developer Erasure**: `DELETE /api/v1/auth/account`
-  - Body: `{ "password": "...", "totpCode": "123456" }`
-  - Permanently purges the developer, all owned projects, database encryption keys, collections, documents, and disk assets.
-- **Self-Service Project End-User Erasure**: `DELETE /api/v1/project-auth/account`
-  - Body: `{ "password": "..." }`
-  - Erases end-user credentials, active sessions, and personal documents.
-- **Admin-Provisioned Erasure**: `DELETE /api/v1/project-auth/users/:id`
+In compliance with GDPR Art. 17 and user protection best practices against accidental data loss or ransomware attacks, account deletion uses a **7-Day Cooling-Off Grace Period**:
+
+```
+[ User Initiates Deletion ] ──► Status: pending_deletion ──► [ 7-Day Grace Period Window ]
+                                                                       │
+                         ┌─────────────────────────────────────────────┴─────────────────────────────────────────────┐
+                         ▼                                                                                           ▼
+         [ User / Super Admin Retains Account ]                                                    [ Grace Period Expires (7 Days) ]
+                         │                                                                                           │
+                         ▼                                                                                           ▼
+          • POST /api/v1/auth/cancel-deletion                                                        • Scheduled Background Purge Daemon
+          • POST /api/v1/admin/account-deletions/:id/cancel                                          • Permanent cryptographic shredding
+          • Status restored to 'active'                                                              • Zero-PII Audit Tombstone recorded
+```
+
+1. **Initiate Deletion (7-Day Countdown)**:
+   - **Developer Account**: `DELETE /api/v1/auth/account`
+     - Body: `{ "password": "...", "totpCode": "123456" }`
+     - Transitions account to `status: 'pending_deletion'` with a 7-day timer (`scheduledDeletionAt`).
+   - **Project End-User**: `DELETE /api/v1/project-auth/account`
+     - Body: `{ "password": "..." }`
+     - Transitions project user to `pending_deletion` with a 7-day timer.
+
+2. **User Self-Service Cancellation & Restoration**:
+   - Signing in during the 7-day window displays an urgent recovery banner showing remaining days.
+   - **Developer Account**: `POST /api/v1/auth/cancel-deletion` restores status to `'active'`.
+   - **Project End-User**: `POST /api/v1/project-auth/cancel-deletion` restores status to `'active'`.
+
+3. **Super Admin Retention Audit & Controls**:
+   - Super Admins can monitor all active, cancelled, and purged deletion requests in the console:
+     - `GET /api/v1/admin/account-deletions`
+   - Super Admins can retain accounts upon verified user ticket requests:
+     - `POST /api/v1/admin/account-deletions/:id/cancel`
+   - *Security Guard*: Manual immediate deletion options are strictly disabled for Super Admins to protect against accidental catastrophic administrative mistakes.
+
+4. **Automated Background Purge Daemon**:
+   - A background scheduler periodically scans for expired deletion requests (`scheduledDeletionAt <= NOW`).
+   - Executes permanent cascading disk shredding, DB row deletion, and writes a zero-PII audit tombstone to `audit_logs`.
 
 ---
 

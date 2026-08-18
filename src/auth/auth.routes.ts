@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword, exportDataController, deleteAccountController } from './auth.controller';
+import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword, exportDataController, deleteAccountController, cancelDeletionController, acceptPolicyController, getActiveNoticeController, submitAppealController } from './auth.controller';
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt } from '../middleware/auth.middleware';
@@ -60,6 +60,7 @@ router.post('/set-initial-password', authenticateJwt, setInitialPasswordControll
 // ── Data Portability & Account Erasure (GDPR / CCPA) ──────────────────────────
 router.get('/export-data', authenticateJwt, exportDataController);
 router.delete('/account', authenticateJwt, deleteAccountController);
+router.post('/cancel-deletion', authenticateJwt, cancelDeletionController);
 
 // ── Password Recovery ─────────────────────────────────────────────────────────
 router.post(
@@ -72,6 +73,11 @@ router.post(
   validateBody(resetPasswordSchema),
   resetPassword
 );
+
+// ── Policy Consent & Compliance Notices ───────────────────────────────────────
+router.post('/accept-policy', authenticateJwt, acceptPolicyController);
+router.get('/active-notice', authenticateJwt, getActiveNoticeController);
+router.post('/notice/appeal', authenticateJwt, submitAppealController);
 
 // ── TOTP MFA Routes ───────────────────────────────────────────────────────────
 router.post('/mfa/setup', authenticateJwt, setupMfaController);

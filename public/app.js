@@ -3,6 +3,16 @@
 //  AegisDB High-End Enterprise Dashboard Controller.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Global error handler - catches ALL uncaught JS errors
+window.onerror = function(message, source, lineno, colno, error) {
+  console.error('🚨 JS Error:', message, 'at', source, 'line', lineno);
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:#ff0000;color:#fff;padding:12px 24px;border-radius:8px;font-size:13px;max-width:80vw;word-break:break-all;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+  toast.textContent = '❌ JS ERROR: ' + message + ' (line ' + lineno + ')';
+  document.body?.appendChild(toast);
+  setTimeout(() => toast?.remove(), 15000);
+};
+console.log('✅ app.js v15 loaded successfully');
 
 function escapeHTML(str) {
   if (!str) return '';
@@ -35,6 +45,24 @@ const state = {
   telemetryChartLatency: null,
   idleTimer: null,
   timeoutMinutes: parseInt(localStorage.getItem('aegis_session_timeout') || '15', 10),
+};
+
+// ── Modal Helper Service ───────────────────────────────────────────────────────
+
+window.showModal = function(id) {
+  const el = typeof id === 'string' ? document.getElementById(id) : id;
+  if (!el) return;
+  el.classList.remove('hidden');
+  el.classList.add('flex');
+  el.style.setProperty('display', 'flex', 'important');
+};
+
+window.hideModal = function(id) {
+  const el = typeof id === 'string' ? document.getElementById(id) : id;
+  if (!el) return;
+  el.classList.add('hidden');
+  el.classList.remove('flex');
+  el.style.setProperty('display', 'none', 'important');
 };
 
 // ── Toast Notification Service ─────────────────────────────────────────────────
@@ -169,6 +197,36 @@ function updateUserProfileUI() {
   if (selectTimeout) {
     selectTimeout.value = state.timeoutMinutes.toString();
   }
+
+  // Account Deletion Grace Period Banner
+  const bannerDeletion = document.getElementById('banner-pending-deletion');
+  const bannerText = document.getElementById('banner-pending-deletion-text');
+  if (!state.user.isSuperAdmin && (state.user.isPendingDeletion || state.user.status === 'pending_deletion')) {
+    if (bannerDeletion) {
+      bannerDeletion.classList.remove('hidden');
+      bannerDeletion.classList.add('flex');
+    }
+    if (bannerText && state.user.scheduledDeletionAt) {
+      const remainingMs = new Date(state.user.scheduledDeletionAt).getTime() - Date.now();
+      const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
+      bannerText.textContent = `Your account and data are scheduled to be permanently erased on ${new Date(state.user.scheduledDeletionAt).toLocaleDateString()} (${remainingDays} day(s) remaining).`;
+    }
+  } else {
+    if (bannerDeletion) {
+      bannerDeletion.classList.add('hidden');
+      bannerDeletion.classList.remove('flex');
+    }
+  }
+
+  // Danger Zone Account Deletion Card (Hidden for Super Admin)
+  const cardDangerZone = document.getElementById('card-danger-zone-deletion');
+  if (cardDangerZone) {
+    if (state.user.isSuperAdmin) {
+      cardDangerZone.classList.add('hidden');
+    } else {
+      cardDangerZone.classList.remove('hidden');
+    }
+  }
 }
 
 // ── Inactivity Session Timeout Tracker ─────────────────────────────────────────
@@ -196,7 +254,7 @@ function initInactivityTracker() {
 
 // ── Role Context Switcher ──────────────────────────────────────────────────────
 
-function setRoleMode(mode) {
+window.setRoleMode = function setRoleMode(mode) {
   if (mode === 'superadmin' && !state.user?.isSuperAdmin) {
     showToast('Super Admin access restricted.', 'error');
     mode = 'developer';
@@ -224,11 +282,11 @@ function setRoleMode(mode) {
     if (secDev) secDev.classList.remove('hidden');
     switchWorkspace('tab-developer-metrics');
   }
-}
+};
 
 // ── Workspace Panel Navigation ─────────────────────────────────────────────────
 
-function switchWorkspace(tabId) {
+window.switchWorkspace = function switchWorkspace(tabId) {
   document.querySelectorAll('.workspace-panel').forEach((panel) => {
     panel.classList.add('hidden');
   });
@@ -289,6 +347,8 @@ function switchWorkspace(tabId) {
     renderCodeSnippet('js');
   } else if (tabId === 'tab-asset-vault') {
     loadAssetsList();
+  } else if (tabId === 'tab-platform-policies') {
+    if (typeof loadPlatformPolicies === 'function') loadPlatformPolicies();
   } else if (tabId === 'tab-settings') {
     loadPlatformSettings();
   }
@@ -967,102 +1027,554 @@ async function loadLockedAccounts() {
 
 // ── Super Admin: User Management ────────────────────────────────────────────────
 
-async function loadUserManagement() {
+let cachedAdminUsers = [];
+let currentUserRoleFilter = 'all';
+
+window.loadUserManagement = async function loadUserManagement() {
   const tableBody = document.getElementById('table-users-body');
   const badgeCount = document.getElementById('badge-user-count');
   if (!tableBody) return;
 
   try {
     const users = await apiRequest('/api/v1/admin/users');
-    const usersList = Array.isArray(users) ? users : (users?.users || []);
-    if (badgeCount) badgeCount.textContent = `${usersList.length} users`;
-    renderUsersTable(usersList);
+    cachedAdminUsers = Array.isArray(users) ? users : (users?.users || []);
+    if (badgeCount) badgeCount.textContent = `${cachedAdminUsers.length} users`;
+    filterUsersTable();
+    loadDeletionRequests();
+    if (typeof loadComplianceNoticesTable === 'function') loadComplianceNoticesTable();
+    if (typeof loadThreatFlagsTable === 'function') loadThreatFlagsTable();
   } catch (err) {
     tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
   }
 }
 
-function renderUsersTable(users) {
-  const tableBody = document.getElementById('table-users-body');
+let cachedDeletions = [];
+let currentFilteredDeletions = [];
+let deletionsCurrentPage = 1;
+let currentDeletionFilter = 'all';
+const deletionsPageSize = 5;
+
+async function loadDeletionRequests() {
+  const tableBody = document.getElementById('table-deletions-body');
+  const badgeCount = document.getElementById('badge-deletions-count');
   if (!tableBody) return;
 
-  if (!users || users.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">No users found.</td></tr>`;
+  try {
+    const data = await apiRequest('/api/v1/admin/account-deletions');
+    cachedDeletions = Array.isArray(data) ? data : (data?.data || []);
+    const pendingCount = cachedDeletions.filter(r => r.status === 'pending').length;
+    if (badgeCount) badgeCount.textContent = `${pendingCount} pending / ${cachedDeletions.length} total`;
+    filterDeletionsTable();
+  } catch (err) {
+    tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
+  }
+}
+
+window.setDeletionsFilter = function(filter, btn) {
+  currentDeletionFilter = filter;
+  deletionsCurrentPage = 1;
+  document.querySelectorAll('.deletion-filter-btn').forEach(b => {
+    b.className = 'deletion-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition';
+  });
+  if (btn) {
+    btn.className = 'deletion-filter-btn px-2.5 py-1 rounded-lg text-white bg-amber-600 font-semibold shadow-sm transition';
+  }
+  filterDeletionsTable();
+};
+
+window.filterDeletionsTable = function() {
+  const searchInput = document.getElementById('input-search-deletions');
+  const query = (searchInput?.value || '').toLowerCase().trim();
+
+  let filtered = [...cachedDeletions];
+
+  if (currentDeletionFilter === 'pending') {
+    filtered = filtered.filter(r => r.status === 'pending');
+  } else if (currentDeletionFilter === 'cancelled') {
+    filtered = filtered.filter(r => r.status === 'cancelled');
+  } else if (currentDeletionFilter === 'purged') {
+    filtered = filtered.filter(r => r.status !== 'pending' && r.status !== 'cancelled');
+  }
+
+  if (query) {
+    filtered = filtered.filter(r => 
+      (r.userEmail && r.userEmail.toLowerCase().includes(query)) ||
+      (r.accountType && r.accountType.toLowerCase().includes(query)) ||
+      (r.id && r.id.toLowerCase().includes(query))
+    );
+  }
+
+  currentFilteredDeletions = filtered;
+  renderDeletionsTable(filtered);
+};
+
+window.changeDeletionsPage = function(page) {
+  const totalPages = Math.ceil(currentFilteredDeletions.length / deletionsPageSize) || 1;
+  if (page < 1 || page > totalPages) return;
+  deletionsCurrentPage = page;
+  renderDeletionsTable(currentFilteredDeletions);
+};
+
+function renderDeletionsTable(requests) {
+  const tableBody = document.getElementById('table-deletions-body');
+  const paginationControls = document.getElementById('deletions-pagination-controls');
+  const startEl = document.getElementById('deletions-page-start');
+  const endEl = document.getElementById('deletions-page-end');
+  const totalEl = document.getElementById('deletions-page-total');
+  if (!tableBody) return;
+
+  currentFilteredDeletions = requests || [];
+  const total = currentFilteredDeletions.length;
+  const totalPages = Math.ceil(total / deletionsPageSize) || 1;
+
+  if (deletionsCurrentPage > totalPages) deletionsCurrentPage = totalPages;
+  if (deletionsCurrentPage < 1) deletionsCurrentPage = 1;
+
+  const startIdx = (deletionsCurrentPage - 1) * deletionsPageSize;
+  const endIdx = Math.min(startIdx + deletionsPageSize, total);
+  const pageItems = currentFilteredDeletions.slice(startIdx, endIdx);
+
+  if (startEl) startEl.textContent = total > 0 ? (startIdx + 1) : 0;
+  if (endEl) endEl.textContent = endIdx;
+  if (totalEl) totalEl.textContent = total;
+
+  // Render pagination buttons
+  if (paginationControls) {
+    if (totalPages <= 1) {
+      paginationControls.innerHTML = '';
+    } else {
+      let btns = '';
+      btns += `<button type="button" onclick="changeDeletionsPage(${deletionsCurrentPage - 1})" ${deletionsCurrentPage === 1 ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        <i class="fa-solid fa-chevron-left text-[9px] mr-1"></i> Prev
+      </button>`;
+
+      for (let p = 1; p <= totalPages; p++) {
+        const isActive = p === deletionsCurrentPage;
+        btns += `<button type="button" onclick="changeDeletionsPage(${p})" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${isActive ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10'}">${p}</button>`;
+      }
+
+      btns += `<button type="button" onclick="changeDeletionsPage(${deletionsCurrentPage + 1})" ${deletionsCurrentPage === totalPages ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        Next <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+      </button>`;
+      paginationControls.innerHTML = btns;
+    }
+  }
+
+  if (pageItems.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 text-xs">No matching deletion requests found.</td></tr>`;
     return;
   }
 
-  tableBody.innerHTML = users.map(u => `
-    <tr class="hover:bg-white/5 transition">
-      <td class="p-4 font-semibold text-white">${escapeHTML(u.name || 'N/A')}</td>
-      <td class="p-4 text-slate-300">${escapeHTML(u.email)}</td>
-      <td class="p-4">
-        ${u.isSuperAdmin
-          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-crown text-[9px] mr-1"></i>Super Admin</span>'
-          : '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"><i class="fa-solid fa-code text-[9px] mr-1"></i>Developer</span>'
-        }
-      </td>
-      <td class="p-4">
-        ${u.mfaEnabled
-          ? '<span class="text-emerald-400 text-[10px] font-semibold">✅ Enabled</span>'
-          : '<span class="text-slate-500 text-[10px] font-semibold">⚪ Disabled</span>'
-        }
-      </td>
-      <td class="p-4 text-slate-400 font-mono text-[10px]">${u.readRateLimit || 100}r / ${u.writeRateLimit || 50}w</td>
-      <td class="p-4 text-slate-400">${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : 'N/A'}</td>
-      <td class="p-4 text-right space-x-2">
-        <button onclick="openEditUserLimits('${u.id}', '${escapeHTML(u.email)}', ${u.maxProjects || 5}, ${u.readRateLimit || 100}, ${u.writeRateLimit || 50})" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
-          <i class="fa-solid fa-sliders"></i> Limits
-        </button>
-        ${u.mfaEnabled ? `<button onclick="resetUserMfa('${u.id}', '${escapeHTML(u.email)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
-          <i class="fa-solid fa-shield-halved"></i> Reset MFA
-        </button>` : ''}
-        ${!u.isSuperAdmin ? `<button onclick="deleteUserById('${u.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
-          <i class="fa-solid fa-trash"></i> Remove
-        </button>` : ''}
-      </td>
-    </tr>
-  `).join('');
+  tableBody.innerHTML = pageItems.map(r => {
+    let statusBadge = '';
+    if (r.status === 'pending') {
+      const remainingMs = new Date(r.scheduledDeletionAt).getTime() - Date.now();
+      const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse inline-flex items-center"><i class="fa-solid fa-clock mr-1 text-[9px]"></i>Pending (${remainingDays}d left)</span>`;
+    } else if (r.status === 'cancelled') {
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 inline-flex items-center"><i class="fa-solid fa-check mr-1 text-[9px]"></i>Retained (${r.cancelledBy || 'user'})</span>`;
+    } else {
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 inline-flex items-center"><i class="fa-solid fa-skull mr-1 text-[9px]"></i>Permanently Erased</span>`;
+    }
+
+    const typeBadge = r.accountType === 'developer'
+      ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">Developer</span>`
+      : `<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">Project User</span>`;
+
+    return `
+      <tr class="hover:bg-white/5 transition">
+        <td class="p-4 font-semibold text-white font-mono text-xs">${escapeHTML(r.userEmail)}</td>
+        <td class="p-4">${typeBadge}</td>
+        <td class="p-4 text-slate-400 text-xs">${r.initiatedAt ? new Date(r.initiatedAt).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
+        <td class="p-4 text-slate-300 text-xs font-medium">${r.scheduledDeletionAt ? new Date(r.scheduledDeletionAt).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
+        <td class="p-4">${statusBadge}</td>
+        <td class="p-4 text-right">
+          ${r.status === 'pending'
+            ? `<button onclick="retainAccountByAdmin('${r.id}', '${escapeHTML(r.userEmail)}')" class="px-3 py-1.5 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 text-xs font-semibold transition active:scale-95 flex items-center space-x-1.5 ml-auto">
+                <i class="fa-solid fa-arrow-rotate-left text-xs"></i>
+                <span>Retain Account</span>
+               </button>`
+            : `<span class="text-xs text-slate-500 italic">No action needed</span>`
+          }
+        </td>
+      </tr>
+    `;
+  }).join('');
 }
 
-async function resetUserMfa(userId, email) {
-  if (!confirm(`Are you sure you want to reset MFA for ${email}? They will need to re-setup MFA from their account.`)) return;
+window.retainAccountByAdmin = async function(requestId, email) {
+  if (!confirm(`Are you sure you want to cancel the deletion and retain the account for ${email}?`)) return;
   try {
-    await apiRequest(`/api/v1/admin/users/${userId}/reset-mfa`, 'POST');
-    showToast(`MFA has been reset for ${email}.`, 'success');
+    await apiRequest(`/api/v1/admin/account-deletions/${requestId}/cancel`, 'POST');
+    showToast(`Account retained successfully. Deletion request for ${email} is cancelled.`, 'success');
+    loadDeletionRequests();
     loadUserManagement();
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast(err.message || 'Failed to retain account', 'error');
   }
+};
+
+let currentFilteredUsers = [];
+let usersCurrentPage = 1;
+const usersPageSize = 8;
+
+window.setUserRoleFilter = function(filter, btn) {
+  currentUserRoleFilter = filter;
+  usersCurrentPage = 1;
+  document.querySelectorAll('.user-filter-btn').forEach(b => {
+    b.className = 'user-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition';
+  });
+  if (btn) {
+    btn.className = 'user-filter-btn px-2.5 py-1 rounded-lg text-white bg-indigo-600 font-semibold shadow-sm transition';
+  }
+  filterUsersTable();
+};
+
+window.filterUsersTable = function() {
+  const searchInput = document.getElementById('input-search-users');
+  const query = (searchInput?.value || '').toLowerCase().trim();
+
+  let filtered = [...cachedAdminUsers];
+
+  if (currentUserRoleFilter === 'developer') {
+    filtered = filtered.filter(u => !u.isSuperAdmin);
+  } else if (currentUserRoleFilter === 'superadmin') {
+    filtered = filtered.filter(u => !!u.isSuperAdmin);
+  } else if (currentUserRoleFilter === 'flagged') {
+    filtered = filtered.filter(u => !!u.isFlagged || u.noticeStatus === 'notice_issued' || u.noticeStatus === 'appealed');
+  }
+
+  if (query) {
+    filtered = filtered.filter(u => 
+      (u.name && u.name.toLowerCase().includes(query)) ||
+      (u.email && u.email.toLowerCase().includes(query)) ||
+      (u.id && u.id.toLowerCase().includes(query))
+    );
+  }
+
+  currentFilteredUsers = filtered;
+  renderUsersTable(filtered);
+};
+
+window.changeUsersPage = function(page) {
+  const totalPages = Math.ceil(currentFilteredUsers.length / usersPageSize) || 1;
+  if (page < 1 || page > totalPages) return;
+  usersCurrentPage = page;
+  renderUsersTable(currentFilteredUsers);
+};
+
+window.toggleUserDropdown = function(event, userId) {
+  if (event) {
+    if (typeof event.stopPropagation === 'function') event.stopPropagation();
+    if (typeof event.preventDefault === 'function') event.preventDefault();
+  }
+  const btn = (event && event.target && typeof event.target.closest === 'function') 
+    ? event.target.closest('button') 
+    : (event && event.currentTarget && typeof event.currentTarget.getBoundingClientRect === 'function' ? event.currentTarget : null);
+  
+  const menu = document.getElementById(`user-menu-${userId}`);
+  const isCurrentlyOpen = menu && !menu.classList.contains('hidden');
+  closeAllUserMenus();
+  
+  if (!isCurrentlyOpen && menu) {
+    if (btn && typeof btn.getBoundingClientRect === 'function') {
+      const rect = btn.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < 230) {
+        menu.classList.remove('top-full', 'mt-1.5');
+        menu.classList.add('bottom-full', 'mb-1.5');
+      } else {
+        menu.classList.remove('bottom-full', 'mb-1.5');
+        menu.classList.add('top-full', 'mt-1.5');
+      }
+    }
+    menu.classList.remove('hidden');
+  }
+};
+
+window.closeAllUserMenus = function() {
+  document.querySelectorAll('.user-action-menu').forEach(m => m.classList.add('hidden'));
+};
+
+document.addEventListener('click', () => {
+  window.closeAllUserMenus();
+});
+
+function renderUsersTable(users) {
+  const tableBody = document.getElementById('table-users-body');
+  const paginationControls = document.getElementById('users-pagination-controls');
+  const startEl = document.getElementById('users-page-start');
+  const endEl = document.getElementById('users-page-end');
+  const totalEl = document.getElementById('users-page-total');
+  if (!tableBody) return;
+
+  currentFilteredUsers = users || [];
+  const total = currentFilteredUsers.length;
+  const totalPages = Math.ceil(total / usersPageSize) || 1;
+  
+  if (usersCurrentPage > totalPages) usersCurrentPage = totalPages;
+  if (usersCurrentPage < 1) usersCurrentPage = 1;
+
+  const startIdx = (usersCurrentPage - 1) * usersPageSize;
+  const endIdx = Math.min(startIdx + usersPageSize, total);
+  const pageUsers = currentFilteredUsers.slice(startIdx, endIdx);
+
+  if (startEl) startEl.textContent = total > 0 ? (startIdx + 1) : 0;
+  if (endEl) endEl.textContent = endIdx;
+  if (totalEl) totalEl.textContent = total;
+
+  // Render pagination buttons
+  if (paginationControls) {
+    if (totalPages <= 1) {
+      paginationControls.innerHTML = '';
+    } else {
+      let btns = '';
+      btns += `<button type="button" onclick="changeUsersPage(${usersCurrentPage - 1})" ${usersCurrentPage === 1 ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        <i class="fa-solid fa-chevron-left text-[9px] mr-1"></i> Prev
+      </button>`;
+
+      for (let p = 1; p <= totalPages; p++) {
+        if (totalPages > 6 && Math.abs(p - usersCurrentPage) > 2 && p !== 1 && p !== totalPages) {
+          if (p === 2 || p === totalPages - 1) btns += `<span class="px-1 text-slate-600 text-xs">...</span>`;
+          continue;
+        }
+        const isActive = p === usersCurrentPage;
+        btns += `<button type="button" onclick="changeUsersPage(${p})" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${isActive ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10'}">${p}</button>`;
+      }
+
+      btns += `<button type="button" onclick="changeUsersPage(${usersCurrentPage + 1})" ${usersCurrentPage === totalPages ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        Next <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+      </button>`;
+      paginationControls.innerHTML = btns;
+    }
+  }
+
+  if (pageUsers.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-500 text-xs">No matching users found.</td></tr>`;
+    return;
+  }
+
+  tableBody.innerHTML = pageUsers.map((u) => {
+    let formattedDate = 'N/A';
+    if (u.createdAt) {
+      try {
+        const d = new Date(u.createdAt);
+        formattedDate = d.toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+      } catch {}
+    }
+
+    const initial = (u.name || u.email || 'U').charAt(0).toUpperCase();
+    const formatCount = (n) => (n >= 1000 ? `${Math.round(n / 1000)}k` : n);
+    const rLimit = formatCount(u.readLimit || 50000);
+    const wLimit = formatCount(u.writeLimit || 20000);
+
+    return `
+      <tr class="hover:bg-white/5 transition group">
+        <td class="p-4">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-full bg-gradient-to-br ${u.isSuperAdmin ? 'from-amber-500/30 to-amber-700/30 text-amber-300 border border-amber-500/40' : 'from-indigo-500/30 to-violet-700/30 text-indigo-300 border border-indigo-500/30'} flex items-center justify-center text-xs font-bold shrink-0 shadow-sm">
+              ${initial}
+            </div>
+            <div class="min-w-0">
+              <div class="font-semibold text-white truncate text-xs">
+                ${escapeHTML(u.name || 'Developer')}
+              </div>
+              <div class="flex items-center gap-1 mt-0.5">
+                ${u.isFlagged ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30"><i class="fa-solid fa-flag text-[8px] mr-0.5"></i>Flagged (${u.riskScore || 85})</span>` : ''}
+                ${u.noticeStatus === 'notice_issued' ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-gavel text-[8px] mr-0.5"></i>Notice</span>` : ''}
+                ${u.noticeStatus === 'appealed' ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30"><i class="fa-solid fa-comments text-[8px] mr-0.5"></i>Appeal</span>` : ''}
+              </div>
+            </div>
+          </div>
+        </td>
+        <td class="p-4 text-slate-300 text-xs font-mono">${escapeHTML(u.email)}</td>
+        <td class="p-4">
+          ${u.isSuperAdmin
+            ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-crown text-[9px] mr-1"></i>Super Admin</span>'
+            : '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"><i class="fa-solid fa-code text-[9px] mr-1"></i>Developer</span>'
+          }
+        </td>
+        <td class="p-4">
+          ${u.mfaEnabled
+            ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 inline-flex items-center"><i class="fa-solid fa-shield-check mr-1 text-emerald-400"></i>Enabled</span>'
+            : '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800/80 text-slate-500 border border-white/5 inline-flex items-center">Disabled</span>'
+          }
+        </td>
+        <td class="p-4">
+          <span class="px-2.5 py-1 rounded-lg bg-slate-950/60 border border-white/10 text-slate-300 font-mono text-[11px]">
+            ${rLimit}r / ${wLimit}w
+          </span>
+        </td>
+        <td class="p-4 text-slate-400 text-xs">${formattedDate}</td>
+        <td class="p-4 text-right">
+          <div class="flex items-center justify-end gap-1.5 flex-wrap">
+            <button type="button" data-action="open-edit-limits" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Configure Rate Limits">
+              <i class="fa-solid fa-sliders text-[10px]"></i>
+              <span>Limits</span>
+            </button>
+
+            ${u.mfaEnabled ? `
+              <button type="button" data-action="reset-mfa" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Reset MFA Device">
+                <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                <span>Reset MFA</span>
+              </button>
+            ` : ''}
+
+            ${!u.isSuperAdmin ? `
+              <button type="button" data-action="open-flag-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Flag Threat Anomaly">
+                <i class="fa-solid fa-flag text-[10px]"></i>
+                <span>Flag</span>
+              </button>
+
+              <button type="button" data-action="open-notice-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Issue Violation Notice">
+                <i class="fa-solid fa-gavel text-[10px]"></i>
+                <span>Notice</span>
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tableBody.querySelectorAll('[data-action="open-edit-limits"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = btn.getAttribute('data-user-id');
+      window.openEditUserLimits(userId);
+    });
+  });
+
+  tableBody.querySelectorAll('[data-action="reset-mfa"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = btn.getAttribute('data-user-id');
+      window.resetUserMfa(userId);
+    });
+  });
+
+  tableBody.querySelectorAll('[data-action="open-flag-modal"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = btn.getAttribute('data-user-id');
+      const userEmail = btn.getAttribute('data-user-email');
+      window.openManualFlagModal(userId, userEmail);
+    });
+  });
+
+  tableBody.querySelectorAll('[data-action="open-notice-modal"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = btn.getAttribute('data-user-id');
+      const userEmail = btn.getAttribute('data-user-email');
+      window.openIssueNoticeModal(userId, userEmail);
+    });
+  });
 }
 
-function openEditUserLimits(userId, email, maxProjects, readLimit, writeLimit) {
-  document.getElementById('edit-user-id').value = userId;
-  document.getElementById('edit-user-email').textContent = email;
-  document.getElementById('edit-user-max-projects').value = maxProjects;
-  document.getElementById('edit-user-read-limit').value = readLimit;
-  document.getElementById('edit-user-write-limit').value = writeLimit;
-  document.getElementById('modal-user-limits')?.classList.remove('hidden');
-}
+window.resetUserMfa = async function(userId) {
+  closeAllUserMenus();
+  const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+  const email = user?.email || userId;
+  setTimeout(async () => {
+    if (!confirm(`Are you sure you want to reset MFA for ${email}? They will need to re-setup MFA from their account.`)) return;
+    try {
+      await apiRequest(`/api/v1/admin/users/${userId}/reset-mfa`, 'POST');
+      showToast(`MFA has been reset for ${email}.`, 'success');
+      loadUserManagement();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }, 50);
+};
 
-async function saveUserLimits() {
+window.openEditUserLimits = function(userId) {
+  closeAllUserMenus();
+  const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+  const modal = document.getElementById('modal-user-limits');
+  if (!modal) return;
+  const idEl = document.getElementById('edit-user-id');
+  const emailEl = document.getElementById('edit-user-email');
+  const maxProjEl = document.getElementById('edit-user-max-projects');
+  const readEl = document.getElementById('edit-user-read-limit');
+  const writeEl = document.getElementById('edit-user-write-limit');
+
+  if (idEl) idEl.value = userId;
+  if (emailEl) emailEl.textContent = user ? user.email : userId;
+  if (maxProjEl) maxProjEl.value = user?.projectCount ?? 5;
+  if (readEl) readEl.value = user?.readLimit ?? 50000;
+  if (writeEl) writeEl.value = user?.writeLimit ?? 20000;
+
+  showModal('modal-user-limits');
+};
+
+window.closeEditUserLimits = function() {
+  hideModal('modal-user-limits');
+};
+
+window.saveUserLimits = async function() {
   const userId = document.getElementById('edit-user-id')?.value;
-  if (!userId) return;
+  if (!userId) {
+    showToast('No user selected', 'error');
+    return;
+  }
 
+  const readLimit = parseInt(document.getElementById('edit-user-read-limit')?.value || '50000', 10);
+  const writeLimit = parseInt(document.getElementById('edit-user-write-limit')?.value || '20000', 10);
   const limits = {
-    maxProjects: parseInt(document.getElementById('edit-user-max-projects')?.value || '5', 10),
-    readRateLimit: parseInt(document.getElementById('edit-user-read-limit')?.value || '100', 10),
-    writeRateLimit: parseInt(document.getElementById('edit-user-write-limit')?.value || '50', 10),
+    readLimit,
+    writeLimit,
+    apiLimit: readLimit + writeLimit,
+    lockoutMinutes: 15
   };
 
   try {
     await apiRequest(`/api/v1/admin/users/${userId}/limits`, 'PATCH', limits);
-    document.getElementById('modal-user-limits')?.classList.add('hidden');
-    showToast('User limits updated successfully.', 'success');
+    window.closeEditUserLimits();
+    showToast('User rate limits updated successfully.', 'success');
     loadUserManagement();
   } catch (err) {
-    showToast(err.message, 'error');
+    showToast(err.message || 'Failed to update user limits', 'error');
   }
-}
+};
+
+window.openManualFlagModal = function(userId, email) {
+  closeAllUserMenus();
+  if (!email || email === 'undefined') {
+    const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+    email = user ? user.email : userId;
+  }
+  const idEl = document.getElementById('flag-user-id');
+  const emailEl = document.getElementById('flag-user-email');
+  const notesEl = document.getElementById('input-flag-notes');
+  if (idEl) idEl.value = userId;
+  if (emailEl) emailEl.textContent = email;
+  if (notesEl) notesEl.value = '';
+  showModal('modal-flag-user');
+};
+
+window.openIssueNoticeModal = function(userId, email) {
+  closeAllUserMenus();
+  if (!email || email === 'undefined') {
+    const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+    email = user ? user.email : userId;
+  }
+  const idEl = document.getElementById('notice-target-user-id');
+  const emailEl = document.getElementById('notice-target-user-email');
+  const titleEl = document.getElementById('input-notice-title');
+  const detailsEl = document.getElementById('input-notice-details');
+  const daysEl = document.getElementById('input-notice-deadline-days');
+  if (idEl) idEl.value = userId;
+  if (emailEl) emailEl.textContent = email;
+  if (titleEl) titleEl.value = '';
+  if (detailsEl) detailsEl.value = '';
+  if (daysEl) daysEl.value = '3';
+  showModal('modal-issue-notice');
+};
 
 async function deleteUserById(userId) {
   if (!confirm('Are you sure you want to delete this user? This action is irreversible.')) return;
@@ -1140,16 +1652,16 @@ function renderMyProjectsTable(projects) {
       <td class="p-4 space-x-1">${authBadges}</td>
       <td class="p-4 text-slate-400">${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'N/A'}</td>
       <td class="p-4 text-right space-x-2">
-        <button onclick="selectProjectForBrowsing('${p.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); selectProjectForBrowsing('${p.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-arrow-right"></i> Browse
         </button>
-        <button onclick="openProjectBackupModal('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] font-semibold transition">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openProjectBackupModal('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-cloud-arrow-up"></i> Backup
         </button>
-        <button onclick="rotateProjectKeys('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); rotateProjectKeys('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-key"></i> Rotate
         </button>
-        <button onclick="deleteProjectById('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); deleteProjectById('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
           <i class="fa-solid fa-trash"></i> Delete
         </button>
       </td>
@@ -1158,7 +1670,7 @@ function renderMyProjectsTable(projects) {
   }).join('');
 }
 
-function selectProjectForBrowsing(projectId) {
+window.selectProjectForBrowsing = function selectProjectForBrowsing(projectId) {
   state.activeProject = state.projects.find((p) => p.id === projectId);
   if (state.activeProject) {
     const dropdown = document.getElementById('select-active-project');
@@ -1209,7 +1721,7 @@ async function createNewProject() {
   }
 }
 
-async function deleteProjectById(projectId, projectName) {
+window.deleteProjectById = async function deleteProjectById(projectId, projectName) {
   if (!confirm(`Are you sure you want to delete project "${projectName}"? This will remove all collections and documents.`)) return;
 
   try {
@@ -1222,9 +1734,9 @@ async function deleteProjectById(projectId, projectName) {
   } catch (err) {
     showToast(err.message, 'error');
   }
-}
+};
 
-async function openProjectBackupModal(projectId, projectName) {
+window.openProjectBackupModal = async function openProjectBackupModal(projectId, projectName) {
   const modal = document.getElementById('modal-project-backup');
   if (!modal) return;
   
@@ -1340,18 +1852,28 @@ async function rotateProjectKeys(projectId, projectName) {
 
 // ── Document Detail Viewer ──────────────────────────────────────────────────────
 
-function viewDocumentDetail(docId) {
-  const doc = state.documents.find(d => d._id === docId);
+window.viewDocumentDetail = async function viewDocumentDetail(docId, collectionName) {
+  const id = String(docId);
+  let doc = state.documents?.find(d => String(d._id || d.id) === id);
+  const collName = collectionName || state.activeCollection?.name;
+  if (!doc && collName) {
+    try {
+      const res = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(collName)}/documents/${encodeURIComponent(id)}`);
+      doc = res?.data || res;
+    } catch (e) {
+      console.warn('Failed to fetch document detail directly:', e);
+    }
+  }
   if (!doc) return showToast('Document not found.', 'error');
 
   const idEl = document.getElementById('doc-detail-id');
   const contentEl = document.getElementById('doc-detail-content');
   const modal = document.getElementById('modal-document-detail');
 
-  if (idEl) idEl.textContent = docId;
+  if (idEl) idEl.textContent = doc._id || doc.id || docId;
   if (contentEl) contentEl.textContent = JSON.stringify(doc, null, 2);
-  if (modal) modal.classList.remove('hidden');
-}
+  showModal('modal-document-detail');
+};
 
 // ── Developer Workspace 1: Data Browser & Documents ────────────────────────────
 
@@ -1397,7 +1919,7 @@ function renderCollectionChips(collections) {
   container.innerHTML = collections
     .map(
       (c) => `
-    <button onclick="selectCollectionByName('${escapeHTML(c.name)}')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center space-x-2 ${
+    <button type="button" onclick="event.preventDefault(); event.stopPropagation(); selectCollectionByName('${escapeHTML(c.name)}')" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition flex items-center space-x-2 ${
       state.activeCollection?.name === c.name
         ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
         : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white border border-white/5'
@@ -1411,12 +1933,12 @@ function renderCollectionChips(collections) {
     .join('');
 }
 
-function selectCollectionByName(name) {
+window.selectCollectionByName = function selectCollectionByName(name) {
   const coll = state.collections.find((c) => c.name === name);
   if (coll) selectCollection(coll);
-}
+};
 
-async function selectCollection(coll) {
+window.selectCollection = async function selectCollection(coll) {
   state.activeCollection = coll;
   renderCollectionChips(state.collections);
 
@@ -1497,14 +2019,17 @@ function renderDocumentsTable(docs) {
 
   tableBody.innerHTML = docs
     .map((d) => {
-      const { _id, _createdAt, _updatedAt, ...fields } = d;
+      const docId = d._id || d.id || '';
+      const createdAt = d._createdAt || d.createdAt;
+      const updatedAt = d._updatedAt || d.updatedAt;
+      const { _id, id, _createdAt, createdAt: cAt, _updatedAt, updatedAt: uAt, ...fields } = d;
       const previewStr = JSON.stringify(fields);
       const truncated = previewStr.length > 120 ? previewStr.substring(0, 120) + '...' : previewStr;
       const isEncrypted = previewStr.includes('_encrypted');
 
       return `
       <tr class="hover:bg-white/5 transition">
-        <td class="p-3 font-semibold text-indigo-300 text-[10px]">${escapeHTML(_id)}</td>
+        <td class="p-3 font-semibold text-indigo-300 text-[10px]">${escapeHTML(docId)}</td>
         <td class="p-3 text-slate-300 max-w-xs">
           ${
             isEncrypted
@@ -1513,13 +2038,13 @@ function renderDocumentsTable(docs) {
           }
           <code class="text-[10px]">${escapeHTML(truncated)}</code>
         </td>
-        <td class="p-3 text-slate-400 text-[10px]">${_createdAt ? new Date(_createdAt).toLocaleString() : 'N/A'}</td>
-        <td class="p-3 text-slate-400 text-[10px]">${_updatedAt ? new Date(_updatedAt).toLocaleString() : 'N/A'}</td>
+        <td class="p-3 text-slate-400 text-[10px]">${createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}</td>
+        <td class="p-3 text-slate-400 text-[10px]">${updatedAt ? new Date(updatedAt).toLocaleString() : 'N/A'}</td>
         <td class="p-3 text-right space-x-2">
-          <button onclick="viewDocumentDetail('${escapeHTML(_id)}')" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition" title="View full document">
+          <button type="button" data-action="view-document" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition" title="View full document">
             <i class="fa-solid fa-eye"></i>
           </button>
-          <button onclick="deleteDocument('${escapeHTML(_id)}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete document">
+          <button type="button" data-action="delete-document" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete document">
             <i class="fa-solid fa-trash"></i>
           </button>
         </td>
@@ -1527,14 +2052,35 @@ function renderDocumentsTable(docs) {
     `;
     })
     .join('');
+
+  tableBody.querySelectorAll('[data-action="view-document"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const docId = btn.getAttribute('data-doc-id');
+      const collName = btn.getAttribute('data-collection-name');
+      window.viewDocumentDetail(docId, collName);
+    });
+  });
+
+  tableBody.querySelectorAll('[data-action="delete-document"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const docId = btn.getAttribute('data-doc-id');
+      const collName = btn.getAttribute('data-collection-name');
+      window.deleteDocument(docId, collName);
+    });
+  });
 }
 
-async function deleteDocument(docId) {
-  if (!state.activeCollection) return;
+window.deleteDocument = async function deleteDocument(docId, collectionName) {
+  const collName = collectionName || state.activeCollection?.name;
+  if (!collName) return showToast('No collection selected.', 'error');
   try {
-    await apiRequest(`/api/v1/db/collections/${state.activeCollection.name}/documents/${docId}`, 'DELETE');
+    await apiRequest(`/api/v1/db/collections/${encodeURIComponent(collName)}/documents/${encodeURIComponent(docId)}`, 'DELETE');
     showToast('Document deleted.', 'success');
-    loadDocuments(state.activeCollection.name, state.docsOffset || 0, state.docsLimit || 100);
+    loadDocuments(collName, state.docsOffset || 0, state.docsLimit || 100);
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -1741,6 +2287,38 @@ function connectGlobalWebSocket() {
           div.textContent = `[${time}] [Stream Event] ${JSON.stringify(data, null, 2)}`;
           wsLogStream.appendChild(div);
           wsLogStream.scrollTop = wsLogStream.scrollHeight;
+        }
+
+        // Trust & Safety Real-time Broadcasts
+        if (data.type === 'SECURITY_ALERT_FLAGGED') {
+          showToast(`🚨 Threat Detected: ${data.data?.summary || 'Malicious / bot activity detected'}`, 'error');
+          if (state.user?.isSuperAdmin) {
+            if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
+            if (typeof loadUserManagement === 'function') loadUserManagement();
+          }
+        } else if (data.type === 'USER_NOTICE_ISSUED') {
+          if (state.user && state.user.id === data.data?.userId) {
+            if (typeof window.renderComplianceBanner === 'function') {
+              window.renderComplianceBanner({
+                title: data.data.title,
+                category: 'Security Compliance Violation',
+                details: 'A formal compliance violation notice has been issued. Please submit your explanation.',
+                daysRemaining: 3,
+                deadlineAt: data.data.deadlineAt
+              });
+            }
+            showToast('⚠️ Formal Compliance Violation Notice issued to your account!', 'error');
+          }
+          if (state.user?.isSuperAdmin) {
+            if (typeof window.loadComplianceNoticesTable === 'function') window.loadComplianceNoticesTable();
+            if (typeof loadUserManagement === 'function') loadUserManagement();
+          }
+        } else if (data.type === 'USER_APPEAL_SUBMITTED') {
+          if (state.user?.isSuperAdmin) {
+            showToast(`User ${data.data?.userEmail || ''} submitted an explanation for their compliance hearing.`, 'info');
+            if (typeof window.loadComplianceNoticesTable === 'function') window.loadComplianceNoticesTable();
+            if (typeof loadUserManagement === 'function') loadUserManagement();
+          }
         }
       } catch (_) {}
     };
@@ -2131,6 +2709,31 @@ async function openMfaSetupModal() {
 // ── Auth & Initialization Event Handlers ───────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Universal Table Action Event Delegation Listener (Bulletproof fallback for all action buttons)
+  document.addEventListener('click', (e) => {
+    const actionBtn = e.target.closest('[data-action]');
+    if (!actionBtn) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+
+    const action = actionBtn.getAttribute('data-action');
+    const userId = actionBtn.getAttribute('data-user-id');
+    const userEmail = actionBtn.getAttribute('data-user-email');
+    const noticeId = actionBtn.getAttribute('data-notice-id');
+    const alertId = actionBtn.getAttribute('data-alert-id');
+    const docId = actionBtn.getAttribute('data-doc-id');
+    const collectionName = actionBtn.getAttribute('data-collection-name');
+
+    if (action === 'refresh-users') {
+      if (typeof window.loadUserManagement === 'function') window.loadUserManagement();
+    } else if (action === 'toggle-user-dropdown') {
+      if (typeof window.toggleUserDropdown === 'function') window.toggleUserDropdown(e, userId);
+    } else if (action === 'dismiss-alert') {
+      if (typeof window.dismissThreatAlert === 'function') window.dismissThreatAlert(alertId);
+    }
+  });
+
   // Check maintenance mode immediately
   try {
     await apiRequest('/api/v1/system/status');
@@ -2175,23 +2778,64 @@ document.addEventListener('DOMContentLoaded', async () => {
     setRoleMode(state.user.isSuperAdmin ? 'superadmin' : 'developer');
     connectGlobalWebSocket();
     initGlobalData();
+
+    if (state.user.isSuperAdmin) {
+      document.getElementById('container-threat-alerts')?.classList.remove('hidden');
+      if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
+    }
+
+    // Check dynamic policy consent
+    (async () => {
+      try {
+        const policy = await apiRequest('/api/v1/policies/current', 'GET');
+        if (policy && state.user.acceptedTermsVersion !== policy.version) {
+          window.showMandatoryPolicyGate(policy.version);
+        }
+      } catch (_) {}
+    })();
+
+    // Check active compliance notices
+    (async () => {
+      try {
+        const noticeRes = await apiRequest('/api/v1/auth/active-notice', 'GET');
+        if (noticeRes?.activeNotice) {
+          window.renderComplianceBanner(noticeRes.activeNotice);
+        }
+      } catch (_) {}
+    })();
+  }
+
+  // Threat Alerts Bell Header Dropdown Toggle
+  const btnThreatAlerts = document.getElementById('btn-threat-alerts-header');
+  if (btnThreatAlerts) {
+    btnThreatAlerts.onclick = (e) => {
+      e.stopPropagation();
+      const dropdown = document.getElementById('dropdown-threat-alerts');
+      dropdown?.classList.toggle('hidden');
+    };
+    document.addEventListener('click', () => {
+      document.getElementById('dropdown-threat-alerts')?.classList.add('hidden');
+    });
   }
 
   // Auth Tab Switchers
   const btnTabLogin = document.getElementById('tab-btn-login');
   const btnTabRegister = document.getElementById('tab-btn-register');
   const fieldName = document.getElementById('field-name');
+  const fieldTerms = document.getElementById('field-terms-agreement');
 
   if (btnTabLogin && btnTabRegister) {
     btnTabLogin.onclick = () => {
       btnTabLogin.className = 'flex-1 text-center py-2 font-medium text-white border-b-2 border-indigo-500 transition';
       btnTabRegister.className = 'flex-1 text-center py-2 font-medium text-slate-400 border-b-2 border-transparent hover:text-white transition';
-      fieldName.classList.add('hidden');
+      fieldName?.classList.add('hidden');
+      fieldTerms?.classList.add('hidden');
     };
     btnTabRegister.onclick = () => {
       btnTabRegister.className = 'flex-1 text-center py-2 font-medium text-white border-b-2 border-indigo-500 transition';
       btnTabLogin.className = 'flex-1 text-center py-2 font-medium text-slate-400 border-b-2 border-transparent hover:text-white transition';
-      fieldName.classList.remove('hidden');
+      fieldName?.classList.remove('hidden');
+      fieldTerms?.classList.remove('hidden');
     };
   }
 
@@ -2221,7 +2865,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       const email = document.getElementById('input-email').value;
       const password = document.getElementById('input-password').value;
       const totpCode = document.getElementById('input-totp')?.value;
-      const isRegister = !fieldName.classList.contains('hidden');
+      const isRegister = fieldName && !fieldName.classList.contains('hidden');
+
+      if (isRegister) {
+        const agreed = document.getElementById('checkbox-agree-policies')?.checked;
+        if (!agreed) {
+          showToast('You must review and agree to the Terms of Service, Security, and Backup policies to register.', 'error');
+          return;
+        }
+      }
 
       try {
         let data;
@@ -2264,6 +2916,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         setRoleMode(data.user.isSuperAdmin ? 'superadmin' : 'developer');
         connectGlobalWebSocket();
         initGlobalData();
+
+        // Check if mandatory policy consent gate is needed
+        if (data.requiresPolicyConsent) {
+          window.showMandatoryPolicyGate(data.activePolicyVersion);
+        }
+
+        // Check if active compliance notice exists
+        if (data.activeNotice) {
+          window.renderComplianceBanner(data.activeNotice);
+        }
+
+        // Super Admin features
+        if (data.user.isSuperAdmin) {
+          document.getElementById('container-threat-alerts')?.classList.remove('hidden');
+          window.loadSecurityThreatAlerts();
+        }
       } catch (err) {
         if (err.message && err.message.includes('MFA')) {
           document.getElementById('field-totp')?.classList.remove('hidden');
@@ -2749,9 +3417,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── New Feature Event Handlers ──────────────────────────────────────────────
 
-  // User Management: Refresh Button
+  // Refresh Users Button
   const btnRefreshUsers = document.getElementById('btn-refresh-users');
-  if (btnRefreshUsers) btnRefreshUsers.onclick = () => loadUserManagement();
+  if (btnRefreshUsers) {
+    btnRefreshUsers.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      loadUserManagement();
+    });
+  }
 
   // User Limits: Save Button
   const btnSaveUserLimits = document.getElementById('btn-confirm-save-user-limits');
@@ -3405,6 +4079,10 @@ window.exportMyData = async function() {
 };
 
 window.openDeleteAccountModal = function() {
+  if (state.user?.isSuperAdmin) {
+    showToast('Super Admin accounts cannot be deleted.', 'error');
+    return;
+  }
   const pwdInput = document.getElementById('delete-account-password');
   const totpInput = document.getElementById('delete-account-totp');
   const confirmInput = document.getElementById('delete-account-confirm-text');
@@ -3431,7 +4109,7 @@ window.executeAccountDeletion = async function() {
   }
 
   try {
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Erasing...'; }
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scheduling...'; }
 
     const token = state.accessToken || localStorage.getItem('aegis_access_token');
     const res = await fetch('/api/v1/auth/account', {
@@ -3445,22 +4123,901 @@ window.executeAccountDeletion = async function() {
 
     const data = await res.json();
     if (!res.ok || !data.success) {
-      throw new Error(data.message || 'Failed to delete account.');
+      throw new Error(data.message || 'Failed to initiate account deletion.');
     }
 
     document.getElementById('modal-delete-account')?.classList.add('hidden');
-    showToast('Account permanently erased. Redirecting...', 'success');
+    showToast('Account scheduled for deletion. You have a 7-day grace period to cancel.', 'info');
 
-    setTimeout(() => {
-      localStorage.clear();
-      sessionStorage.clear();
-      window.location.reload();
-    }, 1500);
+    // Update state to pending_deletion
+    if (state.user) {
+      state.user.status = 'pending_deletion';
+      state.user.isPendingDeletion = true;
+      state.user.scheduledDeletionAt = data.data?.scheduledDeletionAt;
+      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+    }
+
+    updateUserProfileUI();
 
   } catch (err) {
-    showToast(err.message || 'Account deletion failed', 'error');
+    showToast(err.message || 'Account deletion request failed', 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Permanently Delete'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-trash-can"></i> Request Account Deletion'; }
+  }
+};
+
+window.cancelMyAccountDeletion = async function() {
+  try {
+    const token = state.accessToken || localStorage.getItem('aegis_access_token');
+    const res = await fetch('/api/v1/auth/cancel-deletion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || 'Failed to cancel deletion request.');
+    }
+
+    if (state.user) {
+      state.user.status = 'active';
+      state.user.isPendingDeletion = false;
+      delete state.user.scheduledDeletionAt;
+      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+    }
+
+    updateUserProfileUI();
+    showToast('Deletion request cancelled! Your account is fully restored and active.', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to cancel deletion', 'error');
+  }
+};
+
+// ── Policy Viewer & Mandatory Consent Gate ──────────────────────────────────
+let activePolicyData = null;
+
+window.openPolicyViewerModal = async function(tab = 'terms') {
+  try {
+    const res = await apiRequest('/api/v1/policies/current', 'GET');
+    activePolicyData = res;
+    const versionEl = document.getElementById('pv-version');
+    if (versionEl) versionEl.textContent = res.version;
+    const termsEl = document.getElementById('pv-content-terms');
+    if (termsEl) termsEl.textContent = res.termsAndConditions;
+    const secEl = document.getElementById('pv-content-security');
+    if (secEl) secEl.textContent = res.securityPolicy;
+    const backEl = document.getElementById('pv-content-backup');
+    if (backEl) backEl.textContent = res.backupPolicy;
+
+    window.switchPvTab(tab);
+    const modal = document.getElementById('modal-policy-viewer');
+    modal?.classList.remove('hidden');
+    modal?.classList.add('flex');
+  } catch (err) {
+    showToast(err.message || 'Failed to load platform policies', 'error');
+  }
+};
+
+window.closePolicyViewerModal = function() {
+  const modal = document.getElementById('modal-policy-viewer');
+  modal?.classList.add('hidden');
+  modal?.classList.remove('flex');
+};
+
+window.switchPvTab = function(tab) {
+  const btnTerms = document.getElementById('btn-pv-tab-terms');
+  const btnSec = document.getElementById('btn-pv-tab-security');
+  const btnBack = document.getElementById('btn-pv-tab-backup');
+
+  const contentTerms = document.getElementById('pv-content-terms');
+  const contentSec = document.getElementById('pv-content-security');
+  const contentBack = document.getElementById('pv-content-backup');
+
+  if (btnTerms) btnTerms.className = tab === 'terms' ? 'py-2 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+  if (btnSec) btnSec.className = tab === 'security' ? 'py-2 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+  if (btnBack) btnBack.className = tab === 'backup' ? 'py-2 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+
+  contentTerms?.classList.toggle('hidden', tab !== 'terms');
+  contentSec?.classList.toggle('hidden', tab !== 'security');
+  contentBack?.classList.toggle('hidden', tab !== 'backup');
+};
+
+window.showMandatoryPolicyGate = async function(version) {
+  try {
+    const res = await apiRequest('/api/v1/policies/current', 'GET');
+    activePolicyData = res;
+    const gateVerEl = document.getElementById('gate-policy-version');
+    if (gateVerEl) gateVerEl.textContent = res.version;
+    const termsEl = document.getElementById('gate-content-terms');
+    if (termsEl) termsEl.textContent = res.termsAndConditions;
+    const secEl = document.getElementById('gate-content-security');
+    if (secEl) secEl.textContent = res.securityPolicy;
+    const backEl = document.getElementById('gate-content-backup');
+    if (backEl) backEl.textContent = res.backupPolicy;
+
+    window.switchGateTab('terms');
+    const modal = document.getElementById('modal-mandatory-policy-gate');
+    modal?.classList.remove('hidden');
+    modal?.classList.add('flex');
+  } catch (err) {
+    console.error('Failed to load gate policies:', err);
+  }
+};
+
+window.switchGateTab = function(tab) {
+  const btnTerms = document.getElementById('btn-gate-tab-terms');
+  const btnSec = document.getElementById('btn-gate-tab-security');
+  const btnBack = document.getElementById('btn-gate-tab-backup');
+
+  const contentTerms = document.getElementById('gate-content-terms');
+  const contentSec = document.getElementById('gate-content-security');
+  const contentBack = document.getElementById('gate-content-backup');
+
+  if (btnTerms) btnTerms.className = tab === 'terms' ? 'py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+  if (btnSec) btnSec.className = tab === 'security' ? 'py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+  if (btnBack) btnBack.className = tab === 'backup' ? 'py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+
+  contentTerms?.classList.toggle('hidden', tab !== 'terms');
+  contentSec?.classList.toggle('hidden', tab !== 'security');
+  contentBack?.classList.toggle('hidden', tab !== 'backup');
+};
+
+window.toggleGateDeclineOptions = function() {
+  const declineDiv = document.getElementById('gate-decline-options');
+  declineDiv?.classList.toggle('hidden');
+};
+
+window.acceptCurrentPolicyGate = async function() {
+  const version = document.getElementById('gate-policy-version')?.textContent || 'v1.0.0';
+  try {
+    await apiRequest('/api/v1/auth/accept-policy', 'POST', { version });
+    if (state.user) {
+      state.user.acceptedTermsVersion = version;
+      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+    }
+    const modal = document.getElementById('modal-mandatory-policy-gate');
+    modal?.classList.add('hidden');
+    modal?.classList.remove('flex');
+    showToast(`Platform policies (${version}) accepted successfully!`, 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to accept policy', 'error');
+  }
+};
+
+window.downloadMyDataExport = async function() {
+  try {
+    const data = await apiRequest('/api/v1/auth/export-data', 'GET');
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `aegisdb_data_export_${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Data bundle exported successfully.', 'success');
+  } catch (err) {
+    showToast(err.message || 'Export failed', 'error');
+  }
+};
+
+window.initiateAccountDeletionFromGate = async function() {
+  const password = prompt('Please enter your password to schedule account deletion (7-day grace period):');
+  if (!password) return;
+  try {
+    await apiRequest('/api/v1/auth/account', 'DELETE', { password });
+    showToast('Account scheduled for deletion with 7-day grace period.', 'warning');
+    setTimeout(() => {
+      localStorage.clear();
+      window.location.reload();
+    }, 2000);
+  } catch (err) {
+    showToast(err.message || 'Failed to schedule deletion', 'error');
+  }
+};
+
+// ── User Compliance Notice Banner & Appeal Hearing ──────────────────────────
+let activeNoticeObj = null;
+
+window.renderComplianceBanner = function(notice) {
+  if (!notice) return;
+  activeNoticeObj = notice;
+  const banner = document.getElementById('banner-compliance-notice');
+  const bannerText = document.getElementById('banner-compliance-notice-text');
+  if (banner && bannerText) {
+    bannerText.innerHTML = `<strong>${escapeHTML(notice.title)}</strong> (${escapeHTML(notice.category)}) — <span class="font-mono text-amber-300">${notice.daysRemaining || 3} days remaining</span>.`;
+    banner.classList.remove('hidden');
+    banner.classList.add('flex');
+  }
+};
+
+window.openComplianceAppealModal = function() {
+  if (!activeNoticeObj) return;
+  const catEl = document.getElementById('notice-modal-category');
+  if (catEl) catEl.textContent = activeNoticeObj.category || 'Security Policy Violation';
+  const timerEl = document.getElementById('notice-modal-timer');
+  if (timerEl) timerEl.textContent = `${activeNoticeObj.daysRemaining || 3} days remaining`;
+  const titleEl = document.getElementById('notice-modal-title');
+  if (titleEl) titleEl.textContent = activeNoticeObj.title || 'Violation Notice';
+  const detailsEl = document.getElementById('notice-modal-details');
+  if (detailsEl) detailsEl.textContent = activeNoticeObj.details || 'Please provide your explanation.';
+  const explanationEl = document.getElementById('textarea-notice-explanation');
+  if (explanationEl) explanationEl.value = activeNoticeObj.userExplanation || '';
+
+  showModal('modal-compliance-appeal');
+};
+
+window.closeComplianceAppealModal = function() {
+  hideModal('modal-compliance-appeal');
+};
+
+window.submitNoticeExplanation = async function() {
+  if (!activeNoticeObj) return;
+  const explanation = document.getElementById('textarea-notice-explanation')?.value.trim();
+  if (!explanation) {
+    showToast('Please provide an explanation before submitting.', 'error');
+    return;
+  }
+  try {
+    const res = await apiRequest('/api/v1/auth/notice/appeal', 'POST', {
+      noticeId: activeNoticeObj.id,
+      explanation
+    });
+    showToast(res.message || 'Explanation submitted successfully.', 'success');
+    window.closeComplianceAppealModal();
+    const bannerText = document.getElementById('banner-compliance-notice-text');
+    if (bannerText) {
+      bannerText.innerHTML = `<strong>Explanation Submitted:</strong> Awaiting Super Admin hearing review.`;
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to submit explanation', 'error');
+  }
+};
+
+// ── Super Admin Threat Intelligence, Flagging & Compliance Hearings ──────────
+
+window.loadSecurityThreatAlerts = async function() {
+  if (!state.user?.isSuperAdmin) return;
+  try {
+    const alerts = await apiRequest('/api/v1/admin/security/alerts', 'GET');
+    const alertsList = Array.isArray(alerts) ? alerts : (alerts?.data || []);
+    
+    const container = document.getElementById('container-threat-alerts');
+    const badge = document.getElementById('badge-threat-count');
+    const feed = document.getElementById('threat-alerts-feed-list');
+
+    if (container) container.classList.remove('hidden');
+    if (badge) badge.textContent = alertsList.length;
+
+    if (feed) {
+      if (alertsList.length === 0) {
+        feed.innerHTML = `<div class="text-slate-400 text-center py-4">No active threat alerts. All systems normal.</div>`;
+      } else {
+        feed.innerHTML = alertsList.map(a => `
+          <div class="p-3 rounded-xl bg-slate-900/80 border border-rose-500/30 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white font-mono text-[11px]">${escapeHTML(a.userEmail)}</span>
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${a.severity === 'critical' ? 'bg-rose-600 text-white' : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'}">Score: ${a.riskScore}</span>
+            </div>
+            <div class="text-[11px] text-slate-300">${escapeHTML(a.reason.replace(/_/g, ' ').toUpperCase())} (${escapeHTML(a.detectionSource)})</div>
+            <div class="flex items-center justify-end space-x-2 pt-1 border-t border-white/5">
+              <button onclick="dismissThreatAlert('${a.id}')" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-semibold transition">Dismiss</button>
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openIssueNoticeModal('${a.userId}', '${escapeHTML(a.userEmail)}')" class="px-2 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-semibold transition">Issue Notice</button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to load threat alerts:', err);
+  }
+};
+
+window.dismissThreatAlert = async function(flagId) {
+  try {
+    await apiRequest(`/api/v1/admin/security/flags/${flagId}/dismiss`, 'POST');
+    showToast('Security flag dismissed successfully.', 'success');
+    window.loadSecurityThreatAlerts();
+    if (typeof loadUserManagement === 'function') loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to dismiss flag', 'error');
+  }
+};
+
+// openManualFlagModal and openIssueNoticeModal are defined earlier (unified versions)
+// Keep confirmManualFlagUser here as the submit handler
+window.confirmManualFlagUser = async function() {
+  const userId = document.getElementById('flag-user-id')?.value;
+  const reason = document.getElementById('select-flag-reason')?.value;
+  const severity = document.getElementById('select-flag-severity')?.value;
+  const notes = document.getElementById('input-flag-notes')?.value;
+
+  if (!userId) return;
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/flag`, 'POST', { reason, severity, notes });
+    hideModal('modal-flag-user');
+    showToast('Account flagged and review triggered.', 'warning');
+    if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to flag user', 'error');
+  }
+};
+
+window.confirmIssueComplianceNotice = async function() {
+  const userId = document.getElementById('notice-target-user-id')?.value;
+  const category = document.getElementById('select-notice-category')?.value;
+  const title = document.getElementById('input-notice-title')?.value.trim();
+  const details = document.getElementById('input-notice-details')?.value.trim();
+  const deadlineDays = parseInt(document.getElementById('input-notice-deadline-days')?.value || '3', 10);
+
+  if (!userId || !title || !details) {
+    showToast('Please provide both notice title and details.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/notice`, 'POST', { category, title, details, deadlineDays });
+    hideModal('modal-issue-notice');
+    showToast('Compliance Violation Notice issued successfully!', 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to issue notice', 'error');
+  }
+};
+
+let cachedNotices = [];
+let currentFilteredNotices = [];
+let noticesCurrentPage = 1;
+let currentNoticeFilter = 'all';
+const noticesPageSize = 5;
+
+window.loadComplianceNoticesTable = async function() {
+  const tbody = document.getElementById('table-notices-body');
+  const badge = document.getElementById('badge-notices-count');
+  if (!tbody) return;
+
+  try {
+    const notices = await apiRequest('/api/v1/admin/notices', 'GET');
+    cachedNotices = Array.isArray(notices) ? notices : (notices?.data || []);
+    const openCount = cachedNotices.filter(n => n.status === 'open' || n.status === 'appealed').length;
+    if (badge) badge.textContent = `${openCount} active / ${cachedNotices.length} total`;
+    filterNoticesTable();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+window.setNoticesFilter = function(filter, btn) {
+  currentNoticeFilter = filter;
+  noticesCurrentPage = 1;
+  document.querySelectorAll('.notice-filter-btn').forEach(b => {
+    b.className = 'notice-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition';
+  });
+  if (btn) {
+    btn.className = 'notice-filter-btn px-2.5 py-1 rounded-lg text-white bg-rose-600 font-semibold shadow-sm transition';
+  }
+  filterNoticesTable();
+};
+
+window.filterNoticesTable = function() {
+  const searchInput = document.getElementById('input-search-notices');
+  const query = (searchInput?.value || '').toLowerCase().trim();
+
+  let filtered = [...cachedNotices];
+
+  if (currentNoticeFilter === 'active') {
+    filtered = filtered.filter(n => n.status === 'open');
+  } else if (currentNoticeFilter === 'appealed') {
+    filtered = filtered.filter(n => n.status === 'appealed');
+  } else if (currentNoticeFilter === 'revoked') {
+    filtered = filtered.filter(n => n.status === 'revoked');
+  } else if (currentNoticeFilter === 'rejected') {
+    filtered = filtered.filter(n => n.status === 'scheduled_for_purge' || n.status === 'purged');
+  }
+
+  if (query) {
+    filtered = filtered.filter(n => 
+      (n.userEmail && n.userEmail.toLowerCase().includes(query)) ||
+      (n.title && n.title.toLowerCase().includes(query)) ||
+      (n.category && n.category.toLowerCase().includes(query)) ||
+      (n.details && n.details.toLowerCase().includes(query)) ||
+      (n.userExplanation && n.userExplanation.toLowerCase().includes(query))
+    );
+  }
+
+  currentFilteredNotices = filtered;
+  renderComplianceNoticesTable(filtered);
+};
+
+window.changeNoticesPage = function(page) {
+  const totalPages = Math.ceil(currentFilteredNotices.length / noticesPageSize) || 1;
+  if (page < 1 || page > totalPages) return;
+  noticesCurrentPage = page;
+  renderComplianceNoticesTable(currentFilteredNotices);
+};
+
+function renderComplianceNoticesTable(notices) {
+  const tbody = document.getElementById('table-notices-body');
+  const paginationControls = document.getElementById('notices-pagination-controls');
+  const startEl = document.getElementById('notices-page-start');
+  const endEl = document.getElementById('notices-page-end');
+  const totalEl = document.getElementById('notices-page-total');
+  if (!tbody) return;
+
+  currentFilteredNotices = notices || [];
+  const total = currentFilteredNotices.length;
+  const totalPages = Math.ceil(total / noticesPageSize) || 1;
+
+  if (noticesCurrentPage > totalPages) noticesCurrentPage = totalPages;
+  if (noticesCurrentPage < 1) noticesCurrentPage = 1;
+
+  const startIdx = (noticesCurrentPage - 1) * noticesPageSize;
+  const endIdx = Math.min(startIdx + noticesPageSize, total);
+  const pageItems = currentFilteredNotices.slice(startIdx, endIdx);
+
+  if (startEl) startEl.textContent = total > 0 ? (startIdx + 1) : 0;
+  if (endEl) endEl.textContent = endIdx;
+  if (totalEl) totalEl.textContent = total;
+
+  if (paginationControls) {
+    if (totalPages <= 1) {
+      paginationControls.innerHTML = '';
+    } else {
+      let btns = '';
+      btns += `<button type="button" onclick="changeNoticesPage(${noticesCurrentPage - 1})" ${noticesCurrentPage === 1 ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        <i class="fa-solid fa-chevron-left text-[9px] mr-1"></i> Prev
+      </button>`;
+
+      for (let p = 1; p <= totalPages; p++) {
+        const isActive = p === noticesCurrentPage;
+        btns += `<button type="button" onclick="changeNoticesPage(${p})" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${isActive ? 'bg-rose-600 text-white shadow-sm' : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10'}">${p}</button>`;
+      }
+
+      btns += `<button type="button" onclick="changeNoticesPage(${noticesCurrentPage + 1})" ${noticesCurrentPage === totalPages ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        Next <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+      </button>`;
+      paginationControls.innerHTML = btns;
+    }
+  }
+
+  if (pageItems.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 text-xs">No matching compliance notices found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = pageItems.map(n => {
+    let statusBadge = '';
+    if (n.status === 'open') {
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse inline-flex items-center"><i class="fa-solid fa-hourglass mr-1 text-[9px]"></i>Awaiting (${n.daysRemaining}d left)</span>`;
+    } else if (n.status === 'appealed') {
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30 inline-flex items-center"><i class="fa-solid fa-comments mr-1 text-[9px]"></i>Appeal Submitted</span>`;
+    } else if (n.status === 'revoked') {
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 inline-flex items-center"><i class="fa-solid fa-check mr-1 text-[9px]"></i>Revoked (Satisfied)</span>`;
+    } else if (n.status === 'scheduled_for_purge') {
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 inline-flex items-center"><i class="fa-solid fa-skull mr-1 text-[9px]"></i>Rejected (Pending Purge)</span>`;
+    } else {
+      statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-500/20 text-slate-400 border border-slate-500/30">Purged</span>`;
+    }
+
+    return `
+      <tr class="hover:bg-white/5 transition">
+        <td class="p-4 font-semibold text-white font-mono text-xs">${escapeHTML(n.userEmail)}</td>
+        <td class="p-4">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 whitespace-normal block text-center">
+            ${escapeHTML(n.category)}
+          </span>
+        </td>
+        <td class="p-4">
+          <div class="space-y-0.5">
+            <strong class="text-white text-xs block">${escapeHTML(n.title)}</strong>
+            <p class="text-slate-400 text-[11px] line-clamp-2 leading-tight">${escapeHTML(n.details)}</p>
+          </div>
+        </td>
+        <td class="p-4">${statusBadge}</td>
+        <td class="p-4">
+          ${n.userExplanation
+            ? `<div class="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30 space-y-1.5">
+                <p class="text-purple-200 text-[11px] line-clamp-2 italic leading-tight font-sans">"${escapeHTML(n.userExplanation)}"</p>
+                <button type="button" data-action="view-appeal" data-notice-id="${n.id}" class="text-[10px] font-semibold text-purple-300 hover:text-purple-100 flex items-center space-x-1 underline">
+                  <i class="fa-solid fa-expand text-[9px]"></i>
+                  <span>View Full Appeal</span>
+                </button>
+               </div>`
+            : `<span class="text-slate-500 italic text-[11px]">No appeal submitted yet</span>`
+          }
+        </td>
+        <td class="p-4 text-right">
+          ${n.status === 'open' || n.status === 'appealed' ? `
+            <div class="flex flex-col gap-1.5 items-end">
+              <button type="button" data-action="accept-appeal" data-notice-id="${n.id}" class="w-28 px-2.5 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 text-[11px] font-semibold transition active:scale-95 flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-check text-[10px]"></i>
+                <span>Revoke Notice</span>
+              </button>
+              <button type="button" data-action="reject-appeal" data-notice-id="${n.id}" class="w-28 px-2.5 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-[11px] font-semibold transition active:scale-95 flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-trash text-[10px]"></i>
+                <span>Reject & Purge</span>
+              </button>
+            </div>
+          ` : `<span class="text-slate-500 text-xs italic">Decision finalized</span>`}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  tbody.querySelectorAll('[data-action="view-appeal"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const noticeId = btn.getAttribute('data-notice-id');
+      window.openAppealDetailsModal(noticeId);
+    });
+  });
+
+  tbody.querySelectorAll('[data-action="accept-appeal"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const noticeId = btn.getAttribute('data-notice-id');
+      window.reviewNoticeDecision(noticeId, 'accepted');
+    });
+  });
+
+  tbody.querySelectorAll('[data-action="reject-appeal"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const noticeId = btn.getAttribute('data-notice-id');
+      window.reviewNoticeDecision(noticeId, 'rejected');
+    });
+  });
+}
+
+window.openAppealDetailsModal = async function(noticeId) {
+  const id = String(noticeId);
+  let notice = cachedNotices.find(n => String(n.id) === id);
+  if (!notice) {
+    try {
+      const res = await apiRequest('/api/v1/admin/notices', 'GET');
+      cachedNotices = Array.isArray(res) ? res : (res?.data || []);
+      notice = cachedNotices.find(n => String(n.id) === id);
+    } catch (e) {
+      console.warn('Failed to fetch notice detail:', e);
+    }
+  }
+  if (!notice) return showToast('Notice details not found.', 'error');
+
+  const modal = document.getElementById('modal-appeal-details');
+  const emailEl = document.getElementById('appeal-view-email');
+  const categoryEl = document.getElementById('appeal-view-category');
+  const statusEl = document.getElementById('appeal-view-status');
+  const titleEl = document.getElementById('appeal-view-title');
+  const detailsEl = document.getElementById('appeal-view-details');
+  const expEl = document.getElementById('appeal-view-explanation');
+  const actionsEl = document.getElementById('appeal-view-decision-actions');
+
+  if (emailEl) emailEl.textContent = notice.userEmail || 'N/A';
+  if (categoryEl) categoryEl.textContent = notice.category || 'Security Policy Violation';
+  if (statusEl) statusEl.textContent = (notice.status || 'OPEN').toUpperCase();
+  if (titleEl) titleEl.textContent = notice.title || 'Compliance Notice';
+  if (detailsEl) detailsEl.textContent = notice.details || 'No details provided.';
+  if (expEl) expEl.textContent = notice.userExplanation || 'No explanation submitted yet.';
+
+  if (actionsEl) {
+    if (notice.status === 'open' || notice.status === 'appealed') {
+      actionsEl.innerHTML = `
+        <button onclick="closeAppealDetailsModal(); reviewNoticeDecision('${notice.id}', 'accepted')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow transition active:scale-95 flex items-center space-x-1.5">
+          <i class="fa-solid fa-check"></i>
+          <span>Accept Appeal & Revoke</span>
+        </button>
+        <button onclick="closeAppealDetailsModal(); reviewNoticeDecision('${notice.id}', 'rejected')" class="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow transition active:scale-95 flex items-center space-x-1.5">
+          <i class="fa-solid fa-trash"></i>
+          <span>Reject & Schedule Purge</span>
+        </button>
+      `;
+    } else {
+      actionsEl.innerHTML = `<span class="text-xs text-slate-400 italic">Decision already finalized.</span>`;
+    }
+  }
+
+  showModal('modal-appeal-details');
+};
+
+window.closeAppealDetailsModal = function() {
+  hideModal('modal-appeal-details');
+};
+
+let cachedThreatFlags = [];
+let currentFilteredThreatFlags = [];
+let threatFlagsCurrentPage = 1;
+let currentThreatFlagFilter = 'all';
+const threatFlagsPageSize = 5;
+
+window.loadThreatFlagsTable = async function() {
+  const tbody = document.getElementById('table-threat-flags-body');
+  const badge = document.getElementById('badge-flags-count');
+  if (!tbody) return;
+
+  try {
+    const flags = await apiRequest('/api/v1/admin/security/alerts', 'GET');
+    cachedThreatFlags = Array.isArray(flags) ? flags : (flags?.data || []);
+    if (badge) badge.textContent = `${cachedThreatFlags.length} active flags`;
+    filterThreatFlagsTable();
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+window.setThreatFlagsFilter = function(filter, btn) {
+  currentThreatFlagFilter = filter;
+  threatFlagsCurrentPage = 1;
+  document.querySelectorAll('.flag-filter-btn').forEach(b => {
+    b.className = 'flag-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition';
+  });
+  if (btn) {
+    btn.className = 'flag-filter-btn px-2.5 py-1 rounded-lg text-white bg-amber-600 font-semibold shadow-sm transition';
+  }
+  filterThreatFlagsTable();
+};
+
+window.filterThreatFlagsTable = function() {
+  const searchInput = document.getElementById('input-search-threat-flags');
+  const query = (searchInput?.value || '').toLowerCase().trim();
+
+  let filtered = [...cachedThreatFlags];
+
+  if (currentThreatFlagFilter === 'critical') {
+    filtered = filtered.filter(f => (f.riskScore || 0) >= 90);
+  } else if (currentThreatFlagFilter === 'high') {
+    filtered = filtered.filter(f => (f.riskScore || 0) >= 70 && (f.riskScore || 0) < 90);
+  } else if (currentThreatFlagFilter === 'medium') {
+    filtered = filtered.filter(f => (f.riskScore || 0) < 70);
+  }
+
+  if (query) {
+    filtered = filtered.filter(f => 
+      (f.userEmail && f.userEmail.toLowerCase().includes(query)) ||
+      (f.reason && f.reason.toLowerCase().includes(query)) ||
+      (f.detectionSource && f.detectionSource.toLowerCase().includes(query)) ||
+      (f.id && f.id.toLowerCase().includes(query))
+    );
+  }
+
+  currentFilteredThreatFlags = filtered;
+  renderThreatFlagsTable(filtered);
+};
+
+window.changeThreatFlagsPage = function(page) {
+  const totalPages = Math.ceil(currentFilteredThreatFlags.length / threatFlagsPageSize) || 1;
+  if (page < 1 || page > totalPages) return;
+  threatFlagsCurrentPage = page;
+  renderThreatFlagsTable(currentFilteredThreatFlags);
+};
+
+function renderThreatFlagsTable(flags) {
+  const tbody = document.getElementById('table-threat-flags-body');
+  const paginationControls = document.getElementById('flags-pagination-controls');
+  const startEl = document.getElementById('flags-page-start');
+  const endEl = document.getElementById('flags-page-end');
+  const totalEl = document.getElementById('flags-page-total');
+  if (!tbody) return;
+
+  currentFilteredThreatFlags = flags || [];
+  const total = currentFilteredThreatFlags.length;
+  const totalPages = Math.ceil(total / threatFlagsPageSize) || 1;
+
+  if (threatFlagsCurrentPage > totalPages) threatFlagsCurrentPage = totalPages;
+  if (threatFlagsCurrentPage < 1) threatFlagsCurrentPage = 1;
+
+  const startIdx = (threatFlagsCurrentPage - 1) * threatFlagsPageSize;
+  const endIdx = Math.min(startIdx + threatFlagsPageSize, total);
+  const pageItems = currentFilteredThreatFlags.slice(startIdx, endIdx);
+
+  if (startEl) startEl.textContent = total > 0 ? (startIdx + 1) : 0;
+  if (endEl) endEl.textContent = endIdx;
+  if (totalEl) totalEl.textContent = total;
+
+  if (paginationControls) {
+    if (totalPages <= 1) {
+      paginationControls.innerHTML = '';
+    } else {
+      let btns = '';
+      btns += `<button type="button" onclick="changeThreatFlagsPage(${threatFlagsCurrentPage - 1})" ${threatFlagsCurrentPage === 1 ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        <i class="fa-solid fa-chevron-left text-[9px] mr-1"></i> Prev
+      </button>`;
+
+      for (let p = 1; p <= totalPages; p++) {
+        const isActive = p === threatFlagsCurrentPage;
+        btns += `<button type="button" onclick="changeThreatFlagsPage(${p})" class="px-2.5 py-1 rounded-lg text-[11px] font-semibold transition ${isActive ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10'}">${p}</button>`;
+      }
+
+      btns += `<button type="button" onclick="changeThreatFlagsPage(${threatFlagsCurrentPage + 1})" ${threatFlagsCurrentPage === totalPages ? 'disabled class="px-2.5 py-1 rounded-lg text-slate-600 bg-white/5 border border-white/5 cursor-not-allowed text-[11px]"' : 'class="px-2.5 py-1 rounded-lg text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 text-[11px] transition active:scale-95"'}>
+        Next <i class="fa-solid fa-chevron-right text-[9px] ml-1"></i>
+      </button>`;
+      paginationControls.innerHTML = btns;
+    }
+  }
+
+  if (pageItems.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-500 text-xs">No matching threat flags found.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = pageItems.map(f => {
+    const risk = f.riskScore || 50;
+    let riskBadge = '';
+    if (risk >= 90) {
+      riskBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 font-mono">${risk} / 100</span>`;
+    } else if (risk >= 70) {
+      riskBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">${risk} / 100</span>`;
+    } else {
+      riskBadge = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">${risk} / 100</span>`;
+    }
+
+    return `
+      <tr class="hover:bg-white/5 transition">
+        <td class="p-4 font-semibold text-white font-mono text-xs">${escapeHTML(f.userEmail)}</td>
+        <td class="p-4">
+          <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
+            ${escapeHTML(f.reason.replace(/_/g, ' '))}
+          </span>
+        </td>
+        <td class="p-4">${riskBadge}</td>
+        <td class="p-4 text-slate-300 text-xs font-mono">${escapeHTML(f.detectionSource)}</td>
+        <td class="p-4 text-slate-400 text-xs">${f.flaggedAt ? new Date(f.flaggedAt).toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'N/A'}</td>
+        <td class="p-4 text-right space-x-1.5 whitespace-nowrap">
+          <button onclick="dismissThreatAlert('${f.id}')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition active:scale-95 border border-white/5">
+            Dismiss
+          </button>
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openIssueNoticeModal('${f.userId}', '${escapeHTML(f.userEmail)}')" class="px-3 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-xs font-semibold transition active:scale-95">
+            Issue Notice
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// ── Review Notice Decision (with custom confirmation modal instead of browser confirm/prompt) ──
+window.reviewNoticeDecision = function(noticeId, decision) {
+  // Build and show a custom confirmation modal instead of browser confirm()/prompt()
+  const actionLabel = decision === 'accepted'
+    ? 'Accept appeal & Revoke this compliance notice (account retained)'
+    : 'Reject appeal & Schedule account for AUTOMATED PERMANENT DELETION';
+  const defaultNotes = decision === 'accepted'
+    ? 'Appeal accepted by Super Admin.'
+    : 'Explanation insufficient. Scheduled for purge.';
+  const accentColor = decision === 'accepted' ? 'emerald' : 'rose';
+
+  // Remove any existing confirmation modal
+  const existingModal = document.getElementById('modal-review-confirm');
+  if (existingModal) existingModal.remove();
+
+  const modalHtml = `
+    <div id="modal-review-confirm" class="fixed inset-0 z-[90] flex items-center justify-center p-6 bg-slate-950/90 backdrop-blur-md">
+      <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-${accentColor}-500/30 space-y-4 shadow-2xl">
+        <div class="flex items-center justify-between border-b border-white/10 pb-3">
+          <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+            <i class="fa-solid fa-${decision === 'accepted' ? 'check-circle' : 'skull-crossbones'} text-${accentColor}-400"></i>
+            <span>Confirm Decision</span>
+          </h3>
+          <button type="button" onclick="document.getElementById('modal-review-confirm')?.remove()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+        <div class="p-3 rounded-xl bg-${accentColor}-950/40 border border-${accentColor}-500/20 text-xs text-${accentColor}-200">
+          <i class="fa-solid fa-triangle-exclamation mr-1"></i> ${actionLabel}
+        </div>
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Decision Notes (optional)</label>
+          <textarea id="review-confirm-notes" rows="3" class="w-full p-3 rounded-xl glass-input text-xs resize-none">${defaultNotes}</textarea>
+        </div>
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="document.getElementById('modal-review-confirm')?.remove()" class="w-1/3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition">Cancel</button>
+          <button type="button" onclick="executeReviewDecision('${noticeId}', '${decision}')" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-${accentColor}-600 to-${accentColor === 'emerald' ? 'teal' : 'red'}-600 hover:opacity-90 text-white font-semibold text-xs transition active:scale-98 shadow-lg">
+            ${decision === 'accepted' ? 'Confirm Revoke' : 'Confirm Reject & Purge'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+window.executeReviewDecision = async function(noticeId, decision) {
+  const notes = document.getElementById('review-confirm-notes')?.value || '';
+  // Remove the confirmation modal
+  document.getElementById('modal-review-confirm')?.remove();
+
+  try {
+    const res = await apiRequest(`/api/v1/admin/notices/${noticeId}/decision`, 'POST', { decision, decisionNotes: notes });
+    showToast(res.message || 'Hearing decision recorded.', 'success');
+    window.loadComplianceNoticesTable();
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to submit decision', 'error');
+  }
+};
+
+// ── Super Admin Platform Policies Workspace ─────────────────────────────────
+
+window.loadPlatformPolicies = async function() {
+  try {
+    const policy = await apiRequest('/api/v1/policies/current', 'GET');
+    const verLabel = document.getElementById('label-active-policy-version');
+    if (verLabel) verLabel.textContent = policy.version;
+    const dateInput = document.getElementById('input-policy-effective-date');
+    if (dateInput) dateInput.value = policy.effectiveDate ? new Date(policy.effectiveDate).toLocaleDateString() : 'Active';
+    const termsArea = document.getElementById('textarea-policy-terms');
+    if (termsArea) termsArea.value = policy.termsAndConditions || '';
+    const secArea = document.getElementById('textarea-policy-security');
+    if (secArea) secArea.value = policy.securityPolicy || '';
+    const backArea = document.getElementById('textarea-policy-backup');
+    if (backArea) backArea.value = policy.backupPolicy || '';
+
+    // Suggest next minor version
+    const match = policy.version.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+    const verInput = document.getElementById('input-policy-version');
+    if (verInput) {
+      if (match) {
+        const major = parseInt(match[1], 10);
+        const minor = parseInt(match[2], 10) + 1;
+        verInput.value = `v${major}.${minor}.0`;
+      } else {
+        verInput.value = 'v1.1.0';
+      }
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to load platform policies', 'error');
+  }
+};
+
+window.switchPolicyEditorTab = function(tab) {
+  const btnTerms = document.getElementById('btn-edit-tab-terms');
+  const btnSec = document.getElementById('btn-edit-tab-security');
+  const btnBack = document.getElementById('btn-edit-tab-backup');
+
+  const editorTerms = document.getElementById('editor-policy-terms');
+  const editorSec = document.getElementById('editor-policy-security');
+  const editorBack = document.getElementById('editor-policy-backup');
+
+  if (btnTerms) btnTerms.className = tab === 'terms' ? 'py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+  if (btnSec) btnSec.className = tab === 'security' ? 'py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+  if (btnBack) btnBack.className = tab === 'backup' ? 'py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400' : 'py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white';
+
+  editorTerms?.classList.toggle('hidden', tab !== 'terms');
+  editorSec?.classList.toggle('hidden', tab !== 'security');
+  editorBack?.classList.toggle('hidden', tab !== 'backup');
+};
+
+window.saveAndRolloutPolicies = async function() {
+  const termsAndConditions = document.getElementById('textarea-policy-terms')?.value;
+  const securityPolicy = document.getElementById('textarea-policy-security')?.value;
+  const backupPolicy = document.getElementById('textarea-policy-backup')?.value;
+  const newVersion = document.getElementById('input-policy-version')?.value.trim();
+
+  if (!newVersion) {
+    showToast('Please specify the new policy version string (e.g. v1.1.0).', 'error');
+    return;
+  }
+
+  if (!confirm(`Are you sure you want to rollout policy version ${newVersion}? All platform users will be required to review and accept the updated terms upon login.`)) return;
+
+  try {
+    const res = await apiRequest('/api/v1/policies/admin', 'PUT', {
+      termsAndConditions,
+      securityPolicy,
+      backupPolicy,
+      newVersion
+    });
+    showToast(`Policy version ${res.version} published and rolled out to all users!`, 'success');
+    window.loadPlatformPolicies();
+  } catch (err) {
+    showToast(err.message || 'Failed to update policies', 'error');
   }
 };
 

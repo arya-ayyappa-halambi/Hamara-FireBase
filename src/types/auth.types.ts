@@ -53,6 +53,15 @@ export interface User {
   isSuperAdmin?: boolean;
   mfaEnabled?: number;
   mfaSecret?: string;
+  status?: 'active' | 'pending_deletion' | 'erased';
+  deletionInitiatedAt?: string;
+  scheduledDeletionAt?: string;
+  isFlagged?: boolean | number;
+  riskScore?: number;
+  activeNoticeId?: string;
+  noticeStatus?: 'none' | 'notice_issued' | 'appealed' | 'action_required';
+  acceptedTermsVersion?: string;
+  acceptedTermsAt?: string;
   createdAt: Date;
   updatedAt: Date;
   apiLimit?: number;
@@ -63,6 +72,50 @@ export interface User {
   lockoutMinutes?: number;
   lockedUntil?: Date;
   billingMonthStart?: Date;
+}
+
+export interface AccountSecurityFlag {
+  id: string;
+  userId: string;
+  userEmail: string;
+  reason: 'bot_activity' | 'spam' | 'malicious_traffic' | 'illegal_content' | 'compromised_account';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  riskScore: number;
+  detectionSource: 'system_automated_heuristic' | 'super_admin_manual';
+  triggerEvidence?: string | Record<string, any>;
+  flaggedAt: string;
+  status: 'active' | 'resolved';
+  resolvedAt?: string;
+  resolvedBy?: string;
+}
+
+export interface AccountComplianceNotice {
+  id: string;
+  userId: string;
+  userEmail: string;
+  category: string;
+  title: string;
+  details: string;
+  issuedAt: string;
+  deadlineAt: string;
+  userExplanation?: string;
+  explanationSubmittedAt?: string;
+  adminDecision?: 'pending' | 'accepted' | 'rejected' | 'expired';
+  decisionNotes?: string;
+  decidedAt?: string;
+  status: 'open' | 'appealed' | 'revoked' | 'scheduled_for_purge' | 'purged';
+  daysRemaining?: number;
+}
+
+export interface PlatformPolicy {
+  id: string;
+  version: string;
+  termsAndConditions: string;
+  securityPolicy: string;
+  backupPolicy: string;
+  effectiveDate: string;
+  updatedAt: string;
+  updatedBy: string;
 }
 
 /** Refresh token record persisted in SQLite. */
@@ -116,6 +169,12 @@ export interface AuthResponseData {
   refreshToken: string;
   mfaRequired?: boolean;
   requiresPasswordSetup?: boolean;
+  isPendingDeletion?: boolean;
+  scheduledDeletionAt?: string;
+  daysRemaining?: number;
+  requiresPolicyConsent?: boolean;
+  activePolicyVersion?: string;
+  activeNotice?: AccountComplianceNotice | null;
 }
 
 // ── Custom Error Types ────────────────────────────────────────────────────────

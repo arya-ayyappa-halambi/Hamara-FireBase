@@ -250,6 +250,25 @@ export async function deleteProjectUserSelf(req: Request, res: Response, next: N
     res.status(200).json({
       success: true,
       message: result.message,
+      data: {
+        scheduledDeletionAt: result.scheduledDeletionAt,
+        daysRemaining: result.daysRemaining
+      }
+    });
+  } catch (err) { next(err); }
+}
+
+export async function cancelProjectUserSelf(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const userId = (req as any).projectUser?.sub || (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required. Provide a valid Bearer token.', 401);
+
+    const result = await projectAuthService.cancelProjectUserDeletion(projectId, userId, 'user');
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
       data: null
     });
   } catch (err) { next(err); }
@@ -266,9 +285,13 @@ export async function deleteProjectUserAdmin(req: Request, res: Response, next: 
     res.status(200).json({
       success: true,
       message: result.message,
-      data: null
+      data: {
+        scheduledDeletionAt: result.scheduledDeletionAt,
+        daysRemaining: result.daysRemaining
+      }
     });
   } catch (err) { next(err); }
 }
+
 
 

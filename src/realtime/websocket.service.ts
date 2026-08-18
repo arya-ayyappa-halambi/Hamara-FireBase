@@ -227,6 +227,44 @@ class WebSocketService {
       }
     }
   }
+
+  /**
+   * Broadcast a general or security event to all connected clients.
+   */
+  broadcast(event: string, data: unknown): void {
+    if (!this.wss) return;
+    const payload = JSON.stringify({
+      type: event,
+      event,
+      data,
+      timestamp: new Date().toISOString(),
+    });
+
+    for (const client of this.wss.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
+      }
+    }
+  }
+
+  /**
+   * Broadcast an event to a specific user's connected sockets.
+   */
+  broadcastToUser(userId: string, event: string, data: unknown): void {
+    if (!this.wss) return;
+    const payload = JSON.stringify({
+      type: event,
+      event,
+      data,
+      timestamp: new Date().toISOString(),
+    });
+
+    for (const client of this.wss.clients as Set<AuthenticatedSocket>) {
+      if (client.readyState === WebSocket.OPEN && client.user?.sub === userId) {
+        client.send(payload);
+      }
+    }
+  }
 }
 
 export const wsService = new WebSocketService();

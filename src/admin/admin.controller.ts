@@ -12,6 +12,9 @@ import { auditLogService } from '../services/audit-log.service';
 import { backupService } from '../services/backup.service';
 import { rateLimiterService } from '../services/rate-limiter.service';
 import { metricsService } from '../services/metrics.service';
+import { threatDetectionService } from '../services/threat-detection.service';
+import { accountModerationService } from '../services/account-moderation.service';
+import { userStore } from '../store/user.store';
 import { getDb } from '../db/sqlite.connection';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -182,10 +185,21 @@ export async function updateRateLimits(req: Request, res: Response, next: NextFu
   } catch (err) { next(err); }
 }
 
-export async function deleteUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getAccountDeletionRequests(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const requests = adminService.getAccountDeletionRequests();
+    res.status(200).json({
+      success: true,
+      message: 'Account deletion requests retrieved.',
+      data: requests,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function cancelAccountDeletion(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;
-    adminService.deleteUser(id);
+    const result = await adminService.cancelAccountDeletion(id);
 
     auditLogService.logAction({
       actorId: req.user?.sub,
@@ -193,12 +207,12 @@ export async function deleteUser(req: Request, res: Response, next: NextFunction
       actionType: 'super_admin_operation',
       ipAddress: req.ip,
       status: 'success',
-      details: `Deleted user ID "${id}".`
+      details: `Super admin cancelled deletion and retained account for request ID "${id}".`
     });
 
     res.status(200).json({
       success: true,
-      message: 'User deleted successfully.',
+      message: result.message,
       data: null,
     } as ApiResponse<null>);
   } catch (err) { next(err); }
@@ -294,4 +308,118 @@ export async function createBackup(req: Request, res: Response, next: NextFuncti
     });
     next(err);
   }
+}
+
+// ── Trust & Safety / Moderation Endpoints ────────────────────────────────────
+
+export async function getSecurityAlerts(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const alerts = threatDetectionService.getActiveSecurityAlerts();
+    res.status(200).json({
+      success: true,
+      message: 'Security threat alerts retrieved.',
+      data: alerts,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function dismissSecurityAlert(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    threatDetectionService.dismissFlag(id, adminId, adminEmail);
+    res.status(200).json({
+      success: true,
+      message: 'Security alert dismissed successfully.',
+      data: null,
+    } as ApiResponse<null>);
+  } catch (err) { next(err); }
+}
+
+export async function manualFlagUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { reason, severity, notes } = req.body;
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+
+    const user = await userStore.findById(id);
+    if (!user) {
+      res.status(404).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    const flag = threatDetectionService.manualFlag(
+      adminId,
+      adminEmail,
+      id,
+      user.email,
+      reason || 'bot_activity',
+      severity || 'high',
+      notes
+    );
+
+    res.status(201).json({
+      success: true,
+      message: `User "${user.email}" flagged successfully.`,
+      data: flag,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function issueComplianceNotice(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { category, title, details, deadlineDays } = req.body;
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+
+    const notice = accountModerationService.issueNotice(adminId, adminEmail, id, {
+      category,
+      title,
+      details,
+      deadlineDays: Number(deadlineDays || 3)
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `Compliance notice issued to user with a ${deadlineDays || 3}-day deadline.`,
+      data: notice,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function listComplianceNotices(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const status = req.query.status as string | undefined;
+    const notices = accountModerationService.listNotices(status);
+    res.status(200).json({
+      success: true,
+      message: 'Compliance notices retrieved.',
+      data: notices,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function reviewComplianceNotice(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { decision, decisionNotes } = req.body;
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+
+    if (decision !== 'accepted' && decision !== 'rejected') {
+      res.status(400).json({ success: false, message: 'Decision must be "accepted" or "rejected".' });
+      return;
+    }
+
+    const result = accountModerationService.reviewNotice(adminId, adminEmail, id, decision, decisionNotes);
+
+    res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
 }

@@ -58,6 +58,15 @@ interface RawUserRow {
   billingMonthStart: string | null;
   mfaEnabled?: number;
   mfaSecret?: string;
+  status?: string;
+  deletionInitiatedAt?: string | null;
+  scheduledDeletionAt?: string | null;
+  isFlagged?: number;
+  riskScore?: number;
+  activeNoticeId?: string | null;
+  noticeStatus?: string;
+  acceptedTermsVersion?: string;
+  acceptedTermsAt?: string | null;
 }
 
 function mapRowToUser(row: RawUserRow): User {
@@ -83,6 +92,15 @@ function mapRowToUser(row: RawUserRow): User {
     mfaSecret,
     isSuperAdmin: Boolean(row.isSuperAdmin),
     mfaEnabled: row.mfaEnabled ?? 0,
+    status: (row.status as any) || 'active',
+    isFlagged: Boolean(row.isFlagged),
+    riskScore: row.riskScore ?? 0,
+    activeNoticeId: row.activeNoticeId || undefined,
+    noticeStatus: (row.noticeStatus as any) || 'none',
+    acceptedTermsVersion: row.acceptedTermsVersion || 'v1.0.0',
+    acceptedTermsAt: row.acceptedTermsAt || undefined,
+    deletionInitiatedAt: row.deletionInitiatedAt || undefined,
+    scheduledDeletionAt: row.scheduledDeletionAt || undefined,
     createdAt: new Date(row.createdAt),
     updatedAt: new Date(row.updatedAt),
     lockedUntil: row.lockedUntil ? new Date(row.lockedUntil) : undefined,
@@ -146,7 +164,7 @@ class SqliteUserStore implements UserStore {
 
   async getAllUsers(): Promise<Omit<User, 'passwordHash'>[]> {
     const db = getDb();
-    const rows = db.prepare('SELECT id, email, name, isSuperAdmin, createdAt, updatedAt, apiLimit, readLimit, writeLimit, readsCount, writesCount, lockoutMinutes, lockedUntil, billingMonthStart, mfaEnabled FROM users ORDER BY createdAt DESC').all() as RawUserRow[];
+    const rows = db.prepare('SELECT * FROM users ORDER BY createdAt DESC').all() as RawUserRow[];
     
     // We also need project count for each user
     const usersWithProjects = rows.map(row => {

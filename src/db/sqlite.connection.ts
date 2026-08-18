@@ -310,7 +310,105 @@ export function initSqlite(): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_webhooks_project ON webhooks(projectId);
+
+    -- 11. Account Deletion Lifecycle & Grace Period Table
+    CREATE TABLE IF NOT EXISTS account_deletion_requests (
+      id TEXT PRIMARY KEY,
+      accountType TEXT NOT NULL, -- 'developer' | 'project_user'
+      userId TEXT NOT NULL,
+      projectId TEXT,
+      userEmail TEXT NOT NULL,
+      initiatedAt TEXT NOT NULL,
+      gracePeriodDays INTEGER DEFAULT 7,
+      scheduledDeletionAt TEXT NOT NULL,
+      cancelledAt TEXT,
+      cancelledBy TEXT, -- 'user' | 'admin'
+      deletedAt TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' -- 'pending' | 'cancelled' | 'completed'
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_deletion_requests_status ON account_deletion_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_deletion_requests_user ON account_deletion_requests(userId);
+
+    -- 12. Account Threat Flags Table (Automated Heuristics & Super Admin Flags)
+    CREATE TABLE IF NOT EXISTS account_security_flags (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      userEmail TEXT NOT NULL,
+      reason TEXT NOT NULL, -- 'bot_activity' | 'spam' | 'malicious_traffic' | 'illegal_content' | 'compromised_account'
+      severity TEXT NOT NULL DEFAULT 'medium', -- 'low' | 'medium' | 'high' | 'critical'
+      riskScore INTEGER NOT NULL DEFAULT 0,
+      detectionSource TEXT NOT NULL DEFAULT 'system_automated_heuristic', -- 'system_automated_heuristic' | 'super_admin_manual'
+      triggerEvidence TEXT,
+      flaggedAt TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active', -- 'active' | 'resolved'
+      resolvedAt TEXT,
+      resolvedBy TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_flags_user ON account_security_flags(userId);
+    CREATE INDEX IF NOT EXISTS idx_flags_status ON account_security_flags(status);
+
+    -- 13. Account Compliance Notices Table (Violations, Appeals & Purge Workflow)
+    CREATE TABLE IF NOT EXISTS account_compliance_notices (
+      id TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      userEmail TEXT NOT NULL,
+      category TEXT NOT NULL,
+      title TEXT NOT NULL,
+      details TEXT NOT NULL,
+      issuedAt TEXT NOT NULL,
+      deadlineAt TEXT NOT NULL,
+      userExplanation TEXT,
+      explanationSubmittedAt TEXT,
+      adminDecision TEXT DEFAULT 'pending', -- 'pending' | 'accepted' | 'rejected' | 'expired'
+      decisionNotes TEXT,
+      decidedAt TEXT,
+      status TEXT NOT NULL DEFAULT 'open' -- 'open' | 'appealed' | 'revoked' | 'scheduled_for_purge' | 'purged'
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_notices_user ON account_compliance_notices(userId);
+    CREATE INDEX IF NOT EXISTS idx_notices_status ON account_compliance_notices(status);
+
+    -- 14. Platform Policies & Terms Table (Versioning & Dynamic Rollout)
+    CREATE TABLE IF NOT EXISTS platform_policies (
+      id TEXT PRIMARY KEY,
+      version TEXT NOT NULL,
+      termsAndConditions TEXT NOT NULL,
+      securityPolicy TEXT NOT NULL,
+      backupPolicy TEXT NOT NULL,
+      effectiveDate TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      updatedBy TEXT NOT NULL
+    );
   `);
+
+  // Column migration checks for users & project_users status, deletion, flags, and policy versions
+  const userModerationCols = [
+    { table: 'users', col: 'status', def: "TEXT DEFAULT 'active'" },
+    { table: 'users', col: 'deletionInitiatedAt', def: 'TEXT' },
+    { table: 'users', col: 'scheduledDeletionAt', def: 'TEXT' },
+    { table: 'users', col: 'isFlagged', def: 'INTEGER DEFAULT 0' },
+    { table: 'users', col: 'riskScore', def: 'INTEGER DEFAULT 0' },
+    { table: 'users', col: 'activeNoticeId', def: 'TEXT' },
+    { table: 'users', col: 'noticeStatus', def: "TEXT DEFAULT 'none'" },
+    { table: 'users', col: 'acceptedTermsVersion', def: "TEXT DEFAULT 'v1.0.0'" },
+    { table: 'users', col: 'acceptedTermsAt', def: 'TEXT' },
+    { table: 'project_users', col: 'status', def: "TEXT DEFAULT 'active'" },
+    { table: 'project_users', col: 'deletionInitiatedAt', def: 'TEXT' },
+    { table: 'project_users', col: 'scheduledDeletionAt', def: 'TEXT' },
+    { table: 'project_users', col: 'isFlagged', def: 'INTEGER DEFAULT 0' },
+    { table: 'project_users', col: 'riskScore', def: 'INTEGER DEFAULT 0' },
+    { table: 'project_users', col: 'activeNoticeId', def: 'TEXT' },
+    { table: 'project_users', col: 'noticeStatus', def: "TEXT DEFAULT 'none'" },
+    { table: 'project_users', col: 'acceptedTermsVersion', def: "TEXT DEFAULT 'v1.0.0'" },
+    { table: 'project_users', col: 'acceptedTermsAt', def: 'TEXT' }
+  ];
+  for (const { table, col, def } of userModerationCols) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def};`);
+    } catch {}
+  }
 
   // Column migration check for isSuperAdmin if users table existed previously
   try {
@@ -455,6 +553,27 @@ export function initSqlite(): void {
     db.exec(`INSERT OR IGNORE INTO platform_settings (id, googleAuthEnabled, googleClientId, backupMode, backupIntervalMinutes, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url) VALUES ('default', 0, '', 'none', 1440, '', '', '', '', null, null, null, null, null);`);
   } catch (e) {
     console.error('Failed to insert default platform settings', e);
+  }
+
+  // Ensure default platform policies exist (v1.0.0)
+  try {
+    const existingPolicy = db.prepare('SELECT id FROM platform_policies WHERE id = ?').get('default');
+    if (!existingPolicy) {
+      const now = new Date().toISOString();
+      const defaultTerms = `# AegisDB Platform Terms & Conditions (v1.0.0)\n\n### 1. Acceptance of Terms\nBy creating an account, connecting client applications, or utilizing AegisDB APIs, SDKs, and storage services, you agree to comply with these terms. You agree not to engage in malicious scraping, DDoS, credential harvesting, unlawful payload transmission, or unauthorized multi-tenant tampering.\n\n### 2. Trust, Safety & Automated Moderation\nAegisDB continuously monitors incoming requests for abusive, bot, or malicious activity. Accounts exhibiting high-risk behavioral anomalies may be flagged, issued formal compliance violation notices, or subjected to permanent automated erasure.\n\n### 3. Data Ownership & Portability\nYou retain ownership of all data stored within your projects. Under GDPR Article 20, you may export your data bundle at any time.`;
+
+      const defaultSecurity = `# AegisDB Security & Cryptographic Policy (v1.0.0)\n\n### 1. Zero-Trust Architecture\nAll data at rest is protected with two-tier envelope encryption (AES-256-GCM) with hardware-isolated HKDF Master Key Derivation. All traffic requires TLS 1.3 / HTTPS.\n\n### 2. Credential Protection\nDevelopers and users are responsible for safeguarding API keys, JWT access tokens, and RFC 6238 TOTP authenticator devices. Compromised credentials or accounts with excessive lockout velocity will be flagged for investigation.`;
+
+      const defaultBackup = `# AegisDB Backup & Disaster Recovery Policy (v1.0.0)\n\n### 1. Automated Snapshotting\nAegisDB provides localized snapshotting and automated S3-compatible remote backup mechanisms.\n\n### 2. Right to Erasure & Grace Period\nIn accordance with GDPR Article 17, account deletion enforces a 7-day cooling-off grace period before permanent, irreversible cascading erasure.`;
+
+      db.prepare(`
+        INSERT INTO platform_policies (id, version, termsAndConditions, securityPolicy, backupPolicy, effectiveDate, updatedAt, updatedBy)
+        VALUES ('default', 'v1.0.0', ?, ?, ?, ?, ?, 'system')
+      `).run(defaultTerms, defaultSecurity, defaultBackup, now, now);
+      console.log('📜 Default platform policies seeded (version v1.0.0).');
+    }
+  } catch (e: any) {
+    console.error('Failed to seed default platform policies:', e.message);
   }
 
   // Seed Super Admin Account if absent

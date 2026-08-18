@@ -8,6 +8,7 @@ import { rateLimitConfig } from '../middleware/rateLimit.middleware';
 import { AdminSystemStats, UpdateRateLimitDto } from '../types/project.types';
 import { userStore } from '../store/user.store';
 import { wsService } from '../realtime/websocket.service';
+import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 import os from 'os';
 
 export class AdminService {
@@ -91,20 +92,63 @@ export class AdminService {
   }
 
   /**
-   * Delete a user and all their owned data (projects, collections, documents, etc).
-   * Cannot delete the Super Admin account.
+   * List all account deletion requests (pending, cancelled, completed) for audit and management.
    */
-  deleteUser(userId: string): void {
+  getAccountDeletionRequests() {
     const db = getDb();
-    const user = db.prepare('SELECT id, isSuperAdmin FROM users WHERE id = ?').get(userId) as any;
-    if (!user) {
-      throw new Error('User not found.');
+    const rows = db.prepare(`
+      SELECT 
+        id,
+        accountType,
+        userId,
+        projectId,
+        userEmail,
+        initiatedAt,
+        gracePeriodDays,
+        scheduledDeletionAt,
+        cancelledAt,
+        cancelledBy,
+        deletedAt,
+        status
+      FROM account_deletion_requests
+      ORDER BY initiatedAt DESC
+    `).all() as any[];
+
+    return rows.map((r) => {
+      let email = r.userEmail;
+      if (typeof email === 'string' && email.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(email);
+          const decrypted = envelopeEncryptionService.decryptField(parsed, r.projectId || 'SYSTEM');
+          if (decrypted) email = decrypted;
+        } catch {
+          // ignore
+        }
+      }
+      return { ...r, userEmail: email };
+    });
+  }
+
+  /**
+   * Super Admin cancels a pending deletion request and retains the account.
+   */
+  async cancelAccountDeletion(requestId: string) {
+    const db = getDb();
+    const reqRow = db.prepare('SELECT * FROM account_deletion_requests WHERE id = ?').get(requestId) as any;
+    if (!reqRow) {
+      throw new Error('Deletion request not found.');
     }
-    if (user.isSuperAdmin) {
-      throw new Error('Cannot delete the Super Admin account.');
+    if (reqRow.status !== 'pending') {
+      throw new Error(`Cannot cancel: Deletion request is already ${reqRow.status}.`);
     }
-    // CASCADE in the schema handles projects, collections, documents, etc.
-    db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+    if (reqRow.accountType === 'developer') {
+      const { cancelDeveloperAccountDeletion } = await import('../auth/auth.service');
+      return cancelDeveloperAccountDeletion(reqRow.userId, 'admin');
+    } else {
+      const { projectAuthService } = await import('../project-auth/project-auth.service');
+      return projectAuthService.cancelProjectUserDeletion(reqRow.projectId, reqRow.userId, 'admin');
+    }
   }
 
   /**

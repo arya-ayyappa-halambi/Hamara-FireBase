@@ -27,6 +27,7 @@ import hosterRouter      from './hoster/hoster.routes';
 import projectRouter     from './project/project.routes';
 import adminRouter       from './admin/admin.routes';
 import systemRouter      from './system/system.routes';
+import policyRouter      from './routes/policy.routes';
 import { globalErrorHandler, notFoundHandler } from './middleware/error.middleware';
 import { authLimiter, apiLimiter } from './middleware/rateLimit.middleware';
 import { ensureUploadDir }   from './storage/storage.service';
@@ -40,6 +41,7 @@ import metricsRouter      from './routes/metrics.routes';
 import { metricsService } from './services/metrics.service';
 import { securityHeaders, dynamicCors } from './middleware/security.middleware';
 import { maintenanceModeMiddleware } from './middleware/maintenance.middleware';
+import { accountPurgeSchedulerService } from './services/account-purge-scheduler.service';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -111,7 +113,15 @@ function createApp(): Application {
   }
 
   // ── Static Files (Web Dashboard) ───────────────────────────────────────────
-  app.use(express.static('public'));
+  app.use(express.static('public', {
+    etag: false,
+    lastModified: false,
+    setHeaders: (res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }));
 
   app.get('/reset-password', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/reset-password.html'));
@@ -146,6 +156,7 @@ function createApp(): Application {
   app.use('/api/v1/hoster',   hosterRouter);
   app.use('/api/v1/admin',    adminRouter);
   app.use('/api/v1/system',   systemRouter);
+  app.use('/api/v1/policies', policyRouter);
 
   // ── Multi-Region Logical Sync Replication Route ──────────────────────────────────
   app.post('/api/v1/replication/sync', (req, res, next) => {
@@ -219,9 +230,13 @@ async function bootstrap(): Promise<void> {
   // Attach Real-Time WebSocket Server
   wsService.init(server);
 
+  // Start 7-Day Account Deletion Grace Period Purge Scheduler
+  accountPurgeSchedulerService.start();
+
   // ── Graceful Shutdown ────────────────────────────────────────────────────
   const shutdown = (signal: string) => {
     console.log(`\n${signal} received — shutting down gracefully...`);
+    accountPurgeSchedulerService.stop();
     server.close(() => {
       console.log('✅ HTTP server closed.');
       process.exit(0);

@@ -478,6 +478,19 @@
               <input type="text" id="input-totp" maxlength="6" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-mono tracking-widest text-center" placeholder="123456">
             </div>
 
+            <!-- Policy & Terms Agreement Checkbox for Registration -->
+            <div id="field-terms-agreement" class="space-y-1 hidden pt-1">
+              <label class="flex items-start space-x-2 cursor-pointer text-xs text-slate-300">
+                <input type="checkbox" id="checkbox-agree-policies" class="mt-0.5 rounded border-white/20 text-indigo-600 focus:ring-indigo-500 bg-slate-900">
+                <span>
+                  I agree to the 
+                  <a href="javascript:void(0)" onclick="openPolicyViewerModal('terms')" class="text-indigo-400 hover:underline">Terms & Conditions</a>, 
+                  <a href="javascript:void(0)" onclick="openPolicyViewerModal('security')" class="text-indigo-400 hover:underline">Security Policy</a>, & 
+                  <a href="javascript:void(0)" onclick="openPolicyViewerModal('backup')" class="text-indigo-400 hover:underline">Backup Policy</a>.
+                </span>
+              </label>
+            </div>
+
             <button type="submit" id="btn-auth-submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold shadow-lg shadow-indigo-500/25 transition active:scale-[0.98] flex items-center justify-center space-x-2">
               <span>Sign In to Console</span>
               <i class="fa-solid fa-arrow-right text-xs"></i>
@@ -655,6 +668,31 @@
           <span>MFA Setup</span>
         </button>
 
+        <!-- Super Admin Real-Time Threat Alerts Trigger -->
+        <div id="container-threat-alerts" class="relative hidden">
+          <button id="btn-threat-alerts-header" title="Security Threat Alerts & Bot Detections" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition flex items-center space-x-1.5">
+            <i class="fa-solid fa-bell text-rose-400 animate-pulse"></i>
+            <span>Threats</span>
+            <span id="badge-threat-count" class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px] font-bold">0</span>
+          </button>
+
+          <!-- Threat Alerts Dropdown Feed -->
+          <div id="dropdown-threat-alerts" class="hidden absolute right-0 mt-2 w-96 glass-panel rounded-2xl p-4 border border-rose-500/30 shadow-2xl z-50 space-y-3">
+            <div class="flex items-center justify-between border-b border-white/10 pb-2">
+              <span class="text-xs font-bold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-shield-virus text-rose-400"></i>
+                <span>SecOps Threat Intelligence Feed</span>
+              </span>
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('dropdown-threat-alerts').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <div id="threat-alerts-feed-list" class="space-y-2 max-h-72 overflow-y-auto pr-1 text-xs">
+              <div class="text-slate-400 text-center py-4">No active threat alerts. System normal.</div>
+            </div>
+          </div>
+        </div>
+
         <!-- User Profile Dropdown -->
         <div class="flex items-center space-x-3 pl-3 border-l border-white/10">
           <div class="text-right hidden lg:block">
@@ -667,6 +705,40 @@
         </div>
       </div>
     </header>
+
+    <!-- ── 7-DAY ACCOUNT DELETION GRACE PERIOD RECOVERY BANNER ───────────── -->
+    <div id="banner-pending-deletion" class="hidden bg-gradient-to-r from-amber-950/90 via-amber-900/60 to-slate-950 border-b border-amber-500/40 px-6 py-3 items-center justify-between z-40 text-xs text-amber-200 shadow-lg">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-triangle-exclamation text-amber-400 text-base animate-pulse"></i>
+        <div>
+          <span class="font-bold text-amber-300">Account Scheduled for Permanent Erasure:</span>
+          <span id="banner-pending-deletion-text" class="text-amber-200/90 ml-1">Your account and data will be erased in 7 days.</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button type="button" onclick="cancelMyAccountDeletion()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow transition active:scale-95 flex items-center space-x-1.5">
+          <i class="fa-solid fa-arrow-rotate-left"></i>
+          <span>Cancel Deletion & Retain Account</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── COMPLIANCE VIOLATION NOTICE ALERT BANNER ──────────────────────── -->
+    <div id="banner-compliance-notice" class="hidden bg-gradient-to-r from-rose-950/90 via-rose-900/60 to-slate-950 border-b border-rose-500/40 px-6 py-3 items-center justify-between z-40 text-xs text-rose-200 shadow-lg">
+      <div class="flex items-center space-x-3">
+        <i class="fa-solid fa-shield-halved text-rose-400 text-base animate-pulse"></i>
+        <div>
+          <span class="font-bold text-rose-300">Formal Compliance Notice Active:</span>
+          <span id="banner-compliance-notice-text" class="text-rose-200/90 ml-1">An action is required regarding your account.</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button type="button" onclick="openComplianceAppealModal()" class="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow transition active:scale-95 flex items-center space-x-1.5">
+          <i class="fa-solid fa-file-shield mr-1"></i>
+          <span>Review Notice & Submit Explanation</span>
+        </button>
+      </div>
+    </div>
 
     <!-- ── DASHBOARD BODY (SIDEBAR + CONTENT) ────────────────────────────── -->
     <div class="flex-1 flex overflow-hidden">
@@ -698,6 +770,10 @@
             <button data-tab="tab-sec-ops" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-shield-virus text-base text-amber-400 w-5"></i>
               <span class="nav-text">SecOps & Backups</span>
+            </button>
+            <button data-tab="tab-platform-policies" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-scale-balanced text-base text-amber-400 w-5"></i>
+              <span class="nav-text">Policies & Terms</span>
             </button>
           </div>
 
@@ -759,7 +835,7 @@
               <i class="fa-solid fa-circle-info text-base text-slate-400 w-5"></i>
               <span class="nav-text">About AegisDB</span>
             </button>
-            <button onclick="startTutorial()" id="btn-tutorial" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/10 transition mt-2">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); startTutorial()" id="btn-tutorial" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/10 transition mt-2">
               <i class="fa-solid fa-lightbulb text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Interactive Tour</span>
             </button>
@@ -913,26 +989,43 @@
               </h2>
               <p class="text-xs text-slate-400 mt-1">View, manage, and configure limits for all registered platform users</p>
             </div>
-            <button id="btn-refresh-users" class="px-4 py-2 rounded-xl text-xs font-medium glass-panel hover:bg-white/10 text-slate-200 transition flex items-center space-x-2">
+            <button id="btn-refresh-users" data-action="refresh-users" class="px-4 py-2 rounded-xl text-xs font-medium glass-panel hover:bg-white/10 text-slate-200 transition flex items-center space-x-2">
               <i class="fa-solid fa-rotate-right"></i>
               <span>Refresh Users</span>
             </button>
           </div>
 
-          <div class="glass-panel rounded-2xl border border-white/10 overflow-hidden">
-            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex items-center justify-between">
-              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Registered Platform Users</div>
-              <span id="badge-user-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">0 users</span>
+          <div class="glass-panel rounded-2xl border border-white/10 overflow-visible">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="flex items-center space-x-3">
+                <div class="text-xs font-semibold uppercase tracking-wider text-slate-300">Registered Platform Users</div>
+                <span id="badge-user-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">0 users</span>
+              </div>
+              
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input type="text" id="input-search-users" oninput="filterUsersTable()" placeholder="Search users by name or email..." class="bg-slate-950/80 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500/50 w-56 md:w-64 transition">
+                </div>
+                
+                <div class="flex items-center bg-slate-950/80 border border-white/10 rounded-xl p-0.5 text-[11px] font-medium text-slate-400">
+                  <button type="button" onclick="setUserRoleFilter('all', this)" class="user-filter-btn px-2.5 py-1 rounded-lg text-white bg-indigo-600/60 font-semibold transition">All</button>
+                  <button type="button" onclick="setUserRoleFilter('developer', this)" class="user-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Developers</button>
+                  <button type="button" onclick="setUserRoleFilter('superadmin', this)" class="user-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Admins</button>
+                  <button type="button" onclick="setUserRoleFilter('flagged', this)" class="user-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Flagged</button>
+                </div>
+              </div>
             </div>
-            <div class="overflow-x-auto">
+            
+            <div class="overflow-x-auto min-h-[160px]">
               <table class="w-full text-left text-xs text-slate-300">
                 <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
                   <tr>
-                    <th class="p-4">Name</th>
-                    <th class="p-4">Email</th>
+                    <th class="p-4 w-1/4">Name</th>
+                    <th class="p-4 w-1/4">Email</th>
                     <th class="p-4">Role</th>
                     <th class="p-4">MFA</th>
-                    <th class="p-4">Rate Limit (R/W)</th>
+                    <th class="p-4">Rate Limits</th>
                     <th class="p-4">Created</th>
                     <th class="p-4 text-right">Actions</th>
                   </tr>
@@ -943,6 +1036,229 @@
                   </tr>
                 </tbody>
               </table>
+            </div>
+
+            <!-- Table Pagination & Page Summary Controls -->
+            <div id="users-table-pagination" class="p-3.5 border-t border-white/10 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+              <div id="users-pagination-info" class="font-medium">
+                Showing <span id="users-page-start" class="text-white font-semibold">1</span>–<span id="users-page-end" class="text-white font-semibold">8</span> of <span id="users-page-total" class="text-white font-semibold">0</span> users
+              </div>
+              <div class="flex items-center space-x-1.5" id="users-pagination-controls">
+                <!-- Injected via app.js -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Account Deletion & Retention Lifecycle Card (7-Day Grace Period) -->
+          <div class="glass-panel rounded-2xl border border-white/10 overflow-hidden">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-hourglass-half text-amber-400 text-sm"></i>
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Account Deletions & Retention Requests (7-Day Grace Period)</span>
+                <span id="badge-deletions-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">0 requests</span>
+              </div>
+              
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input type="text" id="input-search-deletions" oninput="filterDeletionsTable()" placeholder="Search deletions..." class="bg-slate-950/80 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 w-48 md:w-56 transition">
+                </div>
+                
+                <div class="flex items-center bg-slate-950/80 border border-white/10 rounded-xl p-0.5 text-[11px] font-medium text-slate-400">
+                  <button type="button" onclick="setDeletionsFilter('all', this)" class="deletion-filter-btn px-2.5 py-1 rounded-lg text-white bg-amber-600 font-semibold shadow-sm transition">All</button>
+                  <button type="button" onclick="setDeletionsFilter('pending', this)" class="deletion-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Pending</button>
+                  <button type="button" onclick="setDeletionsFilter('cancelled', this)" class="deletion-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Retained</button>
+                  <button type="button" onclick="setDeletionsFilter('purged', this)" class="deletion-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Purged</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto min-h-[140px]">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-4 w-1/4">Account Email</th>
+                    <th class="p-4">Type</th>
+                    <th class="p-4">Initiated Date</th>
+                    <th class="p-4">Scheduled Purge</th>
+                    <th class="p-4">Status</th>
+                    <th class="p-4 text-right">Retention Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-deletions-body" class="divide-y divide-white/5">
+                  <tr>
+                    <td colspan="6" class="p-4 text-center text-slate-500">Loading deletion requests...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div id="deletions-table-pagination" class="p-3 border-t border-white/10 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+              <div id="deletions-pagination-info" class="font-medium">
+                Showing <span id="deletions-page-start" class="text-white font-semibold">1</span>–<span id="deletions-page-end" class="text-white font-semibold">5</span> of <span id="deletions-page-total" class="text-white font-semibold">0</span> requests
+              </div>
+              <div class="flex items-center space-x-1.5" id="deletions-pagination-controls"></div>
+            </div>
+          </div>
+
+          <!-- Compliance Violation Hearings & Appeals Card -->
+          <div class="glass-panel rounded-2xl border border-rose-500/20 overflow-hidden">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-gavel text-rose-400 text-sm"></i>
+                <span class="text-xs font-semibold uppercase tracking-wider text-rose-300">Compliance Violation Notices & Hearing Appeals</span>
+                <span id="badge-notices-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/20">0 notices</span>
+              </div>
+              
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input type="text" id="input-search-notices" oninput="filterNoticesTable()" placeholder="Search notices by email or title..." class="bg-slate-950/80 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/50 w-52 md:w-64 transition">
+                </div>
+                
+                <div class="flex items-center bg-slate-950/80 border border-white/10 rounded-xl p-0.5 text-[11px] font-medium text-slate-400">
+                  <button type="button" onclick="setNoticesFilter('all', this)" class="notice-filter-btn px-2.5 py-1 rounded-lg text-white bg-rose-600 font-semibold shadow-sm transition">All</button>
+                  <button type="button" onclick="setNoticesFilter('active', this)" class="notice-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Active / Open</button>
+                  <button type="button" onclick="setNoticesFilter('appealed', this)" class="notice-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Appealed</button>
+                  <button type="button" onclick="setNoticesFilter('revoked', this)" class="notice-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Revoked</button>
+                  <button type="button" onclick="setNoticesFilter('rejected', this)" class="notice-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Purge Pending</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto min-h-[140px]">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-4 w-[20%]">User Email</th>
+                    <th class="p-4 w-[12%]">Category</th>
+                    <th class="p-4 w-[26%]">Notice Title & Details</th>
+                    <th class="p-4 w-[14%]">Status & Deadline</th>
+                    <th class="p-4 w-[16%]">Appeal / Explanation</th>
+                    <th class="p-4 w-[12%] text-right">Admin Decision</th>
+                  </tr>
+                </thead>
+                <tbody id="table-notices-body" class="divide-y divide-white/5">
+                  <tr>
+                    <td colspan="6" class="p-4 text-center text-slate-500">Loading compliance notices...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div id="notices-table-pagination" class="p-3 border-t border-white/10 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+              <div id="notices-pagination-info" class="font-medium">
+                Showing <span id="notices-page-start" class="text-white font-semibold">1</span>–<span id="notices-page-end" class="text-white font-semibold">5</span> of <span id="notices-page-total" class="text-white font-semibold">0</span> notices
+              </div>
+              <div class="flex items-center space-x-1.5" id="notices-pagination-controls"></div>
+            </div>
+          </div>
+
+          <!-- Active Threat & Behavioral Anomaly Flags Card -->
+          <div class="glass-panel rounded-2xl border border-amber-500/20 overflow-hidden">
+            <div class="p-4 border-b border-white/10 bg-slate-900/50 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-shield-virus text-amber-400 text-sm"></i>
+                <span class="text-xs font-semibold uppercase tracking-wider text-amber-300">Active Threat & Behavioral Anomaly Flags</span>
+                <span id="badge-flags-count" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">0 flags</span>
+              </div>
+              
+              <div class="flex flex-wrap items-center gap-2">
+                <div class="relative">
+                  <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input type="text" id="input-search-threat-flags" oninput="filterThreatFlagsTable()" placeholder="Search threat alerts..." class="bg-slate-950/80 border border-white/10 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500/50 w-48 md:w-56 transition">
+                </div>
+                
+                <div class="flex items-center bg-slate-950/80 border border-white/10 rounded-xl p-0.5 text-[11px] font-medium text-slate-400">
+                  <button type="button" onclick="setThreatFlagsFilter('all', this)" class="flag-filter-btn px-2.5 py-1 rounded-lg text-white bg-amber-600 font-semibold shadow-sm transition">All</button>
+                  <button type="button" onclick="setThreatFlagsFilter('critical', this)" class="flag-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Critical (≥90)</button>
+                  <button type="button" onclick="setThreatFlagsFilter('high', this)" class="flag-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">High (70-89)</button>
+                  <button type="button" onclick="setThreatFlagsFilter('medium', this)" class="flag-filter-btn px-2.5 py-1 rounded-lg hover:text-white transition">Medium (&lt;70)</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto min-h-[140px]">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-4 w-[22%]">Flagged Account</th>
+                    <th class="p-4 w-[18%]">Threat Reason</th>
+                    <th class="p-4 w-[14%]">Risk Score</th>
+                    <th class="p-4 w-[18%]">Detection Source</th>
+                    <th class="p-4 w-[14%]">Flagged Time</th>
+                    <th class="p-4 w-[14%] text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-threat-flags-body" class="divide-y divide-white/5">
+                  <tr>
+                    <td colspan="6" class="p-4 text-center text-slate-500">Loading threat flags...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div id="flags-table-pagination" class="p-3 border-t border-white/10 bg-slate-950/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+              <div id="flags-pagination-info" class="font-medium">
+                Showing <span id="flags-page-start" class="text-white font-semibold">1</span>–<span id="flags-page-end" class="text-white font-semibold">5</span> of <span id="flags-page-total" class="text-white font-semibold">0</span> flags
+              </div>
+              <div class="flex items-center space-x-1.5" id="flags-pagination-controls"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: PLATFORM POLICIES & TERMS (SUPER ADMIN)             -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-platform-policies" class="workspace-panel space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+                <i class="fa-solid fa-scale-balanced text-amber-400"></i>
+                <span>Platform Policies, Terms & Rollout Control</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Manage Terms & Conditions, Security, and Backup policies. Roll out updates to trigger mandatory consent gates for all users.</p>
+            </div>
+            <div class="flex items-center space-x-3">
+              <span class="text-xs text-slate-400">Active Version: <strong id="label-active-policy-version" class="text-amber-400 font-mono">v1.0.0</strong></span>
+              <button id="btn-save-and-rollout-policy" onclick="saveAndRolloutPolicies()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-lg transition active:scale-95 flex items-center space-x-2">
+                <i class="fa-solid fa-bullhorn"></i>
+                <span>Publish & Rollout to Users</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1">
+                <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">New Policy Version</label>
+                <input type="text" id="input-policy-version" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="v1.1.0">
+              </div>
+              <div class="space-y-1">
+                <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Effective Date</label>
+                <input type="text" id="input-policy-effective-date" readonly class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-slate-400">
+              </div>
+            </div>
+
+            <!-- Tabbed Editors for Terms, Security, and Backup -->
+            <div class="space-y-4">
+              <div class="flex border-b border-white/10 space-x-4">
+                <button type="button" onclick="switchPolicyEditorTab('terms')" id="btn-edit-tab-terms" class="py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400">Terms & Conditions</button>
+                <button type="button" onclick="switchPolicyEditorTab('security')" id="btn-edit-tab-security" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Security Policy</button>
+                <button type="button" onclick="switchPolicyEditorTab('backup')" id="btn-edit-tab-backup" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Backup & Retention Policy</button>
+              </div>
+
+              <div id="editor-policy-terms" class="space-y-2">
+                <textarea id="textarea-policy-terms" rows="12" class="w-full p-4 rounded-xl glass-input text-xs font-mono text-slate-200 resize-y" placeholder="Write Terms and Conditions markdown here..."></textarea>
+              </div>
+
+              <div id="editor-policy-security" class="space-y-2 hidden">
+                <textarea id="textarea-policy-security" rows="12" class="w-full p-4 rounded-xl glass-input text-xs font-mono text-slate-200 resize-y" placeholder="Write Security Policy markdown here..."></textarea>
+              </div>
+
+              <div id="editor-policy-backup" class="space-y-2 hidden">
+                <textarea id="textarea-policy-backup" rows="12" class="w-full p-4 rounded-xl glass-input text-xs font-mono text-slate-200 resize-y" placeholder="Write Backup & Disaster Recovery Policy markdown here..."></textarea>
+              </div>
             </div>
           </div>
         </section>
@@ -1133,7 +1449,7 @@
                 <button id="btn-save-backup-settings" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition active:scale-95">
                   Save Backup Settings
                 </button>
-                <button onclick="document.getElementById('modal-backup-manual').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 text-xs font-semibold shadow transition active:scale-95">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-backup-manual').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-teal-500/10 border border-teal-500/30 text-teal-400 hover:bg-teal-500/20 text-xs font-semibold shadow transition active:scale-95">
                   <i class="fa-solid fa-book-open mr-1"></i> Setup & Restore Manual
                 </button>
 
@@ -1171,19 +1487,19 @@
                   <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
                 </button>
                 <div class="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden">
-                  <button onclick="exportReport('json')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                  <button type="button" onclick="event.preventDefault(); event.stopPropagation(); exportReport('json')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
                     <i class="fa-solid fa-file-code w-4"></i> <span>Export as JSON</span>
                   </button>
-                  <button onclick="exportReport('md')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                  <button type="button" onclick="event.preventDefault(); event.stopPropagation(); exportReport('md')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
                     <i class="fa-brands fa-markdown w-4"></i> <span>Export as Markdown</span>
                   </button>
-                  <button onclick="exportReport('csv')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                  <button type="button" onclick="event.preventDefault(); event.stopPropagation(); exportReport('csv')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
                     <i class="fa-solid fa-file-csv w-4"></i> <span>Export as Excel (CSV)</span>
                   </button>
-                  <button onclick="exportReport('doc')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                  <button type="button" onclick="event.preventDefault(); event.stopPropagation(); exportReport('doc')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
                     <i class="fa-solid fa-file-word w-4"></i> <span>Export as Word (.doc)</span>
                   </button>
-                  <button onclick="exportReport('pdf')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
+                  <button type="button" onclick="event.preventDefault(); event.stopPropagation(); exportReport('pdf')" class="w-full text-left px-4 py-2.5 text-xs text-slate-300 hover:bg-slate-700 hover:text-white transition flex items-center space-x-2">
                     <i class="fa-solid fa-file-pdf w-4"></i> <span>Export as PDF</span>
                   </button>
                 </div>
@@ -1377,10 +1693,10 @@
                 <input id="input-doc-search" oninput="handleDocSearch()" type="text" placeholder="Search document contents..." class="bg-transparent border-none text-xs text-white placeholder-slate-500 focus:outline-none w-full ml-2" />
               </div>
               <div class="flex items-center space-x-2">
-                <button onclick="prevDocsPage()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition" title="Previous 100">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); prevDocsPage()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition" title="Previous 100">
                   <i class="fa-solid fa-chevron-left text-xs"></i>
                 </button>
-                <button onclick="nextDocsPage()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition" title="Next 100">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); nextDocsPage()" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition" title="Next 100">
                   <i class="fa-solid fa-chevron-right text-xs"></i>
                 </button>
                 <button id="btn-open-create-document" class="px-3 py-1.5 ml-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition flex items-center space-x-1.5">
@@ -1722,7 +2038,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
               </h2>
               <p class="text-xs text-slate-400 mt-1">Configure identity providers, OAuth credentials, and login policies for your active project.</p>
             </div>
-            <button onclick="saveAuthConfig()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5 flex items-center space-x-2">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); saveAuthConfig()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all hover:-translate-y-0.5 flex items-center space-x-2">
               <i class="fa-solid fa-floppy-disk"></i>
               <span>Save Auth Settings</span>
             </button>
@@ -1924,7 +2240,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
 }</textarea>
               </div>
 
-              <button onclick="executeApiTest()" class="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-lg transition flex items-center justify-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); executeApiTest()" class="w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold shadow-lg transition flex items-center justify-center space-x-2">
                 <i class="fa-solid fa-paper-plane"></i>
                 <span>Send Test Request</span>
               </button>
@@ -2096,15 +2412,15 @@ const docs = await aegis.collection('todos').get();</code></pre>
               </div>
               <p class="text-xs text-slate-400">Download a complete, structured JSON archive containing your developer profile, projects metadata, collection schemes, and usage statistics.</p>
               <div class="pt-2">
-                <button onclick="exportMyData()" class="px-4 py-2 rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 text-xs font-semibold transition active:scale-95 flex items-center space-x-2">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); exportMyData()" class="px-4 py-2 rounded-xl bg-blue-600/20 text-blue-300 border border-blue-500/30 hover:bg-blue-600/30 text-xs font-semibold transition active:scale-95 flex items-center space-x-2">
                   <i class="fa-solid fa-download"></i>
                   <span>Export My Data Bundle</span>
                 </button>
               </div>
             </div>
 
-            <!-- Danger Zone: Right to Erasure / Account Deletion Card -->
-            <div class="glass-panel p-6 rounded-2xl border border-rose-500/30 bg-rose-500/[0.02] space-y-4 md:col-span-2">
+            <!-- Danger Zone: Right to Erasure / Account Deletion Card (Developer Only) -->
+            <div id="card-danger-zone-deletion" class="glass-panel p-6 rounded-2xl border border-rose-500/30 bg-rose-500/[0.02] space-y-4 md:col-span-2">
               <div class="flex items-center justify-between">
                 <h3 class="text-sm font-semibold text-rose-400 flex items-center space-x-2">
                   <i class="fa-solid fa-triangle-exclamation"></i>
@@ -2116,7 +2432,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 Permanently deletes your developer account and <strong>permanently shreds all owned databases, encryption keys (DEKs), collections, documents, uploaded assets, and active API keys</strong> in accordance with GDPR Article 17, CCPA § 1798.105, and India's DPDP Act 2023. This action cannot be undone.
               </p>
               <div class="pt-2">
-                <button onclick="openDeleteAccountModal()" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/20 transition active:scale-95 flex items-center space-x-2">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openDeleteAccountModal()" class="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-lg shadow-rose-600/20 transition active:scale-95 flex items-center space-x-2">
                   <i class="fa-solid fa-trash-can"></i>
                   <span>Delete My Developer Account Permanently</span>
                 </button>
@@ -2260,7 +2576,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                     <p class="text-xs text-slate-400">Zero-error, optimized prompts and context templates for Gemini, Copilot, Cursor & Claude.</p>
                   </div>
                 </div>
-                <button onclick="document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center space-x-2 w-fit">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center space-x-2 w-fit">
                   <i class="fa-solid fa-book-open"></i>
                   <span>Open Full AI Manual</span>
                 </button>
@@ -2274,7 +2590,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                       <i class="fa-solid fa-arrow-right-arrow-left"></i>
                       <span>App Migration Prompt</span>
                     </span>
-                    <button onclick="navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="I want to migrate my application backend to AegisDB (RESTful BaaS running at http://localhost:3000). Please update all database/API calls to AegisDB. Pass the project API key via the 'x-aegis-api-key' header in all requests (retrieve via localStorage.getItem('aegisApiKey') or config). Perform document inserts via POST /api/v1/db/collections/<collection_name>/documents with payload { data: { ... } } (or plain JSON), document queries via GET /api/v1/db/collections/<collection_name>/documents, updates via PATCH /api/v1/db/collections/<collection_name>/documents/<id>, and file uploads via POST /api/v1/storage/upload using FormData with field 'biometric'. Handle errors gracefully." class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy Migration Prompt">
+                    <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="I want to migrate my application backend to AegisDB (RESTful BaaS running at http://localhost:3000). Please update all database/API calls to AegisDB. Pass the project API key via the 'x-aegis-api-key' header in all requests (retrieve via localStorage.getItem('aegisApiKey') or config). Perform document inserts via POST /api/v1/db/collections/<collection_name>/documents with payload { data: { ... } } (or plain JSON), document queries via GET /api/v1/db/collections/<collection_name>/documents, updates via PATCH /api/v1/db/collections/<collection_name>/documents/<id>, and file uploads via POST /api/v1/storage/upload using FormData with field 'biometric'. Handle errors gracefully." class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy Migration Prompt">
                       <i class="fa-solid fa-copy"></i>
                       <span>Copy</span>
                     </button>
@@ -2291,7 +2607,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                       <i class="fa-solid fa-plus-circle"></i>
                       <span>New Project Prompt</span>
                     </span>
-                    <button onclick="navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="I want to build a new web application backed by AegisDB (RESTful BaaS running at http://localhost:3000). Connect all backend logic using AegisDB REST endpoints. Authenticate every fetch call using the 'x-aegis-api-key' header with the project API key from localStorage.getItem('aegisApiKey'). Use POST /api/v1/db/collections/<collection_name>/documents to save records, GET /api/v1/db/collections/<collection_name>/documents to fetch records, and POST /api/v1/storage/upload for file uploads. Provide a clean UI with real-time reactive updates." class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy New App Prompt">
+                    <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="I want to build a new web application backed by AegisDB (RESTful BaaS running at http://localhost:3000). Connect all backend logic using AegisDB REST endpoints. Authenticate every fetch call using the 'x-aegis-api-key' header with the project API key from localStorage.getItem('aegisApiKey'). Use POST /api/v1/db/collections/<collection_name>/documents to save records, GET /api/v1/db/collections/<collection_name>/documents to fetch records, and POST /api/v1/storage/upload for file uploads. Provide a clean UI with real-time reactive updates." class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy New App Prompt">
                       <i class="fa-solid fa-copy"></i>
                       <span>Copy</span>
                     </button>
@@ -2316,15 +2632,15 @@ const docs = await aegis.collection('todos').get();</code></pre>
               </div>
             </div>
             <div class="flex flex-wrap gap-3 mt-4 md:mt-0">
-              <button onclick="document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors flex items-center space-x-2">
                 <i class="fa-solid fa-robot"></i>
                 <span>AI / Dev Context</span>
               </button>
-              <button onclick="document.getElementById('modal-documentation').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition-colors flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-documentation').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-semibold hover:bg-white/10 transition-colors flex items-center space-x-2">
                 <i class="fa-solid fa-book"></i>
                 <span>Documentation</span>
               </button>
-              <button onclick="document.querySelector('[data-tab=\'tab-project-management\']').click()" class="px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5 flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.querySelector('[data-tab=\'tab-project-management\']').click()" class="px-5 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5 flex items-center space-x-2">
                 <i class="fa-solid fa-rocket"></i>
                 <span>Get Started</span>
               </button>
@@ -2351,7 +2667,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 </p>
               </div>
               <div class="flex gap-3">
-                <button onclick="runSdkTest('all')" class="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all flex items-center space-x-2">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); runSdkTest('all')" class="px-5 py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/25 transition-all flex items-center space-x-2">
                   <i class="fa-solid fa-play"></i>
                   <span>Run Live SDK Suite</span>
                 </button>
@@ -2371,24 +2687,24 @@ const docs = await aegis.collection('todos').get();</code></pre>
                   <p class="text-xs text-slate-400">Test API requests against your active server (`http://localhost:3000`) live in your browser.</p>
                 </div>
               </div>
-              <button onclick="clearSdkTerminal()" class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white text-xs font-medium transition">Clear Terminal</button>
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); clearSdkTerminal()" class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-400 hover:text-white text-xs font-medium transition">Clear Terminal</button>
             </div>
 
             <!-- Action Buttons -->
             <div class="flex flex-wrap gap-3">
-              <button onclick="runSdkTest('ping')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); runSdkTest('ping')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
                 <i class="fa-solid fa-heartbeat text-emerald-400"></i>
                 <span>1. Server Health Check</span>
               </button>
-              <button onclick="runSdkTest('create_collection')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); runSdkTest('create_collection')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
                 <i class="fa-solid fa-folder-plus text-amber-400"></i>
                 <span>2. Create Collection</span>
               </button>
-              <button onclick="runSdkTest('insert_doc')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); runSdkTest('insert_doc')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
                 <i class="fa-solid fa-file-circle-plus text-sky-400"></i>
                 <span>3. Insert Document</span>
               </button>
-              <button onclick="runSdkTest('query_docs')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); runSdkTest('query_docs')" class="px-4 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-semibold transition flex items-center space-x-2">
                 <i class="fa-solid fa-magnifying-glass text-purple-400"></i>
                 <span>4. Query Documents</span>
               </button>
@@ -2547,7 +2863,7 @@ console.log('Deployment status:', deployment.status);</code></pre>
             <p class="text-xs text-slate-400">High-efficiency context & copy-ready prompts for Gemini, Copilot, Cursor, and Claude.</p>
           </div>
         </div>
-        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-ai-context').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -2591,7 +2907,7 @@ console.log('Deployment status:', deployment.status);</code></pre>
             <span class="text-[10px] text-indigo-400 font-medium">Click to Copy</span>
           </div>
           <div class="bg-slate-900/90 p-4 rounded-2xl border border-indigo-500/30 relative group">
-            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 p-2 rounded-xl border border-indigo-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Migration Prompt">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 p-2 rounded-xl border border-indigo-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Migration Prompt">
               <i class="fa-solid fa-copy"></i>
               <span>Copy Prompt</span>
             </button>
@@ -2636,7 +2952,7 @@ Please refactor all mock/local/Firebase/Supabase storage calls to use these endp
             <span class="text-[10px] text-emerald-400 font-medium">Click to Copy</span>
           </div>
           <div class="bg-slate-900/90 p-4 rounded-2xl border border-emerald-500/30 relative group">
-            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 p-2 rounded-xl border border-emerald-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy New App Prompt">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 p-2 rounded-xl border border-emerald-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy New App Prompt">
               <i class="fa-solid fa-copy"></i>
               <span>Copy Prompt</span>
             </button>
@@ -2664,7 +2980,7 @@ Architectural Requirements:
             <span class="text-[10px] text-amber-400 font-medium">Ready to Drop into Any Project</span>
           </div>
           <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 relative group">
-            <button onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 p-2 rounded-xl border border-amber-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Drop-in Client Code">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 p-2 rounded-xl border border-amber-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Drop-in Client Code">
               <i class="fa-solid fa-copy"></i>
               <span>Copy Code</span>
             </button>
@@ -2749,7 +3065,7 @@ if (typeof module !== 'undefined') module.exports = { AegisClient };</code></pre
       <!-- Footer -->
       <div class="pt-4 border-t border-white/10 flex justify-between items-center">
         <span class="text-xs text-slate-400">Ready to build or migrate with zero errors.</span>
-        <button onclick="document.getElementById('modal-ai-context').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5">Understood & Ready</button>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-ai-context').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-0.5">Understood & Ready</button>
       </div>
     </div>
   </div>
@@ -2762,7 +3078,7 @@ if (typeof module !== 'undefined') module.exports = { AegisClient };</code></pre
           <i class="fa-solid fa-book-open text-indigo-400"></i>
           <span>AegisDB Developer Documentation</span>
         </h3>
-        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-documentation').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -2816,7 +3132,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
 
       </div>
       <div class="pt-4 border-t border-white/10 flex justify-end">
-        <button onclick="document.getElementById('modal-documentation').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5">Got it!</button>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-documentation').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-600 text-white text-xs font-semibold shadow-lg shadow-indigo-500/30 transition-all hover:-translate-y-0.5">Got it!</button>
       </div>
     </div>
   </div>
@@ -2824,7 +3140,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   <!-- Feature Detail Modal -->
   <div id="modal-feature-detail" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md transition-opacity">
     <div class="glass-panel rounded-2xl p-6 max-w-lg w-full border border-white/10 space-y-4 relative shadow-2xl">
-      <button onclick="document.getElementById('modal-feature-detail').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-feature-detail').classList.add('hidden')" class="absolute top-4 right-4 text-slate-400 hover:text-white">
         <i class="fa-solid fa-xmark text-lg"></i>
       </button>
       <div id="feature-modal-icon-bg" class="w-14 h-14 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-2xl mb-2">
@@ -2836,7 +3152,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         <!-- Bullets generated by JS -->
       </div>
       <div class="flex justify-end pt-2">
-        <button onclick="document.getElementById('modal-feature-detail').classList.add('hidden')" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-semibold transition">Close</button>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-feature-detail').classList.add('hidden')" class="px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white text-xs font-semibold transition">Close</button>
       </div>
     </div>
   </div>
@@ -2852,7 +3168,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-qrcode text-indigo-400"></i>
           <span>TOTP Multi-Factor Authentication Setup</span>
         </h3>
-        <button onclick="document.getElementById('modal-mfa-setup').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-mfa-setup').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -2879,7 +3195,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-shield-virus text-rose-400"></i>
           <span>Secure MFA Disable Verification</span>
         </h3>
-        <button onclick="document.getElementById('modal-mfa-disable').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-mfa-disable').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -2904,7 +3220,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-triangle-exclamation"></i>
           <span>Confirm Permanent Account Deletion</span>
         </h3>
-        <button onclick="document.getElementById('modal-delete-account').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-delete-account').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -2929,7 +3245,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         </div>
 
         <div class="flex items-center space-x-3 pt-2">
-          <button onclick="document.getElementById('modal-delete-account').classList.add('hidden')" class="w-1/2 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition">Cancel</button>
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-delete-account').classList.add('hidden')" class="w-1/2 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition">Cancel</button>
           <button id="btn-confirm-delete-account" onclick="executeAccountDeletion()" class="w-1/2 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition active:scale-95 flex items-center justify-center space-x-1.5">
             <i class="fa-solid fa-trash-can"></i>
             <span>Permanently Delete</span>
@@ -2939,14 +3255,14 @@ const activeUsers = await aegis.db.queryDocuments('users', {
     </div>
   </div>
 
-  <div id="modal-document-detail" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+  <div id="modal-document-detail" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
     <div class="glass-panel rounded-2xl p-6 max-w-3xl w-full border border-white/10 space-y-4 max-h-[85vh] flex flex-col">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="text-base font-semibold text-white flex items-center space-x-2">
           <i class="fa-solid fa-file-code text-indigo-400"></i>
           <span>Document Detail — <span id="doc-detail-id" class="text-indigo-300 font-mono text-sm"></span></span>
         </h3>
-        <button onclick="document.getElementById('modal-document-detail').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-document-detail')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -2958,7 +3274,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-regular fa-copy"></i>
           <span>Copy JSON</span>
         </button>
-        <button onclick="document.getElementById('modal-document-detail').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">Close</button>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-document-detail')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">Close</button>
       </div>
     </div>
   </div>
@@ -2971,7 +3287,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-key text-amber-400"></i>
           <span><span id="rotate-keys-title">Keys Rotated:</span> <span id="rotate-keys-project-name" class="text-amber-300 font-semibold"></span></span>
         </h3>
-        <button onclick="document.getElementById('modal-rotate-keys').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-rotate-keys').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -2985,7 +3301,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New API Key (Public)</label>
           <div class="relative flex items-center gap-2">
             <code id="rotate-keys-api-key" class="flex-1 block w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs text-emerald-300 font-mono break-all"></code>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('rotate-keys-api-key').getAttribute('data-key')); showToast('API Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(document.getElementById('rotate-keys-api-key').getAttribute('data-key')); showToast('API Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
               <i class="fa-regular fa-copy"></i>
             </button>
           </div>
@@ -2995,46 +3311,51 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New Service Key (Private)</label>
           <div class="relative flex items-center gap-2">
             <code id="rotate-keys-service-key" class="flex-1 block w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs text-rose-300 font-mono break-all"></code>
-            <button onclick="navigator.clipboard.writeText(document.getElementById('rotate-keys-service-key').getAttribute('data-key')); showToast('Service Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(document.getElementById('rotate-keys-service-key').getAttribute('data-key')); showToast('Service Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
               <i class="fa-regular fa-copy"></i>
             </button>
           </div>
         </div>
       </div>
       <div class="flex items-center justify-end space-x-3 pt-3 border-t border-white/10">
-        <button onclick="document.getElementById('modal-rotate-keys').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition">I have copied these</button>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-rotate-keys').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold transition">I have copied these</button>
       </div>
     </div>
   </div>
 
   <!-- User Limits Edit Modal -->
-  <div id="modal-user-limits" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
-    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-white/10 space-y-4">
+  <div id="modal-user-limits" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-indigo-500/30 space-y-4 shadow-2xl">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <h3 class="text-base font-semibold text-white flex items-center space-x-2">
-          <i class="fa-solid fa-sliders text-amber-400"></i>
-          <span>Edit User Limits</span>
+          <i class="fa-solid fa-sliders text-indigo-400"></i>
+          <span>Configure User Rate Limits & Quotas</span>
         </h3>
-        <button onclick="document.getElementById('modal-user-limits').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); closeEditUserLimits()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
       <div class="space-y-4">
         <input type="hidden" id="edit-user-id">
-        <div class="text-xs text-slate-300">Editing limits for: <span id="edit-user-email" class="text-indigo-300 font-mono"></span></div>
+        <div class="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-xs text-slate-300">
+          Configuring account: <span id="edit-user-email" class="text-indigo-300 font-mono font-semibold block mt-0.5"></span>
+        </div>
         <div class="space-y-1">
-          <label class="text-[10px] font-semibold uppercase text-slate-400">Max Projects</label>
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Max Allowed Projects</label>
           <input type="number" id="edit-user-max-projects" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="5" value="5">
         </div>
         <div class="space-y-1">
-          <label class="text-[10px] font-semibold uppercase text-slate-400">Read Rate Limit (per min)</label>
-          <input type="number" id="edit-user-read-limit" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="100" value="100">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Read Rate Limit (requests / min)</label>
+          <input type="number" id="edit-user-read-limit" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="50000" value="50000">
         </div>
         <div class="space-y-1">
-          <label class="text-[10px] font-semibold uppercase text-slate-400">Write Rate Limit (per min)</label>
-          <input type="number" id="edit-user-write-limit" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="50" value="50">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Write Rate Limit (requests / min)</label>
+          <input type="number" id="edit-user-write-limit" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="20000" value="20000">
         </div>
-        <button id="btn-confirm-save-user-limits" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs transition">Save User Limits</button>
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="closeEditUserLimits()" class="w-1/3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition">Cancel</button>
+          <button id="btn-confirm-save-user-limits" onclick="saveUserLimits()" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs transition active:scale-98 shadow-lg">Save Changes</button>
+        </div>
       </div>
     </div>
   </div>
@@ -3047,7 +3368,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-cloud-arrow-up text-emerald-400"></i>
           <span id="label-project-backup-title">Project Backup Configuration</span>
         </h3>
-        <button onclick="document.getElementById('modal-project-backup').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-project-backup').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -3122,7 +3443,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       <p class="text-sm text-slate-300 leading-relaxed">
         Never lose data with AegisDB's dual-target backup system. Backups are automatically scheduled and securely encrypted using AES-256 before being transmitted to both the Local File System and an external AWS S3-compatible cloud storage provider.
       </p>
-      <button onclick="document.getElementById('modal-feature-backup').classList.add('hidden')" class="w-full mt-4 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-colors">
+      <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-feature-backup').classList.add('hidden')" class="w-full mt-4 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-colors">
         Close Details
       </button>
     </div>
@@ -3143,7 +3464,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
             <p class="text-xs text-slate-400">Comprehensive guide to configuring, monitoring, and restoring AegisDB backups.</p>
           </div>
         </div>
-        <button onclick="document.getElementById('modal-backup-manual').classList.add('hidden')" class="text-slate-400 hover:text-white transition focus:outline-none">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-backup-manual').classList.add('hidden')" class="text-slate-400 hover:text-white transition focus:outline-none">
           <i class="fa-solid fa-xmark text-xl"></i>
         </button>
       </div>
@@ -3241,7 +3562,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       </div>
 
       <div class="border-t border-white/10 pt-5 mt-4 flex justify-end">
-        <button onclick="document.getElementById('modal-backup-manual').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition border border-white/10">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-backup-manual').classList.add('hidden')" class="px-6 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-semibold transition border border-white/10">
           Acknowledge & Close
         </button>
       </div>
@@ -3258,7 +3579,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-folder-plus text-indigo-400"></i>
           <span>Create New Project</span>
         </h3>
-        <button onclick="document.getElementById('modal-create-project').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-create-project').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -3280,7 +3601,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-folder-plus text-indigo-400"></i>
           <span>Create New Collection</span>
         </h3>
-        <button onclick="document.getElementById('modal-create-collection').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-create-collection').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -3304,7 +3625,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <i class="fa-solid fa-file-circle-plus text-indigo-400"></i>
           <span>Insert Document into Collection</span>
         </h3>
-        <button onclick="document.getElementById('modal-create-document').classList.add('hidden')" class="text-slate-400 hover:text-white">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-create-document').classList.add('hidden')" class="text-slate-400 hover:text-white">
           <i class="fa-solid fa-xmark text-lg"></i>
         </button>
       </div>
@@ -3331,13 +3652,291 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         AegisDB is currently undergoing scheduled maintenance to improve system stability and performance. Please check back later.
       </p>
       
-      <button onclick="document.getElementById('view-maintenance').classList.add('hidden'); document.getElementById('main-app').classList.add('hidden'); document.getElementById('auth-screen').classList.remove('hidden');" class="text-xs font-semibold text-slate-600 hover:text-slate-400 transition-colors uppercase tracking-widest border border-slate-800 rounded-lg px-4 py-2 hover:bg-slate-800/50">
-        Admin Access
-      </button>
+  <!-- 1. Policy Viewer Modal (Public/Developer) -->
+  <div id="modal-policy-viewer" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-2xl w-full border border-white/10 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-scale-balanced text-indigo-400 text-lg"></i>
+          <h3 class="text-base font-semibold text-white">AegisDB Platform Policies (<span id="pv-version" class="text-indigo-300 font-mono text-xs">v1.0.0</span>)</h3>
+        </div>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); closePolicyViewerModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="flex border-b border-white/10 space-x-4">
+        <button type="button" onclick="switchPvTab('terms')" id="btn-pv-tab-terms" class="py-2 text-xs font-semibold text-indigo-400 border-b-2 border-indigo-400">Terms & Conditions</button>
+        <button type="button" onclick="switchPvTab('security')" id="btn-pv-tab-security" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Security Policy</button>
+        <button type="button" onclick="switchPvTab('backup')" id="btn-pv-tab-backup" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Backup & Retention</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4 text-xs text-slate-300 leading-relaxed">
+        <div id="pv-content-terms" class="whitespace-pre-wrap font-sans">Loading Terms...</div>
+        <div id="pv-content-security" class="whitespace-pre-wrap font-sans hidden">Loading Security Policy...</div>
+        <div id="pv-content-backup" class="whitespace-pre-wrap font-sans hidden">Loading Backup Policy...</div>
+      </div>
+
+      <div class="pt-3 border-t border-white/10 flex justify-end">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); closePolicyViewerModal()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition">Close</button>
+      </div>
     </div>
   </div>
 
+  <!-- 2. Mandatory Policy Consent Gate Modal (Blocking Modal on Login) -->
+  <div id="modal-mandatory-policy-gate" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/95 backdrop-blur-xl">
+    <div class="glass-panel rounded-2xl p-6 sm:p-8 max-w-2xl w-full border border-amber-500/30 space-y-5 max-h-[90vh] flex flex-col shadow-2xl">
+      <div class="flex items-center space-x-3 border-b border-white/10 pb-4">
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-lg">
+          <i class="fa-solid fa-scale-balanced"></i>
+        </div>
+        <div>
+          <h3 class="text-lg font-bold text-white">Updated Platform Policies & Terms</h3>
+          <p class="text-xs text-slate-400">AegisDB has updated its Terms of Service, Security, and Backup Policies to version <strong id="gate-policy-version" class="text-amber-400 font-mono">v1.0.0</strong>.</p>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-300">
+        To continue using the platform and accessing your databases, please review and accept the updated policies.
+      </p>
+
+      <div class="flex border-b border-white/10 space-x-4">
+        <button type="button" onclick="switchGateTab('terms')" id="btn-gate-tab-terms" class="py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400">Terms & Conditions</button>
+        <button type="button" onclick="switchGateTab('security')" id="btn-gate-tab-security" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Security Policy</button>
+        <button type="button" onclick="switchGateTab('backup')" id="btn-gate-tab-backup" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Backup & Retention</button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-950/60 rounded-xl border border-white/5 text-xs text-slate-300 space-y-3 leading-relaxed">
+        <div id="gate-content-terms" class="whitespace-pre-wrap font-sans">Loading updated terms...</div>
+        <div id="gate-content-security" class="whitespace-pre-wrap font-sans hidden">Loading security policy...</div>
+        <div id="gate-content-backup" class="whitespace-pre-wrap font-sans hidden">Loading backup policy...</div>
+      </div>
+
+      <div id="gate-decline-options" class="hidden p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-3">
+        <p class="text-xs text-rose-300 font-semibold">You have chosen to decline the updated platform policies. Declining prevents access to AegisDB services. Please select your preferred next step:</p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); downloadMyDataExport()" class="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition">
+            <i class="fa-solid fa-download mr-1"></i> Export Data Bundle
+          </button>
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); initiateAccountDeletionFromGate()" class="px-3 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/30 text-xs font-semibold transition">
+            <i class="fa-solid fa-trash mr-1"></i> Delete Account (7d)
+          </button>
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); logout()" class="px-3 py-2 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-xs font-semibold transition">
+            <i class="fa-solid fa-right-from-bracket mr-1"></i> Sign Out
+          </button>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <button type="button" id="btn-gate-decline" onclick="toggleGateDeclineOptions()" class="text-xs text-slate-400 hover:text-rose-400 underline transition">
+          I Decline These Terms
+        </button>
+        <button type="button" id="btn-gate-accept" onclick="acceptCurrentPolicyGate()" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg transition active:scale-95 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-check"></i>
+          <span>I Accept & Agree to Updated Policies</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Compliance Notice & Appeal Modal (User Facing) -->
+  <div id="modal-compliance-appeal" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/90 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-xl w-full border border-rose-500/30 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-gavel text-rose-400 text-lg"></i>
+          <h3 class="text-base font-semibold text-white">Compliance Violation Notice & Hearing</h3>
+        </div>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); closeComplianceAppealModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2">
+        <div class="flex items-center justify-between">
+          <span id="notice-modal-category" class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">Security Policy Violation</span>
+          <span id="notice-modal-timer" class="text-xs font-mono text-amber-300 font-semibold">3 days remaining</span>
+        </div>
+        <h4 id="notice-modal-title" class="text-sm font-bold text-white">Violation Title</h4>
+        <p id="notice-modal-details" class="text-xs text-slate-300 leading-relaxed">Notice details...</p>
+      </div>
+
+      <div class="space-y-2">
+        <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Your Explanation & Supporting Information</label>
+        <textarea id="textarea-notice-explanation" rows="5" class="w-full p-4 rounded-xl glass-input text-xs text-slate-200 placeholder-slate-500 resize-none" placeholder="Provide a detailed explanation or proof of legitimate activity. Super Admin will review your response and decide whether to revoke the notice or proceed with account termination."></textarea>
+      </div>
+
+      <div class="pt-3 border-t border-white/10 flex items-center justify-between">
+        <span class="text-[10px] text-slate-400">Failure to respond before deadline triggers automated erasure.</span>
+        <button id="btn-submit-notice-explanation" onclick="submitNoticeExplanation()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-semibold text-xs shadow transition active:scale-95 flex items-center space-x-2">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>Submit Explanation for Review</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Manual Flag User Modal (Super Admin) -->
+  <div id="modal-flag-user" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-amber-500/30 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-flag text-amber-400"></i>
+          <span>Flag Suspicious Account</span>
+        </h3>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-flag-user')" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <input type="hidden" id="flag-user-id">
+        <div class="text-xs text-slate-300">Flagging Account: <span id="flag-user-email" class="text-amber-300 font-mono"></span></div>
+        
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Threat / Violation Reason</label>
+          <select id="select-flag-reason" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs">
+            <option value="bot_activity">Bot / Automated Scraping Activity</option>
+            <option value="spam">Spam / Mass Disposable Account</option>
+            <option value="malicious_traffic">Malicious Traffic / Injection Probes</option>
+            <option value="compromised_account">Compromised Credentials / Brute Force</option>
+            <option value="illegal_content">Illegal Content / Terms Violation</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Severity Level</label>
+          <select id="select-flag-severity" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs">
+            <option value="high">High Risk (Risk Score 85)</option>
+            <option value="critical">Critical Risk (Risk Score 95)</option>
+            <option value="medium">Medium Risk (Risk Score 50)</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Investigation Notes (Optional)</label>
+          <textarea id="input-flag-notes" rows="3" class="w-full p-3 rounded-xl glass-input text-xs resize-none" placeholder="Provide context on why this account is being flagged..."></textarea>
+        </div>
+
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); confirmManualFlagUser()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs transition active:scale-98">
+          Flag User & Trigger Review
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Issue Compliance Notice Modal (Super Admin) -->
+  <div id="modal-issue-notice" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-rose-500/30 space-y-4">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-gavel text-rose-400"></i>
+          <span>Issue Formal Violation Notice</span>
+        </h3>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-issue-notice')" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <input type="hidden" id="notice-target-user-id">
+        <div class="text-xs text-slate-300">Target User: <span id="notice-target-user-email" class="text-rose-300 font-mono"></span></div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Violation Category</label>
+          <select id="select-notice-category" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs">
+            <option value="Bot Activity & Automated Abuse">Bot Activity & Automated Abuse</option>
+            <option value="Malicious Traffic & Penetration Probes">Malicious Traffic & Penetration Probes</option>
+            <option value="Disposable / Spam Account Creation">Disposable / Spam Account Creation</option>
+            <option value="Account Compromise & Unsanctioned Access">Account Compromise & Unsanctioned Access</option>
+            <option value="Terms of Service & Illegal Payload Violation">Terms of Service & Illegal Payload Violation</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Notice Title</label>
+          <input type="text" id="input-notice-title" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="e.g. Warning: Automated Bot Scraping Detected">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Notice Details & Hearing Requirement</label>
+          <textarea id="input-notice-details" rows="4" class="w-full p-3 rounded-xl glass-input text-xs resize-none" placeholder="Detail the evidence and specify what explanation or proof the user must submit to avoid automated account termination..."></textarea>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Response Deadline (Days)</label>
+          <input type="number" id="input-notice-deadline-days" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" min="1" max="14" value="3">
+        </div>
+
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); confirmIssueComplianceNotice()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white font-semibold text-xs transition active:scale-98">
+          Issue Notice & Start Hearing Timer
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. View Appeal Details Modal (Super Admin) -->
+  <div id="modal-appeal-details" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/90 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-xl w-full border border-purple-500/30 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center">
+            <i class="fa-solid fa-comments text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-white">Compliance Hearing Appeal Details</h3>
+            <p class="text-[11px] text-slate-400">Account: <span id="appeal-view-email" class="text-purple-300 font-mono"></span></p>
+          </div>
+        </div>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-appeal-details')" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="p-3.5 rounded-xl bg-slate-900/60 border border-white/10 space-y-2 text-xs">
+        <div class="flex items-center justify-between">
+          <span id="appeal-view-category" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Category</span>
+          <span id="appeal-view-status" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/30">Status</span>
+        </div>
+        <div class="text-white font-semibold" id="appeal-view-title">Notice Title</div>
+        <div class="text-slate-400 text-[11px]" id="appeal-view-details">Notice details...</div>
+      </div>
+
+      <div class="space-y-1.5">
+        <label class="text-[10px] font-semibold uppercase tracking-wider text-purple-300">User's Submitted Explanation / Appeal Evidence</label>
+        <div id="appeal-view-explanation" class="p-4 rounded-xl bg-slate-950/80 border border-purple-500/20 text-purple-100 text-xs leading-relaxed max-h-56 overflow-y-auto whitespace-pre-wrap font-sans">
+          No explanation submitted.
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-white/10 flex items-center justify-between">
+        <button type="button" onclick="closeAppealDetailsModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition">
+          Close
+        </button>
+        <div id="appeal-view-decision-actions" class="flex items-center space-x-2">
+          <!-- Injected dynamically based on notice status -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Helper Engine -->
+  <script>
+    window.showModal = function(id) {
+      var el = typeof id === 'string' ? document.getElementById(id) : id;
+      if (!el) return;
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+      el.style.setProperty('display', 'flex', 'important');
+    };
+    window.hideModal = function(id) {
+      var el = typeof id === 'string' ? document.getElementById(id) : id;
+      if (!el) return;
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+      el.style.setProperty('display', 'none', 'important');
+    };
+  </script>
+
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=11"></script>
+  <script src="app.js?v=20260818_v3"></script>
 </body>
 </html>

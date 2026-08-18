@@ -24,6 +24,9 @@ import {
 } from '../types/auth.types';
 import { userStore } from '../store/user.store';
 import { getDb } from '../db/sqlite.connection';
+import { policyService } from '../services/policy.service';
+import { threatDetectionService } from '../services/threat-detection.service';
+import { accountModerationService } from '../services/account-moderation.service';
 
 // ── Argon2id Configuration ────────────────────────────────────────────────────
 
@@ -152,14 +155,15 @@ export async function googleLoginUser(email: string, name: string): Promise<Auth
 }
 
 /** Register a new user and issue both access JWT & refresh token. */
-export async function registerUser(dto: RegisterDto): Promise<AuthResponseData> {
-  const { email, password, name } = dto;
+export async function registerUser(dto: RegisterDto & { clientIp?: string; userAgent?: string }): Promise<AuthResponseData> {
+  const { email, password, name, clientIp, userAgent } = dto;
 
   const existing = await userStore.findByEmail(email);
   if (existing) {
     throw new AppError('An account with this email already exists.', 409);
   }
 
+  const activePolicy = policyService.getActivePolicy();
   const passwordHash = await hashPassword(password);
   const now = new Date();
   const newUser: User = {
@@ -168,6 +172,9 @@ export async function registerUser(dto: RegisterDto): Promise<AuthResponseData> 
     name: name.trim(),
     passwordHash,
     isSuperAdmin: false,
+    status: 'active',
+    acceptedTermsVersion: activePolicy.version,
+    acceptedTermsAt: now.toISOString(),
     createdAt: now,
     updatedAt: now,
   };
@@ -179,15 +186,32 @@ export async function registerUser(dto: RegisterDto): Promise<AuthResponseData> 
     projectService.createProject(savedUser.id, 'Default Project');
   } catch (e) { /* Ignore if project creation fails */ }
 
+  // Evaluate Threat Intelligence Heuristics (Burner email, Bot agents, etc.)
+  try {
+    const threatRes = await threatDetectionService.evaluateThreat({
+      userId: savedUser.id,
+      userEmail: savedUser.email,
+      ipAddress: clientIp,
+      userAgent: userAgent,
+      eventType: 'registration'
+    });
+    if (threatRes) {
+      savedUser.isFlagged = threatRes.isFlagged;
+      savedUser.riskScore = threatRes.riskScore;
+    }
+  } catch (err) {
+    console.error('Threat evaluation error during register:', err);
+  }
+
   const token = generateToken(savedUser);
   const refreshToken = await issueRefreshToken(savedUser.id);
 
-  return { user: toPublicUser(savedUser), token, refreshToken };
+  return { user: toPublicUser(savedUser), token, refreshToken, requiresPolicyConsent: false, activePolicyVersion: activePolicy.version };
 }
 
 /** Authenticate an existing user and issue both access JWT & refresh token. */
-export async function loginUser(dto: LoginDto & { totpCode?: string }): Promise<AuthResponseData> {
-  const { email, password, totpCode } = dto;
+export async function loginUser(dto: LoginDto & { totpCode?: string; clientIp?: string; userAgent?: string }): Promise<AuthResponseData> {
+  const { email, password, totpCode, clientIp, userAgent } = dto;
 
   const DUMMY_HASH =
     '$argon2id$v=19$m=65536,t=3,p=4$dummysaltdummysalt$dummyhashvalueplaceholderXXXX';
@@ -198,6 +222,17 @@ export async function loginUser(dto: LoginDto & { totpCode?: string }): Promise<
   const passwordValid = await argon2.verify(hashToVerify, password);
 
   if (!user || !passwordValid) {
+    if (user) {
+      // Evaluate failed login threat signals
+      threatDetectionService.evaluateThreat({
+        userId: user.id,
+        userEmail: user.email,
+        ipAddress: clientIp,
+        userAgent: userAgent,
+        eventType: 'failed_login_lockout',
+        payload: 'Failed password attempt'
+      }).catch(() => {});
+    }
     throw new AppError('Invalid email or password.', 401);
   }
 
@@ -216,7 +251,47 @@ export async function loginUser(dto: LoginDto & { totpCode?: string }): Promise<
   const token = generateToken(user);
   const refreshToken = await issueRefreshToken(user.id);
 
-  return { user: toPublicUser(user), token, refreshToken };
+  let isPendingDeletion = false;
+  let scheduledDeletionAt: string | undefined;
+  let daysRemaining: number | undefined;
+
+  if (user.status === 'pending_deletion' && user.scheduledDeletionAt) {
+    isPendingDeletion = true;
+    scheduledDeletionAt = user.scheduledDeletionAt;
+    const diffMs = new Date(user.scheduledDeletionAt).getTime() - Date.now();
+    daysRemaining = Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
+  // Check Policy Version Consent
+  const activePolicy = policyService.getActivePolicy();
+  const requiresPolicyConsent = policyService.requiresConsent(user.acceptedTermsVersion);
+
+  // Check Active Compliance Notice
+  const activeNotice = accountModerationService.getUserActiveNotice(user.id);
+
+  return {
+    user: toPublicUser(user),
+    token,
+    refreshToken,
+    isPendingDeletion,
+    scheduledDeletionAt,
+    daysRemaining,
+    requiresPolicyConsent,
+    activePolicyVersion: activePolicy.version,
+    activeNotice
+  };
+}
+
+export async function acceptPlatformPolicy(userId: string, version: string): Promise<{ success: boolean; version: string; acceptedAt: string }> {
+  return policyService.recordUserConsent(userId, 'developer', version);
+}
+
+export async function getActiveUserNotice(userId: string) {
+  return accountModerationService.getUserActiveNotice(userId);
+}
+
+export async function submitNoticeAppeal(userId: string, noticeId: string, explanation: string) {
+  return accountModerationService.submitUserExplanation(userId, noticeId, explanation);
 }
 
 export async function setupMfa(userId: string): Promise<{ secret: string; otpAuthUrl: string }> {
@@ -586,12 +661,12 @@ export async function exportDeveloperData(userId: string): Promise<Record<string
 }
 
 /**
- * GDPR Article 17 / CCPA § 1798.105: Irreversible Account Deletion & Right to Erasure.
- * Securely cascades through all owned projects, data encryption keys, documents, assets, and active sessions.
+ * GDPR Article 17 / CCPA § 1798.105: 7-Day Account Deletion Request.
+ * Initiates a 7-day cooling-off / grace period during which deletion can be cancelled.
  */
-export async function deleteDeveloperAccount(userId: string, password: string, totpCode?: string): Promise<{ success: boolean; message: string }> {
+export async function deleteDeveloperAccount(userId: string, password: string, totpCode?: string): Promise<{ success: boolean; message: string; scheduledDeletionAt: string; daysRemaining: number }> {
   const db = getDb();
-  const user = db.prepare('SELECT id, email, emailHash, passwordHash, mfaEnabled, mfaSecret, isSuperAdmin FROM users WHERE id = ?').get(userId) as any;
+  const user = await userStore.findById(userId);
   if (!user) throw new AppError('User not found', 404);
 
   // 1. Verify Password
@@ -599,7 +674,7 @@ export async function deleteDeveloperAccount(userId: string, password: string, t
   if (!isPasswordValid) throw new AppError('Invalid account password.', 401);
 
   // 2. Verify MFA if enabled
-  if (user.mfaEnabled === 1) {
+  if (user.mfaEnabled) {
     if (!totpCode || !user.mfaSecret) {
       throw new AppError('MFA verification required: Please provide your 6-digit TOTP code to confirm account deletion.', 400, { mfaRequired: true });
     }
@@ -608,23 +683,116 @@ export async function deleteDeveloperAccount(userId: string, password: string, t
     if (!isValidTotp) throw new AppError('Invalid TOTP verification code.', 401, { mfaRequired: true });
   }
 
-  // 3. Safety Check: If user is the ONLY Super Admin, require at least one other Super Admin before deletion
-  if (user.isSuperAdmin === 1) {
-    const adminCount = db.prepare('SELECT COUNT(*) as count FROM users WHERE isSuperAdmin = 1').get() as any;
-    if (adminCount?.count <= 1) {
-      const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get() as any;
-      if (totalUsers?.count > 1) {
-        throw new AppError('Cannot delete account: You are the only Super Admin. Please designate another Super Admin first.', 400);
-      }
-    }
+  // 3. Safety Check: Super Admin accounts cannot be deleted
+  if (user.isSuperAdmin) {
+    throw new AppError('Super Admin accounts cannot be deleted. Account deletion is restricted to Developer and Project End-User accounts.', 403);
   }
 
-  // 4. Atomic Cascading Deletion
-  const deleteTx = db.transaction(() => {
+  const now = new Date();
+  const scheduledDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const scheduledDeletionAt = scheduledDate.toISOString();
+  const initiatedAt = now.toISOString();
+
+  const scheduleTx = db.transaction(() => {
+    // 4. Update user status to pending_deletion
+    db.prepare(`
+      UPDATE users 
+      SET status = 'pending_deletion', deletionInitiatedAt = ?, scheduledDeletionAt = ?, updatedAt = ?
+      WHERE id = ?
+    `).run(initiatedAt, scheduledDeletionAt, initiatedAt, userId);
+
+    // 5. Invalidate existing active deletion requests if any and record new deletion request
+    db.prepare(`UPDATE account_deletion_requests SET status = 'cancelled', cancelledAt = ? WHERE userId = ? AND status = 'pending'`).run(initiatedAt, userId);
+    db.prepare(`
+      INSERT INTO account_deletion_requests (id, accountType, userId, projectId, userEmail, initiatedAt, gracePeriodDays, scheduledDeletionAt, status)
+      VALUES (?, 'developer', ?, NULL, ?, ?, 7, ?, 'pending')
+    `).run(uuidv4(), userId, user.email, initiatedAt, scheduledDeletionAt);
+
+    // 6. Log audit trail
+    db.prepare(`
+      INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actionType, projectId, ipAddress, status, details)
+      VALUES (?, ?, ?, ?, 'DEVELOPER_DELETION_SCHEDULED', NULL, '127.0.0.1', 'SUCCESS', ?)
+    `).run(
+      uuidv4(),
+      initiatedAt,
+      userId,
+      user.email,
+      JSON.stringify({
+        gracePeriodDays: 7,
+        scheduledDeletionAt,
+        message: 'Account deletion initiated with 7-day retention window'
+      })
+    );
+  });
+
+  scheduleTx();
+
+  return {
+    success: true,
+    message: 'Account scheduled for permanent erasure. You have 7 days to cancel this request.',
+    scheduledDeletionAt,
+    daysRemaining: 7
+  };
+}
+
+/**
+ * Cancel a pending developer account deletion request and restore active status.
+ */
+export async function cancelDeveloperAccountDeletion(userId: string, cancelledBy: 'user' | 'admin' = 'user'): Promise<{ success: boolean; message: string }> {
+  const db = getDb();
+  const user = db.prepare('SELECT id, email, status FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found', 404);
+  if (user.status !== 'pending_deletion') {
+    throw new AppError('This account does not have an active deletion request.', 400);
+  }
+
+  const now = new Date().toISOString();
+  const cancelTx = db.transaction(() => {
+    db.prepare(`
+      UPDATE users 
+      SET status = 'active', deletionInitiatedAt = NULL, scheduledDeletionAt = NULL, updatedAt = ?
+      WHERE id = ?
+    `).run(now, userId);
+
+    db.prepare(`
+      UPDATE account_deletion_requests 
+      SET status = 'cancelled', cancelledAt = ?, cancelledBy = ? 
+      WHERE userId = ? AND status = 'pending'
+    `).run(now, cancelledBy, userId);
+
+    db.prepare(`
+      INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actionType, projectId, ipAddress, status, details)
+      VALUES (?, ?, ?, ?, 'DEVELOPER_DELETION_CANCELLED', NULL, '127.0.0.1', 'SUCCESS', ?)
+    `).run(
+      uuidv4(),
+      now,
+      userId,
+      user.email,
+      JSON.stringify({ cancelledBy, restoredAt: now })
+    );
+  });
+
+  cancelTx();
+
+  return {
+    success: true,
+    message: 'Account deletion request has been cancelled. Your account is fully restored and active.'
+  };
+}
+
+/**
+ * Permanent Cascading Erasure after 7-Day Grace Period Expiration (or Automated Worker).
+ */
+export async function purgeDeveloperAccountPermanent(userId: string): Promise<{ success: boolean; message: string }> {
+  const db = getDb();
+  const user = db.prepare('SELECT id, email, emailHash, isSuperAdmin FROM users WHERE id = ?').get(userId) as any;
+  if (!user) throw new AppError('User not found', 404);
+
+  const purgeTx = db.transaction(() => {
     const projects = db.prepare('SELECT id FROM projects WHERE ownerId = ?').all(userId) as { id: string }[];
-    
+
     for (const proj of projects) {
-      // Delete asset files from disk if local storage
+      // Physical asset deletion
       try {
         const assets = db.prepare('SELECT storedName FROM assets WHERE projectId = ?').all(proj.id) as { storedName: string }[];
         const fs = require('fs');
@@ -651,34 +819,34 @@ export async function deleteDeveloperAccount(userId: string, password: string, t
       db.prepare('DELETE FROM projects WHERE id = ?').run(proj.id);
     }
 
-    // Delete refresh tokens and user
+    // Purge tokens, security flags, compliance notices, update deletion request record, and delete user row
     db.prepare('DELETE FROM refresh_tokens WHERE userId = ?').run(userId);
+    db.prepare('DELETE FROM account_security_flags WHERE userId = ?').run(userId);
+    db.prepare('DELETE FROM account_compliance_notices WHERE userId = ?').run(userId);
+    db.prepare(`UPDATE account_deletion_requests SET status = 'completed', deletedAt = ? WHERE userId = ? AND status = 'pending'`).run(new Date().toISOString(), userId);
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
-    // Write Anonymized Audit Tombstone (Zero PII - GDPR Compliant Proof of Erasure)
+    // Anonymized audit tombstone
     const anonymizedActorHash = crypto.createHash('sha256').update(userId + (process.env.JWT_SECRET || 'aegis-salt')).digest('hex');
     db.prepare(`
       INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actorEmailHash, actionType, projectId, ipAddress, status, details)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, 'DEVELOPER_ACCOUNT_ERASED', NULL, '127.0.0.1', 'SUCCESS', ?)
     `).run(
       uuidv4(),
       new Date().toISOString(),
       `DELETED_USER_${anonymizedActorHash.substring(0, 12)}`,
       'REDACTED_ERASED',
       anonymizedActorHash,
-      'DEVELOPER_ACCOUNT_ERASED',
-      null,
-      '127.0.0.1',
-      'SUCCESS',
       JSON.stringify({
         erasedAt: new Date().toISOString(),
         deletedProjectsCount: projects.length,
-        compliance: 'GDPR Article 17 Right to Erasure / CCPA § 1798.105'
+        compliance: 'GDPR Article 17 Right to Erasure (7-Day Period Expired)'
       })
     );
   });
 
-  deleteTx();
-  return { success: true, message: 'Your account and all associated projects and data have been permanently erased.' };
+  purgeTx();
+
+  return { success: true, message: 'Developer account and all project records have been permanently erased.' };
 }
 

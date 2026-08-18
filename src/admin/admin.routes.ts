@@ -6,14 +6,21 @@ import {
   getUsers,
   updateRateLimits,
   updateUserLimits,
-  deleteUser,
+  getAccountDeletionRequests,
+  cancelAccountDeletion,
   resetUserMfa,
   getSecurityAdvisorReport,
   getAuditLogs,
   listBackups,
   createBackup,
   getPlatformSettings,
-  updatePlatformSettings
+  updatePlatformSettings,
+  getSecurityAlerts,
+  dismissSecurityAlert,
+  manualFlagUser,
+  issueComplianceNotice,
+  listComplianceNotices,
+  reviewComplianceNotice
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -29,8 +36,20 @@ router.patch('/platform-settings', updatePlatformSettings);
 router.get('/stats', getStats);
 router.get('/users', getUsers);
 router.patch('/users/:id/limits', updateUserLimits);
-router.delete('/users/:id', deleteUser);
 router.post('/users/:id/reset-mfa', resetUserMfa);
+
+// ── Trust & Safety / Threat Intelligence & Moderation ─────────────────────────
+router.get('/security/alerts', getSecurityAlerts);
+router.post('/security/flags/:id/dismiss', dismissSecurityAlert);
+router.post('/users/:id/flag', manualFlagUser);
+router.post('/users/:id/notice', issueComplianceNotice);
+router.get('/notices', listComplianceNotices);
+router.post('/notices/:id/decision', reviewComplianceNotice);
+
+// ── Account Deletions Lifecycle & Retention ───────────────────────────────────
+router.get('/account-deletions', getAccountDeletionRequests);
+router.post('/account-deletions/:id/cancel', cancelAccountDeletion);
+
 router.patch('/rate-limits', updateRateLimits);
 router.get('/security-advisor', getSecurityAdvisorReport);
 router.get('/audit-logs', getAuditLogs);
