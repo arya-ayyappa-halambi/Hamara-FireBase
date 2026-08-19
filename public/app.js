@@ -130,8 +130,10 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
   const json = await res.json().catch(() => ({}));
 
   if (res.status === 503 && json.error === 'MAINTENANCE_MODE') {
-    const maintenanceEl = document.getElementById('view-maintenance');
-    if (maintenanceEl) maintenanceEl.classList.remove('hidden');
+    if (!state.user?.isSuperAdmin && state.user?.role !== 'super_admin') {
+      const maintenanceEl = document.getElementById('view-maintenance');
+      if (maintenanceEl) maintenanceEl.classList.remove('hidden');
+    }
     throw new Error('System is under maintenance');
   }
 
@@ -5237,3 +5239,18 @@ if (!isLocalDev) {
     }
   });
 }
+
+window.openAdminLoginFromMaintenance = function() {
+  const maintenanceEl = document.getElementById('view-maintenance');
+  if (maintenanceEl) maintenanceEl.classList.add('hidden');
+  const authScreen = document.getElementById('auth-screen');
+  if (authScreen) authScreen.classList.remove('hidden');
+  const mainApp = document.getElementById('main-app');
+  if (mainApp) mainApp.classList.add('hidden');
+
+  const inputEmail = document.getElementById('input-email');
+  if (inputEmail) {
+    inputEmail.value = 'admin@aegisdb.dev';
+    inputEmail.focus();
+  }
+};
