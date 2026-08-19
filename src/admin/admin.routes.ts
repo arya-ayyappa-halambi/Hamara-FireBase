@@ -12,6 +12,7 @@ import {
   getSecurityAdvisorReport,
   getAuditLogs,
   listBackups,
+  purgeExpiredBackups,
   createBackup,
   getPlatformSettings,
   updatePlatformSettings,
@@ -54,6 +55,7 @@ router.patch('/rate-limits', updateRateLimits);
 router.get('/security-advisor', getSecurityAdvisorReport);
 router.get('/audit-logs', getAuditLogs);
 router.get('/backups', listBackups);
+router.post('/backups/purge', purgeExpiredBackups);
 router.post('/backups', createBackup);
 
 export default router;

@@ -96,6 +96,9 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     backupService.stopScheduler();
     backupService.startScheduler();
       
+    // Automatically enforce retention policy on updated settings
+    backupService.enforceRetention().catch((e) => console.error('Retention enforcement failed:', e));
+
     res.status(200).json({
       success: true,
       message: 'Platform settings updated successfully.',
@@ -422,5 +425,27 @@ export async function reviewComplianceNotice(req: Request, res: Response, next: 
       message: result.message,
       data: result,
     } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function purgeExpiredBackups(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const config = backupService.getConfig();
+    const result = await backupService.enforceRetention(config);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'purge_expired_backups',
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Purged ${result.localPurged} local and ${result.s3Purged} S3 expired backup files (retention: ${config.backupRetentionDays} days).`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Retention policy enforced. Purged ${result.localPurged} local and ${result.s3Purged} S3 expired backup(s) older than ${config.backupRetentionDays} days.`,
+      data: result
+    });
   } catch (err) { next(err); }
 }

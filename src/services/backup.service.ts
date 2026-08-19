@@ -26,7 +26,7 @@ export class BackupService {
     this.startScheduler();
   }
 
-  private getConfig() {
+  public getConfig() {
     const db = getDb();
     const config = db.prepare('SELECT * FROM platform_settings WHERE id = ?').get('default') as any;
     return config || { backupMode: 'none', backupIntervalMinutes: 1440 };
@@ -167,26 +167,44 @@ export class BackupService {
 
   /**
    * Enforce retention policy based on time for Local and S3 backups.
+   * Deletes backups created prior to (Date.now() - retentionDays * 86400 * 1000).
    */
-  private async enforceRetention(config: any): Promise<void> {
-    const retentionDays = config.backupRetentionDays || 7;
+  public async enforceRetention(config?: any): Promise<{ localPurged: number; s3Purged: number; freedBytes: number }> {
+    if (!config) config = this.getConfig();
+    const retentionDays = Number(config.backupRetentionDays || 7);
     const thresholdTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
 
-    // 1. Clean up local backups
-    if (config.backupMode === 'local' || config.backupMode === 'both') {
-      const backups = this.listBackups();
-      // Keep at least the newest backup
-      if (backups.length > 1) {
-        for (let i = 1; i < backups.length; i++) {
-          const b = backups[i];
-          const bTime = new Date(b.createdAt).getTime();
-          if (bTime < thresholdTime) {
-            try {
-              fs.unlinkSync(path.join(this.backupDir, b.filename));
-              console.log(`🧹 Deleted old local database backup: ${b.filename}`);
-            } catch (e) {
-              console.error(`Failed to delete old local backup ${b.filename}:`, e);
+    let localPurged = 0;
+    let s3Purged = 0;
+    let freedBytes = 0;
+
+    // 1. Clean up local backups based on creation date
+    const backups = this.listBackups();
+    if (backups.length > 1) {
+      // Preserve newest backup
+      for (let i = 1; i < backups.length; i++) {
+        const b = backups[i];
+        let bTime = new Date(b.createdAt).getTime();
+
+        // Extract ISO timestamp from filename format backup-YYYY-MM-DDTHH-mm-ss-sssZ.db.gz
+        const filenameMatch = b.filename.match(/backup-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.db\.gz/);
+        if (filenameMatch && filenameMatch[1]) {
+          const isoFormat = filenameMatch[1].replace(/-(\d{2})-(\d{2})-(\d{3}Z)$/, ':$1:$2.$3');
+          const parsed = new Date(isoFormat).getTime();
+          if (!isNaN(parsed)) bTime = parsed;
+        }
+
+        if (bTime < thresholdTime) {
+          try {
+            const fp = path.join(this.backupDir, b.filename);
+            if (fs.existsSync(fp)) {
+              freedBytes += b.sizeBytes || 0;
+              fs.unlinkSync(fp);
+              localPurged++;
+              console.log(`🧹 [Retention Policy] Purged expired local database backup (${retentionDays}d limit): ${b.filename}`);
             }
+          } catch (e) {
+            console.error(`Failed to delete old local backup ${b.filename}:`, e);
           }
         }
       }
@@ -204,19 +222,16 @@ export class BackupService {
           }
         });
         
-        // List objects in 'backups/' prefix
         const listRes = await s3Client.send(new ListObjectsV2Command({
           Bucket: config.s3BucketName,
           Prefix: 'backups/'
         }));
         
         if (listRes.Contents && listRes.Contents.length > 1) {
-          // Sort descending by LastModified
           const s3Objects = listRes.Contents
             .filter(obj => obj.Key?.endsWith('.db.gz'))
             .sort((a, b) => (b.LastModified?.getTime() || 0) - (a.LastModified?.getTime() || 0));
             
-          // Keep at least the newest backup
           for (let i = 1; i < s3Objects.length; i++) {
             const obj = s3Objects[i];
             const objTime = obj.LastModified?.getTime() || 0;
@@ -225,7 +240,8 @@ export class BackupService {
                 Bucket: config.s3BucketName,
                 Key: obj.Key!
               }));
-              console.log(`🧹 Deleted old S3 database backup: ${obj.Key}`);
+              s3Purged++;
+              console.log(`🧹 [Retention Policy] Purged expired S3 database backup (${retentionDays}d limit): ${obj.Key}`);
             }
           }
         }
@@ -233,6 +249,8 @@ export class BackupService {
         console.error('Failed to enforce S3 backup retention:', e);
       }
     }
+
+    return { localPurged, s3Purged, freedBytes };
   }
 
   /**
