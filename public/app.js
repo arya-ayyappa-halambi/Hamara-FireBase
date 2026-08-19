@@ -2158,25 +2158,29 @@ function renderDocumentsTable(docs) {
       const isEncrypted = previewStr.includes('_encrypted');
 
       return `
-      <tr class="hover:bg-white/5 transition">
-        <td class="p-3 font-semibold text-indigo-300 text-[10px]">${escapeHTML(docId)}</td>
-        <td class="p-3 text-slate-300 max-w-xs">
-          ${
-            isEncrypted
-              ? '<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mr-2"><i class="fa-solid fa-lock text-[9px] mr-1"></i>x-encrypted</span>'
-              : ''
-          }
-          <code class="text-[10px]">${escapeHTML(truncated)}</code>
+      <tr class="hover:bg-white/5 transition border-b border-white/5">
+        <td class="py-3 px-4 font-semibold text-indigo-300 text-xs whitespace-nowrap">${escapeHTML(docId)}</td>
+        <td class="py-3 px-4 text-slate-300 max-w-md">
+          <div class="flex items-center space-x-2 overflow-hidden">
+            ${
+              isEncrypted
+                ? '<span class="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"><i class="fa-solid fa-lock text-[9px] mr-1"></i>x-encrypted</span>'
+                : ''
+            }
+            <code class="text-[11px] text-slate-300 truncate font-mono block max-w-md" title="${escapeHTML(previewStr)}">${escapeHTML(truncated)}</code>
+          </div>
         </td>
-        <td class="p-3 text-slate-400 text-[10px]">${createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}</td>
-        <td class="p-3 text-slate-400 text-[10px]">${updatedAt ? new Date(updatedAt).toLocaleString() : 'N/A'}</td>
-        <td class="p-3 text-right space-x-2">
-          <button type="button" data-action="view-document" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition" title="View full document">
-            <i class="fa-solid fa-eye"></i>
-          </button>
-          <button type="button" data-action="delete-document" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete document">
-            <i class="fa-solid fa-trash"></i>
-          </button>
+        <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">${createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}</td>
+        <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">${updatedAt ? new Date(updatedAt).toLocaleString() : 'N/A'}</td>
+        <td class="py-3 px-4 text-right whitespace-nowrap">
+          <div class="flex items-center justify-end space-x-1.5">
+            <button type="button" data-action="view-document" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition" title="View full document">
+              <i class="fa-solid fa-eye text-sm"></i>
+            </button>
+            <button type="button" data-action="delete-document" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition" title="Delete document">
+              <i class="fa-solid fa-trash text-sm"></i>
+            </button>
+          </div>
         </td>
       </tr>
     `;
