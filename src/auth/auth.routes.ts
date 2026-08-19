@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword, exportDataController, deleteAccountController, cancelDeletionController, acceptPolicyController, getActiveNoticeController, submitAppealController } from './auth.controller';
+import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword, exportDataController, deleteAccountController, cancelDeletionController, acceptPolicyController, getActiveNoticeController, submitAppealController, getMeController } from './auth.controller';
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt } from '../middleware/auth.middleware';
@@ -19,6 +19,7 @@ const router = Router();
 
 // ── GET /config ───────────────────────────────────────────────────────────────
 router.get('/config', getConfig);
+router.get('/me', authenticateJwt, getMeController);
 
 // ── POST /google ──────────────────────────────────────────────────────────────
 router.post('/google', googleLogin);

@@ -102,7 +102,7 @@ function showToast(message, type = 'info') {
       toast.classList.add('toast-exit');
       setTimeout(() => toast.remove(), 300);
     }
-  }, 4000);
+  }, 6000);
 }
 
 // ── API Service Helper ─────────────────────────────────────────────────────────
@@ -227,7 +227,134 @@ function updateUserProfileUI() {
       cardDangerZone.classList.remove('hidden');
     }
   }
+
+  // Account Security, Compliance & Appeals Card (Settings Console)
+  const cardCompliance = document.getElementById('card-account-security-compliance');
+  const blockFlagged = document.getElementById('block-account-flagged-info');
+  const blockNotice = document.getElementById('block-account-notice-info');
+  const blockDeletion = document.getElementById('block-account-deletion-info');
+
+  let hasComplianceIssue = false;
+
+  if (!state.user.isSuperAdmin && (state.user.isFlagged || state.user.flagged)) {
+    hasComplianceIssue = true;
+    blockFlagged?.classList.remove('hidden');
+  } else {
+    blockFlagged?.classList.add('hidden');
+  }
+
+  if (!state.user.isSuperAdmin && (state.user.isPendingDeletion || state.user.status === 'pending_deletion')) {
+    hasComplianceIssue = true;
+    blockDeletion?.classList.remove('hidden');
+    const delTimer = document.getElementById('label-settings-deletion-timer');
+    if (delTimer && state.user.scheduledDeletionAt) {
+      const remainingMs = new Date(state.user.scheduledDeletionAt).getTime() - Date.now();
+      const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
+      delTimer.textContent = `${remainingDays} day(s) remaining`;
+    }
+  } else {
+    blockDeletion?.classList.add('hidden');
+  }
+
+  if (cardCompliance) {
+    if (hasComplianceIssue || activeNoticeObj) {
+      cardCompliance.classList.remove('hidden');
+    } else {
+      cardCompliance.classList.add('hidden');
+    }
+  }
+
+  // Update Top Banner and Top Notification Bell Feed
+  if (typeof window.updateUserNotificationsHeader === 'function') {
+    window.updateUserNotificationsHeader();
+  }
 }
+
+window.updateUserNotificationsHeader = function() {
+  if (!state.user || state.user.isSuperAdmin) return;
+
+  const containerAlerts = document.getElementById('container-threat-alerts');
+  const badgeCount = document.getElementById('badge-threat-count');
+  const feedList = document.getElementById('threat-alerts-feed-list');
+  const bannerNotice = document.getElementById('banner-compliance-notice');
+  const bannerNoticeText = document.getElementById('banner-compliance-notice-text');
+
+  let alerts = [];
+
+  // Flag Alert
+  if (state.user.isFlagged || state.user.flagged) {
+    alerts.push({
+      type: 'flag',
+      title: 'Account Flagged for Review',
+      details: 'Super Admin flagged your account for security analysis.',
+      actionText: 'Submit Appeal',
+      actionFn: 'openComplianceAppealModal()'
+    });
+
+    if (bannerNotice && bannerNoticeText && !activeNoticeObj) {
+      bannerNoticeText.innerHTML = `<strong>Account Flagged for Threat Review</strong> — Action required regarding your account status.`;
+      bannerNotice.classList.remove('hidden');
+      bannerNotice.classList.add('flex');
+    }
+  }
+
+  // Active Notice Alert
+  if (activeNoticeObj) {
+    alerts.push({
+      type: 'notice',
+      title: activeNoticeObj.title || 'Compliance Violation Notice',
+      details: `${activeNoticeObj.category || 'Security Policy'} (${activeNoticeObj.daysRemaining || 3} days remaining)`,
+      actionText: 'Submit Appeal',
+      actionFn: 'openComplianceAppealModal()'
+    });
+
+    if (bannerNotice && bannerNoticeText) {
+      bannerNoticeText.innerHTML = `<strong>${escapeHTML(activeNoticeObj.title)}</strong> (${escapeHTML(activeNoticeObj.category)}) — <span class="font-mono text-amber-300">${activeNoticeObj.daysRemaining || 3} days remaining</span>.`;
+      bannerNotice.classList.remove('hidden');
+      bannerNotice.classList.add('flex');
+    }
+  }
+
+  // Pending Deletion Alert
+  if (state.user.isPendingDeletion || state.user.status === 'pending_deletion') {
+    alerts.push({
+      type: 'deletion',
+      title: 'Account Erasure Scheduled',
+      details: 'Your account is in the 7-day deletion grace period.',
+      actionText: 'Cancel Deletion',
+      actionFn: 'cancelMyAccountDeletion()'
+    });
+  }
+
+  if (alerts.length > 0) {
+    if (containerAlerts) containerAlerts.classList.remove('hidden');
+    if (badgeCount) badgeCount.textContent = alerts.length.toString();
+
+    if (feedList) {
+      feedList.innerHTML = alerts.map(a => `
+        <div class="p-3 rounded-xl bg-slate-900/90 border ${a.type === 'deletion' ? 'border-amber-500/40 bg-amber-950/20' : 'border-rose-500/40 bg-rose-950/20'} flex items-start justify-between gap-2 shadow">
+          <div class="space-y-0.5">
+            <div class="font-bold text-xs ${a.type === 'deletion' ? 'text-amber-300' : 'text-rose-300'} flex items-center space-x-1.5">
+              <i class="fa-solid ${a.type === 'deletion' ? 'fa-triangle-exclamation' : 'fa-shield-halved'}"></i>
+              <span>${escapeHTML(a.title)}</span>
+            </div>
+            <div class="text-[10px] text-slate-300">${escapeHTML(a.details)}</div>
+          </div>
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); ${a.actionFn}" class="px-2.5 py-1 rounded-lg ${a.type === 'deletion' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'} text-white font-semibold text-[10px] shadow transition active:scale-95 shrink-0">
+            ${a.actionText}
+          </button>
+        </div>
+      `).join('');
+    }
+  } else {
+    if (badgeCount) badgeCount.textContent = '0';
+    if (feedList) feedList.innerHTML = '<div class="text-slate-400 text-center py-4 text-xs">No active threat alerts. System normal.</div>';
+    if (bannerNotice && !activeNoticeObj && !state.user.isFlagged && !state.user.flagged) {
+      bannerNotice.classList.add('hidden');
+      bannerNotice.classList.remove('flex');
+    }
+  }
+};
 
 // ── Inactivity Session Timeout Tracker ─────────────────────────────────────────
 
@@ -2291,6 +2418,14 @@ function connectGlobalWebSocket() {
 
         // Trust & Safety Real-time Broadcasts
         if (data.type === 'SECURITY_ALERT_FLAGGED') {
+          const flagUser = data.data?.flag;
+          if (state.user && (state.user.id === flagUser?.userId || state.user.email === flagUser?.userEmail)) {
+            state.user.isFlagged = true;
+            state.user.flagged = true;
+            localStorage.setItem('aegis_user', JSON.stringify(state.user));
+            updateUserProfileUI();
+            if (typeof window.updateUserNotificationsHeader === 'function') window.updateUserNotificationsHeader();
+          }
           showToast(`🚨 Threat Detected: ${data.data?.summary || 'Malicious / bot activity detected'}`, 'error');
           if (state.user?.isSuperAdmin) {
             if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
@@ -2726,7 +2861,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     const collectionName = actionBtn.getAttribute('data-collection-name');
 
     if (action === 'refresh-users') {
-      if (typeof window.loadUserManagement === 'function') window.loadUserManagement();
+      actionBtn.querySelector('span').textContent = 'CLICKED AT ' + new Date().toLocaleTimeString();
+      const icon = actionBtn.querySelector('i');
+      if (icon) icon.classList.add('animate-spin');
+      const minSpinDuration = new Promise(resolve => setTimeout(resolve, 500));
+      if (typeof window.loadUserManagement === 'function') {
+        Promise.all([Promise.resolve(window.loadUserManagement()), minSpinDuration])
+          .then(() => {
+            showToast('User management data refreshed', 'success');
+          })
+          .catch((err) => {
+            showToast(err.message || 'Failed to refresh users', 'error');
+          })
+          .finally(() => {
+            if (icon) icon.classList.remove('animate-spin');
+          });
+      }
     } else if (action === 'toggle-user-dropdown') {
       if (typeof window.toggleUserDropdown === 'function') window.toggleUserDropdown(e, userId);
     } else if (action === 'dismiss-alert') {
@@ -2778,6 +2928,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     setRoleMode(state.user.isSuperAdmin ? 'superadmin' : 'developer');
     connectGlobalWebSocket();
     initGlobalData();
+
+    // Sync fresh user profile from database to get real-time isFlagged / status
+    (async () => {
+      try {
+        const meRes = await apiRequest('/api/v1/auth/me', 'GET');
+        if (meRes?.user) {
+          state.user = { ...state.user, ...meRes.user };
+          localStorage.setItem('aegis_user', JSON.stringify(state.user));
+          updateUserProfileUI();
+          if (typeof window.updateUserNotificationsHeader === 'function') {
+            window.updateUserNotificationsHeader();
+          }
+        }
+      } catch (_) {}
+    })();
 
     if (state.user.isSuperAdmin) {
       document.getElementById('container-threat-alerts')?.classList.remove('hidden');
@@ -4333,9 +4498,37 @@ window.renderComplianceBanner = function(notice) {
     banner.classList.remove('hidden');
     banner.classList.add('flex');
   }
+
+  const cardCompliance = document.getElementById('card-account-security-compliance');
+  const blockNotice = document.getElementById('block-account-notice-info');
+  const titleEl = document.getElementById('label-settings-notice-title');
+  const timerEl = document.getElementById('label-settings-notice-timer');
+  const detailsEl = document.getElementById('label-settings-notice-details');
+
+  if (cardCompliance && blockNotice) {
+    cardCompliance.classList.remove('hidden');
+    blockNotice.classList.remove('hidden');
+    if (titleEl) titleEl.textContent = notice.title || 'Compliance Violation Notice Issued';
+    if (timerEl) timerEl.textContent = `${notice.daysRemaining || 3} days remaining`;
+    if (detailsEl) detailsEl.textContent = notice.details || 'Please provide your explanation for Super Admin review.';
+  }
+
+  if (typeof window.updateUserNotificationsHeader === 'function') {
+    window.updateUserNotificationsHeader();
+  }
 };
 
 window.openComplianceAppealModal = function() {
+  if (!activeNoticeObj && state.user && (state.user.isFlagged || state.user.flagged)) {
+    activeNoticeObj = {
+      id: `flag_${state.user.id}`,
+      category: 'Security Threat Anomaly Flag',
+      title: 'Account Flagged for Security Anomaly Review',
+      details: 'Your account has been flagged by Super Admin for a security anomaly review. Please submit an explanation or proof of legitimate activity to clear this flag.',
+      daysRemaining: 3,
+      userExplanation: ''
+    };
+  }
   if (!activeNoticeObj) return;
   const catEl = document.getElementById('notice-modal-category');
   if (catEl) catEl.textContent = activeNoticeObj.category || 'Security Policy Violation';

@@ -118,7 +118,31 @@ export class AccountModerationService {
       ORDER BY issuedAt DESC LIMIT 1
     `).get(userId) as any;
 
-    if (!row) return null;
+    if (!row) {
+      const user = db.prepare('SELECT id, email, isFlagged, riskScore FROM users WHERE id = ?').get(userId) as any;
+      if (user && user.isFlagged === 1) {
+        let userEmail = user.email;
+        if (typeof userEmail === 'string' && userEmail.startsWith('{')) {
+          try {
+            userEmail = envelopeEncryptionService.decryptField(JSON.parse(userEmail), 'SYSTEM') || userEmail;
+          } catch {}
+        }
+        return {
+          id: `flag_${user.id}`,
+          userId: user.id,
+          userEmail,
+          category: 'Security Threat Anomaly Flag',
+          title: 'Account Flagged for Security Anomaly Review',
+          details: 'Your account has been flagged by Super Admin for a security review. Please submit an explanation or proof of legitimate activity to clear this flag.',
+          issuedAt: new Date().toISOString(),
+          deadlineAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
+          status: 'open',
+          adminDecision: 'pending',
+          daysRemaining: 3
+        };
+      }
+      return null;
+    }
 
     const remainingMs = new Date(row.deadlineAt).getTime() - Date.now();
     const daysRemaining = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
@@ -134,7 +158,65 @@ export class AccountModerationService {
    */
   public submitUserExplanation(userId: string, noticeId: string, explanation: string): { success: boolean; message: string } {
     const db = getDb();
-    const notice = db.prepare('SELECT * FROM account_compliance_notices WHERE id = ? AND userId = ?').get(noticeId, userId) as any;
+    let notice = db.prepare('SELECT * FROM account_compliance_notices WHERE id = ? AND userId = ?').get(noticeId, userId) as any;
+
+    if (!notice && noticeId.startsWith('flag_')) {
+      const user = db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId) as any;
+      if (!user) throw new AppError('User not found', 404);
+      let userEmail = user.email;
+      if (typeof userEmail === 'string' && userEmail.startsWith('{')) {
+        try {
+          userEmail = envelopeEncryptionService.decryptField(JSON.parse(userEmail), 'SYSTEM') || userEmail;
+        } catch {}
+      }
+
+      const realNoticeId = uuidv4();
+      const now = new Date();
+      const deadlineDate = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+      db.transaction(() => {
+        db.prepare(`
+          INSERT INTO account_compliance_notices (
+            id, userId, userEmail, category, title, details, issuedAt, deadlineAt, userExplanation, explanationSubmittedAt, status, adminDecision
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'appealed', 'pending')
+        `).run(
+          realNoticeId,
+          userId,
+          userEmail,
+          'Security Threat Anomaly Flag',
+          'Account Flagged for Security Anomaly Review',
+          'Account flagged for security anomaly review.',
+          now.toISOString(),
+          deadlineDate.toISOString(),
+          explanation,
+          now.toISOString()
+        );
+
+        db.prepare(`
+          UPDATE users 
+          SET activeNoticeId = ?, noticeStatus = 'appealed', updatedAt = ?
+          WHERE id = ?
+        `).run(realNoticeId, now.toISOString(), userId);
+      })();
+
+      auditLogService.logAction({
+        actorId: userId,
+        actorEmail: userEmail,
+        actionType: 'user_action',
+        status: 'success',
+        details: `User submitted explanation for flagged account review.`
+      });
+
+      wsService.broadcast('USER_APPEAL_SUBMITTED', {
+        noticeId: realNoticeId,
+        userId,
+        userEmail,
+        timestamp: now.toISOString()
+      });
+
+      return { success: true, message: 'Explanation submitted successfully. Super Admin will review your appeal.' };
+    }
+
     if (!notice) throw new AppError('Notice not found', 404);
     if (notice.status === 'revoked' || notice.status === 'purged') {
       throw new AppError('This notice is no longer active.', 400);

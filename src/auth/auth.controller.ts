@@ -14,6 +14,7 @@ import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData, 
 import { failedLoginService } from '../services/failed-login-limiter.service';
 import { verifyGoogleToken } from './auth.google';
 import { getDb } from '../db/sqlite.connection';
+import { userStore } from '../store/user.store';
 
 // ── Google Auth & Config ──────────────────────────────────────────────────────
 
@@ -431,6 +432,22 @@ export async function submitAppealController(req: Request, res: Response, next: 
       success: true,
       message: result.message,
       data: result
+    });
+  } catch (err) { next(err); }
+}
+
+export async function getMeController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = (req as any).user?.sub || (req as any).user?.id;
+    if (!userId) throw new AppError('Authentication required.', 401);
+
+    const user = await userStore.findById(userId);
+    if (!user) throw new AppError('User not found.', 404);
+
+    const { passwordHash: _omit, ...publicUser } = user;
+    res.status(200).json({
+      success: true,
+      user: publicUser
     });
   } catch (err) { next(err); }
 }

@@ -2272,6 +2272,75 @@ const docs = await aegis.collection('todos').get();</code></pre>
           </div>
 
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Account Security & Compliance Status Card (User View) -->
+            <div id="card-account-security-compliance" class="hidden glass-panel p-6 rounded-2xl border border-amber-500/30 bg-amber-500/[0.02] space-y-4 md:col-span-2 shadow-xl">
+              <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h3 class="text-sm font-semibold text-amber-300 flex items-center space-x-2">
+                  <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                  <span>Account Security, Compliance & Hearing Status</span>
+                </h3>
+                <span id="badge-account-compliance-status" class="px-2.5 py-1 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">Action Required</span>
+              </div>
+
+              <!-- Flagged Notice Block -->
+              <div id="block-account-flagged-info" class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-flag text-amber-400"></i>
+                    <span>Account Flagged for Security Anomaly Review</span>
+                  </span>
+                  <span class="text-[10px] font-mono text-amber-200">Review Pending</span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                  Your account has been flagged by Super Admin for a security anomaly review. You can submit a formal explanation or proof of legitimate activity below to appeal this flag.
+                </p>
+                <div class="pt-1 flex items-center space-x-3">
+                  <button type="button" onclick="openComplianceAppealModal()" class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs shadow transition active:scale-95 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-file-pen"></i>
+                    <span>Submit Appeal / Explanation</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Active Notice Block -->
+              <div id="block-account-notice-info" class="hidden p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-rose-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-gavel text-rose-400"></i>
+                    <span id="label-settings-notice-title">Compliance Violation Notice Issued</span>
+                  </span>
+                  <span id="label-settings-notice-timer" class="text-xs font-mono text-amber-300 font-semibold">3 days remaining</span>
+                </div>
+                <p id="label-settings-notice-details" class="text-xs text-slate-300 leading-relaxed">Details...</p>
+                <div class="pt-1 flex items-center space-x-3">
+                  <button type="button" onclick="openComplianceAppealModal()" class="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs shadow transition active:scale-95 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-file-shield"></i>
+                    <span>Submit Hearing Explanation</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Pending Deletion Block -->
+              <div id="block-account-deletion-info" class="hidden p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-rose-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-400 animate-pulse"></i>
+                    <span>7-Day Account Erasure Grace Period Active</span>
+                  </span>
+                  <span id="label-settings-deletion-timer" class="text-xs font-mono text-rose-300 font-semibold">7 days remaining</span>
+                </div>
+                <p class="text-xs text-slate-300 leading-relaxed">
+                  Your account and all associated databases are scheduled for permanent erasure. You may cancel this erasure at any point before the deadline to retain full access.
+                </p>
+                <div class="pt-1 flex items-center space-x-3">
+                  <button type="button" onclick="cancelMyAccountDeletion()" class="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow transition active:scale-95 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-arrow-rotate-left"></i>
+                    <span>Cancel Deletion & Restore Account</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- Profile Card -->
             <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
@@ -3940,6 +4009,6 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   </script>
 
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=20260818_v3"></script>
+  <script src="app.js?v=20260819_v4"></script>
 </body>
 </html>
