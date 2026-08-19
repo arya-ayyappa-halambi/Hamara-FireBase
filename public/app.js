@@ -5022,22 +5022,25 @@ window.saveAndRolloutPolicies = async function() {
 };
 
 // ── Security & Anti-Inspection (Client-Side) ───────────────────────────────
-document.addEventListener('contextmenu', event => event.preventDefault());
+const isLocalDev = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+if (!isLocalDev) {
+  document.addEventListener('contextmenu', event => event.preventDefault());
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'F12') {
-    e.preventDefault();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
-    e.preventDefault();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'J') {
-    e.preventDefault();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
-    e.preventDefault();
-  }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
-    e.preventDefault();
-  }
-});
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'F12') {
+      e.preventDefault();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'I') {
+      e.preventDefault();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'J') {
+      e.preventDefault();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+      e.preventDefault();
+    }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'u') {
+      e.preventDefault();
+    }
+  });
+}
