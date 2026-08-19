@@ -295,8 +295,7 @@ export async function submitNoticeAppeal(userId: string, noticeId: string, expla
 }
 
 export async function setupMfa(userId: string): Promise<{ secret: string; otpAuthUrl: string }> {
-  const db = getDb();
-  const user = db.prepare('SELECT id, email, mfaEnabled, mfaSecret FROM users WHERE id = ?').get(userId) as any;
+  const user = await userStore.findById(userId);
   if (!user) throw new AppError('User not found.', 404);
 
   // If MFA is already enabled, we shouldn't overwrite the secret here
@@ -310,6 +309,7 @@ export async function setupMfa(userId: string): Promise<{ secret: string; otpAut
   const otpAuthUrl = totpService.generateOtpAuthUrl(user.email, secret);
 
   // Store temporary unconfirmed secret
+  const db = getDb();
   db.prepare('UPDATE users SET mfaSecret = ? WHERE id = ?').run(secret, userId);
 
   return { secret, otpAuthUrl };
