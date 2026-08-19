@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin Gateway — AegisDB</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              900: '#312e81',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome 6 CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <style>
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .glass-input {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
+      transition: all 0.2s ease-in-out;
+    }
+    .glass-input:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+      outline: none;
+    }
+  </style>
+</head>
+<body class="bg-[#090d16] text-slate-100 min-h-screen flex items-center justify-center p-4 relative overflow-x-hidden antialiased">
+  
+  <!-- Background Glow FX -->
+  <div class="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute -bottom-40 -right-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+  <div class="w-full max-w-md relative z-10 space-y-6">
+    
+    <!-- Top Header -->
+    <div class="text-center space-y-2">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-600 via-amber-500 to-yellow-400 text-slate-950 shadow-xl shadow-amber-500/20 mb-2">
+        <i class="fa-solid fa-user-shield text-3xl"></i>
+      </div>
+      <h1 class="text-3xl font-extrabold tracking-tight text-white">Super Admin Portal</h1>
+      <p class="text-xs text-slate-400">Emergency & Maintenance Gateway for AegisDB Platform</p>
+      
+      <!-- Maintenance Status Banner -->
+      <div id="banner-maintenance-status" class="pt-2 flex justify-center">
+        <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+          <i class="fa-solid fa-person-digging text-xs text-amber-400 animate-bounce"></i>
+          <span id="label-maintenance-status">Checking System Status...</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- Login Form Card -->
+    <div class="glass-panel rounded-3xl p-8 space-y-6 shadow-2xl relative border border-white/10">
+      <div class="flex items-center justify-between border-b border-white/10 pb-4">
+        <h2 class="text-sm font-bold uppercase tracking-wider text-slate-300 flex items-center space-x-2">
+          <i class="fa-solid fa-key text-amber-400"></i>
+          <span>Super Admin Credentials</span>
+        </h2>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400">RS256 Protected</span>
+      </div>
+
+      <form id="admin-login-form" class="space-y-4">
+        <!-- Email Field -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Admin Email</label>
+          <div class="relative">
+            <i class="fa-solid fa-envelope absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+            <input type="email" id="input-admin-email" required class="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-sm" placeholder="admin@aegisdb.dev">
+          </div>
+        </div>
+
+        <!-- Password Field -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Password</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-500 text-xs"></i>
+            <input type="password" id="input-admin-password" required class="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-sm" placeholder="••••••••••••">
+          </div>
+        </div>
+
+        <!-- TOTP MFA Field (Hidden by default) -->
+        <div id="field-mfa-code" class="space-y-1.5 hidden">
+          <label class="text-xs font-semibold uppercase tracking-wider text-amber-300 flex items-center space-x-1.5">
+            <i class="fa-solid fa-shield-halved text-amber-400"></i>
+            <span>6-Digit TOTP Authenticator Code</span>
+          </label>
+          <div class="relative">
+            <i class="fa-solid fa-qrcode absolute left-3.5 top-3.5 text-amber-400 text-xs"></i>
+            <input type="text" id="input-admin-mfa" maxlength="6" class="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-sm font-mono tracking-widest text-amber-300 placeholder-slate-600" placeholder="123456">
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="btn-admin-login" class="w-full mt-2 py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-xl shadow-amber-500/20 transition active:scale-95 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-right-to-bracket text-base"></i>
+          <span>Authenticate & Access Console</span>
+        </button>
+      </form>
+
+      <!-- Fill Demo Admin Shortcut -->
+      <div class="pt-2 border-t border-white/10">
+        <button type="button" id="btn-fill-demo-admin" class="w-full py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-xs font-semibold transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i>
+          <span>Fill Demo Admin (`admin@aegisdb.dev`)</span>
+        </button>
+      </div>
+
+      <!-- Quick Maintenance Override Toggle (Shown after login if under maintenance) -->
+      <div id="box-maintenance-override" class="hidden pt-4 border-t border-amber-500/30 text-center space-y-3">
+        <p class="text-xs text-amber-300 font-medium">Authenticated as Super Admin. Maintenance mode is active.</p>
+        <button type="button" id="btn-disable-maintenance" class="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition active:scale-95 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-power-off"></i>
+          <span>Turn Off Maintenance Mode & Launch Console</span>
+        </button>
+      </div>
+
+      <!-- Toast Container -->
+      <div id="toast-container" class="mt-4 text-center text-xs font-medium p-3 rounded-xl hidden transition-all"></div>
+    </div>
+
+    <!-- Navigation Footer -->
+    <div class="flex items-center justify-between text-xs text-slate-500">
+      <a href="/" class="hover:text-white transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Return to Main App</span>
+      </a>
+      <a href="/recovery.html" class="hover:text-amber-400 transition flex items-center space-x-1.5">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>System Recovery</span>
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('admin-login-form');
+    const inputEmail = document.getElementById('input-admin-email');
+    const inputPassword = document.getElementById('input-admin-password');
+    const inputMfa = document.getElementById('input-admin-mfa');
+    const fieldMfa = document.getElementById('field-mfa-code');
+    const btnSubmit = document.getElementById('btn-admin-login');
+    const btnFillDemo = document.getElementById('btn-fill-demo-admin');
+    const toast = document.getElementById('toast-container');
+    const labelStatus = document.getElementById('label-maintenance-status');
+    const boxOverride = document.getElementById('box-maintenance-override');
+    const btnDisableMaintenance = document.getElementById('btn-disable-maintenance');
+
+    function showToast(msg, type = 'info') {
+      toast.textContent = msg;
+      toast.className = `mt-4 text-center text-xs font-medium p-3 rounded-xl shadow-lg ${
+        type === 'error' ? 'bg-rose-950/90 border border-rose-800 text-rose-200' :
+        type === 'success' ? 'bg-emerald-950/90 border border-emerald-800 text-emerald-200' :
+        'bg-slate-900/90 border border-slate-700 text-slate-200'
+      }`;
+      toast.classList.remove('hidden');
+    }
+
+    // Fill Demo Admin Credentials
+    btnFillDemo.onclick = () => {
+      inputEmail.value = 'admin@aegisdb.dev';
+      inputPassword.value = 'admin123';
+      showToast('Demo Admin credentials populated.', 'info');
+    };
+
+    // Check System Status on load
+    (async () => {
+      try {
+        const res = await fetch('/api/v1/system/status');
+        const data = await res.json().catch(() => ({}));
+        if (data.maintenanceMode) {
+          labelStatus.textContent = 'Maintenance Mode Active — Admin Override Gateway';
+        } else {
+          labelStatus.textContent = 'System Operational — Super Admin Portal';
+        }
+      } catch (_) {
+        labelStatus.textContent = 'Server Online — Admin Override';
+      }
+    })();
+
+    // Handle Form Submit
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      const email = inputEmail.value.trim();
+      const password = inputPassword.value;
+      const totpCode = inputMfa.value.trim();
+
+      if (!email || !password) {
+        return showToast('Email and Password are required.', 'error');
+      }
+
+      try {
+        btnSubmit.disabled = true;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Authenticating...</span>';
+
+        const payload = { email, password };
+        if (totpCode) payload.totpCode = totpCode;
+
+        const res = await fetch('/api/v1/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok || json.success === false) {
+          if (json.requireMfa) {
+            fieldMfa.classList.remove('hidden');
+            inputMfa.focus();
+            throw new Error('MFA is enabled on this admin account. Please enter your 6-digit TOTP code.');
+          }
+          throw new Error(json.message || 'Invalid Super Admin credentials.');
+        }
+
+        if (!json.user?.isSuperAdmin && json.user?.role !== 'super_admin') {
+          throw new Error('Access Denied: Account is not a Super Admin.');
+        }
+
+        // Save session tokens
+        localStorage.setItem('aegis_access_token', json.token || json.accessToken);
+        if (json.refreshToken) localStorage.setItem('aegis_refresh_token', json.refreshToken);
+        localStorage.setItem('aegis_user', JSON.stringify(json.user));
+
+        showToast('Authentication Successful! Redirecting to Super Admin Console...', 'success');
+
+        // Check if maintenance mode is enabled
+        const statusRes = await fetch('/api/v1/system/status');
+        const statusData = await statusRes.json().catch(() => ({}));
+
+        if (statusData.maintenanceMode) {
+          boxOverride.classList.remove('hidden');
+        }
+
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.innerHTML = '<i class="fa-solid fa-right-to-bracket text-base"></i><span>Authenticate & Access Console</span>';
+      }
+    };
+
+    // Maintenance Mode Disable Action
+    btnDisableMaintenance.onclick = async () => {
+      const token = localStorage.getItem('aegis_access_token');
+      if (!token) return showToast('No active admin session token.', 'error');
+
+      try {
+        btnDisableMaintenance.disabled = true;
+        btnDisableMaintenance.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Disabling Maintenance Mode...</span>';
+
+        const res = await fetch('/api/v1/admin/platform-settings', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ maintenanceMode: false })
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) {
+          throw new Error(json.message || 'Failed to update maintenance settings.');
+        }
+
+        showToast('Maintenance Mode turned OFF! Redirecting to dashboard...', 'success');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1200);
+
+      } catch (err) {
+        showToast(err.message, 'error');
+        btnDisableMaintenance.disabled = false;
+        btnDisableMaintenance.innerHTML = '<i class="fa-solid fa-power-off"></i><span>Turn Off Maintenance Mode & Launch Console</span>';
+      }
+    };
+  </script>
+</body>
+</html>

@@ -6,7 +6,7 @@ import { extractBearerToken } from './auth.middleware';
 export function maintenanceModeMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
     // Skip checking database if it's the restore endpoint or basic static files
-    if (req.path === '/' || req.path.startsWith('/index.html') || req.path.startsWith('/app.js') || req.path.startsWith('/styles.css') || req.path.startsWith('/assets/') || req.path.startsWith('/api/v1/system/restore')) {
+    if (req.path === '/' || req.path.startsWith('/index.html') || req.path.startsWith('/admin-login.html') || req.path.startsWith('/recovery.html') || req.path.startsWith('/app.js') || req.path.startsWith('/styles.css') || req.path.startsWith('/assets/') || req.path.startsWith('/api/v1/system/restore')) {
       return next();
     }
 
