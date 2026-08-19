@@ -20,7 +20,7 @@ import { getDb } from '../db/sqlite.connection';
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const db = getDb();
-    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, backupMode, backupIntervalMinutes, backupRetentionDays, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url FROM platform_settings WHERE id = ?').get('default') as any;
+    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, maintenanceMode, backupMode, backupIntervalMinutes, backupRetentionDays, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url FROM platform_settings WHERE id = ?').get('default') as any;
     res.status(200).json({
       success: true,
       message: 'Platform settings retrieved.',
@@ -34,6 +34,7 @@ export async function getPlatformSettings(_req: Request, res: Response, next: Ne
         s3Region: settings ? settings.s3Region : '',
         s3AccessKey: settings ? settings.s3AccessKey : '',
         s3SecretKey: settings ? settings.s3SecretKey : '',
+        maintenanceMode: settings ? settings.maintenanceMode === 1 : false,
         lastBackupAt: settings ? settings.lastBackupAt : null,
         lastBackupStatus: settings ? settings.lastBackupStatus : null,
         lastBackupS3Status: settings ? settings.lastBackupS3Status : null,

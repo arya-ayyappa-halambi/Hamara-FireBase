@@ -11,7 +11,15 @@ router.post('/restore', apiLimiter, upload.single('backup'), restoreBackup);
 
 // Endpoint to check system status (used by frontend to detect maintenance mode)
 router.get('/status', (req, res) => {
-  res.json({ success: true, message: 'System is operational', maintenanceMode: false });
+  try {
+    const { getDb } = require('../db/sqlite.connection');
+    const db = getDb();
+    const config = db.prepare('SELECT maintenanceMode FROM platform_settings WHERE id = ?').get('default');
+    const isMaintenance = config && config.maintenanceMode === 1;
+    res.json({ success: true, message: isMaintenance ? 'System is under maintenance' : 'System is operational', maintenanceMode: isMaintenance });
+  } catch (_) {
+    res.json({ success: true, message: 'System is operational', maintenanceMode: false });
+  }
 });
 
 export default router;
