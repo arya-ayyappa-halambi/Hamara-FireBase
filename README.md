@@ -525,6 +525,46 @@ AegisDB provides a comprehensive, transparent **Trust & Safety Management Engine
 
 ---
 
+
+
+---
+
+## 🛡️ 12. Super Admin Emergency Gateway & System Recovery Lock
+
+AegisDB provides dual-tier emergency access to maintain platform control and enable database recovery during critical maintenance windows.
+
+### Key Emergency Features
+- **Standalone Emergency Gateway (`/admin-login.html`)**: A dedicated, lightweight portal permitting Super Admin login (`admin@aegisdb.dev` / `Admin@123`) directly bypassing standard application views during system maintenance.
+- **Single-Click Maintenance Mode Toggle**: Allows Super Admins to disable maintenance mode directly from the gateway or the Security Operations panel (`PATCH /api/v1/admin/platform-settings`), with real-time SQLite database synchronization and operational status reporting (`GET /api/v1/system/status`).
+- **6-Digit Passcode Lock Console (`/recovery.html`)**: Protects the database restore drop zone behind a full-screen 6-digit server passcode lock (`#js-lock-screen`). Validated server-side via `POST /api/v1/system/verify-recovery-pin` against `process.env.RECOVERY_PIN` (`123456`) with a 60-second inactivity auto-lock safety timer.
+
+---
+
+## 🧹 13. Date-Based Automated & Manual Backup Retention Policy
+
+AegisDB includes intelligent backup lifecycle management to prevent disk space exhaustion and enforce data retention compliance.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│               DATE-BASED BACKUP RETENTION LIFECYCLE                    │
+├────────────────────────────────────────────────────────────────────────┤
+│ 1. Timestamp Extraction:                                               │
+│    • Reads ISO creation timestamp from filename ('backup-YYYY...gz')   │
+│    • Falls back to file stat modification time ('mtime')               │
+│ 2. Threshold Calculation:                                              │
+│    • Cutoff = Date.now() - (backupRetentionDays * 86400 * 1000)        │
+│ 3. Automated & Manual Purging:                                         │
+│    • Background scheduler purges files created prior to cutoff threshold│
+│    • Saving settings or clicking 'Purge Expired Backups' triggers     │
+│      immediate sweep of local and S3 backup storage                    │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Backup Capabilities
+- **Configurable Retention Window**: Admin configures `backupRetentionDays` (e.g. 7, 14, 30 days) in Platform Settings.
+- **Automated Lifecycle Sweeps**: Background tasks inspect local `/backups/` and S3 object stores, safely removing snapshots exceeding the retention period while always preserving the latest backup.
+- **Manual Purge Endpoint & UI**: `POST /api/v1/admin/backups/purge` and the **"Purge Expired Backups"** UI button allow immediate manual execution with toast feedback showing count of deleted backups and freed disk bytes.
+
 ## 📄 License & Production Deployment
 
 This project is licensed under the MIT License.
