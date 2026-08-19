@@ -15,3 +15,19 @@ router.get('/status', (req, res) => {
 });
 
 export default router;
+
+// Verify Server Recovery PIN for frontend Lock Screen
+router.post('/verify-recovery-pin', apiLimiter, (req, res) => {
+  const recoveryPin = req.body?.recoveryPin;
+  const serverPin = process.env.RECOVERY_PIN;
+
+  if (!serverPin) {
+    return res.status(500).json({ success: false, message: 'Server RECOVERY_PIN is not configured.' });
+  }
+
+  if (recoveryPin !== serverPin) {
+    return res.status(401).json({ success: false, message: 'Invalid 6-Digit Server Recovery Passcode.' });
+  }
+
+  return res.json({ success: true, message: 'Passcode verified successfully.' });
+});

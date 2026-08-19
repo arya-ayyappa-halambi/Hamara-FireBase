@@ -1,220 +1,292 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AegisDB - Disaster Recovery</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>System Recovery — AegisDB Engine</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #0f172a;
-      color: #e2e8f0;
-    }
     .glass-panel {
-      background: rgba(15, 23, 42, 0.6);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255, 255, 255, 0.1);
     }
   </style>
 </head>
-<body class="min-h-screen flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-black">
-  <div class="max-w-md w-full">
-    <div class="text-center mb-8">
-      <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-2xl bg-rose-500/20 border border-rose-500/30 mb-4">
-        <i class="fa-solid fa-triangle-exclamation text-2xl text-rose-500"></i>
+<body class="bg-[#090d16] text-slate-100 min-h-screen flex items-center justify-center p-4 relative select-none antialiased">
+  
+  <!-- Background Glow FX -->
+  <div class="absolute -top-32 -left-32 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute -bottom-32 -right-32 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+  <!-- MAIN RECOVERY CONSOLE (Hidden until Passcode Unlocked) -->
+  <div id="main-recovery-console" class="w-full max-w-lg space-y-6 relative z-10 hidden">
+    
+    <div class="text-center space-y-2">
+      <div class="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 shadow-xl mb-1">
+        <i class="fa-solid fa-triangle-exclamation text-2xl"></i>
       </div>
-      <h2 class="text-3xl font-extrabold text-white tracking-tight">System Recovery</h2>
-      <p class="text-sm text-slate-400 mt-2">Bare-metal restoration via encrypted snapshot</p>
+      <h1 class="text-3xl font-extrabold tracking-tight text-white">System Recovery</h1>
+      <p class="text-xs text-slate-400">Bare-metal database restoration via encrypted snapshot</p>
     </div>
 
-    <div class="glass-panel rounded-3xl p-8 shadow-2xl">
-      <div id="drop-zone-restore" class="border-2 border-dashed border-slate-600/50 rounded-xl p-8 text-center hover:bg-slate-800/50 transition cursor-pointer relative overflow-hidden group mb-6">
-        <i class="fa-solid fa-file-zipper text-4xl text-slate-400 mb-3 group-hover:text-indigo-400 group-hover:scale-110 transition duration-300"></i>
-        <h3 class="text-sm font-semibold text-slate-200">Select Backup File</h3>
-        <p class="text-xs text-slate-500 mt-1">Drag & drop a .gz SQLite backup</p>
-        <input type="file" id="file-restore-backup" accept=".gz" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+    <div class="glass-panel rounded-3xl p-6 sm:p-8 space-y-6 shadow-2xl border border-white/10">
+      
+      <!-- Drop Zone for Backup File -->
+      <div id="drop-zone-restore" class="border-2 border-dashed border-slate-700 hover:border-indigo-500/50 rounded-2xl p-8 text-center cursor-pointer transition bg-slate-900/40 hover:bg-indigo-950/20">
+        <i class="fa-solid fa-file-arrow-up text-4xl text-slate-500 mb-3 block"></i>
+        <h3 class="text-sm font-semibold text-white mb-1">Select Snapshot Backup File</h3>
+        <p class="text-xs text-slate-400">Drag & drop a <code class="text-indigo-300 font-mono">.db.gz</code> or <code class="text-indigo-300 font-mono">.dz</code> SQLite backup</p>
+        <input type="file" id="file-restore-backup" accept=".gz,.db,.sqlite,.dz" class="hidden">
       </div>
 
-      <div id="restore-form-container" class="space-y-4 hidden opacity-0 transition-opacity duration-300">
+      <!-- Restore Parameters Form -->
+      <div id="restore-form-container" class="space-y-4 pt-2 hidden opacity-0 transition-opacity duration-300">
         <div class="space-y-1">
           <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Server Recovery PIN</label>
-          <input type="password" id="input-recovery-pin" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 transition" placeholder="Check server .env for RECOVERY_PIN">
+          <input type="password" id="input-recovery-pin" readonly class="w-full px-4 py-2.5 rounded-xl bg-slate-900/90 border border-emerald-500/40 text-emerald-300 font-mono text-sm focus:outline-none" placeholder="Verified Server Passcode">
         </div>
         
         <div class="space-y-1">
           <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Master Encryption Passkey</label>
-          <input type="password" id="input-restore-passkey" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 transition" placeholder="The ENCRYPTION_KEY used for this backup">
+          <input type="password" id="input-restore-passkey" class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-indigo-500 transition" placeholder="The ENCRYPTION_KEY used for this backup">
         </div>
 
-        <button type="button" id="btn-submit-restore" class="w-full mt-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow-lg shadow-rose-900/20 transition active:scale-95 flex items-center justify-center space-x-2">
+        <button type="button" id="btn-submit-restore" class="w-full mt-4 py-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-sm shadow-lg shadow-rose-900/20 transition active:scale-95 flex items-center justify-center space-x-2">
           <i class="fa-solid fa-skull"></i>
-          <span>Destructive Restore</span>
+          <span>Execute Destructive Restore</span>
         </button>
       </div>
       
-      <div id="toast-container" class="mt-4 text-center text-sm font-medium hidden"></div>
+      <!-- Toast Container -->
+      <div id="toast-container" class="mt-4 text-center text-xs font-medium p-3 rounded-xl hidden transition-all"></div>
     </div>
     
-    <div class="text-center mt-6">
-      <a href="/" class="text-sm text-slate-500 hover:text-white transition"><i class="fa-solid fa-arrow-left mr-1"></i> Return to standard login</a>
+    <div class="text-center">
+      <a href="/" class="text-xs text-slate-500 hover:text-white transition inline-flex items-center space-x-1.5">
+        <i class="fa-solid fa-arrow-left"></i>
+        <span>Return to standard login</span>
+      </a>
     </div>
   </div>
 
-  <!-- JS Lock Screen Overlay -->
-  <div id="js-lock-screen" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-black">
-    <div class="glass-panel rounded-3xl p-8 shadow-2xl max-w-sm w-full text-center">
-      <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-2xl bg-indigo-500/20 border border-indigo-500/30 mb-4">
-        <i class="fa-solid fa-lock text-2xl text-indigo-400"></i>
+  <!-- PASSCODE LOCK SCREEN OVERLAY (Shown on Page Load) -->
+  <div id="js-lock-screen" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-900 to-black backdrop-blur-xl">
+    <div class="glass-panel rounded-3xl p-8 shadow-2xl max-w-sm w-full text-center space-y-6 border border-white/10">
+      <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-2xl bg-rose-500/20 border border-rose-500/30">
+        <i class="fa-solid fa-lock text-3xl text-rose-400"></i>
       </div>
-      <h2 class="text-2xl font-bold text-white mb-2">Recovery Locked</h2>
-      <p class="text-xs text-slate-400 mb-6">Enter server PIN to access the recovery console.</p>
       
-      <input type="password" id="input-js-pin" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-white text-center text-lg tracking-widest focus:outline-none focus:border-indigo-500 transition mb-4" placeholder="••••••">
-      
-      <button type="button" id="btn-unlock-js" class="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold transition active:scale-95">
-        Unlock Console
-      </button>
-      <div id="js-lock-error" class="mt-3 text-xs text-rose-400 hidden"></div>
+      <div>
+        <h2 class="text-2xl font-extrabold text-white tracking-tight mb-1">Recovery Console Locked</h2>
+        <p class="text-xs text-slate-400">Enter the 6-digit server passcode to unlock system restoration tools.</p>
+      </div>
+
+      <div class="space-y-4">
+        <input type="password" id="input-js-pin" maxlength="6" class="w-full px-4 py-3 rounded-xl bg-slate-900 border border-slate-700 text-amber-300 font-mono text-center text-2xl tracking-widest focus:outline-none focus:border-amber-500 transition shadow-inner" placeholder="••••••" autofocus>
+        
+        <button type="button" id="btn-unlock-js" class="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-sm shadow-xl shadow-amber-500/20 transition active:scale-95 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-key"></i>
+          <span>Unlock Console</span>
+        </button>
+
+        <div id="js-lock-error" class="text-xs font-semibold text-rose-400 hidden pt-1"></div>
+      </div>
+
+      <div class="pt-2 border-t border-white/10">
+        <a href="/" class="text-xs text-slate-500 hover:text-white transition inline-flex items-center space-x-1">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>Return to main page</span>
+        </a>
+      </div>
     </div>
   </div>
 
   <script>
-    // --- Client-Side Security & Auto-Lock ---
-    // Prevent right-click context menu
+    // --- Client-Side Security Controls ---
     document.addEventListener('contextmenu', e => e.preventDefault());
-    
-    // Prevent common DevTools keyboard shortcuts
     document.addEventListener('keydown', e => {
       if (
         e.key === 'F12' || 
         (e.ctrlKey && e.shiftKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || 
         (e.metaKey && e.altKey && (e.key === 'I' || e.key === 'J' || e.key === 'C')) || 
-        (e.ctrlKey && e.key === 'U') ||
-        (e.metaKey && e.key === 'U')
+        (e.ctrlKey && e.key === 'U') || (e.metaKey && e.key === 'U')
       ) {
         e.preventDefault();
       }
     });
 
-    // JS Lock Screen Logic
     const lockScreen = document.getElementById('js-lock-screen');
+    const mainConsole = document.getElementById('main-recovery-console');
     const inputJsPin = document.getElementById('input-js-pin');
     const btnUnlockJs = document.getElementById('btn-unlock-js');
     const jsLockError = document.getElementById('js-lock-error');
     const actualPinInput = document.getElementById('input-recovery-pin');
-    let sessionPin = sessionStorage.getItem('recoverySessionPin');
 
-    function showLockScreen() {
-      sessionStorage.removeItem('recoverySessionPin');
-      sessionPin = null;
-      actualPinInput.value = '';
-      inputJsPin.value = '';
-      lockScreen.classList.remove('hidden');
+    function showError(msg) {
+      jsLockError.textContent = msg;
+      jsLockError.classList.remove('hidden');
+      inputJsPin.classList.add('border-rose-500');
+      setTimeout(() => inputJsPin.classList.remove('border-rose-500'), 1500);
     }
 
-    if (sessionPin) {
-      actualPinInput.value = sessionPin;
-      lockScreen.classList.add('hidden');
-    }
-
-    btnUnlockJs.onclick = () => {
+    async function verifyAndUnlock() {
       const pin = inputJsPin.value.trim();
-      if (!pin) return;
-      // We don't verify against backend here to prevent brute force online checks easily.
-      // We just store it and use it. If it's wrong, the final restore fails.
-      sessionStorage.setItem('recoverySessionPin', pin);
-      sessionPin = pin;
-      actualPinInput.value = pin;
-      lockScreen.classList.add('hidden');
-      jsLockError.classList.add('hidden');
-      resetIdleTimer();
-    };
+      if (!pin || pin.length < 6) {
+        return showError('Please enter the 6-digit passcode.');
+      }
 
-    // Auto-Lock (Idle Timeout): Show lock screen after 60 seconds of inactivity
+      try {
+        btnUnlockJs.disabled = true;
+        btnUnlockJs.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Verifying...</span>';
+        jsLockError.classList.add('hidden');
+
+        const res = await fetch('/api/v1/system/verify-recovery-pin', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ recoveryPin: pin })
+        });
+
+        const json = await res.json().catch(() => ({}));
+
+        if (!res.ok || json.success === false) {
+          throw new Error(json.message || 'Invalid 6-Digit Server Passcode.');
+        }
+
+        // Passcode Verified Successfully
+        sessionStorage.setItem('recoverySessionPin', pin);
+        actualPinInput.value = pin;
+
+        lockScreen.classList.add('hidden');
+        mainConsole.classList.remove('hidden');
+        resetIdleTimer();
+
+      } catch (err) {
+        showError(err.message);
+        inputJsPin.value = '';
+        inputJsPin.focus();
+      } finally {
+        btnUnlockJs.disabled = false;
+        btnUnlockJs.innerHTML = '<i class="fa-solid fa-key"></i><span>Unlock Console</span>';
+      }
+    }
+
+    btnUnlockJs.onclick = verifyAndUnlock;
+    inputJsPin.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') verifyAndUnlock();
+    });
+
+    // Idle Auto-Lock Timer (60s)
     let idleTimeout;
     function resetIdleTimer() {
-      if (!sessionPin) return; // don't start timer if already locked
       clearTimeout(idleTimeout);
       idleTimeout = setTimeout(() => {
-        showLockScreen();
+        sessionStorage.removeItem('recoverySessionPin');
+        actualPinInput.value = '';
+        inputJsPin.value = '';
+        mainConsole.classList.add('hidden');
+        lockScreen.classList.remove('hidden');
+        inputJsPin.focus();
       }, 60000); // 60 seconds
     }
+
     ['mousemove', 'keydown', 'scroll', 'click'].forEach(evt => 
       document.addEventListener(evt, () => {
-        if (sessionPin) resetIdleTimer();
+        if (!lockScreen.classList.contains('hidden')) return;
+        resetIdleTimer();
       })
     );
-    // -----------------------------------------
 
+    // --- Restore Actions ---
+    const dropZone = document.getElementById('drop-zone-restore');
     const fileRestoreInput = document.getElementById('file-restore-backup');
     const restoreFormContainer = document.getElementById('restore-form-container');
     const btnSubmitRestore = document.getElementById('btn-submit-restore');
-    const dropZone = document.getElementById('drop-zone-restore');
     const toast = document.getElementById('toast-container');
 
     function showToast(msg, type) {
       toast.textContent = msg;
-      toast.className = `mt-4 text-center text-sm font-medium p-3 rounded-lg ${type === 'error' ? 'bg-rose-900/50 text-rose-300' : 'bg-emerald-900/50 text-emerald-300'}`;
+      toast.className = `mt-4 text-center text-xs font-medium p-3 rounded-xl ${
+        type === 'error' ? 'bg-rose-950/90 border border-rose-800 text-rose-200' :
+        type === 'success' ? 'bg-emerald-950/90 border border-emerald-800 text-emerald-200' :
+        'bg-slate-900/90 border border-slate-700 text-slate-200'
+      }`;
       toast.classList.remove('hidden');
     }
 
-    if (fileRestoreInput) {
-      fileRestoreInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-          dropZone.classList.add('border-indigo-500/50', 'bg-indigo-900/20');
-          dropZone.querySelector('i').className = 'fa-solid fa-file-circle-check text-4xl text-indigo-400 mb-3';
-          dropZone.querySelector('h3').textContent = e.target.files[0].name;
-          restoreFormContainer.classList.remove('hidden');
-          setTimeout(() => restoreFormContainer.classList.remove('opacity-0'), 10);
-        }
-      });
+    dropZone.onclick = () => fileRestoreInput.click();
+
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('border-indigo-500', 'bg-indigo-950/30');
+    });
+
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-950/30');
+    });
+
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('border-indigo-500', 'bg-indigo-950/30');
+      if (e.dataTransfer.files.length > 0) {
+        fileRestoreInput.files = e.dataTransfer.files;
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+
+    fileRestoreInput.onchange = (e) => {
+      if (e.target.files.length > 0) handleFileSelect(e.target.files[0]);
+    };
+
+    function handleFileSelect(file) {
+      dropZone.classList.add('border-indigo-500/50', 'bg-indigo-950/20');
+      dropZone.querySelector('i').className = 'fa-solid fa-file-circle-check text-4xl text-indigo-400 mb-3 block';
+      dropZone.querySelector('h3').textContent = file.name;
+      restoreFormContainer.classList.remove('hidden');
+      setTimeout(() => restoreFormContainer.classList.remove('opacity-0'), 10);
     }
 
-    if (btnSubmitRestore) {
-      btnSubmitRestore.onclick = async () => {
-        const file = fileRestoreInput.files[0];
-        const passkey = document.getElementById('input-restore-passkey').value;
-        const recoveryPin = document.getElementById('input-recovery-pin').value;
-        
-        if (!file) return showToast('Please select a backup file first.', 'error');
-        if (!recoveryPin) return showToast('Recovery PIN is required.', 'error');
-        if (!passkey) return showToast('Master passkey is required.', 'error');
-        
-        const formData = new FormData();
-        formData.append('backup', file);
-        formData.append('passkey', passkey);
-        formData.append('recoveryPin', recoveryPin);
-        
-        try {
-          btnSubmitRestore.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Restoring System...</span>';
-          btnSubmitRestore.disabled = true;
-          
-          const res = await fetch('/api/v1/system/restore', {
-            method: 'POST',
-            body: formData
-          });
-          
-          const json = await res.json().catch(() => ({}));
-          if (!res.ok || json.success === false) {
-            throw new Error(json.message || `API Error (${res.status})`);
-          }
+    btnSubmitRestore.onclick = async () => {
+      const file = fileRestoreInput.files[0];
+      const passkey = document.getElementById('input-restore-passkey').value.trim();
+      const recoveryPin = actualPinInput.value.trim();
 
-          showToast('Restore complete! System is restarting. Redirecting to login...', 'success');
-          
-          setTimeout(() => {
-            window.location.href = '/';
-          }, 4000);
-        } catch (err) {
-          btnSubmitRestore.innerHTML = '<i class="fa-solid fa-skull"></i><span>Destructive Restore</span>';
-          btnSubmitRestore.disabled = false;
-          showToast(err.message, 'error');
+      if (!file) return showToast('Please select a backup snapshot file first.', 'error');
+      if (!recoveryPin) return showToast('Server Passcode verification required.', 'error');
+      if (!passkey) return showToast('Master Encryption Passkey is required.', 'error');
+
+      const formData = new FormData();
+      formData.append('backup', file);
+      formData.append('passkey', passkey);
+      formData.append('recoveryPin', recoveryPin);
+
+      try {
+        btnSubmitRestore.disabled = true;
+        btnSubmitRestore.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Restoring Database Snapshot...</span>';
+
+        const res = await fetch('/api/v1/system/restore', {
+          method: 'POST',
+          body: formData
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || json.success === false) {
+          throw new Error(json.message || `Restore failed (${res.status})`);
         }
-      };
-    }
+
+        showToast('Restoration Complete! Database reloaded. Redirecting to login...', 'success');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 3000);
+
+      } catch (err) {
+        btnSubmitRestore.disabled = false;
+        btnSubmitRestore.innerHTML = '<i class="fa-solid fa-skull"></i><span>Execute Destructive Restore</span>';
+        showToast(err.message, 'error');
+      }
+    };
   </script>
 </body>
 </html>
