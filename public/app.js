@@ -468,6 +468,7 @@ window.switchWorkspace = function switchWorkspace(tabId) {
     // Rate limits are static form, no load needed
   } else if (tabId === 'tab-sec-ops') {
     loadLockedAccounts();
+    loadPlatformSettings();
   } else if (tabId === 'tab-project-management') {
     loadMyProjects();
   } else if (tabId === 'tab-data-browser') {
@@ -2947,6 +2948,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
 
     if (state.user.isSuperAdmin) {
+      loadPlatformSettings();
       document.getElementById('container-threat-alerts')?.classList.remove('hidden');
       if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
     }
