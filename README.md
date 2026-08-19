@@ -44,6 +44,7 @@ AegisDB is built with a "security-first, zero-trust" philosophy. Every layer of 
 - **Inactivity Session Timeout:** Users can configure their console session to automatically terminate after 5m, 15m, 30m, or 60m of mouse/keyboard inactivity. This ensures open browser tabs don't compromise security.
 - **Strict Content Security Policy (CSP):** XSS attacks are mitigated via a strict CSP header that restricts scripts, styles, and fonts to trusted CDN origins (like `cdnjs.cloudflare.com` and `cdn.jsdelivr.net`) and completely blocks inline script execution.
 - **Dynamic Rate Limiting:** Super Admins can adjust the rate-limiting windows (e.g., Auth endpoints vs. API endpoints) dynamically from the UI without restarting the server.
+- **Real-Time Account Moderation & Anomaly Flag Appeals:** Manually flagged accounts dynamically generate synthetic security notices (`flag_${userId}`) that trigger top alert banners, header notification bell counters, and dedicated appeal options in the User Security & Compliance Console.
 
 ---
 
@@ -196,6 +197,9 @@ This safely resets the Super Admin password to `admin123`.
 | `POST` | `/mfa/setup` | Generate Base32 secret key & `otpauth://` QR URI |
 | `POST` | `/mfa/verify` | Verify 6-digit TOTP code and enable MFA on profile |
 | `POST` | `/mfa/disable` | Disable TOTP MFA (requires password + 6-digit TOTP verification) |
+| `GET` | `/me` | Sync real-time user profile, security flags (`isFlagged`) & account status |
+| `GET` | `/active-notice` | Fetch active compliance violation notice or synthetic flag notice |
+| `POST` | `/notice-explanation` | Submit user explanation or appeal for active notice / flag |
 
 ### Project User Authentication & OAuth (`/api/v1/project-auth`)
 *Requires `x-aegis-api-key` header.*
@@ -487,6 +491,37 @@ In compliance with GDPR Art. 17 and user protection best practices against accid
 4. **Automated Background Purge Daemon**:
    - A background scheduler periodically scans for expired deletion requests (`scheduledDeletionAt <= NOW`).
    - Executes permanent cascading disk shredding, DB row deletion, and writes a zero-PII audit tombstone to `audit_logs`.
+
+---
+
+## 11. 🛡️ Trust & Safety, Violation Hearing Notices & Flag Appeals
+
+AegisDB provides a comprehensive, transparent **Trust & Safety Management Engine** that balances platform security with user due process.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│             TRUST & SAFETY & HEARING APPEAL WORKFLOW                   │
+├────────────────────────────────────────────────────────────────────────┤
+│ 1. Super Admin / Automated Threat Flagging:                            │
+│    • Super Admin manually flags account or security threat anomaly fires│
+│    • System generates synthetic flag notice ('flag_${userId}')         │
+│ 2. Real-Time Alert Broadcasts:                                         │
+│    • WebSocket emits 'SECURITY_ALERT_FLAGGED' to client session        │
+│    • Client state updates 'isFlagged = true' and triggers header alert │
+│ 3. Multi-Surface Alerting & Appeal Options:                            │
+│    • Top Alert Banner & Header Notification Bell Badge counter         │
+│    • 'Account Security, Compliance & Hearing Status' Card in Settings  │
+│ 4. Hearing Explanation & Appeal Process:                               │
+│    • User clicks 'Submit Appeal' to open Compliance Appeal Modal       │
+│    • Explanation submitted to Super Admin for formal review            │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Capabilities
+- **Real-Time WebSocket & Endpoint Sync**: On page load or live threat detection, `GET /api/v1/auth/me` and WebSocket events dynamically update client profile state (`isFlagged`, `noticeStatus`, `status`).
+- **Top Header Threat Alert Feed**: Displays prominent amber/rose notification cards in the top header dropdown with quick action buttons (**"Submit Appeal"** / **"Cancel Deletion"**).
+- **Settings Compliance Card**: Gives users a clear, non-intrusive status panel in User Settings showing active flags, remaining notice days, and deletion grace period status.
+- **Synthetic Flag Hearing Notices**: Accounts flagged manually for threat reviews automatically produce synthetic notice objects, enabling immediate appeal submission without requiring a separate manual notice creation step.
 
 ---
 
