@@ -3723,12 +3723,8 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           AegisDB is currently undergoing scheduled maintenance to improve system stability and performance.
         </p>
       </div>
-      <div class="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-        <button type="button" onclick="window.location.href='/admin-login.html'" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition active:scale-95 flex items-center justify-center space-x-2">
-          <i class="fa-solid fa-user-shield text-sm"></i>
-          <span>Super Admin Sign In</span>
-        </button>
-        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); location.reload()" class="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-semibold text-xs transition flex items-center justify-center space-x-2">
+      <div class="pt-2 flex justify-center">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); location.reload()" class="px-6 py-2.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-white font-semibold text-xs transition flex items-center justify-center space-x-2">
           <i class="fa-solid fa-rotate-right"></i>
           <span>Refresh Page</span>
         </button>
