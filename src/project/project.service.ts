@@ -144,7 +144,7 @@ export class ProjectService {
       // 1. Delete documents belonging to collections in this project
       db.prepare(`
         DELETE FROM documents 
-        WHERE collectionId IN (SELECT id FROM collections WHERE projectId = ? AND ownerId = ?)
+        WHERE projectId = ? AND ownerId = ?
       `).run(projectId, ownerId);
 
       // 2. Delete collections
