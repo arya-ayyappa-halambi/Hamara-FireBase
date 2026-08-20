@@ -3384,6 +3384,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
+  // Purge Expired Backups
+  const btnPurgeExpiredBackups = document.getElementById('btn-purge-expired-backups');
+  if (btnPurgeExpiredBackups) {
+    btnPurgeExpiredBackups.onclick = async () => {
+      if (!confirm('Are you sure you want to purge all expired database backups based on the configured retention policy?')) return;
+      try {
+        btnPurgeExpiredBackups.disabled = true;
+        btnPurgeExpiredBackups.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Purging...';
+        const res = await apiRequest('/api/v1/admin/backups/purge', 'POST');
+        showToast(res.message || 'Expired backups purged successfully.', 'success');
+        
+        // Refresh UI to show updated backup status
+        await loadPlatformSettings();
+      } catch (err) {
+        showToast(err.message, 'error');
+      } finally {
+        btnPurgeExpiredBackups.disabled = false;
+        btnPurgeExpiredBackups.innerHTML = '<i class="fa-solid fa-broom mr-2"></i> Purge Expired Backups';
+      }
+    };
+  }
+
   // Save Project Backup Config
   const btnSaveProjectBackup = document.getElementById('btn-save-project-backup');
   if (btnSaveProjectBackup) {
