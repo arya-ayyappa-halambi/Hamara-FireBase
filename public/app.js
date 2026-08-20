@@ -1820,7 +1820,20 @@ async function createNewProject() {
     document.getElementById('modal-create-project')?.classList.add('hidden');
     document.getElementById('input-new-project-name').value = '';
     showToast(`Project "${name}" created successfully!`, 'success');
-    loadMyProjects();
+    await loadMyProjects();
+
+    // Set the newly created project as active project immediately
+    if (state.projects && state.projects.length > 0) {
+      const newProj = state.projects.find(p => p.id === data.id);
+      if (newProj) {
+        state.activeProject = newProj;
+        const dropdown = document.getElementById('select-active-project');
+        if (dropdown) dropdown.value = newProj.id;
+        // If we are currently on a project-specific tab, refresh its data
+        const currentTab = state.activeTab || document.querySelector('.nav-item.active-nav')?.getAttribute('data-tab');
+        if (currentTab) switchWorkspace(currentTab);
+      }
+    }
 
     // Show modal with new keys
     const modal = document.getElementById('modal-rotate-keys');
