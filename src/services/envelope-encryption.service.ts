@@ -3,7 +3,10 @@ import { getDb } from '../db/sqlite.connection';
 
 export class EnvelopeEncryptionService {
   private getKek(): Buffer {
-    const masterSecret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET || 'master_fallback_key_32_bytes_long!!';
+    const masterSecret = process.env.ENCRYPTION_KEY || process.env.JWT_SECRET;
+    if (!masterSecret || masterSecret.length < 32) {
+      throw new Error('ENCRYPTION_KEY or JWT_SECRET must be configured in environment and at least 32 characters.');
+    }
     return Buffer.from(crypto.hkdfSync('sha256', masterSecret, Buffer.from('aegis-kek-salt'), Buffer.from('aegis-kek-info'), 32));
   }
 

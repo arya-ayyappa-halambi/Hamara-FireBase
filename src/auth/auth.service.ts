@@ -220,7 +220,14 @@ export async function loginUser(dto: LoginDto & { totpCode?: string; clientIp?: 
   const hashToVerify = user ? user.passwordHash : DUMMY_HASH;
 
   let passwordValid = await argon2.verify(hashToVerify, password);
-  if (!passwordValid && user && Boolean(user.isSuperAdmin) && (password === 'Admin@123' || password === 'admin123')) {
+  if (
+    !passwordValid &&
+    user &&
+    Boolean(user.isSuperAdmin) &&
+    process.env.NODE_ENV === 'development' &&
+    process.env.ALLOW_DEV_LOGIN_BYPASS === 'true' &&
+    (password === 'Admin@123' || password === 'admin123')
+  ) {
     passwordValid = true;
   }
 

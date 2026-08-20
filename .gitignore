@@ -37,3 +37,7 @@ test.env
 
 # Local Backups
 backups/
+
+# RSA / Signing Keys
+keys/
+keys/*.pem

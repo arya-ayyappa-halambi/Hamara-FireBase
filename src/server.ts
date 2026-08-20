@@ -36,7 +36,6 @@ import { initSqlite } from './db/sqlite.connection';
 
 import { wsService } from './realtime/websocket.service';
 import { replicationService } from './services/replication.service';
-import jwksRouter from './routes/jwks.routes';
 import metricsRouter      from './routes/metrics.routes';
 import { metricsService } from './services/metrics.service';
 import { securityHeaders, dynamicCors } from './middleware/security.middleware';
@@ -62,6 +61,12 @@ function validateEnv(): void {
   const secret = process.env.JWT_SECRET!;
   if (secret.length < 32) {
     console.error('❌ JWT_SECRET is too short. Use at least 32 characters.');
+    process.exit(1);
+  }
+
+  const encKey = process.env.ENCRYPTION_KEY!;
+  if (encKey.length < 32) {
+    console.error('❌ ENCRYPTION_KEY is too short. Use at least 32 characters.');
     process.exit(1);
   }
 
@@ -128,7 +133,6 @@ function createApp(): Application {
   });
 
   // ── Public Well-Known & Metrics Endpoints ─────────────────────────────────
-  app.use('/', jwksRouter);
   app.use('/', metricsRouter);
 
   // ── Health Check ─────────────────────────────────────────────────────────
@@ -193,14 +197,15 @@ async function bootstrap(): Promise<void> {
 
   const app = createApp();
   const PORT = parseInt(process.env.PORT ?? '3000', 10);
+  const HOST = process.env.HOST ?? '0.0.0.0';
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, HOST, () => {
     console.log('');
     console.log('┌──────────────────────────────────────────────────────┐');
     console.log('│              AegisDB Server  🛡️                       │');
     console.log('├──────────────────────────────────────────────────────┤');
     console.log(`│  Status  : Running                                   │`);
-    console.log(`│  Port    : ${PORT}                                        │`);
+    console.log(`│  Address : ${HOST}:${PORT}`.padEnd(55) + '│');
     console.log(`│  Env     : ${(process.env.NODE_ENV ?? 'development').padEnd(42)}│`);
     console.log('├──────────────────────────────────────────────────────┤');
     console.log('│  Auth    : POST /api/v1/auth/register                │');
