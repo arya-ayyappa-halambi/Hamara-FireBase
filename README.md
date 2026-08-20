@@ -228,32 +228,97 @@ In the Developer Console:
 
 ## 5. Project-Isolated Authenticator & OAuth 2.0
 
-AegisDB features a per-project **Authenticator Hub** enabling isolated identity management, multi-provider OAuth, and customizable onboarding policies.
+AegisDB features a dedicated per-project **Authenticator Hub** in the Developer Console, providing fully isolated identity management, multi-provider OAuth 2.0 configuration, dynamic client ID discovery, and customizable onboarding governance.
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                        AUTHENTICATOR TAB                               │
-│  Configuring Project: [ Production App ▾ ]      [ Save Auth Settings ] │
-├────────────────────────────────────────────────────────────────────────┤
-│  🛡️ Public User Registration                         [ Toggle: ON/OFF ]│
-│  Allow self-signup (Open SaaS) vs. Admin-Only Provisioning (Enterprise)│
-├────────────────────────────────────────────────────────────────────────┤
-│  📧 Email & Password        [✓ Enabled]                                │
-│  🌐 Google OAuth2           [✓ Enabled]   Client ID: [•••••••••••• 👁️] │
-│  🍏 Apple Sign In           [✓ Enabled]   Service ID: [••••••••••• 👁️] │
-│  🐙 GitHub OAuth            [✓ Enabled]   Client ID: [•••••••••••• 👁️] │
-└────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                                   AUTHENTICATOR TAB                                    │
+│  Configuring Project: [ Production App ▾ ]                      [ 💾 Save Auth Settings ]│
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  🛡️ Public User Registration                                        [ Toggle: ON/OFF ] │
+│  Allow self-signup (Open SaaS) vs. Admin-Only Provisioning (Enterprise / Invite-Only)  │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  📧 Email & Password        [✓ Enabled]                                                │
+│  🌐 Google OAuth 2.0        [✓ Enabled]   Client ID:  [ 123456-apps.google.com 👁️ ]     │
+│  🍏 Apple Sign In           [✓ Enabled]   Service ID: [ com.example.serviceid   👁️ ]     │
+│  🐙 GitHub OAuth            [✓ Enabled]   Client ID:  [ Iv1.890abcdef1234567   👁️ ]     │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│  👥 PROJECT USER ROSTER & RBAC                                   [ + Provision User ]  │
+│  ┌──────────────────────┬──────────┬──────────┬─────────────────┬───────────────────┐  │
+│  │ Email                │ Provider │ Role     │ Status          │ Actions           │  │
+│  ├──────────────────────┼──────────┼──────────┼─────────────────┼───────────────────┤  │
+│  │ alex@company.com     │ GOOGLE   │ admin    │ Active          │ ⚙️ Claims │ 🗑️ Delete│  │
+│  │ sarah@dev.io         │ GITHUB   │ editor   │ Active          │ ⚙️ Claims │ 🗑️ Delete│  │
+│  │ test@example.com     │ EMAIL    │ viewer   │ Pending Deletion│ 🔄 Restore│ 🗑️ Delete│  │
+│  └──────────────────────┴──────────┴──────────┴─────────────────┴───────────────────┘  │
+└────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Supported Identity Providers
-1. **Email & Password**: Salted and hashed using Argon2id with brute-force rate-limiting and anti-enumeration defenses.
-2. **Google OAuth 2.0**: Supports Google Identity Services (GIS) ID Tokens via `google-auth-library` and OAuth2 Bearer Access Tokens via `googleapis.com/oauth2/v3/userinfo`.
-3. **Apple Sign In**: Validates Apple Identity JWT tokens against Apple's live public JWKS keysets (`appleid.apple.com/auth/keys`).
-4. **GitHub OAuth**: Authenticates GitHub access tokens directly with GitHub's user API (`api.github.com/user`).
+---
 
-### Enterprise Registration Policies
-- **Open SaaS Mode (`allowPublicRegistration = true`)**: New users can freely register or sign in via Google/Apple/GitHub. AegisDB dynamically creates their distinct account.
-- **Admin-Only Mode (`allowPublicRegistration = false`)**: Ideal for internal tools, university portals, and enterprise SaaS. Only accounts pre-created by administrators in `project_users` are permitted to authenticate. Un-provisioned OAuth sign-ins are rejected with `HTTP 403 Forbidden`.
+### 🔑 Dynamic Client ID Discovery (Zero Hardcoded Secrets)
+
+AegisDB completely eliminates the need to hardcode OAuth Client IDs into client-side codebases, mobile apps, or `.env` bundles.
+
+1. **Centralized Configuration**: Developers enter their OAuth Client IDs (Google, Apple, GitHub) directly into the AegisDB **Authenticator Tab** with mask/unmask eye controls (`👁️`).
+2. **Real-Time Discovery (`GET /api/v1/project-auth/config`)**:
+   Frontend applications and SDKs dynamically fetch the active configuration using the project API key:
+   ```json
+   {
+     "success": true,
+     "data": {
+       "allowPublicRegistration": true,
+       "email": { "enabled": true },
+       "google": {
+         "enabled": true,
+         "clientId": "1082345678901-abcdefgh123456.apps.googleusercontent.com"
+       },
+       "github": {
+         "enabled": true,
+         "clientId": "Iv1.890abcdef1234567"
+       },
+       "apple": {
+         "enabled": false
+       }
+     }
+   }
+   ```
+3. **Pre-Flight Security Guards (`verifyProvider`)**:
+   Before initiating OAuth flows, the SDK automatically validates that the provider is enabled and a valid Client ID is present on the server. If disabled by an administrator, client requests fail fast with explicit security violations.
+
+---
+
+### 🌐 Supported Identity Providers & Verification Engines
+
+| Provider | Authentication Mechanism | Server-Side Verification Pipeline |
+| :--- | :--- | :--- |
+| **Email & Password** | Salted & Hashed Passwords | **Argon2id** (`memory: 64MB`, `timeCost: 3`, `parallelism: 4`) with blind index lookups and failed-attempt lockouts. |
+| **Google OAuth 2.0** | Google Identity Services (GIS) / OAuth2 Tokens | **Multi-tier Verification**: (1) `google-auth-library` ID Token validation with audience check, falling back to (2) Google `oauth2/v3/userinfo` Bearer verification, and (3) `tokeninfo` endpoint inspection. |
+| **Apple Sign In** | Apple Identity Tokens (JWT) | Validates Apple JWT signatures in real time against Apple's live public JWKS keyset (`https://appleid.apple.com/auth/keys`) with cryptographic audience matching. |
+| **GitHub OAuth** | GitHub OAuth2 Access Tokens | Resolves token against `https://api.github.com/user` and queries `https://api.github.com/user/emails` to extract verified primary email addresses. |
+
+---
+
+### 🛡️ Enterprise Onboarding & Registration Policies
+
+- **Open SaaS Mode (`allowPublicRegistration = true`)**:
+  - Anyone can register with Email/Password or complete one-click sign-in via Google, Apple, or GitHub.
+  - AegisDB automatically provisions an isolated record in `project_users`, encrypts their email with AES-256-GCM, and assigns the default `viewer` role.
+- **Admin-Only / Enterprise Mode (`allowPublicRegistration = false`)**:
+  - Designed for internal enterprise tools, universities, and private SaaS.
+  - Public registration is completely locked down.
+  - Only users **pre-provisioned by administrators** in the Developer Console or via admin API can log in.
+  - Unknown users attempting OAuth sign-in are immediately rejected with `HTTP 403 Forbidden` (`"Account not found. New account registration is restricted to administrators."`).
+
+---
+
+### 👥 Project User Roster & Role-Based Access Control (RBAC)
+
+The **Authenticator Tab** includes an interactive administrative management roster:
+- **User Provisioning**: Manually provision users with assigned roles (`admin`, `editor`, `viewer`) and optional temporary passwords.
+- **Custom Claims JSON Editor**: Attach arbitrary structured metadata and permission claims (e.g. `{ "teams": ["engineering"], "isVip": true }`) that are embedded directly into user JWT access tokens.
+- **GDPR 7-Day Erasure Monitoring**: Visual indicator of accounts in `pending_deletion` with the days remaining and one-click restoration/cancellation.
+- **Cryptographic Blind Indexing**: User emails in `project_users` are encrypted at rest with per-project DEKs while fast lookups use peppered HMAC-SHA256 blind indexes to protect PII.
 
 ---
 
