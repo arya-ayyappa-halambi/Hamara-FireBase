@@ -2165,10 +2165,11 @@ function renderDocumentsTable(docs) {
       const docId = d._id || d.id || '';
       const createdAt = d._createdAt || d.createdAt;
       const updatedAt = d._updatedAt || d.updatedAt;
-      const { _id, id, _createdAt, createdAt: cAt, _updatedAt, updatedAt: uAt, ...fields } = d;
+      const { _id, id, _createdAt, createdAt: cAt, _updatedAt, updatedAt: uAt, _rules, ...fields } = d;
       const previewStr = JSON.stringify(fields);
       const truncated = previewStr.length > 120 ? previewStr.substring(0, 120) + '...' : previewStr;
       const isEncrypted = previewStr.includes('_encrypted');
+      const hasRules = !!_rules;
 
       return `
       <tr class="hover:bg-white/5 transition border-b border-white/5">
@@ -2180,13 +2181,21 @@ function renderDocumentsTable(docs) {
                 ? '<span class="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"><i class="fa-solid fa-lock text-[9px] mr-1"></i>x-encrypted</span>'
                 : ''
             }
-            <code class="text-[11px] text-slate-300 truncate font-mono block max-w-md" title="${escapeHTML(previewStr)}">${escapeHTML(truncated)}</code>
+            ${
+              hasRules
+                ? '<span class="shrink-0 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" title="Has custom document-level rules"><i class="fa-solid fa-shield-halved text-[9px] mr-1"></i>rules</span>'
+                : ''
+            }
+            <code class="text-[11px] text-slate-300 truncate font-mono block max-w-[300px]" title="${escapeHTML(previewStr)}">${escapeHTML(truncated)}</code>
           </div>
         </td>
         <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">${createdAt ? new Date(createdAt).toLocaleString() : 'N/A'}</td>
         <td class="py-3 px-4 text-slate-400 text-xs whitespace-nowrap">${updatedAt ? new Date(updatedAt).toLocaleString() : 'N/A'}</td>
         <td class="py-3 px-4 text-right whitespace-nowrap">
           <div class="flex items-center justify-end space-x-1.5">
+            <button type="button" data-action="edit-doc-rules" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition" title="Edit Document Security Rules">
+              <i class="fa-solid fa-shield-halved text-sm"></i>
+            </button>
             <button type="button" data-action="view-document" data-doc-id="${escapeHTML(docId)}" data-collection-name="${escapeHTML(state.activeCollection?.name || '')}" class="p-1.5 rounded-lg text-slate-400 hover:text-indigo-400 hover:bg-indigo-500/10 transition" title="View full document">
               <i class="fa-solid fa-eye text-sm"></i>
             </button>
@@ -2200,25 +2209,7 @@ function renderDocumentsTable(docs) {
     })
     .join('');
 
-  tableBody.querySelectorAll('[data-action="view-document"]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const docId = btn.getAttribute('data-doc-id');
-      const collName = btn.getAttribute('data-collection-name');
-      window.viewDocumentDetail(docId, collName);
-    });
-  });
-
-  tableBody.querySelectorAll('[data-action="delete-document"]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const docId = btn.getAttribute('data-doc-id');
-      const collName = btn.getAttribute('data-collection-name');
-      window.deleteDocument(docId, collName);
-    });
-  });
+  // Handlers for these actions are managed via the global event delegation listener in app.js
 }
 
 window.deleteDocument = async function deleteDocument(docId, collectionName) {
@@ -2901,6 +2892,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (typeof window.toggleUserDropdown === 'function') window.toggleUserDropdown(e, userId);
     } else if (action === 'dismiss-alert') {
       if (typeof window.dismissThreatAlert === 'function') window.dismissThreatAlert(alertId);
+    } else if (action === 'edit-doc-rules') {
+      if (typeof window.editDocumentRules === 'function') window.editDocumentRules(docId, collectionName);
+    } else if (action === 'view-document') {
+      if (typeof window.viewDocumentDetail === 'function') window.viewDocumentDetail(docId, collectionName);
+    } else if (action === 'delete-document') {
+      if (typeof window.deleteDocument === 'function') window.deleteDocument(docId, collectionName);
     }
   });
 
@@ -3653,7 +3650,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnConfirmCreateProject = document.getElementById('btn-confirm-create-project');
   if (btnConfirmCreateProject) btnConfirmCreateProject.onclick = () => createNewProject();
 
-  // Document Detail: Copy JSON Button
+    // View Document Detail: Copy JSON Button
   const btnCopyDocJson = document.getElementById('btn-copy-doc-json');
   if (btnCopyDocJson) {
     btnCopyDocJson.onclick = () => {
@@ -3661,6 +3658,33 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (content) {
         navigator.clipboard.writeText(content);
         showToast('Document JSON copied to clipboard!', 'success');
+      }
+    };
+  }
+
+  // Save Document Rules Button
+  const btnSaveDocRules = document.getElementById('btn-save-doc-rules');
+  if (btnSaveDocRules) {
+    btnSaveDocRules.onclick = async () => {
+      const docId = btnSaveDocRules.getAttribute('data-doc-id');
+      const collName = btnSaveDocRules.getAttribute('data-collection-name');
+      const rulesValue = document.getElementById('doc-rules-editor').value;
+      if (!docId || !collName) return;
+
+      try {
+        let parsedRules = null;
+        if (rulesValue.trim()) {
+          parsedRules = JSON.parse(rulesValue);
+        }
+
+        await apiRequest(`/api/v1/db/collections/${encodeURIComponent(collName)}/documents/${encodeURIComponent(docId)}`, 'PATCH', { data: { _rules: parsedRules } });
+        showToast('Document rules updated successfully.', 'success');
+        hideModal('modal-document-rules');
+        if (state.activeCollection?.name === collName) {
+          loadDocuments(collName, state.docsOffset, state.docsLimit);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
       }
     };
   }
@@ -4256,6 +4280,41 @@ window.runSdkTest = async function(action) {
 };
 
 // ── GDPR Data Portability & Account Erasure (Client-Side) ───────────────────
+
+window.editDocumentRules = async function(docId, collName) {
+  try {
+    const id = String(docId);
+    const collectionName = collName || state.activeCollection?.name;
+    if (!id || !collectionName) return showToast('Invalid document or collection', 'error');
+
+    let doc = state.documents?.find(d => String(d._id || d.id) === id);
+    if (!doc) {
+      const res = await apiRequest(`/api/v1/db/collections/${encodeURIComponent(collectionName)}/documents/${encodeURIComponent(id)}`);
+      doc = res?.data || res;
+    }
+    
+    const elId = document.getElementById('doc-rules-id');
+    const elEditor = document.getElementById('doc-rules-editor');
+    if (elId) elId.textContent = id;
+    
+    const rules = doc?._rules || doc?.rules;
+    if (rules) {
+      if (elEditor) elEditor.value = JSON.stringify(rules, null, 2);
+    } else {
+      if (elEditor) elEditor.value = '{\n  "read": "auth != null",\n  "write": "auth.id == data.ownerId"\n}';
+    }
+
+    const btnSave = document.getElementById('btn-save-doc-rules');
+    if (btnSave) {
+      btnSave.setAttribute('data-doc-id', id);
+      btnSave.setAttribute('data-collection-name', collectionName);
+    }
+
+    showModal('modal-document-rules');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+};
 
 window.exportMyData = async function() {
   try {

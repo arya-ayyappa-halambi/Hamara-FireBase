@@ -1,364 +1,405 @@
-# AegisDB 🛡️
+# AegisDB 🛡️ — Next-Generation Open-Source BaaS
 
-AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, extremely performant, and provides developers with a full suite of cloud services straight out of the box—complete with a modern, glassmorphic developer console featuring a Mac-style collapsible sidebar.
+AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, ultra-performant, and provides developers with a full suite of cloud backend primitives straight out of the box—complete with a modern, glassmorphic developer console featuring a Mac-style collapsible sidebar.
 
 ![AegisDB Engine](https://img.shields.io/badge/AegisDB-Engine-6366f1?style=for-the-badge&logo=shield&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=for-the-badge&logo=typescript&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-3.0-003b57?style=for-the-badge&logo=sqlite&logoColor=white)
+![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_Mode-003b57?style=for-the-badge&logo=sqlite&logoColor=white)
 ![OAuth 2.0](https://img.shields.io/badge/OAuth_2.0-Google_|_Apple_|_GitHub-2496ed?style=for-the-badge&logo=google&logoColor=white)
+![Security Rules](https://img.shields.io/badge/Security-Row_Level_&_Collection-10b981?style=for-the-badge&logo=target&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)
 
 ---
 
-## 1. What is AegisDB & Its Purpose?
-
-**AegisDB** was created to bridge the gap between heavy enterprise cloud providers (like AWS, GCP, Firebase) and the need for localized, hyper-fast, secure, and privacy-respecting self-hosted databases.
-
-**Purpose:** To give developers a "Firebase in a box." You can run AegisDB on a single server, a Raspberry Pi, or a massive cloud VM instance, and instantly get:
-- A document-oriented NoSQL interface backed by the blistering speed of SQLite WAL-mode.
-- Real-time data sync using WebSockets and Server-Sent Events (SSE).
-- Multi-provider authentication (Email/Password, Google OAuth2, Apple Sign-In, GitHub OAuth).
-- Fine-grained Project-Isolated Access Control and enterprise-level Public Registration Policies.
-- File storage and object management with magic byte validation.
-- Complete identity, access management, and Time-Based One-Time Password (TOTP) Multi-Factor Authentication (MFA).
-
-**How it works:** AegisDB uses a lightweight Node.js/Express backend with TypeScript, coupled with a highly tuned SQLite WAL-mode database (Write-Ahead Logging). This allows ultra-fast concurrent reads and serialized writes. The frontend is a zero-build-step Vanilla JS Single Page Application (SPA) styled with Tailwind CSS, meaning it loads instantly without requiring heavy frameworks or compilation pipelines.
-
----
-
-## 2. Comprehensive Security Architecture
-
-AegisDB is built with a "security-first, zero-trust" philosophy. Every layer of the application is hardened against modern web threats.
-
-### Cryptography & Data Protection
-- **Two-Tier Envelope Encryption (DEK/KEK):** At-rest data is encrypted using a Master Key Encryption Key (KEK) derived via HKDF-SHA256. This master key wraps per-project Data Encryption Keys (DEKs). Field-level data inside your database is encrypted using AES-256-GCM authenticated encryption. This means that even if a bad actor steals your `.sqlite` file, all sensitive fields are entirely unreadable without the KEK.
-- **Non-Destructive Key Rotation:** Administrators can rotate encryption keys seamlessly. Because of the DEK/KEK envelope architecture, rotating the Master Key does not require decrypting and re-encrypting the entire database.
-- **Asymmetric RS256 JWKS Token Signing:** All JWT session tokens are signed using an RSA-2048 bit private key. The public keys are exposed via a standard `/.well-known/jwks.json` endpoint, allowing external microservices to cryptographically verify AegisDB tokens without contacting the database directly.
-
-### VM Sandbox Security Rules
-- **Execution Isolation:** Collection access is governed by JavaScript security rules executed inside a secure Node.js `vm2` sandbox.
-- **Validation:** Developers can write custom JS functions (e.g., `if (data.age < 18) throw new Error("Too young")`) that AegisDB executes in an isolated thread. The `vm2` module strips out dangerous Node.js globals (like `process`, `fs`, `require`), preventing arbitrary remote code execution (RCE) while still allowing deeply complex, custom business logic to validate incoming requests.
-
-### Threat Mitigations
-- **15-Minute Brute-Force Lockout:** The system tracks consecutive failed logins by both IP address and Email pairs. Exactly 5 failed attempts trigger an automatic, unbypassable 15-minute HTTP 429 lockout.
-- **Inactivity Session Timeout:** Users can configure their console session to automatically terminate after 5m, 15m, 30m, or 60m of mouse/keyboard inactivity. This ensures open browser tabs don't compromise security.
-- **Strict Content Security Policy (CSP):** XSS attacks are mitigated via a strict CSP header that restricts scripts, styles, and fonts to trusted CDN origins (like `cdnjs.cloudflare.com` and `cdn.jsdelivr.net`) and completely blocks inline script execution.
-- **Dynamic Rate Limiting:** Super Admins can adjust the rate-limiting windows (e.g., Auth endpoints vs. API endpoints) dynamically from the UI without restarting the server.
-- **Real-Time Account Moderation & Anomaly Flag Appeals:** Manually flagged accounts dynamically generate synthetic security notices (`flag_${userId}`) that trigger top alert banners, header notification bell counters, and dedicated appeal options in the User Security & Compliance Console.
+## 📑 Table of Contents
+1. [Overview & Core Value Proposition](#1-overview--core-value-proposition)
+2. [Quick Start & Setup](#2-quick-start--setup)
+3. [Architecture & Storage Engine](#3-architecture--storage-engine)
+4. [Document Database & Row-Level Security (RLS)](#4-document-database--row-level-security-rls)
+5. [Project-Isolated Authenticator & OAuth 2.0](#5-project-isolated-authenticator--oauth-20)
+6. [Comprehensive Security Architecture](#6-comprehensive-security-architecture)
+7. [Storage Vault & Asset Management](#7-storage-vault--asset-management)
+8. [Real-Time Change Data Capture (CDC)](#8-real-time-change-data-capture-cdc)
+9. [GDPR Privacy, Right to Erasure & Appeals](#9-gdpr-privacy-right-to-erasure--appeals)
+10. [Disaster Recovery & Backup Engine](#10-disaster-recovery--backup-engine)
+11. [Super Admin Console & Telemetry](#11-super-admin-console--telemetry)
+12. [Complete REST API Registry](#12-complete-rest-api-registry)
+13. [High-Availability & Production Deployment](#13-high-availability--production-deployment)
+14. [AI Agent & Developer Integration Context](#14-ai-agent--developer-integration-context)
 
 ---
 
-## 3. Project-Isolated Authenticator & OAuth 2.0 Engine
+## 1. Overview & Core Value Proposition
 
-AegisDB features an enterprise-grade, per-project **Authenticator Hub** enabling isolated identity management, multi-provider OAuth, and configurable provisioning policies for every project independently.
+**AegisDB** is engineered to eliminate the operational complexity and prohibitive costs of enterprise cloud databases (such as AWS DynamoDB, Google Cloud Firestore, and Firebase) while maintaining enterprise-grade security and developer ergonomics.
+
+### ✨ Key Capabilities
+- 🚀 **Zero-Config Self-Hosting**: Runs anywhere Node.js runs—from a Raspberry Pi to high-core cloud VMs.
+- ⚡ **SQLite WAL-Mode Acceleration**: Parallel, lock-free reads and serialized microsecond writes.
+- 🛡️ **Dual-Layer Security Rules**: Granular, declarative access control at both **Collection-Level** and **Individual Document-Level (Row-Level Security)**.
+- 🔑 **Multi-Tenant Project Isolation**: Independent API keys, user rosters, OAuth configs, and schemas per project.
+- 🌐 **Project-Level OAuth 2.0 Hub**: Google, Apple, and GitHub sign-in with configurable Open SaaS vs. Enterprise Admin-Only provisioning policies.
+- 🔒 **Two-Tier Envelope Encryption**: Master KEK wrapping per-project DEKs with field-level AES-256-GCM authenticated encryption.
+- 📦 **GDPR / CCPA / DPDP Compliance**: Native Article 20 data portability, 7-day cooling-off erasure windows, and cryptographic shredding.
+- 📡 **Real-Time CDC**: Streaming live database mutations over Server-Sent Events (SSE) and WebSockets.
+- 📊 **Real-Time Telemetry**: Live CPU, V8 heap memory, event loop latency, and query execution metrics powered by Chart.js.
+
+---
+
+## 2. Quick Start & Setup
+
+### Prerequisites
+- Node.js 18.x or 20.x+
+- npm or pnpm
+
+### Local Installation
+```bash
+# 1. Clone the repository
+git clone https://github.com/aryaayyappa/Hamara-FireBase.git
+cd Hamara-FireBase
+
+# 2. Install dependencies
+npm install
+
+# 3. Configure environment variables (or copy example)
+cp .env.example .env
+
+# 4. Start in development mode
+npm run dev
+```
+
+The Developer Console will be immediately accessible at `http://localhost:3000`.
+
+### Initial Administrator Setup
+1. Open `http://localhost:3000` in your web browser.
+2. Click **Register Account** on the login screen. The very first registered account is automatically promoted to **Super Admin**.
+3. Head to **Settings > Security** to activate RFC 6238 TOTP Multi-Factor Authentication (MFA).
+
+### Emergency Administrator Recovery
+If you ever lose access to the Super Admin account, execute the CLI recovery script:
+```bash
+npm run reset-admin
+```
+This safely resets the primary Super Admin credentials to `admin@aegisdb.dev` / `admin123`.
+
+---
+
+## 3. Architecture & Storage Engine
+
+AegisDB uses a modular, layered architecture optimized for high concurrency, microsecond latency, and resource efficiency.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│               AegisDB Glassmorphic Developer Console                   │
+│          (Vanilla JS SPA • Tailwind CSS • FontAwesome • Chart.js)      │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │ HTTP / REST / SSE / WSS
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Express 4.x + TypeScript API                     │
+│  ┌───────────────────────┬──────────────────────┬────────────────────┐ │
+│  │   Auth & Security     │    Rate Limiter      │  Telemetry Monitor │ │
+│  │ (Argon2id, TOTP, JWT) │ (Token Bucket, DDoS) │ (Prometheus, Heap) │ │
+│  └───────────────────────┴──────────────────────┴────────────────────┘ │
+│  ┌───────────────────────┬──────────────────────┬────────────────────┐ │
+│  │   Project Manager     │   Storage Vault      │  CDC Event Bus     │ │
+│  │ (Isolation, Metadata) │ (Magic Byte Check)   │ (SSE, WebSockets)  │ │
+│  └───────────────────────┴──────────────────────┴────────────────────┘ │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                     Rule Evaluation Engine (VM Sandbox)                │
+│    • Document-Level Row Security (_rules)                              │
+│    • Collection-Level Fallback Rules                                   │
+└───────────────────────────────────┬────────────────────────────────────┘
+                                    │
+                                    ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│                    SQLite 3 Embedded Engine (WAL Mode)                 │
+│    • PRAGMA journal_mode = WAL                                         │
+│    • PRAGMA busy_timeout = 5000                                        │
+│    • Non-blocking parallel reads & microsecond serialized writes       │
+│    • AES-256-GCM Two-Tier Envelope Encryption                          │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 4. Document Database & Row-Level Security (RLS)
+
+AegisDB delivers a schemaless, document-oriented NoSQL database experience backed by SQLite's robust transactional guarantees.
+
+### Document Storage Hierarchy
+- **Projects**: Top-level administrative and security boundaries.
+- **Collections**: Logical groupings of JSON documents (supports optional JSON Schema validation).
+- **Documents**: JSON records indexed by unique alphanumeric IDs (`_id` or `id`).
+
+---
+
+### 🛡️ Dual-Tier Security Rules (Collection + Row-Level)
+
+AegisDB features a flexible security rule engine executed in an isolated VM sandbox. Security rules evaluate against incoming request context (`auth`, `data`, `resource`).
+
+#### Evaluation Priority
+```
+Incoming DB Request
+        │
+        ▼
+Is document being created with payload._rules? ──► [YES] ──► Evaluate creation _rules
+        │ [NO]
+        ▼
+Does existing document contain _rules? ─────────► [YES] ──► Enforce Document-Level Rule
+        │ [NO]
+        ▼
+Fall back to Collection-Level Default Rules ─────────────► Enforce Collection Rule
+```
+
+1. **Document-Level Write Rules**: When creating a document, supplying a `_rules: { "write": "..." }` field evaluates that specific rule immediately.
+2. **Document-Level Read/Write Rules (Row-Level Security)**: If a document has `_rules` stored, those rules **take precedence exclusively**, completely overriding collection-wide defaults for that row.
+3. **Collection-Level Rules**: If no document-specific `_rules` exist, the collection's baseline security rules apply.
+
+#### Rule Variables Available in Sandbox
+| Variable | Description | Example Expression |
+| :--- | :--- | :--- |
+| `auth` | Authenticated user payload (null if unauthenticated) | `auth != null` |
+| `auth.id` | User ID of the client making the request | `auth.id == data.ownerId` |
+| `auth.role` | User role string | `auth.role == 'admin'` |
+| `data` | Incoming request payload (for create/update) | `data.price > 0 && data.status == 'draft'` |
+| `resource` | Existing document data in the database | `resource.ownerId == auth.id` |
+
+#### Example Rule Definitions
+
+**Document-Level Row Security (`_rules`):**
+```json
+{
+  "read": "auth != null",
+  "write": "auth.id == data.ownerId || auth.role == 'admin'"
+}
+```
+
+**Public Read / Authenticated Owner Write:**
+```json
+{
+  "read": "true",
+  "write": "auth != null && auth.id == data.authorId"
+}
+```
+
+#### Interactive Dashboard Security Editor
+In the Developer Console:
+1. Navigate to the **Data Browser**.
+2. Select any collection to view its documents.
+3. Documents with custom security rules display an emerald **`rules`** shield badge.
+4. Click the **Shield Icon** beside any document to open the live **Document Security Rules Modal**, edit rules in JSON format, and save changes instantly.
+
+---
+
+## 5. Project-Isolated Authenticator & OAuth 2.0
+
+AegisDB features a per-project **Authenticator Hub** enabling isolated identity management, multi-provider OAuth, and customizable onboarding policies.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
 │                        AUTHENTICATOR TAB                               │
-│  Configuring Project: [ Campus Asthra V2 ▾ ]    [ Save Auth Settings ] │
+│  Configuring Project: [ Production App ▾ ]      [ Save Auth Settings ] │
 ├────────────────────────────────────────────────────────────────────────┤
 │  🛡️ Public User Registration                         [ Toggle: ON/OFF ]│
 │  Allow self-signup (Open SaaS) vs. Admin-Only Provisioning (Enterprise)│
 ├────────────────────────────────────────────────────────────────────────┤
 │  📧 Email & Password        [✓ Enabled]                                │
 │  🌐 Google OAuth2           [✓ Enabled]   Client ID: [•••••••••••• 👁️] │
-│  🍏 Apple Sign In           [  Disabled]  Service ID: [            👁️] │
-│  🐙 GitHub OAuth            [  Disabled]  Client ID: [             👁️] │
+│  🍏 Apple Sign In           [✓ Enabled]   Service ID: [••••••••••• 👁️] │
+│  🐙 GitHub OAuth            [✓ Enabled]   Client ID: [•••••••••••• 👁️] │
 └────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Supported Identity Providers
-1. **Email & Password**: Argon2id salted and hashed passwords with rate-limiting and anti-enumeration protections.
-2. **Google OAuth 2.0**: Dual-mode verification supporting Google Identity Services (GIS) ID Tokens via `google-auth-library` and OAuth2 Bearer Access Tokens via `googleapis.com/oauth2/v3/userinfo`.
+1. **Email & Password**: Salted and hashed using Argon2id with brute-force rate-limiting and anti-enumeration defenses.
+2. **Google OAuth 2.0**: Supports Google Identity Services (GIS) ID Tokens via `google-auth-library` and OAuth2 Bearer Access Tokens via `googleapis.com/oauth2/v3/userinfo`.
 3. **Apple Sign In**: Validates Apple Identity JWT tokens against Apple's live public JWKS keysets (`appleid.apple.com/auth/keys`).
-4. **GitHub OAuth**: Authenticates GitHub access tokens directly with the GitHub API (`api.github.com/user`).
+4. **GitHub OAuth**: Authenticates GitHub access tokens directly with GitHub's user API (`api.github.com/user`).
 
-### Key Authenticator Capabilities
-- **Zero-Configuration Lockout**: If an OAuth Client ID is empty or cleared in the dashboard, AegisDB automatically disables that provider on both client discovery (`GET /api/v1/project-auth/config`) and server-side verification (`POST /api/v1/project-auth/oauth/:provider` returns `HTTP 403 Forbidden`).
-- **Secret Visibility Eye Toggles**: All sensitive Client ID and secret fields in the Authenticator tab feature built-in eye toggle buttons for effortless inspection and copying.
-- **Complete Project Isolation**: Toggling settings or changing credentials in one project has zero effect on other projects. Every project maintains its own isolated database configuration.
-- **Enterprise Registration Policy (Admin-Only vs. Open Mode)**:
-  - **Open Mode (`allowPublicRegistration = true`)**: Ideal for commercial SaaS products. New users can self-register or sign in via Google/Apple/GitHub, and AegisDB dynamically creates their distinct account.
-  - **Admin-Only Mode (`allowPublicRegistration = false`)**: Ideal for enterprise portals, universities, and private intranets. Only accounts pre-registered by administrators in `project_users` are permitted to log in. Un-provisioned OAuth sign-in attempts are rejected with `HTTP 403 Forbidden: Account not found. New user registration is restricted to administrators.`
+### Enterprise Registration Policies
+- **Open SaaS Mode (`allowPublicRegistration = true`)**: New users can freely register or sign in via Google/Apple/GitHub. AegisDB dynamically creates their distinct account.
+- **Admin-Only Mode (`allowPublicRegistration = false`)**: Ideal for internal tools, university portals, and enterprise SaaS. Only accounts pre-created by administrators in `project_users` are permitted to authenticate. Un-provisioned OAuth sign-ins are rejected with `HTTP 403 Forbidden`.
 
 ---
 
-## 4. UI & Frontend Capabilities (The Glassmorphic Console)
+## 6. Comprehensive Security Architecture
 
-The AegisDB frontend was engineered to feel like a premium, native desktop application.
+AegisDB is built with a zero-trust, defense-in-depth philosophy.
 
-- **Mac-Style Auto-Expanding Sidebar:** The primary navigation uses a collapsible sidebar. When collapsed, hovering over it triggers a fluid, Mac-OS-style width expansion, allowing rapid navigation without permanently taking up horizontal screen real estate.
-- **Premium Glassmorphism:** The entire UI utilizes backdrop-filters, subtle borders, and deep gradients to create a modern, translucent "glass" aesthetic.
-- **FontAwesome Iconography:** Clean, scalable FontAwesome SVG icons ensure visual consistency across operating systems.
-- **Responsive Toast Notifications:** Real-time feedback is provided via non-blocking, sliding toast notifications for both successes and errors.
-- **Live Scope Switcher:** Seamlessly switch between Super Admin global management and Project Developer workspaces in one click.
+### Cryptography & Key Management
+- **Two-Tier Envelope Encryption (DEK/KEK)**: Field-level data is encrypted with AES-256-GCM using project-specific Data Encryption Keys (DEKs). DEKs are wrapped using a master Key Encryption Key (KEK) derived via HKDF-SHA256.
+- **Non-Destructive Key Rotation**: Rotating the Master KEK re-wraps the project DEKs instantly without requiring a full database re-encryption cycle.
+- **Blind Indexing for Sensitive Lookups**: PII like user email addresses are encrypted at rest with AES-256-GCM while search queries use a peppered HMAC-SHA256 blind index to prevent plaintext indexing.
 
----
-
-## 5. Feature Breakdown: User (Developer) vs. Super Admin
-
-### User (Project Developer) Features
-*Standard users operate strictly within isolated projects. They do not have access to global infrastructure.*
-- **Project Management:** Create multiple independent databases under a single user account.
-- **Authenticator Hub:** Manage identity providers, OAuth client IDs, and registration policies per project.
-- **API Keys & Scopes:** Generate API keys linked specifically to individual projects.
-- **Interactive API Key Tester:** A built-in Postman-like REST client right inside the console. Developers can select an API Key, choose a method (GET/POST), enter a JSON payload, and fire live requests against their database.
-- **Advanced Data Browser:** 
-  - **Pagination:** Handles massive datasets efficiently with built-in client-side pagination (displays 100 documents per page seamlessly).
-  - **Filtering:** Instant search bar filters the current data view, rendering specific JSON keys immediately.
-  - **Clipboard Integration:** Developers can click a single button to copy raw JSON payloads of any document.
-- **Storage Vault:** Upload and manage binary assets (images, PDFs) with pluggable storage drivers (Local Disk, AWS S3, Cloudflare R2).
-- **Secure Password Recovery:** Automated SMTP email recovery flow with cryptographically secure, time-limited reset links.
-
-### Super Admin Features
-*The global overseer of the entire AegisDB instance.*
-- **Live Infrastructure Telemetry:** A real-time dashboard powered by `Chart.js` polling `/api/v1/admin/stats`. Displays live CPU usage, V8 Memory Heap allocation, active WebSocket connections, and SQLite WAL query latency.
-- **Rate Limit Governance:** Adjust the global request throttles to defend against DDoS or traffic spikes.
-- **Global Security Auditing:** Access system-wide logs, encryption statuses, and MFA compliance metrics across all users.
-- **Emergency CLI Password Reset:** Admins locked out of the UI can regain access directly from the server terminal via the `npm run reset-admin` command.
+### Brute-Force & Abuse Protections
+- **15-Minute Failed Login Lockout**: Automatically triggers an unbypassable 15-minute `429 Too Many Requests` lockout after 5 consecutive failed attempts per IP:Email pair.
+- **Continuous Token Bucket Rate Limiting**: Separate, configurable token bucket tiers for Authentication endpoints (`authLimit`) and Database/API queries (`apiLimit`).
+- **Inactivity Session Auto-Lock**: Configurable client inactivity timer (5m, 15m, 30m, 60m) that automatically terminates active browser sessions.
+- **Strict Content Security Policy (CSP)**: Hardened HTTP headers preventing XSS, clickjacking, and MIME-type sniffing.
 
 ---
 
-## 6. TOTP Multi-Factor Authentication (MFA) Manual
+## 7. Storage Vault & Asset Management
 
-AegisDB strictly adheres to the RFC 6238 HMAC-SHA1 protocol for Time-Based One-Time Passwords (TOTP).
+AegisDB includes a built-in file and binary asset storage engine.
 
-### How to Enable TOTP
-1. Log into your account and navigate to **Settings > Security**.
-2. Click **Setup MFA**.
-3. AegisDB will cryptographically generate a unique `Base32` secret specifically for your account.
-4. Scan the QR code using Google Authenticator, Authy, or Apple Passwords.
-5. Enter the 6-digit pin generated by your app into the verification box.
-6. Your account is now secured. All future logins will require both your password and a live 6-digit pin.
-
-### Dual Verification Lock
-For sensitive account actions, AegisDB enforces a Dual Verification Lock:
-- **Disabling MFA:** Requires current account password *and* a live 6-digit TOTP code.
-- **Changing Passwords:** Requires current password *and* live TOTP pin.
+- **Magic Byte Inspection**: Verifies file headers against declared MIME types to prevent malicious executable uploads masked as images or documents.
+- **Pluggable Storage Drivers**:
+  - **Local Disk**: Default zero-config storage in the `/storage` directory.
+  - **Amazon S3 / Cloudflare R2**: High-durability cloud object storage.
+- **Pre-Signed Download URLs**: Secure, time-limited download links via `POST /api/v1/storage/signed-url`.
 
 ---
 
-## 7. Dual-Target Disaster Recovery & Backup System
+## 8. Real-Time Change Data Capture (CDC)
 
-AegisDB includes a fully automated, cryptographically secure Dual-Target Backup engine to ensure absolute data durability.
+Subscribe to live database changes using standard HTTP Server-Sent Events (SSE) or WebSockets without needing external message brokers.
 
-- **Atomic SQLite Snapshots:** Utilizes SQLite's Online Backup API to safely capture point-in-time snapshots without read/write downtime.
-- **Local File System Backups:** Saves heavily compressed `.sqlite3.bak` files directly to the local server.
-- **AWS S3 Cloud Backups:** Seamlessly streams multipart upload backups to remote Amazon S3 buckets.
-- **Environment & Credential Embedding:** Crucial `.env` secrets (like `JWT_SECRET` and `EMAIL_HASH_PEPPER`) are automatically encrypted using the master `ENCRYPTION_KEY` and embedded securely into the backup file.
-- **Generation ID Tracking:** Every backup snapshot is tagged with a unique timestamp-based Generation ID.
-- **Automated Backup Cleanup & Retention:** Old backups are automatically pruned based on the configurable retention window.
+### Subscribing to Collection Events
+```javascript
+const eventSource = new EventSource(
+  'http://localhost:3000/api/v1/db/collections/messages/realtime',
+  { headers: { 'x-aegis-api-key': 'YOUR_PROJECT_API_KEY' } }
+);
 
----
-
-## 8. AegisDB Operations Manual
-
-### Booting the Server
-To start the AegisDB engine locally:
-```bash
-npm install
-npm run dev
+eventSource.onmessage = (event) => {
+  const change = JSON.parse(event.data);
+  console.log('Live Database Change:', change.type, change.document);
+  // change.type: 'INSERT' | 'UPDATE' | 'DELETE'
+};
 ```
-Open your browser to `http://localhost:3000`.
-
-### Initial Setup
-1. On the login screen, click **Register Account** to create your first user. The first user is automatically granted Super Admin privileges.
-2. Follow the TOTP manual above to secure the root account.
-
-### Admin Password Recovery
-If the Super Admin loses their password, force a reset directly from the server CLI:
-```bash
-npm run reset-admin
-```
-This safely resets the Super Admin password to `admin123`.
 
 ---
 
-## 📚 API Endpoint Registry
+## 9. GDPR Privacy, Right to Erasure & Appeals
 
-### Public Infrastructure & Metrics
+AegisDB provides out-of-the-box compliance tools for **GDPR (Articles 17 & 20)**, **CCPA/CPRA**, and **India's DPDP Act 2023**.
+
+```
+[ User Initiates Deletion ] ──► Status: pending_deletion ──► [ 7-Day Grace Period Window ]
+                                                                       │
+                         ┌─────────────────────────────────────────────┴─────────────────────────────────────────────┐
+                         ▼                                                                                           ▼
+         [ User / Super Admin Cancels Deletion ]                                                   [ Grace Period Expires (7 Days) ]
+                         │                                                                                           │
+                         ▼                                                                                           ▼
+          • POST /api/v1/auth/cancel-deletion                                                        • Automated Background Purge Daemon
+          • Status restored to 'active'                                                              • Permanent cryptographic shredding
+                                                                                                     • Zero-PII Audit Tombstone in audit_logs
+```
+
+- **Data Portability (GDPR Art. 20)**: Users can download a comprehensive, structured JSON export of their profile and data with one click.
+- **7-Day Deletion Grace Period (GDPR Art. 17)**: Prevents accidental data loss or malicious account hijack deletion. Users can restore their account within 7 days.
+- **Permanent Cryptographic Shredding**: Purges database rows, destroys project DEKs in `project_keys`, wipes uploaded files, and records an anonymized zero-PII tombstone in `audit_logs`.
+- **Trust & Safety Appeals**: Flagged accounts receive synthetic notices and can submit direct explanations/appeals to the Super Admin via the Compliance Modal.
+
+---
+
+## 10. Disaster Recovery & Backup Engine
+
+AegisDB features an automated dual-target backup engine to ensure continuous data safety.
+
+- **Atomic Online SQLite Snapshots**: Uses SQLite's Online Backup API to create point-in-time snapshots with zero database downtime.
+- **Dual Destination Storage**: Stores compressed `.sqlite3.bak` snapshots locally and streams copies to Amazon S3.
+- **Encrypted Secret Embedding**: Encrypts and embeds critical environment metadata into backup archives.
+- **Automated Lifecycle & Retention**: Prunes expired snapshots older than the configured threshold (e.g., 7, 14, 30 days) automatically.
+- **Protected Recovery Console (`/recovery.html`)**: Server-side PIN-protected restore gateway with automated 60-second inactivity lock.
+
+---
+
+## 11. Super Admin Console & Telemetry
+
+The Super Admin dashboard provides deep visibility into the health and performance of the entire platform.
+
+- **Live Telemetry Charts**: Real-time polling of CPU utilization, V8 memory heap allocation, and SQLite query response times via Chart.js.
+- **Dynamic Rate Limit Governance**: Update global rate limits live without server restarts.
+- **User Management & Moderation**: View all registered users, adjust role permissions, inspect deletion queues, and issue security flags.
+- **System Maintenance Gateway (`/admin-login.html`)**: Dedicated portal for administrators to manage platform maintenance modes.
+
+---
+
+## 12. Complete REST API Registry
+
+### Public System & Monitoring
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/.well-known/jwks.json` | Public RSA 2048-bit JWK Set for RS256 token verification |
-| `GET` | `/metrics` | Prometheus exposition metrics endpoint |
-| `GET` | `/health` | Engine health check & status |
+| `GET` | `/health` | Server health check and uptime status |
+| `GET` | `/metrics` | Prometheus format exposition metrics |
+| `GET` | `/api/v1/system/status` | System operational & maintenance status |
 
 ### Authentication & Account (`/api/v1/auth`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/register` | Register new user account |
-| `POST` | `/login` | Authenticate user & receive JWT access + refresh tokens |
-| `POST` | `/refresh` | Rotate refresh token & obtain new JWT |
-| `POST` | `/logout` | Revoke refresh token |
-| `PATCH` | `/profile` | Update user profile name |
-| `POST` | `/change-password` | Update account password (requires TOTP verification if MFA enabled) |
-| `POST` | `/forgot-password` | Request password reset email (Anti-enumeration enabled) |
-| `POST` | `/reset-password` | Execute password reset via email JWT token |
-| `POST` | `/mfa/setup` | Generate Base32 secret key & `otpauth://` QR URI |
-| `POST` | `/mfa/verify` | Verify 6-digit TOTP code and enable MFA on profile |
-| `POST` | `/mfa/disable` | Disable TOTP MFA (requires password + 6-digit TOTP verification) |
-| `GET` | `/me` | Sync real-time user profile, security flags (`isFlagged`) & account status |
-| `GET` | `/active-notice` | Fetch active compliance violation notice or synthetic flag notice |
-| `POST` | `/notice-explanation` | Submit user explanation or appeal for active notice / flag |
+| `POST` | `/api/v1/auth/register` | Register new account (first user becomes Super Admin) |
+| `POST` | `/api/v1/auth/login` | Authenticate user; returns JWT access & refresh tokens |
+| `POST` | `/api/v1/auth/refresh` | Rotate refresh token and issue new JWT |
+| `POST` | `/api/v1/auth/logout` | Revoke active refresh token |
+| `GET` | `/api/v1/auth/me` | Fetch profile, security flags, and account state |
+| `PATCH` | `/api/v1/auth/profile` | Update account display name |
+| `POST` | `/api/v1/auth/change-password` | Update password (requires TOTP check if MFA enabled) |
+| `POST` | `/api/v1/auth/forgot-password` | Request password reset link |
+| `POST` | `/api/v1/auth/reset-password` | Reset password using reset token |
+| `POST` | `/api/v1/auth/mfa/setup` | Generate TOTP secret and QR code URI |
+| `POST` | `/api/v1/auth/mfa/verify` | Verify 6-digit code and enable TOTP MFA |
+| `POST` | `/api/v1/auth/mfa/disable` | Disable TOTP (requires password + live TOTP code) |
+| `GET` | `/api/v1/auth/export-data` | Download GDPR Art. 20 portable JSON export |
+| `DELETE` | `/api/v1/auth/account` | Request account deletion (starts 7-day grace period) |
+| `POST` | `/api/v1/auth/cancel-deletion` | Cancel pending deletion request |
 
-### Project User Authentication & OAuth (`/api/v1/project-auth`)
+### Project User Auth & OAuth (`/api/v1/project-auth`)
 *Requires `x-aegis-api-key` header.*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/config` | Get public sanitized auth config (enabled providers & client IDs) |
-| `POST` | `/register` | Register a new end-user for a specific project (Subject to Public Registration Policy) |
-| `POST` | `/login` | Authenticate project end-user via Email/Password |
-| `POST` | `/oauth/:provider` | Authenticate user via OAuth (`google`, `apple`, `github`) |
+| `GET` | `/api/v1/project-auth/config` | Fetch public auth config (enabled providers & client IDs) |
+| `POST` | `/api/v1/project-auth/register` | Register end-user (governed by registration policy) |
+| `POST` | `/api/v1/project-auth/login` | Authenticate end-user with Email/Password |
+| `POST` | `/api/v1/project-auth/oauth/:provider` | Authenticate via OAuth (`google`, `apple`, `github`) |
 
 ### Database Services (`/api/v1/db`)
-*Requires `x-aegis-api-key` header or Bearer JWT token.*
+*Requires `x-aegis-api-key` or `Authorization: Bearer <JWT>` header.*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/collections` | Register collection with JSON Schema & Rules |
-| `GET` | `/collections` | List project collections |
-| `POST` | `/collections/:name/documents` | Insert JSON document (auto-creates collection) |
-| `GET` | `/collections/:name/documents` | Query documents with limit, offset & filters |
-| `GET` | `/collections/:name/documents/:id` | Fetch document by ID |
-| `PATCH` | `/collections/:name/documents/:id` | Merge update JSON document |
-| `DELETE` | `/collections/:name/documents/:id` | Delete document |
-| `GET` | `/collections/:name/realtime` | SSE Change Data Capture (CDC) stream |
+| `GET` | `/api/v1/db/collections` | List all collections in project |
+| `POST` | `/api/v1/db/collections` | Create/register collection with schema & rules |
+| `GET` | `/api/v1/db/collections/:name/documents` | Query documents with pagination & search filter |
+| `POST` | `/api/v1/db/collections/:name/documents` | Insert new JSON document (evaluates rules) |
+| `GET` | `/api/v1/db/collections/:name/documents/:id` | Fetch specific document by ID |
+| `PATCH` | `/api/v1/db/collections/:name/documents/:id` | Patch document fields or document-level `_rules` |
+| `DELETE` | `/api/v1/db/collections/:name/documents/:id` | Delete document by ID |
+| `GET` | `/api/v1/db/collections/:name/realtime` | Server-Sent Events (SSE) CDC stream |
 
-### Storage Services (`/api/v1/storage`)
+### File Storage (`/api/v1/storage`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/upload` | Multipart file upload with magic byte inspection |
-| `POST` | `/signed-url` | Generate pre-signed asset download URL |
-| `GET` | `/assets/:storedName` | Download/stream stored file asset |
+| `POST` | `/api/v1/storage/upload` | Multipart file upload with magic byte inspection |
+| `POST` | `/api/v1/storage/signed-url` | Generate temporary signed download URL |
+| `GET` | `/api/v1/storage/assets/:filename` | Stream or download stored file asset |
 
----
-
-## 🛡️ Security Threat Matrix & Mitigations
-
-| Threat Vector | Mitigation Strategy | Implementation Details |
+### Super Admin Operations (`/api/v1/admin`)
+*Requires Super Admin Bearer JWT.*
+| Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| **Brute-Force Attacks** | 15-Minute Failed Login Lockout | Enforces temporary `429` lockout after 5 consecutive failed attempts per IP:Email. |
-| **Credential Theft** | Pure RFC 6238 TOTP MFA | 6-digit time-based authenticator code required during login. |
-| **Unauthorized MFA Disable** | Dual Verification Lock | Disabling TOTP MFA requires entering both current password + valid 6-digit TOTP code. |
-| **Password Tampering** | Mandatory TOTP Password Change | Password changes strictly require TOTP code validation if MFA is enabled. |
-| **Database Data Leak** | Two-Tier Envelope Encryption | AES-256-GCM field encryption with HKDF Master KEK wrapping 256-bit project DEKs. |
-| **Key Compromise** | Non-Destructive Key Rotation | Re-wraps project DEKs with new keys without corrupting encrypted field data. |
-| **PII Data Leak (Emails)** | Blind Indexing & HMAC-SHA256 | Emails are normalized, encrypted with AES-GCM at rest, and queries use a server-side peppered HMAC-SHA256 hash. |
-| **Cascading Data Loss** | Safe Migration Transactions | Enforces `PRAGMA foreign-keys = OFF` during schema migrations to prevent unintended cascading deletes. |
-| **Cross-Site Scripting (XSS)** | Helmet Security Headers | Strict Content Security Policy and HTTP headers restricting script, style, and font sources. |
-| **HTTP Parameter Pollution** | HPP Middleware | Protects against parameter pollution attacks by safely parsing duplicate query strings. |
-| **SQL Injection** | Strict Regex & Parameterization | Collection names sanitized with `/^[a-zA-Z][a-zA-Z0-9_-]{1,63}$/` and parameterized SQL. |
-| **Client Data Harvesting** | Strict Project Auth Isolation | Admin-level project endpoints are completely isolated and require a backend Service Role Key or Dashboard Owner JWT. |
-| **Zero-Config OAuth Bypasses** | Dynamic Client ID Invalidation | Clearing an OAuth Client ID strictly disables authentication at client discovery and server verification layers. |
+| `GET` | `/api/v1/admin/stats` | Real-time CPU, RAM, and SQLite query metrics |
+| `PATCH` | `/api/v1/admin/rate-limits` | Adjust global token bucket rate limits live |
+| `GET` | `/api/v1/admin/account-deletions` | Inspect active and historical account deletion queues |
+| `POST` | `/api/v1/admin/account-deletions/:id/cancel` | Retain an account upon user appeal |
+| `POST` | `/api/v1/admin/backups/purge` | Trigger immediate cleanup of expired snapshots |
 
 ---
 
-## 🤖 AI Agent & Developer Context Manual
+## 13. High-Availability & Production Deployment
 
-This section provides context and prompts for developers and **AI Agents** (like GitHub Copilot, Gemini, Claude, Cursor) when connecting an application to AegisDB.
-
-### 🧠 Context for AI Agents
-When connecting a frontend or mobile application to AegisDB:
-1. **Architecture**: AegisDB is a RESTful API and WebSocket backend. Standard `fetch()` or `axios` calls work directly.
-2. **API Key & Headers**: Pass the Project API Key in the `x-aegis-api-key` HTTP header.
-3. **Live Auth Discovery**: Fetch `GET /api/v1/project-auth/config` with `x-aegis-api-key` to dynamically inspect which identity providers are enabled for the connected project.
-4. **Data Operations**: Insert documents via `POST /api/v1/db/collections/<name>/documents`, query via `GET /api/v1/db/collections/<name>/documents`.
-5. **File Uploads**: Use `FormData` with field `file` sent to `POST /api/v1/storage/upload`.
-
-### 📡 Standard API Fetch Wrapper Example
-```javascript
-async function aegisFetch(endpoint, method = 'GET', body = null) {
-  const apiKey = localStorage.getItem('aegisApiKey') || 'YOUR_PROJECT_API_KEY';
-  const headers = { 'x-aegis-api-key': apiKey };
-  const options = { method, headers };
-
-  if (body) {
-    if (body instanceof FormData) {
-      options.body = body;
-    } else {
-      headers['Content-Type'] = 'application/json';
-      options.body = JSON.stringify(body);
-    }
-  }
-
-  const response = await fetch(`http://localhost:3000/api/v1${endpoint}`, options);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.message || 'AegisDB Request Failed');
-  return data;
-}
-```
-
----
-
----
-
-## 9. ⚖️ Traffic Control, Management & High-Availability Load Balancing
-
-AegisDB provides enterprise-grade traffic governance, algorithmic rate limiting, and horizontal load balancing architectures designed to handle millions of requests with sub-millisecond response times.
-
-```
-                            ┌─────────────────────────────────────────┐
-                            │    Incoming Traffic (HTTPS / WSS)       │
-                            └────────────────────┬────────────────────┘
-                                                 │
-                                                 ▼
-                            ┌─────────────────────────────────────────┐
-                            │      Layer 7 Load Balancer / Proxy      │
-                            │      (Nginx / Caddy / Cloudflare)       │
-                            │   • Round-Robin / Least-Connections     │
-                            │   • WebSocket Sticky Sessions (ip_hash) │
-                            │   • SSL/TLS Termination                 │
-                            └────────┬──────────────────────┬─────────┘
-                                     │                      │
-                   ┌─────────────────┴────────┐   ┌─────────┴────────────────┐
-                   ▼                          ▼   ▼                          ▼
-        ┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐
-        │  AegisDB Worker #1   │   │  AegisDB Worker #2   │   │  AegisDB Worker #N   │
-        │ • Token Bucket Thrott│   │ • Token Bucket Thrott│   │ • Token Bucket Thrott│
-        │ • VM Sandbox Engine  │   │ • VM Sandbox Engine  │   │ • VM Sandbox Engine  │
-        │ • JWT / JWKS Auth    │   │ • JWT / JWKS Auth    │   │ • JWT / JWKS Auth    │
-        └──────────┬───────────┘   └──────────┬───────────┘   └──────────┬───────────┘
-                   │                          │                          │
-                   └──────────────────────────┼──────────────────────────┘
-                                              │
-                                              ▼
-                            ┌─────────────────────────────────────────┐
-                            │     High-Performance Storage Engine     │
-                            │   • SQLite Write-Ahead Logging (WAL)    │
-                            │   • Parallel Non-Blocking Reads         │
-                            │   • Serialized Microsecond Writes       │
-                            │   • PRAGMA busy_timeout = 5000ms        │
-                            └─────────────────────────────────────────┘
-```
-
-### 🚦 Algorithmic Token Bucket Rate Limiting
-AegisDB implements continuous token bucket mechanics (`src/services/rate-limiter.service.ts`) to prevent DDoS attacks, API abuse, and credential stuffing.
-- **Dual-Tier Throttling**:
-  - **Auth Tier (`authLimit`)**: Enforces tight throttles on login, registration, and MFA endpoints (e.g. 10 requests per 15 minutes).
-  - **API Tier (`apiLimit`)**: Optimized for high-throughput database queries and file asset streaming (e.g. 120+ requests per minute).
-- **Dynamic Runtime Reconfiguration**: Super Admins can adjust rate limits on-the-fly via the Developer Console or via `PATCH /api/v1/admin/rate-limits` without restarting the server.
-- **Standardized RFC HTTP Headers**: Every response returns live rate limit metadata:
-  ```http
-  X-RateLimit-Limit: 120
-  X-RateLimit-Remaining: 118
-  X-RateLimit-Reset: 1786789200
-  Retry-After: 12 (When 429 Too Many Requests is triggered)
-  ```
-- **Real-Time Prometheus Telemetry**: Exposes live rate limit hit gauges and counters at `GET /metrics`.
-
----
-
-### 🌐 High-Availability Load Balancing Architectures
-
-#### 1. Nginx Load Balancer with WebSocket Sticky Sessions
-For multi-instance deployments, use Nginx with `least_conn` algorithm and `ip_hash` to ensure real-time WebSockets and SSE streams remain sticky to the same worker:
-
+### Option 1: Reverse Proxy with Nginx (Recommended)
 ```nginx
-upstream aegisdb_cluster {
+upstream aegisdb_nodes {
     least_conn;
-    ip_hash; # Sticky sessions for real-time WebSockets & SSE
+    ip_hash; # Sticky sessions for WebSockets & SSE
     server 127.0.0.1:3000 max_fails=3 fail_timeout=10s;
     server 127.0.0.1:3001 max_fails=3 fail_timeout=10s;
-    server 127.0.0.1:3002 max_fails=3 fail_timeout=10s;
 }
 
 server {
@@ -369,229 +410,90 @@ server {
     ssl_certificate /etc/letsencrypt/live/api.yourdomain.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
 
-    # Health check for automated failover
-    location /health {
-        proxy_pass http://aegisdb_cluster/health;
-        proxy_next_upstream error timeout http_500 http_502 http_503;
-    }
-
-    # API & Dashboard Routing
     location / {
-        proxy_pass http://aegisdb_cluster;
+        proxy_pass http://aegisdb_nodes;
         proxy_http_version 1.1;
-
-        # WebSocket & SSE upgrade headers
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
-
-        # Timeouts for persistent WebSockets
         proxy_read_timeout 86400s;
-        proxy_send_timeout 86400s;
     }
 }
 ```
 
-#### 2. Caddy High-Availability Load Balancer
-Caddy provides automated HTTPS, active health checking, and reverse proxy load balancing out-of-the-box:
-
+### Option 2: Caddy (Automatic HTTPS)
 ```caddy
 api.yourdomain.com {
-    reverse_proxy 127.0.0.1:3000 127.0.0.1:3001 127.0.0.1:3002 {
+    reverse_proxy 127.0.0.1:3000 {
         lb_policy least_conn
         health_uri /health
         health_interval 5s
-        health_timeout 2s
     }
 }
 ```
 
-#### 3. PM2 Zero-Downtime Cluster Mode
-To utilize all available CPU cores on a single high-spec server:
+### Option 3: PM2 Multi-Core Cluster
 ```bash
-# Start AegisDB in cluster mode across all CPU cores
+# Compile TypeScript to dist/
+npm run build
+
+# Start cluster across all CPU cores
 pm2 start dist/server.js -i max --name aegisdb
 
-# Zero-downtime rolling reload during updates
+# Perform zero-downtime rolling restart
 pm2 reload aegisdb
 ```
 
 ---
 
-### ⚡ SQLite High-Concurrency Engine
-AegisDB leverages SQLite's Write-Ahead Logging (WAL) architecture:
-- **Unlimited Parallel Readers**: Read operations (`GET /documents`) do not block other readers or writers.
-- **Serialized Microsecond Writes**: Write operations (`POST/PATCH/DELETE`) execute in sub-millisecond transactions.
-- **Busy Timeout Queuing**: Configured with `PRAGMA busy_timeout = 5000;` so simultaneous requests gracefully queue and resolve without throw-and-fail locking.
+## 14. AI Agent & Developer Integration Context
 
----
+When connecting custom frontend apps, mobile apps, or configuring AI agents (like Gemini, Claude, Cursor, Copilot) to build against AegisDB:
 
-## 10. ⚖️ Data Privacy Compliance: Right to Erasure & Data Portability
+1. **Base Architecture**: AegisDB provides clean, standard RESTful JSON APIs and SSE streams. Standard `fetch()`, `axios`, or native HTTP clients work out-of-the-box without requiring custom heavyweight SDKs.
+2. **Project API Key Header**: Supply your Project API Key using the `x-aegis-api-key` header on all database and project-auth requests.
+3. **Dynamic Auth Introspection**: Query `GET /api/v1/project-auth/config` to dynamically determine enabled OAuth providers and client IDs for your project.
+4. **Row-Level Security in Code**: To assign custom row-level access rules to a document during creation or update, simply include the `_rules` object inside the document data:
+   ```json
+   {
+     "name": "Project Proposal",
+     "ownerId": "usr_94812",
+     "_rules": {
+       "read": "auth != null",
+       "write": "auth.id == data.ownerId"
+     }
+   }
+   ```
 
-AegisDB is architected to comply with global privacy regulations including **GDPR (Articles 17 & 20)**, **CCPA/CPRA (§ 1798.105 & § 1798.130)**, and **India's DPDP Act 2023 (§ 12)**.
+### 📡 Standard Client Fetch Helper Example
+```typescript
+async function aegisRequest(endpoint: string, options: RequestInit = {}) {
+  const baseUrl = 'http://localhost:3000/api/v1';
+  const apiKey = 'YOUR_PROJECT_API_KEY';
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│             TWO-TIER RIGHT TO ERASURE (GDPR ART. 17)                   │
-├────────────────────────────────────────────────────────────────────────┤
-│ 1. Mandatory Identity Verification (Password + TOTP code check)        │
-│ 2. GDPR Art. 20 Data Portability (Download JSON data export)          │
-│ 3. Cascading Cryptographic Shredding:                                  │
-│    • Purge user from SQLite ('users' / 'project_users')                │
-│    • Invalidate all active JWT sessions ('refresh_tokens')             │
-│    • Destroy project Data Encryption Keys (DEKs) in 'project_keys'     │
-│    • Wipe collections, documents, uploaded assets, and webhooks        │
-│ 4. Anonymized Audit Tombstone:                                         │
-│    • Records compliance proof with zero PII retained in 'audit_logs'   │
-└────────────────────────────────────────────────────────────────────────┘
-```
+  const headers = new Headers(options.headers || {});
+  headers.set('x-aegis-api-key', apiKey);
+  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
 
-### 📦 GDPR Article 20 / CCPA Data Portability
-Users can download a structured, portable JSON bundle containing their complete account metadata and associated documents:
-### 🗑️ 7-Day Cooling-Off Grace Period & Right to Erasure ("Right to be Forgotten")
+  const response = await fetch(`${baseUrl}${endpoint}`, {
+    ...options,
+    headers,
+  });
 
-In compliance with GDPR Art. 17 and user protection best practices against accidental data loss or ransomware attacks, account deletion uses a **7-Day Cooling-Off Grace Period**:
-
-```
-[ User Initiates Deletion ] ──► Status: pending_deletion ──► [ 7-Day Grace Period Window ]
-                                                                       │
-                         ┌─────────────────────────────────────────────┴─────────────────────────────────────────────┐
-                         ▼                                                                                           ▼
-         [ User / Super Admin Retains Account ]                                                    [ Grace Period Expires (7 Days) ]
-                         │                                                                                           │
-                         ▼                                                                                           ▼
-          • POST /api/v1/auth/cancel-deletion                                                        • Scheduled Background Purge Daemon
-          • POST /api/v1/admin/account-deletions/:id/cancel                                          • Permanent cryptographic shredding
-          • Status restored to 'active'                                                              • Zero-PII Audit Tombstone recorded
-```
-
-1. **Initiate Deletion (7-Day Countdown)**:
-   - **Developer Account**: `DELETE /api/v1/auth/account`
-     - Body: `{ "password": "...", "totpCode": "123456" }`
-     - Transitions account to `status: 'pending_deletion'` with a 7-day timer (`scheduledDeletionAt`).
-   - **Project End-User**: `DELETE /api/v1/project-auth/account`
-     - Body: `{ "password": "..." }`
-     - Transitions project user to `pending_deletion` with a 7-day timer.
-
-2. **User Self-Service Cancellation & Restoration**:
-   - Signing in during the 7-day window displays an urgent recovery banner showing remaining days.
-   - **Developer Account**: `POST /api/v1/auth/cancel-deletion` restores status to `'active'`.
-   - **Project End-User**: `POST /api/v1/project-auth/cancel-deletion` restores status to `'active'`.
-
-3. **Super Admin Retention Audit & Controls**:
-   - Super Admins can monitor all active, cancelled, and purged deletion requests in the console:
-     - `GET /api/v1/admin/account-deletions`
-   - Super Admins can retain accounts upon verified user ticket requests:
-     - `POST /api/v1/admin/account-deletions/:id/cancel`
-   - *Security Guard*: Manual immediate deletion options are strictly disabled for Super Admins to protect against accidental catastrophic administrative mistakes.
-
-4. **Automated Background Purge Daemon**:
-   - A background scheduler periodically scans for expired deletion requests (`scheduledDeletionAt <= NOW`).
-   - Executes permanent cascading disk shredding, DB row deletion, and writes a zero-PII audit tombstone to `audit_logs`.
-
----
-
-## 11. 🛡️ Trust & Safety, Violation Hearing Notices & Flag Appeals
-
-AegisDB provides a comprehensive, transparent **Trust & Safety Management Engine** that balances platform security with user due process.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│             TRUST & SAFETY & HEARING APPEAL WORKFLOW                   │
-├────────────────────────────────────────────────────────────────────────┤
-│ 1. Super Admin / Automated Threat Flagging:                            │
-│    • Super Admin manually flags account or security threat anomaly fires│
-│    • System generates synthetic flag notice ('flag_${userId}')         │
-│ 2. Real-Time Alert Broadcasts:                                         │
-│    • WebSocket emits 'SECURITY_ALERT_FLAGGED' to client session        │
-│    • Client state updates 'isFlagged = true' and triggers header alert │
-│ 3. Multi-Surface Alerting & Appeal Options:                            │
-│    • Top Alert Banner & Header Notification Bell Badge counter         │
-│    • 'Account Security, Compliance & Hearing Status' Card in Settings  │
-│ 4. Hearing Explanation & Appeal Process:                               │
-│    • User clicks 'Submit Appeal' to open Compliance Appeal Modal       │
-│    • Explanation submitted to Super Admin for formal review            │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-### Key Capabilities
-- **Real-Time WebSocket & Endpoint Sync**: On page load or live threat detection, `GET /api/v1/auth/me` and WebSocket events dynamically update client profile state (`isFlagged`, `noticeStatus`, `status`).
-- **Top Header Threat Alert Feed**: Displays prominent amber/rose notification cards in the top header dropdown with quick action buttons (**"Submit Appeal"** / **"Cancel Deletion"**).
-- **Settings Compliance Card**: Gives users a clear, non-intrusive status panel in User Settings showing active flags, remaining notice days, and deletion grace period status.
-- **Synthetic Flag Hearing Notices**: Accounts flagged manually for threat reviews automatically produce synthetic notice objects, enabling immediate appeal submission without requiring a separate manual notice creation step.
-
----
-
-
-
----
-
-## 🛡️ 12. Super Admin Emergency Gateway & System Recovery Lock
-
-AegisDB provides dual-tier emergency access to maintain platform control and enable database recovery during critical maintenance windows.
-
-### Key Emergency Features
-- **Standalone Emergency Gateway (`/admin-login.html`)**: A dedicated, lightweight portal permitting Super Admin login (`admin@aegisdb.dev` / `Admin@123`) directly bypassing standard application views during system maintenance.
-- **Single-Click Maintenance Mode Toggle**: Allows Super Admins to disable maintenance mode directly from the gateway or the Security Operations panel (`PATCH /api/v1/admin/platform-settings`), with real-time SQLite database synchronization and operational status reporting (`GET /api/v1/system/status`).
-- **6-Digit Passcode Lock Console (`/recovery.html`)**: Protects the database restore drop zone behind a full-screen 6-digit server passcode lock (`#js-lock-screen`). Validated server-side via `POST /api/v1/system/verify-recovery-pin` against `process.env.RECOVERY_PIN` (`123456`) with a 60-second inactivity auto-lock safety timer.
-
----
-
-## 🧹 13. Date-Based Automated & Manual Backup Retention Policy
-
-AegisDB includes intelligent backup lifecycle management to prevent disk space exhaustion and enforce data retention compliance.
-
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│               DATE-BASED BACKUP RETENTION LIFECYCLE                    │
-├────────────────────────────────────────────────────────────────────────┤
-│ 1. Timestamp Extraction:                                               │
-│    • Reads ISO creation timestamp from filename ('backup-YYYY...gz')   │
-│    • Falls back to file stat modification time ('mtime')               │
-│ 2. Threshold Calculation:                                              │
-│    • Cutoff = Date.now() - (backupRetentionDays * 86400 * 1000)        │
-│ 3. Automated & Manual Purging:                                         │
-│    • Background scheduler purges files created prior to cutoff threshold│
-│    • Saving settings or clicking 'Purge Expired Backups' triggers     │
-│      immediate sweep of local and S3 backup storage                    │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-### Key Backup Capabilities
-- **Configurable Retention Window**: Admin configures `backupRetentionDays` (e.g. 7, 14, 30 days) in Platform Settings.
-- **Automated Lifecycle Sweeps**: Background tasks inspect local `/backups/` and S3 object stores, safely removing snapshots exceeding the retention period while always preserving the latest backup.
-- **Manual Purge Endpoint & UI**: `POST /api/v1/admin/backups/purge` and the **"Purge Expired Backups"** UI button allow immediate manual execution with toast feedback showing count of deleted backups and freed disk bytes.
-
-## 📄 License & Production Deployment
-
-This project is licensed under the MIT License.
-### Production Deployment & HTTPS
-In production, deploy AegisDB behind a TLS-terminating reverse proxy (like Nginx, Caddy, or Traefik):
-
-**Example Caddyfile:**
-```
-aegisdb.yourdomain.com {
-    reverse_proxy localhost:3000
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || json.success === false) {
+    throw new Error(json.message || `AegisDB Request Failed (${response.status})`);
+  }
+  return json.data !== undefined ? json.data : json;
 }
 ```
 
-**Example Nginx config:**
-```nginx
-server {
-    listen 443 ssl;
-    server_name aegisdb.yourdomain.com;
-    ssl_certificate /path/to/cert.pem;
-    ssl_certificate_key /path/to/key.pem;
+---
 
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+## 📄 License
+This project is open-source and licensed under the [MIT License](LICENSE).

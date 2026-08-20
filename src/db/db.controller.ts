@@ -122,9 +122,25 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   // High-privilege service role bypasses all Security Rules!
   if (req.isServiceRole === true) return;
 
-  // Default to allowing access if no custom rules are defined (safe dev/project default)
+  // 1. Extract Incoming Data Early
+  const data = (req.body && typeof req.body.data === 'object' && !Array.isArray(req.body.data))
+    ? req.body.data
+    : req.body || null;
+
+  // 2. Fetch Existing Resource Early
+  let resource: any = null;
+  if (req.params.id) {
+    try {
+      const ownerId = getOwnerId(req);
+      const projectId = getProjectId(req);
+      resource = dbStore.getDocument(ownerId, projectId, collection.name, req.params.id);
+    } catch (_) {
+      // Document not found / doesn't exist yet
+    }
+  }
+
+  // 3. Determine Base Rules from Collection
   let rulesObj: any = { read: true, write: true };
-  
   if (collection.rules && collection.rules.trim().length > 0) {
     try {
       rulesObj = JSON.parse(collection.rules);
@@ -134,9 +150,15 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
     }
   }
 
-  // Extract the specific rule based on the scope, falling back to top-level if document rule is missing
+  // 4. Determine Active Rule (Row-Level Security Overrides)
   let rule: any;
-  if (operationScope === 'document' && rulesObj.document && rulesObj.document[operation] !== undefined) {
+  if (resource && resource._rules && resource._rules[operation] !== undefined) {
+    // Existing document's RLS rule governs access
+    rule = resource._rules[operation];
+  } else if (operation === 'write' && data && data._rules && data._rules[operation] !== undefined) {
+    // New document being created with an RLS rule governs its own creation
+    rule = data._rules[operation];
+  } else if (operationScope === 'document' && rulesObj.document && rulesObj.document[operation] !== undefined) {
     rule = rulesObj.document[operation];
   } else {
     rule = rulesObj[operation] !== undefined ? rulesObj[operation] : true;
@@ -150,19 +172,6 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
     allowed = false;
   } else if (typeof rule === 'string') {
     const auth = (req as any).projectUser || null;
-    const data = (req.body && typeof req.body.data === 'object' && !Array.isArray(req.body.data))
-      ? req.body.data
-      : req.body || null;
-    let resource: any = null;
-    if (req.params.id) {
-      try {
-        const ownerId = getOwnerId(req);
-        const projectId = getProjectId(req);
-        resource = dbStore.getDocument(ownerId, projectId, collection.name, req.params.id);
-      } catch (_) {
-        // Document not found / doesn't exist yet
-      }
-    }
     const requestContext = {
       time: new Date().toISOString()
     };

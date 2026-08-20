@@ -41,3 +41,7 @@ backups/
 # RSA / Signing Keys
 keys/
 keys/*.pem
+
+# Scratch & Temporary Test Scripts
+scratch/
+

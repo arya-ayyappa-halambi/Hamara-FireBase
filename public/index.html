@@ -3329,6 +3329,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
     </div>
   </div>
 
+  <!-- Document Detail Modal -->
   <div id="modal-document-detail" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
     <div class="glass-panel rounded-2xl p-6 max-w-3xl w-full border border-white/10 space-y-4 max-h-[85vh] flex flex-col">
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
@@ -3349,6 +3350,29 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <span>Copy JSON</span>
         </button>
         <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-document-detail')" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Document Rules Modal -->
+  <div id="modal-document-rules" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-2xl w-full border border-white/10 space-y-4 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+          <span>Document Security Rules — <span id="doc-rules-id" class="text-indigo-300 font-mono text-sm"></span></span>
+        </h3>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-document-rules')" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <p class="text-xs text-slate-400">Define exclusive read/write rules for this specific document. These rules override the collection defaults.</p>
+      <div class="flex-1 overflow-hidden">
+        <textarea id="doc-rules-editor" class="w-full h-48 bg-slate-950 p-4 rounded-xl font-mono text-xs text-indigo-300 border border-white/10 focus:outline-none focus:border-indigo-500 custom-scrollbar" placeholder='{\n  "read": "auth != null",\n  "write": "auth.id == data.ownerId"\n}'></textarea>
+      </div>
+      <div class="flex items-center justify-end space-x-3 pt-3 border-t border-white/10">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-document-rules')" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition">Cancel</button>
+        <button id="btn-save-doc-rules" class="px-5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg transition">Save Rules</button>
       </div>
     </div>
   </div>
@@ -4021,6 +4045,6 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   </script>
 
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=20260820_v1"></script>
+  <script src="app.js?v=20260820_v3"></script>
 </body>
 </html>
