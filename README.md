@@ -451,46 +451,246 @@ pm2 reload aegisdb
 
 ## 14. AI Agent & Developer Integration Context
 
-When connecting custom frontend apps, mobile apps, or configuring AI agents (like Gemini, Claude, Cursor, Copilot) to build against AegisDB:
+When connecting custom frontend apps, mobile apps, or configuring AI agents (like Gemini, Claude, Cursor, Copilot, ChatGPT) to build against or migrate to AegisDB:
 
-1. **Base Architecture**: AegisDB provides clean, standard RESTful JSON APIs and SSE streams. Standard `fetch()`, `axios`, or native HTTP clients work out-of-the-box without requiring custom heavyweight SDKs.
-2. **Project API Key Header**: Supply your Project API Key using the `x-aegis-api-key` header on all database and project-auth requests.
-3. **Dynamic Auth Introspection**: Query `GET /api/v1/project-auth/config` to dynamically determine enabled OAuth providers and client IDs for your project.
-4. **Row-Level Security in Code**: To assign custom row-level access rules to a document during creation or update, simply include the `_rules` object inside the document data:
-   ```json
-   {
-     "name": "Project Proposal",
-     "ownerId": "usr_94812",
-     "_rules": {
-       "read": "auth != null",
-       "write": "auth.id == data.ownerId"
-     }
-   }
-   ```
+### 🤖 AI Agent Copy-Paste Prompt 1: Complete App Migration
+```markdown
+You are an expert full-stack engineer and cloud architect.
+I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to AegisDB (a self-hosted, lightweight BaaS).
 
-### 📡 Standard Client Fetch Helper Example
-```typescript
-async function aegisRequest(endpoint: string, options: RequestInit = {}) {
-  const baseUrl = 'http://localhost:3000/api/v1';
-  const apiKey = 'YOUR_PROJECT_API_KEY';
+AegisDB Server Specifications:
+- Base URL: http://localhost:3000 (or configured host)
+- Project API Key: Retrieve from localStorage ('aegisApiKey') or config constant. Pass in 'x-aegis-api-key' header.
+- User Session: When users sign in, store their JWT token in localStorage ('aegisToken') and pass 'Authorization: Bearer <token>'.
 
-  const headers = new Headers(options.headers || {});
-  headers.set('x-aegis-api-key', apiKey);
-  if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-    headers.set('Content-Type', 'application/json');
+Please systematically migrate the application according to these specifications:
+
+1. AUTHENTICATION MIGRATION (Firebase/Supabase Auth -> AegisDB Project Auth):
+   - Auth Config Discovery: GET http://localhost:3000/api/v1/project-auth/config (Header: 'x-aegis-api-key') to dynamically inspect enabled OAuth providers and registration mode.
+   - User Sign-Up: POST http://localhost:3000/api/v1/project-auth/register with body { email, password, name } (Header: 'x-aegis-api-key').
+   - User Sign-In: POST http://localhost:3000/api/v1/project-auth/login with body { email, password } (Header: 'x-aegis-api-key'). Returns { token, user: { id, email, name, role } }.
+   - OAuth Sign-In: POST http://localhost:3000/api/v1/project-auth/oauth/<provider> (google | apple | github) with body { token: '<id_token_or_access_token>' } (Header: 'x-aegis-api-key').
+
+2. DATABASE & DATA LAYER MIGRATION (Firestore/Postgres -> AegisDB Collections):
+   - Insert Document: POST http://localhost:3000/api/v1/db/collections/<collection_name>/documents
+     Headers: { 'Content-Type': 'application/json', 'x-aegis-api-key': apiKey, 'Authorization': 'Bearer <token>' }
+     Body: { data: { ...fields } }
+   - Query Documents: GET http://localhost:3000/api/v1/db/collections/<collection_name>/documents?limit=50&offset=0&sortBy=_createdAt&sortOrder=desc
+   - Fetch Single Document: GET http://localhost:3000/api/v1/db/collections/<collection_name>/documents/<id>
+   - Update Document: PATCH http://localhost:3000/api/v1/db/collections/<collection_name>/documents/<id>
+     Body: { data: { ...fieldsToUpdate } }
+   - Delete Document: DELETE http://localhost:3000/api/v1/db/collections/<collection_name>/documents/<id>
+
+3. ROW-LEVEL SECURITY & SECURITY RULES:
+   - To assign fine-grained row ownership or custom access rules to any document, attach a reserved '_rules' object inside the document data:
+     { data: { ...fields, _rules: { "read": "auth != null", "write": "auth.id == data.ownerId" } } }
+   - Rule variables available: 'auth' (user context), 'data' (incoming payload), 'resource' (existing DB row).
+
+4. REAL-TIME DATA SYNC (onSnapshot -> Server-Sent Events):
+   - Connect live streams via:
+     const sse = new EventSource('http://localhost:3000/api/v1/db/collections/<collection_name>/realtime?apiKey=' + apiKey);
+     sse.onmessage = (event) => { const change = JSON.parse(event.data); /* change.type: INSERT|UPDATE|DELETE, change.document */ };
+
+5. FILE STORAGE MIGRATION:
+   - Upload: POST http://localhost:3000/api/v1/storage/upload using FormData with field 'file' (or 'biometric').
+   - Download/Stream: GET http://localhost:3000/api/v1/storage/assets/<filename>
+
+6. ERROR HANDLING & DATA PARSING:
+   - Responses follow: { success: boolean, message: string, data?: any }.
+   - Extract data cleanly, handle 401/403 status codes, and show user-friendly notifications.
+
+Refactor all existing mock data, Firebase, and Supabase client calls to use these AegisDB endpoints cleanly.
+```
+
+---
+
+### 🚀 AI Agent Copy-Paste Prompt 2: Build New Application from Scratch
+```markdown
+You are an expert full-stack software engineer.
+Build a complete, modern, high-performance web application backed by AegisDB (a self-hosted Backend-as-a-Service running at http://localhost:3000).
+
+ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
+
+1. CLIENT ARCHITECTURE & AUTHENTICATION:
+   - Create a clean API service layer (or use AegisClient) that automatically attaches:
+     * Header 'x-aegis-api-key': <PROJECT_API_KEY> (from localStorage 'aegisApiKey' or config)
+     * Header 'Authorization': 'Bearer ' + <USER_JWT_TOKEN> (from localStorage 'aegisToken')
+   - Implement complete user lifecycle UI (Register, Login, OAuth, Logout):
+     * Check enabled auth options: GET /api/v1/project-auth/config
+     * Register: POST /api/v1/project-auth/register with { email, password, name }
+     * Login: POST /api/v1/project-auth/login with { email, password }
+     * OAuth: POST /api/v1/project-auth/oauth/<provider> with { token }
+
+2. DATABASE & COLLECTION ARCHITECTURE:
+   - Structure business data into organized collections (e.g. 'items', 'tasks', 'profiles', 'orders').
+   - Create documents: POST /api/v1/db/collections/<name>/documents with { data: { ...item } }
+   - Read with pagination: GET /api/v1/db/collections/<name>/documents?limit=25&offset=0
+   - Update: PATCH /api/v1/db/collections/<name>/documents/<id> with { data: { ...updates } }
+   - Delete: DELETE /api/v1/db/collections/<name>/documents/<id>
+
+3. ROW-LEVEL SECURITY (RLS) RULES:
+   - Protect private user data by attaching '_rules' to created documents:
+     { "read": "auth != null", "write": "auth.id == data.ownerId" }
+
+4. REAL-TIME CHANGE DATA CAPTURE (CDC):
+   - Keep views synced in real time using Server-Sent Events (SSE):
+     const sse = new EventSource('http://localhost:3000/api/v1/db/collections/<name>/realtime?apiKey=' + apiKey);
+     sse.onmessage = (e) => { const change = JSON.parse(e.data); updateState(change); };
+
+5. FILE STORAGE & UPLOADS:
+   - Upload assets via POST /api/v1/storage/upload using FormData with field 'file'.
+   - Display uploaded images/files using http://localhost:3000/api/v1/storage/assets/<filename>.
+
+6. USER EXPERIENCE & INTERFACE:
+   - Deliver a responsive, polished UI with loading skeletons, optimistic UI updates, error toasts, and clean empty states.
+```
+
+---
+
+### 📦 Universal Drop-In SDK (`AegisClient.js` / `AegisClient.ts`)
+```javascript
+/**
+ * AegisClient — Official Universal Drop-in SDK for AegisDB
+ * Supports Browser (Vanilla JS, React, Vue, Svelte, Next.js) and Node.js
+ */
+class AegisClient {
+  constructor(options = {}) {
+    this.baseUrl = (options.baseUrl || 'http://localhost:3000').replace(/\/+$/, '');
+    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') || '';
+    this.token = options.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisToken') : '') || '';
   }
 
-  const response = await fetch(`${baseUrl}${endpoint}`, {
-    ...options,
-    headers,
-  });
-
-  const json = await response.json().catch(() => ({}));
-  if (!response.ok || json.success === false) {
-    throw new Error(json.message || `AegisDB Request Failed (${response.status})`);
+  setApiKey(key) {
+    this.apiKey = key;
+    if (typeof localStorage !== 'undefined') localStorage.setItem('aegisApiKey', key);
   }
-  return json.data !== undefined ? json.data : json;
+
+  setToken(token) {
+    this.token = token;
+    if (typeof localStorage !== 'undefined') {
+      if (token) localStorage.setItem('aegisToken', token);
+      else localStorage.removeItem('aegisToken');
+    }
+  }
+
+  async request(endpoint, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (this.apiKey) headers['x-aegis-api-key'] = this.apiKey;
+    if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
+
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(options.body);
+    }
+
+    const res = await fetch(`${this.baseUrl}${endpoint}`, { ...options, headers });
+    const json = await res.json().catch(() => ({ success: false, message: 'Invalid server response' }));
+    if (!res.ok || json.success === false) {
+      throw new Error(json.message || `AegisDB request failed (${res.status})`);
+    }
+    return json.data !== undefined ? json.data : json;
+  }
+
+  // ── Authentication API ────────────────────────────────────────────────────────
+  get auth() {
+    return {
+      getConfig: () => this.request('/api/v1/project-auth/config'),
+      signUp: async (email, password, name) => {
+        const res = await this.request('/api/v1/project-auth/register', {
+          method: 'POST',
+          body: { email, password, name }
+        });
+        if (res?.token) this.setToken(res.token);
+        return res;
+      },
+      signIn: async (email, password) => {
+        const res = await this.request('/api/v1/project-auth/login', {
+          method: 'POST',
+          body: { email, password }
+        });
+        if (res?.token) this.setToken(res.token);
+        return res;
+      },
+      signInWithOAuth: async (provider, oauthToken) => {
+        const res = await this.request(`/api/v1/project-auth/oauth/${encodeURIComponent(provider)}`, {
+          method: 'POST',
+          body: { token: oauthToken }
+        });
+        if (res?.token) this.setToken(res.token);
+        return res;
+      },
+      signOut: () => {
+        this.setToken('');
+      },
+      getProfile: () => this.request('/api/v1/auth/me')
+    };
+  }
+
+  // ── Database & Collections CRUD API ───────────────────────────────────────────
+  collection(collectionName) {
+    const coll = encodeURIComponent(collectionName);
+    return {
+      insert: (data, id) => this.request(`/api/v1/db/collections/${coll}/documents`, {
+        method: 'POST',
+        body: { data, ...(id ? { id } : {}) }
+      }),
+      query: (options = {}) => {
+        const p = new URLSearchParams();
+        if (options.limit) p.set('limit', String(options.limit));
+        if (options.offset) p.set('offset', String(options.offset));
+        if (options.sortBy) p.set('sortBy', options.sortBy);
+        if (options.sortOrder) p.set('sortOrder', options.sortOrder);
+        if (options.filter) p.set('filter', typeof options.filter === 'object' ? JSON.stringify(options.filter) : options.filter);
+        const q = p.toString() ? `?${p.toString()}` : '';
+        return this.request(`/api/v1/db/collections/${coll}/documents${q}`);
+      },
+      get: (docId) => this.request(`/api/v1/db/collections/${coll}/documents/${encodeURIComponent(docId)}`),
+      update: (docId, patch) => this.request(`/api/v1/db/collections/${coll}/documents/${encodeURIComponent(docId)}`, {
+        method: 'PATCH',
+        body: { data: patch }
+      }),
+      delete: (docId) => this.request(`/api/v1/db/collections/${coll}/documents/${encodeURIComponent(docId)}`, {
+        method: 'DELETE'
+      }),
+      onSnapshot: (callback) => {
+        if (typeof EventSource === 'undefined') {
+          throw new Error('EventSource is not supported in this environment');
+        }
+        const sseUrl = `${this.baseUrl}/api/v1/db/collections/${coll}/realtime?apiKey=${encodeURIComponent(this.apiKey)}`;
+        const source = new EventSource(sseUrl);
+        source.onmessage = (e) => {
+          try {
+            const parsed = JSON.parse(e.data);
+            callback(parsed);
+          } catch (err) {
+            console.error('Failed to parse SSE CDC payload:', err);
+          }
+        };
+        return () => source.close();
+      }
+    };
+  }
+
+  // ── Storage API ───────────────────────────────────────────────────────────────
+  get storage() {
+    return {
+      upload: async (file, filename) => {
+        const formData = new FormData();
+        formData.append('file', file, filename || file.name || 'upload.bin');
+        return this.request('/api/v1/storage/upload', {
+          method: 'POST',
+          body: formData
+        });
+      },
+      getFileUrl: (filename) => `${this.baseUrl}/api/v1/storage/assets/${encodeURIComponent(filename)}`
+    };
+  }
 }
+
+// Export for ES modules, CommonJS, and Browser
+if (typeof window !== 'undefined') window.AegisClient = AegisClient;
+if (typeof module !== 'undefined' && module.exports) module.exports = { AegisClient };
+export default AegisClient;
 ```
 
 ---
