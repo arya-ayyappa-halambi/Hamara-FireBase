@@ -113,7 +113,7 @@ async function checkLimitsAndLockout(ownerId: string, operation: 'read' | 'write
 
 // ── Helper: Evaluate Security Rules ───────────────────────────────────────────
 
-function checkRules(collection: Collection, operation: 'read' | 'write', req: Request): void {
+function checkRules(collection: Collection, operation: 'read' | 'write', req: Request, operationScope: 'collection' | 'document' = 'collection'): void {
   // If this is a client using an API Key, enforce rules.
   // If it's a dashboard user (JWT), they have full access to their own resources.
   const isApiKey = req.user?.email?.startsWith('api-key::') || req.user?.email?.startsWith('service-role::');
@@ -123,7 +123,7 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
   if (req.isServiceRole === true) return;
 
   // Default to allowing access if no custom rules are defined (safe dev/project default)
-  let rulesObj: { read?: boolean | string; write?: boolean | string } = { read: true, write: true };
+  let rulesObj: any = { read: true, write: true };
   
   if (collection.rules && collection.rules.trim().length > 0) {
     try {
@@ -134,7 +134,14 @@ function checkRules(collection: Collection, operation: 'read' | 'write', req: Re
     }
   }
 
-  const rule = rulesObj[operation] !== undefined ? rulesObj[operation] : true;
+  // Extract the specific rule based on the scope, falling back to top-level if document rule is missing
+  let rule: any;
+  if (operationScope === 'document' && rulesObj.document && rulesObj.document[operation] !== undefined) {
+    rule = rulesObj.document[operation];
+  } else {
+    rule = rulesObj[operation] !== undefined ? rulesObj[operation] : true;
+  }
+
   let allowed = false;
 
   if (rule === true) {
@@ -341,7 +348,7 @@ export async function insertDocument(req: Request, res: Response, next: NextFunc
       }
     }
     
-    checkRules(coll, 'write', req);
+    checkRules(coll, 'write', req, 'document');
     
     const finalDocId = docId || require('uuid').v4();
     const t0 = performance.now();
@@ -365,7 +372,7 @@ export async function queryDocuments(req: Request, res: Response, next: NextFunc
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'read');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req);
+    checkRules(coll, 'read', req, 'collection');
     
     const t0 = performance.now();
     const result = dbStore.queryDocuments(ownerId, projectId, req.params.name, opts);
@@ -381,7 +388,7 @@ export async function getDocument(req: Request, res: Response, next: NextFunctio
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'read');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req);
+    checkRules(coll, 'read', req, 'document');
     
     const t0 = performance.now();
     const doc = dbStore.getDocument(ownerId, projectId, req.params.name, req.params.id);
@@ -412,7 +419,7 @@ export async function updateDocument(req: Request, res: Response, next: NextFunc
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'write', req);
+    checkRules(coll, 'write', req, 'document');
     
     const t0 = performance.now();
     const doc = dbStore.updateDocument(ownerId, projectId, req.params.name, req.params.id, patchData as DocumentObject);
@@ -428,7 +435,7 @@ export async function deleteDocument(req: Request, res: Response, next: NextFunc
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'write', req);
+    checkRules(coll, 'write', req, 'document');
     
     const t0 = performance.now();
     dbStore.deleteDocument(ownerId, projectId, req.params.name, req.params.id);
@@ -449,7 +456,7 @@ export async function queryVector(req: Request, res: Response, next: NextFunctio
     }
 
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req);
+    checkRules(coll, 'read', req, 'collection');
 
     const t0 = performance.now();
     const results = dbStore.queryDocumentsByVector(ownerId, projectId, req.params.name, field, vector, topK);
@@ -490,7 +497,7 @@ export async function queryRealtime(req: Request, res: Response, next: NextFunct
     const projectId = getProjectId(req);
 
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req);
+    checkRules(coll, 'read', req, 'collection');
 
     // Setup Server-Sent Events headers
     res.setHeader('Content-Type', 'text/event-stream');

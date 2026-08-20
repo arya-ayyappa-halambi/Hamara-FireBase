@@ -1749,7 +1749,8 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div class="space-y-2">
                 <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Collection Security Rules (JSON / JS Expressions)</label>
-                <textarea id="coll-rules-editor" class="w-full h-64 bg-slate-950 p-4 rounded-xl font-mono text-xs text-indigo-300 border border-white/10 focus:outline-none focus:border-indigo-500 custom-scrollbar" placeholder='{\n  "read": "auth != null",\n  "write": "auth.sub == resource.ownerId"\n}'></textarea>
+                <p class="text-[10px] text-slate-500 mb-2">Define top-level `read`/`write` for collection access, and nest a `document` object for document-level rules.</p>
+                <textarea id="coll-rules-editor" class="w-full h-64 bg-slate-950 p-4 rounded-xl font-mono text-xs text-indigo-300 border border-white/10 focus:outline-none focus:border-indigo-500 custom-scrollbar" placeholder='{\n  "read": true,\n  "write": false,\n  "document": {\n    "read": "auth != null",\n    "write": "auth.sub == data.ownerId"\n  }\n}'></textarea>
               </div>
               <div class="space-y-2">
                 <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">JSON Schema Definition (`x-encrypted` supported)</label>
