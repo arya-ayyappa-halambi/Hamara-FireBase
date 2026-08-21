@@ -21,6 +21,8 @@ export interface Document extends DocumentObject {
   _ownerId: string;
   _createdAt: string; // ISO-8601
   _updatedAt: string; // ISO-8601
+  _version?: number;
+  _rules?: Record<string, any> | null;
 }
 
 // ── Query ─────────────────────────────────────────────────────────────────────

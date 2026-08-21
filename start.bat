@@ -1,5 +1,4 @@
 @echo off
 echo Starting AegisDB Server...
-set HOST=10.122.2.50
-set PORT=1000
+set PORT=3000
 npm run dev

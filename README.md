@@ -84,7 +84,7 @@ chmod +x start.sh
 ```bash
 #!/bin/bash
 export HOST=0.0.0.0    # Bind to all network interfaces (or your LAN IP)
-export PORT=1000       # Set custom port (default: 3000)
+export PORT=3000       # Standard port (default: 3000)
 npm run dev
 ```
 
@@ -97,7 +97,7 @@ start.bat
 ```cmd
 @echo off
 set HOST=0.0.0.0
-set PORT=1000
+set PORT=3000
 npm run dev
 ```
 
@@ -142,7 +142,7 @@ AegisDB uses a modular, layered architecture optimized for high concurrency, mic
 ┌────────────────────────────────────────────────────────────────────────┐
 │                     Rule Evaluation Engine (VM Sandbox)                │
 │    • Document-Level Row Security (_rules)                              │
-│    • Collection-Level Fallback Rules                                   │
+│    • Scoped & Granular Collection-Level Rules (CRUD + list/get)       │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
                                     ▼
@@ -157,72 +157,154 @@ AegisDB uses a modular, layered architecture optimized for high concurrency, mic
 
 ---
 
-## 4. Document Database & Row-Level Security (RLS)
+## 4. Document Database & Dual-Layer Security Rules (Collection + Document RLS)
 
-AegisDB delivers a schemaless, document-oriented NoSQL database experience backed by SQLite's robust transactional guarantees.
+AegisDB delivers a schemaless, document-oriented NoSQL database experience backed by SQLite's robust transactional guarantees, protected by an isolated, declarative JavaScript VM security rule engine.
 
 ### Document Storage Hierarchy
-- **Projects**: Top-level administrative and security boundaries.
-- **Collections**: Logical groupings of JSON documents (supports optional JSON Schema validation).
-- **Documents**: JSON records indexed by unique alphanumeric IDs (`_id` or `id`).
+- **Projects**: Top-level multi-tenant administrative and security boundaries.
+- **Collections**: Logical groupings of JSON documents (supports optional JSON Schema validation and collection-level rules).
+- **Documents**: JSON records indexed by unique alphanumeric IDs (`_id` or `id`), supporting embedded document-level Row-Level Security (`_rules`).
 
 ---
 
-### 🛡️ Dual-Tier Security Rules (Collection + Row-Level)
+### 🛡️ Dual-Tier Security Rules (Collection-Wise & Document-Wise)
 
-AegisDB features a flexible security rule engine executed in an isolated VM sandbox. Security rules evaluate against incoming request context (`auth`, `data`, `resource`).
+Security rules dynamically **enable or disable access** for every operation based on declarative expressions executed inside a secure 50ms Node.js VM sandbox.
 
-#### Evaluation Priority
 ```
-Incoming DB Request
+Incoming DB Request (get, list, create, update, delete)
         │
         ▼
-Is document being created with payload._rules? ──► [YES] ──► Evaluate creation _rules
-        │ [NO]
+Is caller Service Role (`aegis_sk_...`) or Project Owner? ──► [YES] ──► Bypass Rules (Admin)
+        │ [NO - API Key / Project User]
         ▼
-Does existing document contain _rules? ─────────► [YES] ──► Enforce Document-Level Rule
-        │ [NO]
-        ▼
-Fall back to Collection-Level Default Rules ─────────────► Enforce Collection Rule
+Is this a Document-Scoped Operation? (get, create, update, delete)
+ ├──► [YES]
+ │      │
+ │      ├─► Does document have embedded `_rules`? ─────► [YES] ──► Evaluate `_rules[action]` / `_rules[parent]`
+ │      │
+ │      ├─► Does collection have `document` scope? ──► [YES] ──► Evaluate `collection.document[action]`
+ │      │
+ │      └─► Fallback to collection flat rule ─────────────────► Evaluate `collection[action]` / `collection[parent]`
+ │
+ └──► [NO - Collection-Scoped: list / query / realtime]
+        │
+        ├─► Does collection have `collection` scope? ─► [YES] ──► Evaluate `collection.collection[action]`
+        │
+        ├─► Fallback to collection flat rule ─────────────────► Evaluate `collection[action]` / `collection[parent]`
+        │
+        └─► On Query/List: Evaluate Row Security per Document ─► Filter out unauthorized rows automatically
 ```
 
-1. **Document-Level Write Rules**: When creating a document, supplying a `_rules: { "write": "..." }` field evaluates that specific rule immediately.
-2. **Document-Level Read/Write Rules (Row-Level Security)**: If a document has `_rules` stored, those rules **take precedence exclusively**, completely overriding collection-wide defaults for that row.
-3. **Collection-Level Rules**: If no document-specific `_rules` exist, the collection's baseline security rules apply.
+---
 
-#### Rule Variables Available in Sandbox
-| Variable | Description | Example Expression |
-| :--- | :--- | :--- |
-| `auth` | Authenticated user payload (null if unauthenticated) | `auth != null` |
-| `auth.id` | User ID of the client making the request | `auth.id == data.ownerId` |
-| `auth.role` | User role string | `auth.role == 'admin'` |
-| `data` | Incoming request payload (for create/update) | `data.price > 0 && data.status == 'draft'` |
-| `resource` | Existing document data in the database | `resource.ownerId == auth.id` |
+### ⚙️ Supported Operations & Hierarchy
 
-#### Example Rule Definitions
+AegisDB supports granular operation rules with automatic hierarchical fallback:
 
-**Document-Level Row Security (`_rules`):**
+| Action | Scope | Description | Fallback Parent Action |
+| :--- | :--- | :--- | :--- |
+| `get` | Document | Reading a single document by ID (`GET /documents/:id`) | `read` |
+| `list` | Collection | Querying or listing a collection (`GET /documents`) | `read` |
+| `create` | Document | Inserting a new document (`POST /documents`) | `write` |
+| `update` | Document | Patching an existing document (`PATCH /documents/:id`) | `write` |
+| `delete` | Document | Deleting a document (`DELETE /documents/:id`) | `write` |
+| `read` | Both | General read umbrella covering `get` and `list` | — |
+| `write` | Both | General write umbrella covering `create`, `update`, `delete` | — |
+
+---
+
+### 📦 Supported Security Rule Formats
+
+#### 1. Flat Collection Rules
 ```json
 {
   "read": "auth != null",
-  "write": "auth.id == data.ownerId || auth.role == 'admin'"
+  "write": "auth.id == resource.authorId || auth.role == 'admin'"
 }
 ```
 
-**Public Read / Authenticated Owner Write:**
+#### 2. Granular CRUD Rules
 ```json
 {
-  "read": "true",
-  "write": "auth != null && auth.id == data.authorId"
+  "list": true,
+  "get": "auth != null",
+  "create": "auth != null",
+  "update": "auth.id == resource.authorId",
+  "delete": "auth.role == 'admin'"
 }
 ```
 
-#### Interactive Dashboard Security Editor
+#### 3. Scoped Collection vs. Document Rules
+```json
+{
+  "collection": {
+    "list": true,
+    "write": "auth.role == 'admin'"
+  },
+  "document": {
+    "read": "auth != null",
+    "create": "auth != null",
+    "update": "auth.id == resource.ownerId",
+    "delete": "auth.role == 'admin' || auth.id == resource.ownerId"
+  }
+}
+```
+
+#### 4. Document-Level Row Security (`_rules` on Document)
+Attach fine-grained Row-Level Security directly to any document payload when creating or updating:
+```json
+{
+  "data": {
+    "title": "Confidential Financial Report",
+    "department": "Finance",
+    "_rules": {
+      "read": "auth.id == 'user_123' || auth.role == 'finance_auditor'",
+      "write": "auth.id == 'user_123'",
+      "delete": "auth.role == 'superadmin'"
+    }
+  }
+}
+```
+
+---
+
+### 🔍 Row-Level Security (RLS) Query Filtering
+When clients query a collection (`GET /api/v1/db/collections/:name/documents`):
+1. AegisDB first verifies collection-level `list` / `read` access.
+2. For each document in the collection, the document's row-level read rule (`doc._rules.get` $\rightarrow$ `doc._rules.read` $\rightarrow$ `rules.document.read` $\rightarrow$ `rules.read`) is evaluated against the requesting user's `auth` context.
+3. Documents where access evaluates to `false` are **automatically excluded (hidden)** from the response envelope.
+4. Total counts and pagination offsets accurately reflect the documents permitted to that specific user.
+
+---
+
+### 🧪 Rule Evaluation Context & Variables
+
+The following sandboxed variables are available in rule expressions:
+
+| Variable | Type | Description | Example Expression |
+| :--- | :--- | :--- | :--- |
+| `auth` | `Object \| null` | Authenticated user payload (null for anonymous requests) | `auth != null` |
+| `auth.id`, `auth.uid`, `auth.sub` | `String` | Unique ID of the authenticated project user | `auth.id == resource.authorId` |
+| `auth.email` | `String` | User email address | `auth.email.endsWith('@company.com')` |
+| `auth.role` | `String` | User RBAC role (`admin`, `member`, `user`, etc.) | `auth.role == 'admin'` |
+| `auth.customClaims` | `Object` | Custom claims dictionary attached to the user | `auth.customClaims.tier == 'premium'` |
+| `resource` | `Object \| null` | Existing document in the database prior to write/read | `resource.authorId == auth.id` |
+| `resource.data` | `Object \| null` | Alias for existing document fields | `resource.data.status == 'published'` |
+| `data` | `Object \| null` | Incoming document payload for `create` or `update` | `data.price > 0 && data.title.length > 3` |
+| `request` | `Object` | Request metadata object | `request.method == 'create'` |
+| `request.time` | `String` | ISO-8601 server request timestamp | `request.time > '2026-01-01T00:00:00Z'` |
+| `request.method` | `String` | Active operation (`get`, `list`, `create`, `update`, `delete`) | `request.method == 'update'` |
+
+---
+
+### 🖥️ Interactive Dashboard Security Editor & Simulator
+
 In the Developer Console:
-1. Navigate to the **Data Browser**.
-2. Select any collection to view its documents.
-3. Documents with custom security rules display an emerald **`rules`** shield badge.
-4. Click the **Shield Icon** beside any document to open the live **Document Security Rules Modal**, edit rules in JSON format, and save changes instantly.
+1. **Collection Rules Tab**: Select any collection in the **Data Browser** and open the **Rules Tab** to configure collection-level security rules with instant syntax validation.
+2. **Document-Level Rules (RLS)**: Documents containing row rules display an emerald **`rules`** shield badge in the data table. Click the **Shield Icon** on any row to edit or attach document-level rules.
+3. **Live Rules Simulation Sandbox**: Navigate to **Developer Workspace > Security Rules Sandbox** to test rule evaluations against mock `auth`, `resource`, `data`, and `request` contexts with microsecond execution telemetry.
 
 ---
 

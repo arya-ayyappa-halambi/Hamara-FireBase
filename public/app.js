@@ -2360,23 +2360,53 @@ function initRulesSandbox() {
   btnRun.onclick = () => {
     const rulesStr = document.getElementById('textarea-rules')?.value || '';
     const authStr = document.getElementById('sim-auth')?.value || '';
+    const resourceStr = document.getElementById('sim-resource')?.value || '';
     const output = document.getElementById('sim-output');
+    if (!output) return;
 
+    const t0 = performance.now();
     try {
       const rulesObj = JSON.parse(rulesStr);
-      const auth = authStr ? JSON.parse(authStr) : null;
-
-      const rule = rulesObj.read;
-      if (rule === true || (rule === 'auth != null' && auth !== null)) {
-        output.className = 'text-emerald-400 font-bold';
-        output.textContent = '✅ ALLOWED (Evaluation returned true in 0.4ms)';
-      } else {
-        output.className = 'text-rose-400 font-bold';
-        output.textContent = '❌ DENIED (HTTP 403 Forbidden - Rule evaluated false)';
+      let auth = authStr ? JSON.parse(authStr) : null;
+      if (auth && typeof auth === 'object') {
+        auth.id = auth.id || auth.sub || auth.uid;
+        auth.sub = auth.sub || auth.id || auth.uid;
+        auth.uid = auth.uid || auth.id || auth.sub;
       }
+      const resource = resourceStr ? JSON.parse(resourceStr) : null;
+      if (resource && typeof resource === 'object' && !resource.data) {
+        resource.data = { ...resource };
+      }
+
+      // Check both read and write rules
+      const readRule = rulesObj.read !== undefined ? rulesObj.read : (rulesObj.document?.read ?? true);
+      const writeRule = rulesObj.write !== undefined ? rulesObj.write : (rulesObj.document?.write ?? true);
+
+      const evaluate = (expr) => {
+        if (expr === true) return true;
+        if (expr === false || expr === null || expr === undefined) return false;
+        if (typeof expr !== 'string') return false;
+        try {
+          const fn = new Function('auth', 'resource', 'data', 'request', `return (${expr});`);
+          return !!fn(auth, resource, null, { auth, time: new Date().toISOString(), resource });
+        } catch {
+          return false;
+        }
+      };
+
+      const readAllowed = evaluate(readRule);
+      const writeAllowed = evaluate(writeRule);
+      const elapsed = (performance.now() - t0).toFixed(2);
+
+      let resultHtml = `⏱️ Evaluated in ${elapsed}ms<br>`;
+      resultHtml += `📖 Read Rule [${escapeHTML(String(readRule))}]: ${readAllowed ? '<span class="text-emerald-400">✅ ALLOWED</span>' : '<span class="text-rose-400">❌ DENIED</span>'}<br>`;
+      resultHtml += `✏️ Write Rule [${escapeHTML(String(writeRule))}]: ${writeAllowed ? '<span class="text-emerald-400">✅ ALLOWED</span>' : '<span class="text-rose-400">❌ DENIED</span>'}`;
+
+      output.className = 'font-mono text-xs text-slate-300 leading-relaxed';
+      output.innerHTML = resultHtml;
     } catch (err) {
       output.className = 'text-amber-400 font-bold';
-      output.textContent = `⚠️ Syntax Error: ${escapeHTML(err.message)}`;
+      output.textContent = `⚠️ Error: ${err.message}`;
     }
   };
 }

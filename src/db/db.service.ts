@@ -303,9 +303,9 @@ class SqliteDbStore {
   // ── Documents ──────────────────────────────────────────────────────────────
 
   insertDocument(ownerId: string, projectId: string, collectionName: string, data: DocumentObject, docId?: string): Document {
-    // Guard against reserved system field injection
+    // Guard against reserved system field injection (allow _rules)
     for (const key of Object.keys(data)) {
-      if (key.startsWith('_')) {
+      if (key.startsWith('_') && key !== '_rules') {
         throw new AppError(`Field "${key}" is reserved. User-supplied fields must not start with "_".`, 400);
       }
     }
@@ -313,8 +313,9 @@ class SqliteDbStore {
     // Ensure collection exists and validate schema
     const coll = this.getCollection(ownerId, projectId, collectionName);
     if (coll.schema) {
+      const { _rules, ...schemaValidationData } = data;
       const validate = ajv.compile(preprocessVectorSchema(JSON.parse(coll.schema)));
-      const valid = validate(data);
+      const valid = validate(schemaValidationData);
       if (!valid) {
         throw new AppError(`Schema validation failed: ${ajv.errorsText(validate.errors)}`, 400);
       }
@@ -456,9 +457,9 @@ class SqliteDbStore {
     docId: string,
     patch: DocumentObject,
   ): Document {
-    // Guard reserved field injection in patch
+    // Guard reserved field injection in patch (allow _rules)
     for (const key of Object.keys(patch)) {
-      if (key.startsWith('_')) {
+      if (key.startsWith('_') && key !== '_rules') {
         throw new AppError(`Field "${key}" is reserved and cannot be patched.`, 400);
       }
     }
@@ -472,8 +473,13 @@ class SqliteDbStore {
       ...patch,
     };
     
+    // Handle clearing _rules if explicitly set to null
+    if (patch._rules === null) {
+      delete (candidateData as any)._rules;
+    }
+    
     // Remove internal fields for validation
-    const { _id, _ownerId, _projectId, _createdAt, _updatedAt, ...validationData } = candidateData;
+    const { _id, _ownerId, _projectId, _createdAt, _updatedAt, _version, _rules, ...validationData } = candidateData as any;
 
     if (coll.schema) {
       const validate = ajv.compile(preprocessVectorSchema(JSON.parse(coll.schema)));

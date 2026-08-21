@@ -25,6 +25,13 @@ import {
 } from '../types/db.types';
 
 function getOwnerId(req: Request): string {
+  if (req.project?.ownerId) return req.project.ownerId;
+  const user = req.user as any;
+  if (user?.isProjectUser && user.projectId) {
+    const db = getDb();
+    const proj = db.prepare('SELECT ownerId FROM projects WHERE id = ?').get(user.projectId) as { ownerId: string } | undefined;
+    if (proj) return proj.ownerId;
+  }
   const sub = req.user?.sub;
   if (!sub) throw new AppError('Authentication context missing.', 401);
   return sub;
@@ -80,7 +87,6 @@ async function checkLimitsAndLockout(ownerId: string, operation: 'read' | 'write
   // 1. Check Monthly Reset
   if (owner.billingMonthStart) {
     const monthStart = new Date(owner.billingMonthStart);
-    // If it's a new calendar month (or 30 days passed). Here we do calendar month.
     if (now.getMonth() !== monthStart.getMonth() || now.getFullYear() !== monthStart.getFullYear()) {
       userStore.resetMonthlyLimits(ownerId);
       owner.readsCount = 0;
@@ -88,7 +94,6 @@ async function checkLimitsAndLockout(ownerId: string, operation: 'read' | 'write
       owner.lockedUntil = undefined;
     }
   } else {
-    // initialize billing month start
     userStore.resetMonthlyLimits(ownerId);
     owner.readsCount = 0;
     owner.writesCount = 0;
@@ -111,97 +116,240 @@ async function checkLimitsAndLockout(ownerId: string, operation: 'read' | 'write
   }
 }
 
-// ── Helper: Evaluate Security Rules ───────────────────────────────────────────
+// ── Comprehensive Security Rules Engine ──────────────────────────────────────
 
-function checkRules(collection: Collection, operation: 'read' | 'write', req: Request, operationScope: 'collection' | 'document' = 'collection'): void {
-  // If this is a client using an API Key, enforce rules.
-  // If it's a dashboard user (JWT), they have full access to their own resources.
-  const isApiKey = req.user?.email?.startsWith('api-key::') || req.user?.email?.startsWith('service-role::');
-  if (!isApiKey) return;
+export type DbAction = 'get' | 'list' | 'create' | 'update' | 'delete' | 'read' | 'write';
 
-  // High-privilege service role bypasses all Security Rules!
-  if (req.isServiceRole === true) return;
+function getParentAction(action: DbAction): 'read' | 'write' {
+  if (action === 'get' || action === 'list' || action === 'read') return 'read';
+  return 'write';
+}
 
-  // 1. Extract Incoming Data Early
-  const data = (req.body && typeof req.body.data === 'object' && !Array.isArray(req.body.data))
-    ? req.body.data
-    : req.body || null;
-
-  // 2. Fetch Existing Resource Early
-  let resource: any = null;
-  if (req.params.id) {
-    try {
-      const ownerId = getOwnerId(req);
-      const projectId = getProjectId(req);
-      resource = dbStore.getDocument(ownerId, projectId, collection.name, req.params.id);
-    } catch (_) {
-      // Document not found / doesn't exist yet
+function parseCollectionRules(rulesStr?: string | null): { rulesObj: any; parseError: boolean } {
+  if (!rulesStr || rulesStr.trim().length === 0) {
+    return { rulesObj: { read: true, write: true }, parseError: false };
+  }
+  try {
+    const parsed = JSON.parse(rulesStr);
+    if (typeof parsed === 'object' && parsed !== null) {
+      return { rulesObj: parsed, parseError: false };
     }
-  }
-
-  // 3. Determine Base Rules from Collection
-  let rulesObj: any = { read: true, write: true };
-  if (collection.rules && collection.rules.trim().length > 0) {
-    try {
-      rulesObj = JSON.parse(collection.rules);
-    } catch (e) {
-      // Invalid rules syntax fails closed
-      rulesObj = { read: false, write: false };
-    }
-  }
-
-  // 4. Determine Active Rule (Row-Level Security Overrides)
-  let rule: any;
-  if (resource && resource._rules && resource._rules[operation] !== undefined) {
-    // Existing document's RLS rule governs access
-    rule = resource._rules[operation];
-  } else if (operation === 'write' && data && data._rules && data._rules[operation] !== undefined) {
-    // New document being created with an RLS rule governs its own creation
-    rule = data._rules[operation];
-  } else if (operationScope === 'document' && rulesObj.document && rulesObj.document[operation] !== undefined) {
-    rule = rulesObj.document[operation];
-  } else {
-    rule = rulesObj[operation] !== undefined ? rulesObj[operation] : true;
-  }
-
-  let allowed = false;
-
-  if (rule === true) {
-    allowed = true;
-  } else if (rule === false) {
-    allowed = false;
-  } else if (typeof rule === 'string') {
-    const auth = (req as any).projectUser || null;
-    const requestContext = {
-      time: new Date().toISOString()
-    };
-    allowed = evaluateExpression(rule, { auth, data, resource, request: requestContext });
-  } else {
-    allowed = false;
-  }
-
-  if (!allowed) {
-    throw new AppError(`Permission denied by collection security rules for operation: ${operation}.`, 403);
+    return { rulesObj: { read: false, write: false }, parseError: true };
+  } catch {
+    return { rulesObj: { read: false, write: false }, parseError: true };
   }
 }
 
-function evaluateExpression(expr: string, context: { auth: any; data: any; resource: any; request: any }): boolean {
+export function shouldEnforceRules(req: Request): boolean {
+  // High-privilege service role bypasses all Security Rules
+  if (req.isServiceRole === true) return false;
+
+  // If client using API Key -> enforce rules
+  if (req.user?.email?.startsWith('api-key::')) return true;
+
+  // If project user accessing via token -> enforce rules
+  const user = req.user as any;
+  if (user?.isProjectUser) return true;
+  if (req.projectUser) return true;
+
+  // Dashboard developer / Super Admin accessing their project data -> bypass rules
+  return false;
+}
+
+function getRuleAuthContext(req: Request): any {
+  const rawAuth = req.projectUser || ((req.user as any)?.isProjectUser ? req.user : null);
+  if (!rawAuth) return null;
+
+  return {
+    ...rawAuth,
+    id: (rawAuth as any).sub || (rawAuth as any).id,
+    sub: (rawAuth as any).sub || (rawAuth as any).id,
+    uid: (rawAuth as any).sub || (rawAuth as any).id,
+    email: rawAuth.email,
+    role: (rawAuth as any).role || 'user',
+    customClaims: (rawAuth as any).customClaims || {},
+    isProjectUser: true,
+    projectId: (rawAuth as any).projectId,
+  };
+}
+
+export function evaluateRuleExpression(
+  rule: any,
+  context: {
+    auth: any;
+    data: any;
+    resource: any;
+    request: any;
+  }
+): boolean {
+  if (rule === true) return true;
+  if (rule === false || rule === null || rule === undefined) return false;
+  if (typeof rule !== 'string') return false;
+
+  const trimmed = rule.trim();
+  if (trimmed === 'true') return true;
+  if (trimmed === 'false') return false;
+
   try {
+    const resourceObj = context.resource
+      ? { ...context.resource, data: { ...context.resource } }
+      : null;
+    const dataObj = context.data
+      ? { ...context.data, data: { ...context.data } }
+      : null;
+
+    const requestObj = {
+      auth: context.auth,
+      time: context.request?.time || new Date().toISOString(),
+      method: context.request?.method || 'read',
+      query: context.request?.query || {},
+      data: dataObj,
+      resource: { data: dataObj },
+    };
+
     const sandbox = {
       auth: context.auth,
-      data: context.data,
-      resource: context.resource,
-      request: context.request,
+      data: dataObj,
+      resource: resourceObj,
+      request: requestObj,
+      Math,
+      Date,
+      Number,
+      String,
+      Boolean,
+      Array,
+      Object,
+      JSON,
+      parseInt,
+      parseFloat,
+      isNaN,
+      isFinite,
+      RegExp,
     };
 
     vm.createContext(sandbox);
-
-    // Limit evaluation execution time to 50ms to prevent CPU exhaustion
-    const result = vm.runInContext(expr, sandbox, { timeout: 50 });
+    const result = vm.runInContext(trimmed, sandbox, { timeout: 50 });
     return !!result;
-  } catch (e) {
-    return false;
+  } catch {
+    return false; // Fail-closed on expression execution error
   }
+}
+
+/**
+ * Evaluates collection-scoped security rules (e.g. list, query).
+ */
+export function evaluateCollectionAccess(
+  collection: Collection,
+  action: 'list' | 'read',
+  req: Request
+): boolean {
+  if (!shouldEnforceRules(req)) return true;
+
+  const { rulesObj, parseError } = parseCollectionRules(collection.rules);
+  if (parseError) return false;
+
+  const parentAction = getParentAction(action);
+  let rule: any;
+
+  // 1. Scoped rules: rulesObj.collection
+  if (rulesObj.collection && typeof rulesObj.collection === 'object') {
+    if (rulesObj.collection[action] !== undefined) {
+      rule = rulesObj.collection[action];
+    } else if (rulesObj.collection[parentAction] !== undefined) {
+      rule = rulesObj.collection[parentAction];
+    }
+  }
+
+  // 2. Flat collection rules
+  if (rule === undefined) {
+    if (rulesObj[action] !== undefined) {
+      rule = rulesObj[action];
+    } else if (rulesObj[parentAction] !== undefined) {
+      rule = rulesObj[parentAction];
+    } else {
+      rule = true; // default permissive if unconfigured
+    }
+  }
+
+  const auth = getRuleAuthContext(req);
+  return evaluateRuleExpression(rule, {
+    auth,
+    data: null,
+    resource: null,
+    request: {
+      auth,
+      method: action,
+      time: new Date().toISOString(),
+      query: req.query || {},
+    },
+  });
+}
+
+/**
+ * Evaluates document-scoped security rules (get, create, update, delete).
+ */
+export function evaluateDocumentAccess(
+  collection: Collection,
+  action: 'get' | 'create' | 'update' | 'delete' | 'read' | 'write',
+  req: Request,
+  resource: Document | null,
+  data: DocumentObject | null,
+  rawPatch?: DocumentObject | null
+): boolean {
+  if (!shouldEnforceRules(req)) return true;
+
+  const { rulesObj, parseError } = parseCollectionRules(collection.rules);
+  if (parseError) return false;
+
+  const parentAction = getParentAction(action);
+  let rule: any;
+
+  // 1. Row-Level Security rules (_rules on document or in payload)
+  const targetRulesObj = action === 'create'
+    ? (data && typeof (data as any)._rules === 'object' ? (data as any)._rules : null)
+    : (resource && typeof (resource as any)._rules === 'object' ? (resource as any)._rules : null);
+
+  if (targetRulesObj) {
+    if (targetRulesObj[action] !== undefined) {
+      rule = targetRulesObj[action];
+    } else if (targetRulesObj[parentAction] !== undefined) {
+      rule = targetRulesObj[parentAction];
+    }
+  }
+
+  // 2. Collection-level document scoped rules: rulesObj.document
+  if (rule === undefined && rulesObj.document && typeof rulesObj.document === 'object') {
+    if (rulesObj.document[action] !== undefined) {
+      rule = rulesObj.document[action];
+    } else if (rulesObj.document[parentAction] !== undefined) {
+      rule = rulesObj.document[parentAction];
+    }
+  }
+
+  // 3. Flat collection rules
+  if (rule === undefined) {
+    if (rulesObj[action] !== undefined) {
+      rule = rulesObj[action];
+    } else if (rulesObj[parentAction] !== undefined) {
+      rule = rulesObj[parentAction];
+    } else {
+      rule = true; // default permissive if unconfigured
+    }
+  }
+
+  const auth = getRuleAuthContext(req);
+  return evaluateRuleExpression(rule, {
+    auth,
+    data: data || rawPatch || null,
+    resource: resource || null,
+    request: {
+      auth,
+      method: action,
+      time: new Date().toISOString(),
+      query: req.query || {},
+      data: rawPatch || data || null,
+    },
+  });
 }
 
 // ── Helper: parse query-string filter ────────────────────────────────────────
@@ -357,7 +505,10 @@ export async function insertDocument(req: Request, res: Response, next: NextFunc
       }
     }
     
-    checkRules(coll, 'write', req, 'document');
+    const allowed = evaluateDocumentAccess(coll, 'create', req, null, docData as DocumentObject);
+    if (!allowed) {
+      throw new AppError('Permission denied by security rules for operation: create.', 403);
+    }
     
     const finalDocId = docId || require('uuid').v4();
     const t0 = performance.now();
@@ -381,10 +532,39 @@ export async function queryDocuments(req: Request, res: Response, next: NextFunc
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'read');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req, 'collection');
     
+    const collectionAllowed = evaluateCollectionAccess(coll, 'list', req);
+    if (!collectionAllowed) {
+      throw new AppError('Permission denied by collection security rules for operation: list.', 403);
+    }
+
     const t0 = performance.now();
-    const result = dbStore.queryDocuments(ownerId, projectId, req.params.name, opts);
+    const isRuleEnforced = shouldEnforceRules(req);
+    
+    // If rules are enforced, fetch all matching rows to perform row-level security filtering
+    const queryOpts: QueryOptions = isRuleEnforced
+      ? { filter: opts.filter, sortBy: opts.sortBy, sortOrder: opts.sortOrder, limit: 10000, offset: 0 }
+      : opts;
+
+    let result = dbStore.queryDocuments(ownerId, projectId, req.params.name, queryOpts);
+
+    if (isRuleEnforced) {
+      const filteredDocs = result.documents.filter((doc) => {
+        return evaluateDocumentAccess(coll, 'get', req, doc, null);
+      });
+
+      const safeOffset = Math.max(0, opts.offset || 0);
+      const cappedLimit = Math.min(Math.max(1, opts.limit || 20), 10000);
+      const paginatedDocs = filteredDocs.slice(safeOffset, safeOffset + cappedLimit);
+
+      result = {
+        documents: paginatedDocs,
+        total: filteredDocs.length,
+        limit: cappedLimit,
+        offset: safeOffset,
+      };
+    }
+
     metricsService.recordDbOperation(performance.now() - t0, 'select', projectId);
     userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Documents retrieved.', data: result } as ApiResponse<QueryResult>);
@@ -397,10 +577,15 @@ export async function getDocument(req: Request, res: Response, next: NextFunctio
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'read');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req, 'document');
     
     const t0 = performance.now();
     const doc = dbStore.getDocument(ownerId, projectId, req.params.name, req.params.id);
+
+    const allowed = evaluateDocumentAccess(coll, 'get', req, doc, null);
+    if (!allowed) {
+      throw new AppError('Permission denied by security rules for operation: get.', 403);
+    }
+
     metricsService.recordDbOperation(performance.now() - t0, 'select', projectId);
     userStore.incrementTelemetry(ownerId, 'read');
     res.status(200).json({ success: true, message: 'Document retrieved.', data: doc } as ApiResponse<Document>);
@@ -428,8 +613,15 @@ export async function updateDocument(req: Request, res: Response, next: NextFunc
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'write', req, 'document');
     
+    const existing = dbStore.getDocument(ownerId, projectId, req.params.name, req.params.id);
+    const candidateData = { ...existing, ...patchData };
+
+    const allowed = evaluateDocumentAccess(coll, 'update', req, existing, candidateData as any, patchData as any);
+    if (!allowed) {
+      throw new AppError('Permission denied by security rules for operation: update.', 403);
+    }
+
     const t0 = performance.now();
     const doc = dbStore.updateDocument(ownerId, projectId, req.params.name, req.params.id, patchData as DocumentObject);
     metricsService.recordDbOperation(performance.now() - t0, 'update', projectId);
@@ -444,8 +636,14 @@ export async function deleteDocument(req: Request, res: Response, next: NextFunc
     const projectId = getProjectId(req);
     await checkLimitsAndLockout(ownerId, 'write');
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'write', req, 'document');
     
+    const existing = dbStore.getDocument(ownerId, projectId, req.params.name, req.params.id);
+
+    const allowed = evaluateDocumentAccess(coll, 'delete', req, existing, null);
+    if (!allowed) {
+      throw new AppError('Permission denied by security rules for operation: delete.', 403);
+    }
+
     const t0 = performance.now();
     dbStore.deleteDocument(ownerId, projectId, req.params.name, req.params.id);
     metricsService.recordDbOperation(performance.now() - t0, 'delete', projectId);
@@ -465,12 +663,19 @@ export async function queryVector(req: Request, res: Response, next: NextFunctio
     }
 
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req, 'collection');
+    const collectionAllowed = evaluateCollectionAccess(coll, 'list', req);
+    if (!collectionAllowed) {
+      throw new AppError('Permission denied by collection security rules for operation: list.', 403);
+    }
 
     const t0 = performance.now();
-    const results = dbStore.queryDocumentsByVector(ownerId, projectId, req.params.name, field, vector, topK);
-    metricsService.recordDbOperation(performance.now() - t0, 'search', projectId);
+    let results = dbStore.queryDocumentsByVector(ownerId, projectId, req.params.name, field, vector, 1000);
+    if (shouldEnforceRules(req)) {
+      results = results.filter((r) => evaluateDocumentAccess(coll, 'get', req, r.document, null));
+    }
+    results = results.slice(0, topK);
 
+    metricsService.recordDbOperation(performance.now() - t0, 'search', projectId);
     userStore.incrementTelemetry(ownerId, 'read');
 
     res.status(200).json({
@@ -506,7 +711,10 @@ export async function queryRealtime(req: Request, res: Response, next: NextFunct
     const projectId = getProjectId(req);
 
     const coll = dbStore.getCollection(ownerId, projectId, req.params.name);
-    checkRules(coll, 'read', req, 'collection');
+    const collectionAllowed = evaluateCollectionAccess(coll, 'list', req);
+    if (!collectionAllowed) {
+      throw new AppError('Permission denied by collection security rules for operation: list.', 403);
+    }
 
     // Setup Server-Sent Events headers
     res.setHeader('Content-Type', 'text/event-stream');
