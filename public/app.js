@@ -4269,8 +4269,13 @@ window.runSdkTest = async function(action) {
         body: JSON.stringify({ name: 'demo_app_users' })
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message || 'Failed to create collection');
-      printSdkLog(`✅ Collection "demo_app_users" ready!`, 'success');
+      if (res.status === 409 || (json.message && json.message.includes('already exists'))) {
+        printSdkLog('✅ Collection "demo_app_users" exists and is ready!', 'success');
+      } else if (!res.ok) {
+        throw new Error(json.message || 'Failed to create collection');
+      } else {
+        printSdkLog('✅ Collection "demo_app_users" created and ready!', 'success');
+      }
     }
 
     if (action === 'insert_doc') {
