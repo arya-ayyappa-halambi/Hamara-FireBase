@@ -86,6 +86,13 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     const serverHostingMode = req.body.serverHostingMode !== undefined ? req.body.serverHostingMode : (current.serverHostingMode || 'both');
     const customDomain = req.body.customDomain !== undefined ? req.body.customDomain : (current.customDomain || '');
 
+    if (isNaN(serverPort) || serverPort < 1 || serverPort > 65535) {
+      throw new AppError('Server port must be a valid integer between 1 and 65535.', 400);
+    }
+    if (serverPort < 1024 && process.platform !== 'win32' && process.getuid && process.getuid() !== 0) {
+      throw new AppError(`Port ${serverPort} is a privileged system port (< 1024). On macOS and Linux, ports below 1024 require root/sudo privileges. Please choose a port between 1024 and 65535 (e.g. 3000, 4000, 8080, 9000).`, 400);
+    }
+
     // Convert boolean to 1/0 for sqlite
     const isGoogleAuthEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
     const isDemoLoginEnabled = demoLoginEnabled === true || demoLoginEnabled === 'true' || demoLoginEnabled === 1 ? 1 : 0;
@@ -137,30 +144,38 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     const networkIp = endpointMigrationScheduler.getNetworkIp();
     const newBaseUrl = endpointMigrationScheduler.computeBaseUrl(serverHostingMode, serverHost, serverPort, customDomain);
 
-    // Broadcast real-time config update over WebSocket
-    wsService.broadcast('SERVER_HOST_CONFIG_UPDATED', {
-      serverHost,
-      serverPort,
-      serverHostingMode,
-      customDomain,
-      newBaseUrl,
-      networkIp
-    });
-
     // Rebind server socket if host or port has changed
     const portChanged = serverPort !== Number(current.serverPort || 3000);
     const hostChanged = serverHost !== (current.serverHost || '0.0.0.0');
 
     if (portChanged || hostChanged) {
-      setTimeout(async () => {
-        try {
-          console.log(`[Admin] Triggering live socket rebind to ${serverHost}:${serverPort}...`);
-          const { rebindServer } = await import('../server');
-          await rebindServer(serverPort, serverHost);
-        } catch (err: any) {
-          console.error('[Admin] Rebind server failed:', err.message);
-        }
-      }, 500);
+      // Broadcast live migration redirect event to all connected clients across all tabs
+      wsService.broadcast('ENDPOINT_MIGRATION_EXECUTED', {
+        serverHost,
+        serverPort,
+        serverHostingMode,
+        customDomain,
+        newBaseUrl,
+        networkIp
+      });
+
+      try {
+        console.log(`[Admin] Rebinding server live socket to ${serverHost}:${serverPort}...`);
+        const { rebindServer } = await import('../server');
+        await rebindServer(serverPort, serverHost);
+      } catch (err: any) {
+        console.error('[Admin] Rebind server failed:', err.message);
+      }
+    } else {
+      // Broadcast real-time config update over WebSocket
+      wsService.broadcast('SERVER_HOST_CONFIG_UPDATED', {
+        serverHost,
+        serverPort,
+        serverHostingMode,
+        customDomain,
+        newBaseUrl,
+        networkIp
+      });
     }
 
     res.status(200).json({
@@ -203,9 +218,19 @@ export async function scheduleMigrationHandler(req: Request, res: Response, next
       return;
     }
 
+    const portNum = Number(targetPort || 3000);
+    if (isNaN(portNum) || portNum < 1 || portNum > 65535) {
+      res.status(400).json({ success: false, message: 'targetPort must be a valid integer between 1 and 65535.' });
+      return;
+    }
+    if (portNum < 1024 && process.platform !== 'win32' && process.getuid && process.getuid() !== 0) {
+      res.status(400).json({ success: false, message: `Port ${portNum} is a privileged system port (< 1024). On macOS and Linux, ports below 1024 require root/sudo. Please choose a port between 1024 and 65535 (e.g. 3000, 4000, 8080, 9000).` });
+      return;
+    }
+
     const migration = endpointMigrationScheduler.scheduleMigration({
       targetHost,
-      targetPort: Number(targetPort || 3000),
+      targetPort: portNum,
       targetMode,
       customDomain,
       scheduledAt,

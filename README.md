@@ -534,9 +534,27 @@ AegisDB features a built-in, Super Admin-exclusive **Network & Server Hosting Co
   - **1-Click Copy Buffer**: Copy the entire formatted terminal log history to your clipboard.
   - **Auto-Scroll**: Toggle automatic pinning to the newest log entries.
 
-### ⏰ 4. Scheduled Migration Rollouts & Cancellations
-- **Scheduled Deployments**: Schedule a future endpoint migration with customizable user broadcast notices and visual countdown banners across all connected screens.
-- **Instant Rollout / Cancellation**: Cancel scheduled migrations at any moment, automatically broadcasting cancellation notices over WebSocket and clearing banners across all active users.
+### ⏰ 4. Scheduled Migration Rollouts, Zero-Downtime Multi-Tab Redirection & Notifications
+- **Real-Time Network Broadcast**: When a Super Admin schedules a port or host change, AegisDB stores the schedule in SQLite and broadcasts `ENDPOINT_MIGRATION_SCHEDULED` across all connected WebSocket streams.
+- **Top-Level Screen-Wide Countdown Banner**: Displays an amber warning banner directly below the header with real-time countdown clocks (`In 00:01:45`), target URL, and developer notice messages across all open workspaces.
+- **Synchronized Header Notification Bell**: Automatically unhides the alert bell in the top navigation header for all connected developers with live badge counts and target endpoint details.
+- **Strict Role-Based Protection**: Non-admin developers see the live countdown notice with "Copy Target URL" and "Copy Updated Prompt" actions, while the "Cancel Migration" capability is strictly restricted to Super Administrators.
+- **Synchronized Zero-Downtime Multi-Tab Handover**:
+  - The server broadcasts `ENDPOINT_MIGRATION_EXECUTED` *before* closing the listening socket, ensuring every open tab receives the redirect signal.
+  - The client-side countdown timer also autonomously triggers handover as a fail-safe the exact second the timer reaches `00:00:00`.
+  - All connected clients across the entire local network transition together using the 4-step handover overlay and zero-login URL hash token transfer.
+
+### 🤖 5. Dynamic AI Prompt Center Synchronization
+- **Live Endpoint Binding**: The AI Agent & Developer Prompt Center (`#tab-about`) automatically polls the active host and port configuration from `GET /api/v1/system/status` and syncs on every workspace switch.
+- **Always Up-to-Date Prompts**: App Migration prompts, New Project prompts, and Drop-In SDK code snippets dynamically adapt to the active port and Wi-Fi LAN IP without static hardcoding.
+
+### 📋 6. Universal Fallback Clipboard Engine (`window.copyToClipboard`)
+- **HTTP LAN IP Compatibility**: Browsers (especially Safari) restrict `navigator.clipboard` to secure contexts (HTTPS or localhost).
+- **Graceful Fallback**: Implements an automatic detached `<textarea>` + `document.execCommand('copy')` fallback engine, guaranteeing 100% reliable 1-click prompt and log copying across all HTTP network IPs (`http://192.168.x.x:<port>`).
+
+### 🛡️ 7. Privileged System Port Guard (< 1024)
+- **Automatic Validation**: Validates candidate port numbers between `1` and `65535`.
+- **Permission Guard**: Disallows non-root processes from binding to privileged system ports (< 1024 like `80`, `443`, `1000`) on macOS and Linux, preventing silent connection drops and network lockouts. Valid unprivileged ports (e.g. `3000`, `4000`, `8080`, `9000`) are recommended.
 
 ---
 

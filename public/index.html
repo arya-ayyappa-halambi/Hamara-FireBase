@@ -743,6 +743,43 @@
       </div>
     </div>
 
+    <!-- ── GLOBAL SCHEDULED ENDPOINT MIGRATION NOTICE BANNER ─────────── -->
+    <div id="banner-scheduled-migration" class="hidden bg-gradient-to-r from-amber-950/95 via-slate-900/95 to-amber-950/95 border-b border-amber-500/40 px-6 py-3 items-center justify-between z-40 text-xs text-amber-200 shadow-lg flex-wrap gap-3">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-sm flex-shrink-0">
+          <i class="fa-solid fa-hourglass-half"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <span class="font-bold text-amber-300 uppercase tracking-wider text-[11px]">Upcoming Server Endpoint Migration</span>
+            <span id="label-migration-countdown" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">In 00:00:00</span>
+          </div>
+          <div class="flex items-center space-x-2 text-[11px] text-slate-300 mt-0.5">
+            <span id="label-migration-message">AegisDB is scheduled to migrate to a new hosting port/IP address.</span>
+            <span class="text-amber-400/60">•</span>
+            <span class="text-amber-200 font-mono">Target: <strong id="label-migration-target-url" class="underline text-amber-300">http://localhost:3000</strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="btn-cancel-migration-global" class="hidden px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-semibold shadow transition active:scale-95 flex items-center space-x-1.5">
+          <i class="fa-solid fa-ban"></i>
+          <span>Cancel Migration</span>
+        </button>
+        <button type="button" id="btn-copy-upcoming-url" class="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-copy"></i>
+          <span>Copy Target URL</span>
+        </button>
+        <button type="button" id="btn-copy-upcoming-prompt" class="px-3 py-1.5 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 font-medium transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-robot"></i>
+          <span>Copy Updated Prompt</span>
+        </button>
+        <button type="button" onclick="document.getElementById('banner-scheduled-migration').classList.add('hidden'); document.getElementById('banner-scheduled-migration').classList.remove('flex');" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition" title="Dismiss Notice">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+    </div>
+
     <!-- ── DASHBOARD BODY (SIDEBAR + CONTENT) ────────────────────────────── -->
     <div class="flex-1 flex overflow-hidden">
 
@@ -853,41 +890,6 @@
 
       <!-- ── MAIN CONTENT WORKSPACE PANELS ───────────────────────────────── -->
       <main class="flex-1 overflow-y-auto p-8 custom-scrollbar">
-
-        <!-- ── GLOBAL SCHEDULED ENDPOINT MIGRATION NOTICE BANNER ─────────── -->
-        <div id="banner-scheduled-migration" class="hidden mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-950/80 via-slate-900/90 to-amber-950/80 border border-amber-500/40 shadow-2xl backdrop-blur-md">
-          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div class="flex items-start space-x-3">
-              <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-base flex-shrink-0 mt-0.5">
-                <i class="fa-solid fa-hourglass-half"></i>
-              </div>
-              <div class="space-y-1">
-                <div class="flex items-center space-x-2">
-                  <span class="text-xs font-bold uppercase tracking-wider text-amber-400">⏳ Upcoming Server Endpoint Migration</span>
-                  <span id="label-migration-countdown" class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">In 00:00:00</span>
-                </div>
-                <p id="label-migration-message" class="text-xs text-slate-300">AegisDB is scheduled to migrate to a new hosting port/IP address.</p>
-                <div class="flex items-center space-x-2 text-[11px] font-mono text-amber-200">
-                  <span>Target Endpoint:</span>
-                  <span id="label-migration-target-url" class="font-bold underline">http://localhost:3000</span>
-                </div>
-              </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-              <button type="button" id="btn-copy-upcoming-url" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 text-xs font-medium transition flex items-center space-x-1.5">
-                <i class="fa-solid fa-copy"></i>
-                <span>Copy Target URL</span>
-              </button>
-              <button type="button" id="btn-copy-upcoming-prompt" class="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-medium transition flex items-center space-x-1.5">
-                <i class="fa-solid fa-robot"></i>
-                <span>Copy Updated Prompt</span>
-              </button>
-              <button type="button" onclick="document.getElementById('banner-scheduled-migration').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition" title="Dismiss Notice">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-            </div>
-          </div>
-        </div>
 
         <!-- ════════════════════════════════════════════════════════════════ -->
         <!-- WORKSPACE 1: GLOBAL INFRASTRUCTURE & TELEMETRY (SUPER ADMIN)      -->
@@ -1759,7 +1761,7 @@
 
             <!-- Action Buttons -->
             <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
-              <div class="flex items-center space-x-3">
+              <div class="flex flex-wrap items-center gap-3">
                 <button type="button" id="hosttab-btn-apply-switch" class="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center space-x-2 active:scale-95">
                   <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>
                   <span>Apply, Save & Switch Immediately</span>
@@ -1774,6 +1776,8 @@
                 <span>Reset to Defaults (0.0.0.0:3000)</span>
               </button>
             </div>
+          </div>
+
           <!-- Live Terminal CLI Command Sync Card -->
           <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
             <div class="flex items-center justify-between">
@@ -1802,6 +1806,9 @@
                   <i class="fa-solid fa-copy"></i>
                 </button>
               </div>
+            </div>
+          </div>
+
           <!-- Live Server Terminal & Console Streamer -->
           <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -3223,7 +3230,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 <div class="flex items-center space-x-2.5">
                   <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span class="text-xs font-semibold text-slate-300">Synchronized Server Endpoint:</span>
-                  <span class="label-prompt-endpoint-pill px-3 py-1 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">http://localhost:3000</span>
+                  <span class="label-prompt-endpoint-pill px-3 py-1 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Synchronizing...</span>
                 </div>
                 <div class="flex items-center space-x-2">
                   <span class="text-[11px] text-slate-400">All prompts automatically sync to this active endpoint</span>
@@ -4069,7 +4076,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New API Key (Public)</label>
           <div class="relative flex items-center gap-2">
             <code id="rotate-keys-api-key" class="flex-1 block w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs text-emerald-300 font-mono break-all"></code>
-            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(document.getElementById('rotate-keys-api-key').getAttribute('data-key')); showToast('API Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.copyToClipboard(document.getElementById('rotate-keys-api-key').getAttribute('data-key')); showToast('API Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
               <i class="fa-regular fa-copy"></i>
             </button>
           </div>
@@ -4079,7 +4086,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <label class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">New Service Key (Private)</label>
           <div class="relative flex items-center gap-2">
             <code id="rotate-keys-service-key" class="flex-1 block w-full bg-slate-950 border border-white/10 rounded-xl p-3 text-xs text-rose-300 font-mono break-all"></code>
-            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(document.getElementById('rotate-keys-service-key').getAttribute('data-key')); showToast('Service Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
+            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.copyToClipboard(document.getElementById('rotate-keys-service-key').getAttribute('data-key')); showToast('Service Key copied!', 'success')" class="p-3 bg-slate-800 hover:bg-slate-700 border border-white/10 rounded-xl text-slate-300 hover:text-white transition" title="Copy to clipboard">
               <i class="fa-regular fa-copy"></i>
             </button>
           </div>
@@ -4788,10 +4795,16 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           </div>
         </div>
 
-        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-amber-600/30 active:scale-98 flex items-center justify-center space-x-2">
-          <i class="fa-solid fa-paper-plane"></i>
-          <span>Schedule Migration & Broadcast Notice</span>
-        </button>
+        <div class="flex flex-wrap items-center gap-2.5 pt-1">
+          <button type="submit" class="flex-1 py-3 px-4 rounded-xl bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-amber-600/30 active:scale-98 flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-paper-plane"></i>
+            <span>Schedule Migration & Broadcast Notice</span>
+          </button>
+          <button type="button" id="modal-schedule-btn-cancel-active" class="hidden py-3 px-4 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-bold text-xs transition flex items-center justify-center space-x-1.5 active:scale-98">
+            <i class="fa-solid fa-ban"></i>
+            <span>Cancel Active Migration</span>
+          </button>
+        </div>
       </form>
     </div>
   </div>

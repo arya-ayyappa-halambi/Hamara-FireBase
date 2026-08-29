@@ -14,8 +14,9 @@ router.get('/status', (req, res) => {
   try {
     const os = require('os');
     const { getDb } = require('../db/sqlite.connection');
+    const { endpointMigrationScheduler } = require('../services/endpoint-migration-scheduler.service');
     const db = getDb();
-    const config = db.prepare('SELECT maintenanceMode FROM platform_settings WHERE id = ?').get('default');
+    const config = db.prepare('SELECT serverHost, serverPort, serverHostingMode, customDomain, maintenanceMode FROM platform_settings WHERE id = ?').get('default') as any;
     const isMaintenance = config && config.maintenanceMode === 1;
 
     let networkIp = '127.0.0.1';
@@ -30,19 +31,27 @@ router.get('/status', (req, res) => {
       if (networkIp !== '127.0.0.1') break;
     }
 
-    const port = parseInt(process.env.PORT ?? '3000', 10);
-    const host = process.env.HOST ?? '0.0.0.0';
+    const port = config?.serverPort ? Number(config.serverPort) : parseInt(process.env.PORT ?? '3000', 10);
+    const host = config?.serverHost || process.env.HOST || '0.0.0.0';
+    const mode = config?.serverHostingMode || 'both';
+    const customDomain = config?.customDomain || '';
+    const pendingMigration = endpointMigrationScheduler.getPendingMigration();
 
     res.json({
       success: true,
       message: isMaintenance ? 'System is under maintenance' : 'System is operational',
       maintenanceMode: isMaintenance,
       port,
+      serverPort: port,
       host,
-      networkIp
+      serverHost: host,
+      serverHostingMode: mode,
+      customDomain,
+      networkIp,
+      pendingMigration
     });
   } catch (_) {
-    res.json({ success: true, message: 'System is operational', maintenanceMode: false, port: 3000, host: '0.0.0.0', networkIp: '127.0.0.1' });
+    res.json({ success: true, message: 'System is operational', maintenanceMode: false, port: 3000, serverPort: 3000, host: '0.0.0.0', serverHost: '0.0.0.0', serverHostingMode: 'both', customDomain: '', networkIp: '127.0.0.1', pendingMigration: null });
   }
 });
 

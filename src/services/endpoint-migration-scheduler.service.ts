@@ -126,6 +126,10 @@ export class EndpointMigrationSchedulerService {
     };
   }
 
+  public getActiveMigration(): ScheduledMigration | null {
+    return this.getPendingMigration();
+  }
+
   public scheduleMigration(data: {
     targetHost: string;
     targetPort: number;
@@ -227,16 +231,7 @@ export class EndpointMigrationSchedulerService {
       WHERE id = ?
     `).run(executedAt, id);
 
-    // 3. Broadcast real-time config update & execution event to all clients
-    wsService.broadcast('SERVER_HOST_CONFIG_UPDATED', {
-      serverHost: migration.targetHost,
-      serverPort: migration.targetPort,
-      serverHostingMode: migration.targetMode,
-      customDomain: migration.customDomain || '',
-      newBaseUrl,
-      networkIp
-    });
-
+    // 3. Broadcast real-time execution & redirect event to all connected clients BEFORE closing the old socket
     wsService.broadcast('ENDPOINT_MIGRATION_EXECUTED', {
       id,
       newBaseUrl,
@@ -247,6 +242,18 @@ export class EndpointMigrationSchedulerService {
       networkIp,
       executedAt
     });
+
+    wsService.broadcast('SERVER_HOST_CONFIG_UPDATED', {
+      serverHost: migration.targetHost,
+      serverPort: migration.targetPort,
+      serverHostingMode: migration.targetMode,
+      customDomain: migration.customDomain || '',
+      newBaseUrl,
+      networkIp
+    });
+
+    // Give clients a brief moment to receive the WS packet before closing the socket
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     // 4. Perform dynamic live socket rebinding
     if (this.rebindHandler) {

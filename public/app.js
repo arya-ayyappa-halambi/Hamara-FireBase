@@ -25,6 +25,38 @@ function escapeHTML(str) {
   }[tag] || tag));
 }
 
+// Universal Clipboard Copy with Fallback for HTTP / LAN IP origins
+window.copyToClipboard = async function(text) {
+  if (text === undefined || text === null) return false;
+  const strText = String(text);
+  
+  if (navigator.clipboard && window.isSecureContext && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(strText);
+      return true;
+    } catch (_) {}
+  }
+
+  // Fallback for non-secure / HTTP contexts (Safari & Chrome on local network IPs)
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = strText;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    textArea.setAttribute('readonly', '');
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    const successful = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return successful;
+  } catch (err) {
+    console.warn('Fallback clipboard copy failed:', err);
+    return false;
+  }
+};
+
 const state = {
   baseUrl: window.location.origin,
   wsUrl: window.location.origin.replace(/^http/, 'ws'),
@@ -273,7 +305,7 @@ function updateUserProfileUI() {
 }
 
 window.updateUserNotificationsHeader = function() {
-  if (!state.user || state.user.isSuperAdmin) return;
+  if (!state.user) return;
 
   const containerAlerts = document.getElementById('container-threat-alerts');
   const badgeCount = document.getElementById('badge-threat-count');
@@ -283,8 +315,23 @@ window.updateUserNotificationsHeader = function() {
 
   let alerts = [];
 
-  // Flag Alert
-  if (state.user.isFlagged || state.user.flagged) {
+  // 1. Scheduled Server Migration Alert (All users)
+  if (activeScheduledMigration && activeScheduledMigration.status === 'pending') {
+    const scheduledTime = new Date(activeScheduledMigration.scheduledAt).getTime();
+    const remainingSec = Math.max(0, Math.ceil((scheduledTime - Date.now()) / 1000));
+    const timeStr = formatRemainingSeconds(remainingSec);
+    const isSuperAdmin = state.user?.isSuperAdmin || state.user?.role === 'superadmin';
+    alerts.push({
+      type: 'migration',
+      title: 'Server Endpoint Migration Scheduled',
+      details: `Target: ${activeScheduledMigration.newBaseUrl} (in ${timeStr})`,
+      actionText: isSuperAdmin ? 'Cancel Migration' : 'Copy URL',
+      actionFn: isSuperAdmin ? 'cancelScheduledMigration()' : `window.copyToClipboard('${activeScheduledMigration.newBaseUrl}'); showToast('Copied Target URL: ${activeScheduledMigration.newBaseUrl}', 'success');`
+    });
+  }
+
+  // 2. Flag Alert (Developer users)
+  if (!state.user.isSuperAdmin && (state.user.isFlagged || state.user.flagged)) {
     alerts.push({
       type: 'flag',
       title: 'Account Flagged for Review',
@@ -300,8 +347,8 @@ window.updateUserNotificationsHeader = function() {
     }
   }
 
-  // Active Notice Alert
-  if (activeNoticeObj) {
+  // 3. Active Notice Alert (Developer users)
+  if (!state.user.isSuperAdmin && activeNoticeObj) {
     alerts.push({
       type: 'notice',
       title: activeNoticeObj.title || 'Compliance Violation Notice',
@@ -317,8 +364,8 @@ window.updateUserNotificationsHeader = function() {
     }
   }
 
-  // Pending Deletion Alert
-  if (state.user.isPendingDeletion || state.user.status === 'pending_deletion') {
+  // 4. Pending Deletion Alert (Developer users)
+  if (!state.user.isSuperAdmin && (state.user.isPendingDeletion || state.user.status === 'pending_deletion')) {
     alerts.push({
       type: 'deletion',
       title: 'Account Erasure Scheduled',
@@ -334,15 +381,15 @@ window.updateUserNotificationsHeader = function() {
 
     if (feedList) {
       feedList.innerHTML = alerts.map(a => `
-        <div class="p-3 rounded-xl bg-slate-900/90 border ${a.type === 'deletion' ? 'border-amber-500/40 bg-amber-950/20' : 'border-rose-500/40 bg-rose-950/20'} flex items-start justify-between gap-2 shadow">
+        <div class="p-3 rounded-xl bg-slate-900/90 border ${a.type === 'migration' ? 'border-amber-500/40 bg-amber-950/20' : (a.type === 'deletion' ? 'border-amber-500/40 bg-amber-950/20' : 'border-rose-500/40 bg-rose-950/20')} flex items-start justify-between gap-2 shadow">
           <div class="space-y-0.5">
-            <div class="font-bold text-xs ${a.type === 'deletion' ? 'text-amber-300' : 'text-rose-300'} flex items-center space-x-1.5">
-              <i class="fa-solid ${a.type === 'deletion' ? 'fa-triangle-exclamation' : 'fa-shield-halved'}"></i>
+            <div class="font-bold text-xs ${a.type === 'migration' ? 'text-amber-300' : (a.type === 'deletion' ? 'text-amber-300' : 'text-rose-300')} flex items-center space-x-1.5">
+              <i class="fa-solid ${a.type === 'migration' ? 'fa-hourglass-half text-amber-400' : (a.type === 'deletion' ? 'fa-triangle-exclamation text-amber-400' : 'fa-shield-halved text-rose-400')}"></i>
               <span>${escapeHTML(a.title)}</span>
             </div>
             <div class="text-[10px] text-slate-300">${escapeHTML(a.details)}</div>
           </div>
-          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); ${a.actionFn}" class="px-2.5 py-1 rounded-lg ${a.type === 'deletion' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-rose-600 hover:bg-rose-500'} text-white font-semibold text-[10px] shadow transition active:scale-95 shrink-0">
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); ${a.actionFn}" class="px-2.5 py-1 rounded-lg ${a.type === 'migration' && state.user?.isSuperAdmin ? 'bg-rose-600 hover:bg-rose-500' : (a.type === 'deletion' ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-amber-600 hover:bg-amber-500')} text-white font-semibold text-[10px] shadow transition active:scale-95 shrink-0">
             ${a.actionText}
           </button>
         </div>
@@ -350,7 +397,10 @@ window.updateUserNotificationsHeader = function() {
     }
   } else {
     if (badgeCount) badgeCount.textContent = '0';
-    if (feedList) feedList.innerHTML = '<div class="text-slate-400 text-center py-4 text-xs">No active threat alerts. System normal.</div>';
+    if (feedList) feedList.innerHTML = '<div class="text-slate-400 text-center py-4 text-xs">No active alerts. System normal.</div>';
+    if (!state.user.isSuperAdmin) {
+      if (containerAlerts) containerAlerts.classList.add('hidden');
+    }
     if (bannerNotice && !activeNoticeObj && !state.user.isFlagged && !state.user.flagged) {
       bannerNotice.classList.add('hidden');
       bannerNotice.classList.remove('flex');
@@ -490,6 +540,8 @@ window.switchWorkspace = function switchWorkspace(tabId) {
     if (typeof loadPlatformPolicies === 'function') loadPlatformPolicies();
   } else if (tabId === 'tab-settings') {
     loadPlatformSettings();
+  } else if (tabId === 'tab-about') {
+    initPromptEndpointManager();
   }
 }
 
@@ -1035,6 +1087,9 @@ async function initGlobalData() {
     state.projects = projects;
     updateProjectSelectorDropdown(projects);
     
+    // Refresh prompt endpoint configurator and pending migration status
+    initPromptEndpointManager();
+
     // Once projects are loaded and activeProject is set, refresh the current view
     const activeTab = document.querySelector('.active-nav')?.getAttribute('data-tab');
     if (activeTab) {
@@ -2509,12 +2564,16 @@ function connectGlobalWebSocket() {
           if (data.data?.serverPort) promptEndpointConfig.port = data.data.serverPort.toString();
           if (data.data?.serverHostingMode) promptEndpointConfig.mode = data.data.serverHostingMode;
           if (data.data?.serverHost) promptEndpointConfig.host = data.data.serverHost;
+          if (data.data?.customDomain !== undefined) promptEndpointConfig.customDomain = data.data.customDomain;
           updatePromptUI();
-          showToast('Server hosting configuration updated. Prompts refreshed.', 'info');
+          const targetInfo = data.data?.newBaseUrl || `Port ${data.data?.serverPort || 3000}`;
+          showToast(`🌐 Server endpoint configuration updated (${targetInfo}). Live prompts synced.`, 'info');
         } else if (data.type === 'ENDPOINT_MIGRATION_SCHEDULED') {
           if (data.data?.migration) {
             startScheduledMigrationCountdown(data.data.migration);
-            showToast(`⏳ Server migration scheduled: ${data.data.migration.noticeMessage || ''}`, 'warning');
+            const targetUrl = data.data.migration.newBaseUrl || 'new port';
+            const msg = data.data.migration.noticeMessage || `Server migration scheduled to ${targetUrl}`;
+            showToast(`⏳ Notice: ${msg}`, 'warning');
           }
         } else if (data.type === 'ENDPOINT_MIGRATION_CANCELLED') {
           if (migrationCountdownTimer) {
@@ -2522,15 +2581,24 @@ function connectGlobalWebSocket() {
             migrationCountdownTimer = null;
           }
           activeScheduledMigration = null;
-          document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
+          const banner = document.getElementById('banner-scheduled-migration');
+          if (banner) {
+            banner.classList.add('hidden');
+            banner.classList.remove('flex');
+          }
           document.getElementById('box-pending-migration-card')?.classList.add('hidden');
           document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
-          showToast(`ℹ️ ${data.data?.noticeMessage || 'Scheduled server migration was cancelled by Administrator.'}`, 'info');
+          document.getElementById('modal-schedule-btn-cancel-active')?.classList.add('hidden');
+          if (typeof window.updateUserNotificationsHeader === 'function') {
+            window.updateUserNotificationsHeader();
+          }
+          showToast(`ℹ️ ${data.data?.noticeMessage || 'Scheduled server endpoint migration was cancelled by Administrator.'}`, 'info');
         } else if (data.type === 'ENDPOINT_MIGRATION_EXECUTED') {
           if (data.data?.newBaseUrl) {
             if (data.data?.networkIp) promptEndpointConfig.networkIp = data.data.networkIp;
             if (data.data?.serverPort) promptEndpointConfig.port = data.data.serverPort.toString();
             if (data.data?.serverHostingMode) promptEndpointConfig.mode = data.data.serverHostingMode;
+            if (data.data?.customDomain !== undefined) promptEndpointConfig.customDomain = data.data.customDomain;
             updatePromptUI();
             triggerClientMigrationRedirect(data.data.newBaseUrl);
           }
@@ -2771,22 +2839,33 @@ async function handleGoogleCredentialResponse(response) {
 // ── Dynamic Host & Port Prompt Configurator ────────────────────────────────────
 
 const promptEndpointConfig = {
-  mode: 'localhost', // 'localhost' | 'network' | 'both' | 'custom'
-  host: window.location.hostname || 'localhost',
+  mode: 'both', // 'localhost' | 'network' | 'both' | 'custom'
+  host: window.location.hostname || '0.0.0.0',
   port: window.location.port || '3000',
-  networkIp: '192.168.31.57'
+  networkIp: '192.168.31.57',
+  customDomain: ''
 };
 
 function getEffectivePromptBaseUrl() {
-  const portStr = promptEndpointConfig.port ? `:${promptEndpointConfig.port}` : '';
+  const port = promptEndpointConfig.port || window.location.port || '3000';
+  const portStr = (port && port !== '80' && port !== '443') ? `:${port}` : '';
+  const currentHost = window.location.hostname || 'localhost';
+
   if (promptEndpointConfig.mode === 'localhost') {
     return `http://localhost${portStr}`;
   } else if (promptEndpointConfig.mode === 'network') {
-    const ip = promptEndpointConfig.networkIp || window.location.hostname || '127.0.0.1';
+    const ip = promptEndpointConfig.networkIp || currentHost || '127.0.0.1';
     return `http://${ip}${portStr}`;
   } else if (promptEndpointConfig.mode === 'both') {
+    if (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+      return `http://${currentHost}${portStr}`;
+    }
     return `http://localhost${portStr}`;
   } else if (promptEndpointConfig.mode === 'custom') {
+    if (promptEndpointConfig.customDomain && promptEndpointConfig.customDomain.trim()) {
+      const cleanDomain = promptEndpointConfig.customDomain.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      return `http://${cleanDomain}${portStr}`;
+    }
     const cleanHost = (promptEndpointConfig.host || 'localhost').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     return `http://${cleanHost}${portStr}`;
   }
@@ -2794,7 +2873,12 @@ function getEffectivePromptBaseUrl() {
 }
 
 function getEffectivePromptDualUrl() {
-  const portStr = promptEndpointConfig.port ? `:${promptEndpointConfig.port}` : '';
+  const port = promptEndpointConfig.port || window.location.port || '3000';
+  const portStr = (port && port !== '80' && port !== '443') ? `:${port}` : '';
+  const currentHost = window.location.hostname || 'localhost';
+  if (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
+    return `http://localhost${portStr}`;
+  }
   const ip = promptEndpointConfig.networkIp || '192.168.31.57';
   return `http://${ip}${portStr}`;
 }
@@ -3048,10 +3132,10 @@ function updatePromptUI() {
   const btnQuickMig = document.getElementById('btn-quick-copy-migration');
   if (btnQuickMig) {
     btnQuickMig.setAttribute('data-text', migrationText);
-    btnQuickMig.onclick = (e) => {
+    btnQuickMig.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      navigator.clipboard.writeText(migrationText);
+      await window.copyToClipboard(migrationText);
       const icon = btnQuickMig.querySelector('i');
       if (icon) {
         icon.classList.remove('fa-copy');
@@ -3073,10 +3157,10 @@ function updatePromptUI() {
   const btnQuickNew = document.getElementById('btn-quick-copy-newapp');
   if (btnQuickNew) {
     btnQuickNew.setAttribute('data-text', newAppText);
-    btnQuickNew.onclick = (e) => {
+    btnQuickNew.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      navigator.clipboard.writeText(newAppText);
+      await window.copyToClipboard(newAppText);
       const icon = btnQuickNew.querySelector('i');
       if (icon) {
         icon.classList.remove('fa-copy');
@@ -3099,10 +3183,10 @@ function updatePromptUI() {
   if (preModalMig) preModalMig.textContent = migrationText;
   const btnModalMig = document.getElementById('btn-copy-modal-migration');
   if (btnModalMig) {
-    btnModalMig.onclick = (e) => {
+    btnModalMig.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      navigator.clipboard.writeText(migrationText);
+      await window.copyToClipboard(migrationText);
       const icon = btnModalMig.querySelector('i');
       if (icon) {
         icon.classList.remove('fa-copy');
@@ -3121,10 +3205,10 @@ function updatePromptUI() {
   if (preModalNew) preModalNew.textContent = newAppText;
   const btnModalNew = document.getElementById('btn-copy-modal-newapp');
   if (btnModalNew) {
-    btnModalNew.onclick = (e) => {
+    btnModalNew.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      navigator.clipboard.writeText(newAppText);
+      await window.copyToClipboard(newAppText);
       const icon = btnModalNew.querySelector('i');
       if (icon) {
         icon.classList.remove('fa-copy');
@@ -3146,10 +3230,10 @@ function updatePromptUI() {
   }
   const btnModalSdk = document.getElementById('btn-copy-modal-sdk');
   if (btnModalSdk) {
-    btnModalSdk.onclick = (e) => {
+    btnModalSdk.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      navigator.clipboard.writeText(sdkText);
+      await window.copyToClipboard(sdkText);
       const icon = btnModalSdk.querySelector('i');
       if (icon) {
         icon.classList.remove('fa-copy');
@@ -3163,7 +3247,13 @@ function updatePromptUI() {
     };
   }
 
-  // 8. Update Mode Buttons active state across both toolbars
+  // 8. Hosting Tab AI Prompts and SDK Code
+  const hosttabAiPrompt = document.getElementById('hosttab-text-ai-prompt');
+  if (hosttabAiPrompt) hosttabAiPrompt.textContent = migrationText;
+  const hosttabSdkCode = document.getElementById('hosttab-text-sdk-code');
+  if (hosttabSdkCode) hosttabSdkCode.textContent = sdkText;
+
+  // 9. Update Mode Buttons active state across both toolbars
   document.querySelectorAll('.btn-prompt-mode').forEach((btn) => {
     const mode = btn.getAttribute('data-mode');
     if (mode === promptEndpointConfig.mode) {
@@ -3192,26 +3282,28 @@ function updatePromptUI() {
 }
 
 async function initPromptEndpointManager() {
-  // 1. Fetch system status to get active server port and network IP
+  // 1. Fetch system status to get active server port, host, mode, network IP, and pending migration
   try {
     const res = await fetch('/api/v1/system/status');
     const data = await res.json().catch(() => ({}));
     if (data.networkIp) promptEndpointConfig.networkIp = data.networkIp;
-    if (data.port) promptEndpointConfig.port = data.port.toString();
-  } catch (_) {}
+    if (data.serverPort || data.port) promptEndpointConfig.port = (data.serverPort || data.port).toString();
+    if (data.serverHost || data.host) promptEndpointConfig.host = data.serverHost || data.host;
+    if (data.serverHostingMode) promptEndpointConfig.mode = data.serverHostingMode;
+    if (data.customDomain !== undefined) promptEndpointConfig.customDomain = data.customDomain;
 
-  // 2. Load cached preference if any
-  try {
-    const saved = localStorage.getItem('aegis_prompt_config');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.mode) promptEndpointConfig.mode = parsed.mode;
-      if (parsed.host) promptEndpointConfig.host = parsed.host;
-      if (parsed.port) promptEndpointConfig.port = parsed.port;
+    // Roll out pending migration banner to all users immediately on page load
+    if (data.pendingMigration && data.pendingMigration.status === 'pending') {
+      startScheduledMigrationCountdown(data.pendingMigration);
+    } else {
+      document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
     }
-  } catch (_) {}
+  } catch (_) {
+    if (window.location.port) promptEndpointConfig.port = window.location.port;
+    if (window.location.hostname) promptEndpointConfig.host = window.location.hostname;
+  }
 
-  // 3. Attach Listeners to all buttons and inputs (supports both about banner and modal)
+  // 2. Attach Listeners to all buttons and inputs (supports both about banner and modal)
   document.querySelectorAll('.btn-prompt-mode').forEach((btn) => {
     btn.onclick = (e) => {
       e.preventDefault();
@@ -3243,16 +3335,15 @@ async function initPromptEndpointManager() {
 
   // Copy Active Endpoint URL Button in About Banner
   document.querySelectorAll('.btn-copy-active-prompt-endpoint').forEach((btn) => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const currentUrl = computeLivePromptEndpoint();
-      navigator.clipboard.writeText(currentUrl);
-      showToast(`Copied active endpoint URL: ${currentUrl}`, 'success');
+      const url = getEffectivePromptBaseUrl();
+      await window.copyToClipboard(url);
+      showToast(`Copied active endpoint URL: ${url}`, 'success');
     };
   });
 
-  // Initial render
   updatePromptUI();
 }
 
@@ -3374,11 +3465,34 @@ function startScheduledMigrationCountdown(migration) {
 
   const banner = document.getElementById('banner-scheduled-migration');
   const cardBox = document.getElementById('box-pending-migration-card');
+  const tabPendingBox = document.getElementById('hosttab-box-pending-migration');
+  const btnGlobalCancel = document.getElementById('btn-cancel-migration-global');
+  const btnModalCancel = document.getElementById('modal-schedule-btn-cancel-active');
+
+  const isSuperAdmin = state.user?.isSuperAdmin || state.user?.role === 'superadmin';
 
   if (!migration || migration.status !== 'pending') {
-    if (banner) banner.classList.add('hidden');
+    if (banner) {
+      banner.classList.add('hidden');
+      banner.classList.remove('flex');
+    }
     if (cardBox) cardBox.classList.add('hidden');
+    if (tabPendingBox) tabPendingBox.classList.add('hidden');
+    if (btnGlobalCancel) btnGlobalCancel.classList.add('hidden');
+    if (btnModalCancel) btnModalCancel.classList.add('hidden');
+    if (typeof window.updateUserNotificationsHeader === 'function') {
+      window.updateUserNotificationsHeader();
+    }
     return;
+  }
+
+  // Only Super Admin can see cancel migration controls
+  if (isSuperAdmin) {
+    if (btnGlobalCancel) btnGlobalCancel.classList.remove('hidden');
+    if (btnModalCancel) btnModalCancel.classList.remove('hidden');
+  } else {
+    if (btnGlobalCancel) btnGlobalCancel.classList.add('hidden');
+    if (btnModalCancel) btnModalCancel.classList.add('hidden');
   }
 
   const scheduledTime = new Date(migration.scheduledAt).getTime();
@@ -3387,9 +3501,10 @@ function startScheduledMigrationCountdown(migration) {
     const remainingSec = Math.max(0, Math.ceil((scheduledTime - now) / 1000));
     const timeStr = formatRemainingSeconds(remainingSec);
 
-    // Update Banner for All Users
+    // 1. Update Persistent Top Banner for All Users
     if (banner) {
       banner.classList.remove('hidden');
+      banner.classList.add('flex');
       const countEl = document.getElementById('label-migration-countdown');
       if (countEl) countEl.textContent = `In ${timeStr}`;
       const msgEl = document.getElementById('label-migration-message');
@@ -3398,8 +3513,17 @@ function startScheduledMigrationCountdown(migration) {
       if (urlEl) urlEl.textContent = migration.newBaseUrl;
     }
 
-    // Update Super Admin Card Box
-    if (cardBox && state.user?.isSuperAdmin) {
+    // 2. Update Pending Box Inside Hosting Tab
+    if (tabPendingBox) {
+      tabPendingBox.classList.remove('hidden');
+      const tabCountEl = document.getElementById('hosttab-migration-countdown');
+      if (tabCountEl) tabCountEl.textContent = timeStr;
+      const tabDetEl = document.getElementById('hosttab-migration-details');
+      if (tabDetEl) tabDetEl.textContent = `Targeting ${migration.newBaseUrl} scheduled for ${new Date(migration.scheduledAt).toLocaleTimeString()}.`;
+    }
+
+    // 3. Update Super Admin Card Box
+    if (cardBox && isSuperAdmin) {
       cardBox.classList.remove('hidden');
       const cardCountEl = document.getElementById('label-card-migration-countdown');
       if (cardCountEl) cardCountEl.textContent = timeStr;
@@ -3407,9 +3531,18 @@ function startScheduledMigrationCountdown(migration) {
       if (cardDetailsEl) cardDetailsEl.textContent = `Target: ${migration.newBaseUrl} at ${new Date(migration.scheduledAt).toLocaleTimeString()}`;
     }
 
+    // 4. Update Header Notification Bell and Dropdown Feed
+    if (typeof window.updateUserNotificationsHeader === 'function') {
+      window.updateUserNotificationsHeader();
+    }
+
     if (remainingSec <= 0) {
       clearInterval(migrationCountdownTimer);
       migrationCountdownTimer = null;
+      activeScheduledMigration = null;
+      if (migration?.newBaseUrl) {
+        triggerClientMigrationRedirect(migration.newBaseUrl);
+      }
     }
   };
 
@@ -3551,22 +3684,16 @@ function triggerClientMigrationRedirect(newBaseUrl) {
 
       logCmd(`Probing TCP socket health on ${cleanTargetUrl} (Attempt ${attempts})...`, 'info');
 
-      // Dual probe 1: Image Favicon loader (bypasses CORS restrictions)
-      try {
-        const testImg = new Image();
-        testImg.onload = () => performRedirect();
-        testImg.src = `${cleanTargetUrl}/favicon.ico?_t=${Date.now()}`;
-      } catch (_) {}
-
-      // Dual probe 2: Fetch probe with cache-busting
+      // Strict network fetch probe with cache-busting
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const timeoutId = setTimeout(() => controller.abort(), 1500);
 
         const probeRes = await fetch(`${cleanTargetUrl}/api/v1/system/status?_t=${Date.now()}`, {
           method: 'GET',
           signal: controller.signal,
-          cache: 'no-store'
+          cache: 'no-store',
+          mode: 'cors'
         });
         clearTimeout(timeoutId);
 
@@ -3579,7 +3706,7 @@ function triggerClientMigrationRedirect(newBaseUrl) {
       }
 
       if (attempts < maxAttempts && !isRedirecting) {
-        setTimeout(probePort, 400);
+        setTimeout(probePort, 500);
       } else if (!isRedirecting) {
         // Fallback
         logCmd(`Proceeding to load endpoint...`, 'warn');
@@ -3716,13 +3843,13 @@ function initServerHostingTab() {
 
   // Copy CLI commands
   document.querySelectorAll('.btn-copy-cli-cmd').forEach((btn) => {
-    btn.onclick = (e) => {
+    btn.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const targetId = btn.getAttribute('data-target');
       const targetEl = document.getElementById(targetId);
       if (targetEl) {
-        navigator.clipboard.writeText(targetEl.textContent.trim());
+        await window.copyToClipboard(targetEl.textContent.trim());
         showToast(`Copied command: ${targetEl.textContent.trim()}`, 'success');
       }
     };
@@ -3768,11 +3895,11 @@ function initServerHostingTab() {
   // Detected Wi-Fi IP button in header
   const btnUseDetectedIp = document.getElementById('hosttab-btn-use-detected-ip');
   if (btnUseDetectedIp) {
-    btnUseDetectedIp.onclick = () => {
+    btnUseDetectedIp.onclick = async () => {
       const netIp = promptEndpointConfig.networkIp || '192.168.31.57';
       const inputHost = document.getElementById('hosttab-input-host');
       if (inputHost) inputHost.value = netIp;
-      navigator.clipboard.writeText(netIp);
+      await window.copyToClipboard(netIp);
       showToast(`Selected and copied detected Wi-Fi IP: ${netIp}`, 'info');
       syncHostTabLivePreviews();
     };
@@ -3881,11 +4008,11 @@ function initServerHostingTab() {
 
   // Copy Preview URLs
   document.querySelectorAll('.btn-copy-preview-url').forEach((btn) => {
-    btn.onclick = () => {
+    btn.onclick = async () => {
       const targetId = btn.getAttribute('data-target');
       const text = document.getElementById(targetId)?.textContent || '';
       if (text) {
-        navigator.clipboard.writeText(text);
+        await window.copyToClipboard(text);
         showToast(`Copied URL: ${text}`, 'success');
       }
     };
@@ -3894,10 +4021,10 @@ function initServerHostingTab() {
   // Copy AI Prompt
   const btnCopyPrompt = document.getElementById('hosttab-btn-copy-ai-prompt');
   if (btnCopyPrompt) {
-    btnCopyPrompt.onclick = () => {
+    btnCopyPrompt.onclick = async () => {
       const text = document.getElementById('hosttab-text-ai-prompt')?.textContent || '';
       if (text) {
-        navigator.clipboard.writeText(text);
+        await window.copyToClipboard(text);
         showToast('Copied dynamic AI migration prompt!', 'success');
       }
     };
@@ -3906,10 +4033,10 @@ function initServerHostingTab() {
   // Copy SDK Code
   const btnCopySdk = document.getElementById('hosttab-btn-copy-sdk-code');
   if (btnCopySdk) {
-    btnCopySdk.onclick = () => {
+    btnCopySdk.onclick = async () => {
       const text = document.getElementById('hosttab-text-sdk-code')?.textContent || '';
       if (text) {
-        navigator.clipboard.writeText(text);
+        await window.copyToClipboard(text);
         showToast('Copied SDK integration snippet!', 'success');
       }
     };
@@ -3963,13 +4090,13 @@ function initServerHostingTab() {
   // Copy Terminal Logs
   const btnCopyLogs = document.getElementById('btn-copy-terminal-logs');
   if (btnCopyLogs) {
-    btnCopyLogs.onclick = () => {
+    btnCopyLogs.onclick = async () => {
       if (terminalLogEntries.length === 0) {
         showToast('Terminal buffer is empty.', 'info');
         return;
       }
       const text = terminalLogEntries.map(e => `[${e.timestamp}] ${e.message}`).join('\n');
-      navigator.clipboard.writeText(text);
+      await window.copyToClipboard(text);
       showToast(`Copied ${terminalLogEntries.length} log lines to clipboard!`, 'success');
     };
   }
@@ -5142,69 +5269,60 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // Cancel Scheduled Migration
-  const btnCancelMig = document.getElementById('btn-cancel-scheduled-migration');
-  if (btnCancelMig) {
-    btnCancelMig.onclick = async () => {
-      try {
-        const id = activeScheduledMigration?.id;
-        await apiRequest('/api/v1/admin/platform-settings/migration/cancel', 'POST', { id });
-        if (migrationCountdownTimer) {
-          clearInterval(migrationCountdownTimer);
-          migrationCountdownTimer = null;
-        }
-        activeScheduledMigration = null;
-        document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
-        document.getElementById('box-pending-migration-card')?.classList.add('hidden');
-        document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
-        showToast('Scheduled migration cancelled and notice rolled out.', 'info');
-      } catch (err) {
-        showToast(err.message, 'error');
+  // Unified Cancel Scheduled Migration Handler
+  const cancelScheduledMigration = async () => {
+    try {
+      const id = activeScheduledMigration?.id;
+      await apiRequest('/api/v1/admin/platform-settings/migration/cancel', 'POST', { id });
+      if (migrationCountdownTimer) {
+        clearInterval(migrationCountdownTimer);
+        migrationCountdownTimer = null;
       }
-    };
-  }
+      activeScheduledMigration = null;
+      document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
+      document.getElementById('box-pending-migration-card')?.classList.add('hidden');
+      document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
+      document.getElementById('modal-schedule-btn-cancel-active')?.classList.add('hidden');
+      hideModal('modal-schedule-migration');
+      showToast('Scheduled migration cancelled and broadcast to all users.', 'info');
+    } catch (err) {
+      showToast(err.message || 'Failed to cancel scheduled migration.', 'error');
+    }
+  };
+
+  // Wire all cancellation buttons
+  const btnCancelMigGlobal = document.getElementById('btn-cancel-migration-global');
+  if (btnCancelMigGlobal) btnCancelMigGlobal.onclick = cancelScheduledMigration;
+
+  const btnCancelMigModal = document.getElementById('modal-schedule-btn-cancel-active');
+  if (btnCancelMigModal) btnCancelMigModal.onclick = cancelScheduledMigration;
 
   const hosttabBtnCancel = document.getElementById('hosttab-btn-cancel-schedule');
-  if (hosttabBtnCancel) {
-    hosttabBtnCancel.onclick = async () => {
-      try {
-        const id = activeScheduledMigration?.id;
-        await apiRequest('/api/v1/admin/platform-settings/migration/cancel', 'POST', { id });
-        if (migrationCountdownTimer) {
-          clearInterval(migrationCountdownTimer);
-          migrationCountdownTimer = null;
-        }
-        activeScheduledMigration = null;
-        document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
-        document.getElementById('box-pending-migration-card')?.classList.add('hidden');
-        document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
-        showToast('Scheduled migration cancelled and notice rolled out.', 'info');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    };
-  }
+  if (hosttabBtnCancel) hosttabBtnCancel.onclick = cancelScheduledMigration;
+
+  const btnCancelMig = document.getElementById('btn-cancel-scheduled-migration');
+  if (btnCancelMig) btnCancelMig.onclick = cancelScheduledMigration;
 
   // Banner Copy Buttons
   const btnCopyUpUrl = document.getElementById('btn-copy-upcoming-url');
   if (btnCopyUpUrl) {
-    btnCopyUpUrl.onclick = (e) => {
+    btnCopyUpUrl.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const url = activeScheduledMigration?.newBaseUrl || 'http://localhost:3000';
-      navigator.clipboard.writeText(url);
+      await window.copyToClipboard(url);
       showToast(`Copied upcoming base URL: ${url}`, 'success');
     };
   }
 
   const btnCopyUpPrompt = document.getElementById('btn-copy-upcoming-prompt');
   if (btnCopyUpPrompt) {
-    btnCopyUpPrompt.onclick = (e) => {
+    btnCopyUpPrompt.onclick = async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const url = activeScheduledMigration?.newBaseUrl || 'http://localhost:3000';
       const prompt = buildMigrationPrompt(url, false, '');
-      navigator.clipboard.writeText(prompt);
+      await window.copyToClipboard(prompt);
       showToast(`Copied updated migration prompt for ${url}!`, 'success');
     };
   }
@@ -5488,10 +5606,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Copy Code Button
   const btnCopyCode = document.getElementById('btn-copy-code');
   if (btnCopyCode) {
-    btnCopyCode.onclick = () => {
+    btnCopyCode.onclick = async () => {
       const code = document.getElementById('code-snippet-display')?.textContent;
       if (code) {
-        navigator.clipboard.writeText(code);
+        await window.copyToClipboard(code);
         showToast('Code snippet copied to clipboard!', 'success');
       }
     };
@@ -5529,13 +5647,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnConfirmCreateProject = document.getElementById('btn-confirm-create-project');
   if (btnConfirmCreateProject) btnConfirmCreateProject.onclick = () => createNewProject();
 
-    // View Document Detail: Copy JSON Button
+  // View Document Detail: Copy JSON Button
   const btnCopyDocJson = document.getElementById('btn-copy-doc-json');
   if (btnCopyDocJson) {
-    btnCopyDocJson.onclick = () => {
+    btnCopyDocJson.onclick = async () => {
       const content = document.getElementById('doc-detail-content')?.textContent;
       if (content) {
-        navigator.clipboard.writeText(content);
+        await window.copyToClipboard(content);
         showToast('Document JSON copied to clipboard!', 'success');
       }
     };
