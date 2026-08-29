@@ -21,14 +21,15 @@ import { userStore } from '../store/user.store';
 export async function getConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const db = getDb();
-    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId FROM platform_settings WHERE id = ?').get('default') as any;
+    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, demoLoginEnabled FROM platform_settings WHERE id = ?').get('default') as any;
     
     res.status(200).json({
       success: true,
       message: 'Auth config retrieved',
       data: {
         googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
-        googleClientId: settings ? settings.googleClientId : ''
+        googleClientId: settings ? settings.googleClientId : '',
+        demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true
       }
     });
   } catch (err) { next(err); }

@@ -409,6 +409,12 @@ window.setRoleMode = function setRoleMode(mode) {
     }
     if (secSuper) secSuper.classList.add('hidden');
     if (secDev) secDev.classList.remove('hidden');
+
+    const cardPlatform = document.getElementById('card-platform-settings');
+    const cardHosting = document.getElementById('card-server-hosting-settings');
+    if (cardPlatform) cardPlatform.classList.add('hidden');
+    if (cardHosting) cardHosting.classList.add('hidden');
+
     switchWorkspace('tab-developer-metrics');
   }
 };
@@ -469,6 +475,9 @@ window.switchWorkspace = function switchWorkspace(tabId) {
   } else if (tabId === 'tab-sec-ops') {
     loadLockedAccounts();
     loadPlatformSettings();
+  } else if (tabId === 'tab-server-hosting') {
+    loadPlatformSettings();
+    if (typeof loadLiveTerminalLogs === 'function') loadLiveTerminalLogs();
   } else if (tabId === 'tab-project-management') {
     loadMyProjects();
   } else if (tabId === 'tab-data-browser') {
@@ -2495,6 +2504,42 @@ function connectGlobalWebSocket() {
             if (typeof window.loadComplianceNoticesTable === 'function') window.loadComplianceNoticesTable();
             if (typeof loadUserManagement === 'function') loadUserManagement();
           }
+        } else if (data.type === 'SERVER_HOST_CONFIG_UPDATED') {
+          if (data.data?.networkIp) promptEndpointConfig.networkIp = data.data.networkIp;
+          if (data.data?.serverPort) promptEndpointConfig.port = data.data.serverPort.toString();
+          if (data.data?.serverHostingMode) promptEndpointConfig.mode = data.data.serverHostingMode;
+          if (data.data?.serverHost) promptEndpointConfig.host = data.data.serverHost;
+          updatePromptUI();
+          showToast('Server hosting configuration updated. Prompts refreshed.', 'info');
+        } else if (data.type === 'ENDPOINT_MIGRATION_SCHEDULED') {
+          if (data.data?.migration) {
+            startScheduledMigrationCountdown(data.data.migration);
+            showToast(`⏳ Server migration scheduled: ${data.data.migration.noticeMessage || ''}`, 'warning');
+          }
+        } else if (data.type === 'ENDPOINT_MIGRATION_CANCELLED') {
+          if (migrationCountdownTimer) {
+            clearInterval(migrationCountdownTimer);
+            migrationCountdownTimer = null;
+          }
+          activeScheduledMigration = null;
+          document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
+          document.getElementById('box-pending-migration-card')?.classList.add('hidden');
+          document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
+          showToast(`ℹ️ ${data.data?.noticeMessage || 'Scheduled server migration was cancelled by Administrator.'}`, 'info');
+        } else if (data.type === 'ENDPOINT_MIGRATION_EXECUTED') {
+          if (data.data?.newBaseUrl) {
+            if (data.data?.networkIp) promptEndpointConfig.networkIp = data.data.networkIp;
+            if (data.data?.serverPort) promptEndpointConfig.port = data.data.serverPort.toString();
+            if (data.data?.serverHostingMode) promptEndpointConfig.mode = data.data.serverHostingMode;
+            updatePromptUI();
+            triggerClientMigrationRedirect(data.data.newBaseUrl);
+          }
+        } else if (data.type === 'ENDPOINT_MIGRATION_NOTICE') {
+          showToast(`🔔 ${data.data?.title || 'Notice'}: ${data.data?.message || ''}`, 'info');
+        } else if (data.type === 'TERMINAL_LOG_STREAM') {
+          if (data.data?.entry) {
+            handleIncomingTerminalLog(data.data.entry);
+          }
         }
       } catch (_) {}
     };
@@ -2659,6 +2704,20 @@ async function initGoogleAuth() {
   try {
     const res = await fetch('/api/v1/auth/config');
     const { data } = await res.json();
+
+    // 1-Click Demo Admin Login Visibility
+    const demoContainer = document.getElementById('container-demo-admin-login');
+    if (demoContainer) {
+      if (data && data.demoLoginEnabled === false) {
+        demoContainer.classList.add('hidden');
+        demoContainer.style.display = 'none';
+      } else {
+        demoContainer.classList.remove('hidden');
+        demoContainer.style.display = 'block';
+      }
+    }
+
+    // Google Auth Button Visibility
     const container = document.getElementById('google-auth-container');
     if (data && data.googleAuthEnabled && data.googleClientId && data.googleClientId.trim().length > 0) {
       if (container) {
@@ -2683,7 +2742,7 @@ async function initGoogleAuth() {
       }
     }
   } catch (err) {
-    console.error('Failed to init Google Auth', err);
+    console.error('Failed to init Auth Config', err);
   }
 }
 
@@ -2709,15 +2768,1464 @@ async function handleGoogleCredentialResponse(response) {
   }
 }
 
-async function loadPlatformSettings() {
+// ── Dynamic Host & Port Prompt Configurator ────────────────────────────────────
+
+const promptEndpointConfig = {
+  mode: 'localhost', // 'localhost' | 'network' | 'both' | 'custom'
+  host: window.location.hostname || 'localhost',
+  port: window.location.port || '3000',
+  networkIp: '192.168.31.57'
+};
+
+function getEffectivePromptBaseUrl() {
+  const portStr = promptEndpointConfig.port ? `:${promptEndpointConfig.port}` : '';
+  if (promptEndpointConfig.mode === 'localhost') {
+    return `http://localhost${portStr}`;
+  } else if (promptEndpointConfig.mode === 'network') {
+    const ip = promptEndpointConfig.networkIp || window.location.hostname || '127.0.0.1';
+    return `http://${ip}${portStr}`;
+  } else if (promptEndpointConfig.mode === 'both') {
+    return `http://localhost${portStr}`;
+  } else if (promptEndpointConfig.mode === 'custom') {
+    const cleanHost = (promptEndpointConfig.host || 'localhost').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    return `http://${cleanHost}${portStr}`;
+  }
+  return window.location.origin;
+}
+
+function getEffectivePromptDualUrl() {
+  const portStr = promptEndpointConfig.port ? `:${promptEndpointConfig.port}` : '';
+  const ip = promptEndpointConfig.networkIp || '192.168.31.57';
+  return `http://${ip}${portStr}`;
+}
+
+function buildMigrationPrompt(baseUrl, isDual, dualUrl) {
+  const dualNote = isDual ? ` (and for Wi-Fi / mobile devices: ${dualUrl})` : '';
+  return `You are an expert full-stack engineer and cloud architect.
+I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to AegisDB (a self-hosted, lightweight BaaS).
+
+AegisDB Server Specifications:
+- Base URL: ${baseUrl}${dualNote}
+- Project API Key: Retrieve from localStorage ('aegisApiKey') or config constant. Pass in 'x-aegis-api-key' header.
+- User Session: When users sign in, store their JWT token in localStorage ('aegisToken') and pass 'Authorization: Bearer <token>'.
+
+Please systematically migrate the application according to these specifications:
+
+1. AUTHENTICATION MIGRATION (Firebase/Supabase Auth -> AegisDB Project Auth):
+   - Auth Config Discovery: GET ${baseUrl}/api/v1/project-auth/config (Header: 'x-aegis-api-key') to dynamically inspect enabled OAuth providers and registration mode.
+   - User Sign-Up: POST ${baseUrl}/api/v1/project-auth/register with body { email, password, name } (Header: 'x-aegis-api-key').
+   - User Sign-In: POST ${baseUrl}/api/v1/project-auth/login with body { email, password } (Header: 'x-aegis-api-key'). Returns { token, user: { id, email, name, role } }.
+   - OAuth Sign-In: POST ${baseUrl}/api/v1/project-auth/oauth/<provider> (google | apple | github) with body { token: '<id_token_or_access_token>' } (Header: 'x-aegis-api-key').
+
+2. DATABASE & DATA LAYER MIGRATION (Firestore/Postgres -> AegisDB Collections):
+   - Insert Document: POST ${baseUrl}/api/v1/db/collections/<collection_name>/documents
+     Headers: { 'Content-Type': 'application/json', 'x-aegis-api-key': apiKey, 'Authorization': 'Bearer <token>' }
+     Body: { data: { ...fields } }
+   - Query & Filter Documents: GET ${baseUrl}/api/v1/db/collections/<collection_name>/documents?filter={"status":"active"}&limit=50&offset=0&sortBy=_createdAt&sortOrder=desc
+     * Translate Firestore where() clauses to server-side JSON filters in query param 'filter'.
+     * Supported Operators: equality {"field":"val"} or {"field":{"$eq":"val"}}, inequality {"$ne":"val"}, comparisons {"$gt":10, "$gte":10, "$lt":100, "$lte":100}, string search {"$contains":"text"}.
+   - Fetch Single Document: GET ${baseUrl}/api/v1/db/collections/<collection_name>/documents/<id>
+   - Update Document: PATCH ${baseUrl}/api/v1/db/collections/<collection_name>/documents/<id>
+     Body: { data: { ...fieldsToUpdate } }
+   - Delete Document: DELETE ${baseUrl}/api/v1/db/collections/<collection_name>/documents/<id>
+   - Transactions: Refactor Firestore runTransaction calls into standard atomic read-then-write flows (GET /documents/:id -> compute mutations -> PATCH /documents/:id).
+
+3. ROW-LEVEL SECURITY & SECURITY RULES:
+   - To assign fine-grained row ownership or custom access rules to documents, attach a reserved '_rules' object inside the document data:
+     * For user profiles: { data: { ...userFields, _rules: { "read": "auth != null", "write": "auth.id == resource.id || auth.id == data.id || auth.id == data.ownerId" } } }
+     * For entity collections: { data: { ...itemFields, _rules: { "read": "auth != null", "create": "auth != null && auth.id == data.ownerId", "update": "auth.id == resource.ownerId", "delete": "auth.id == resource.ownerId" } } }
+   - Rule variables available in JS VM: 'auth' (user session), 'data' (incoming payload), 'resource' (existing document from DB), 'request' (request context).
+
+4. REAL-TIME DATA SYNC (onSnapshot -> Server-Sent Events):
+   - Connect live streams via:
+     const sse = new EventSource('${baseUrl}/api/v1/db/collections/<collection_name>/realtime?apiKey=' + apiKey);
+     sse.onmessage = (event) => { const change = JSON.parse(event.data); /* change.type: INSERT|UPDATE|DELETE, change.document */ };
+
+5. FILE STORAGE MIGRATION:
+   - Upload: POST ${baseUrl}/api/v1/storage/upload using FormData with field 'file' (or 'biometric').
+   - Download/Stream: GET ${baseUrl}/api/v1/storage/assets/<filename>
+
+6. ERROR HANDLING & DATA PARSING:
+   - Responses follow: { success: boolean, message: string, data?: any }.
+   - Extract data cleanly, handle 401/403 status codes, and show user-friendly notifications.
+
+Refactor all existing mock data, Firebase, and Supabase client calls to use these AegisDB endpoints cleanly.`;
+}
+
+function buildNewAppPrompt(baseUrl, isDual, dualUrl) {
+  const dualNote = isDual ? ` (and Wi-Fi Network host: ${dualUrl})` : '';
+  return `You are an expert full-stack software engineer.
+Build a complete, modern, high-performance web application backed by AegisDB (a self-hosted Backend-as-a-Service running at ${baseUrl}${dualNote}).
+
+ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
+
+1. CLIENT ARCHITECTURE & AUTHENTICATION:
+   - Create a clean API service layer (or use AegisClient) that automatically attaches:
+     * Header 'x-aegis-api-key': <PROJECT_API_KEY> (from localStorage 'aegisApiKey' or config)
+     * Header 'Authorization': 'Bearer ' + <USER_JWT_TOKEN> (from localStorage 'aegisToken')
+   - Implement complete user lifecycle UI (Register, Login, OAuth, Logout):
+     * Check enabled auth options: GET ${baseUrl}/api/v1/project-auth/config
+     * Register: POST ${baseUrl}/api/v1/project-auth/register with { email, password, name }
+     * Login: POST ${baseUrl}/api/v1/project-auth/login with { email, password }
+     * OAuth: POST ${baseUrl}/api/v1/project-auth/oauth/<provider> with { token }
+
+2. DATABASE & COLLECTION ARCHITECTURE:
+   - Structure business data into organized collections (e.g. 'items', 'tasks', 'profiles', 'orders').
+   - Create documents: POST ${baseUrl}/api/v1/db/collections/<name>/documents with { data: { ...item } }
+   - Read & Query with server-side filters and pagination:
+     GET ${baseUrl}/api/v1/db/collections/<name>/documents?filter={"status":"active"}&limit=25&offset=0&sortBy=_createdAt&sortOrder=desc
+     * Supports operators: $eq, $ne, $gt, $gte, $lt, $lte, $contains
+   - Update: PATCH ${baseUrl}/api/v1/db/collections/<name>/documents/<id> with { data: { ...updates } }
+   - Delete: DELETE ${baseUrl}/api/v1/db/collections/<name>/documents/<id>
+   - Mutations: Use atomic read-then-write flows (GET -> PATCH) for multi-step updates.
+
+3. ROW-LEVEL SECURITY (RLS) RULES:
+   - Protect user and business data by attaching '_rules' to created documents:
+     * User profiles: { "_rules": { "read": "auth != null", "write": "auth.id == resource.id || auth.id == data.id || auth.id == data.ownerId" } }
+     * Data items: { "_rules": { "read": "auth != null", "create": "auth != null && auth.id == data.ownerId", "update": "auth.id == resource.ownerId", "delete": "auth.id == resource.ownerId" } }
+
+4. REAL-TIME CHANGE DATA CAPTURE (CDC):
+   - Keep views synced in real time using Server-Sent Events (SSE):
+     const sse = new EventSource('${baseUrl}/api/v1/db/collections/<name>/realtime?apiKey=' + apiKey);
+     sse.onmessage = (e) => { const change = JSON.parse(e.data); updateState(change); };
+
+5. FILE STORAGE & UPLOADS:
+   - Upload assets via POST ${baseUrl}/api/v1/storage/upload using FormData with field 'file'.
+   - Display uploaded images/files using ${baseUrl}/api/v1/storage/assets/<filename>.
+
+6. USER EXPERIENCE & INTERFACE:
+   - Deliver a responsive, polished UI with loading skeletons, optimistic UI updates, error toasts, and clean empty states.`;
+}
+
+function buildAegisClientCode(baseUrl) {
+  return `/**
+ * AegisClient — Official Universal Drop-in SDK for AegisDB
+ * Works in Browser (Vanilla JS, React, Vue, Svelte, Next.js) and Node.js
+ */
+class AegisClient {
+  constructor(options = {}) {
+    const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '${baseUrl}';
+    this.baseUrl = (options.baseUrl || defaultOrigin).replace(/\\/+$/, '');
+    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') || '';
+    this.token = options.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisToken') : '') || '';
+  }
+
+  setApiKey(key) {
+    this.apiKey = key;
+    if (typeof localStorage !== 'undefined') localStorage.setItem('aegisApiKey', key);
+  }
+
+  setToken(token) {
+    this.token = token;
+    if (typeof localStorage !== 'undefined') {
+      if (token) localStorage.setItem('aegisToken', token);
+      else localStorage.removeItem('aegisToken');
+    }
+  }
+
+  async request(endpoint, options = {}) {
+    const headers = { ...(options.headers || {}) };
+    if (this.apiKey) headers['x-aegis-api-key'] = this.apiKey;
+    if (this.token) headers['Authorization'] = \`Bearer \${this.token}\`;
+
+    if (options.body && !(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(options.body);
+    }
+
+    const res = await fetch(\`\${this.baseUrl}\${endpoint}\`, { ...options, headers });
+    const json = await res.json().catch(() => ({ success: false, message: 'Invalid server response' }));
+    if (!res.ok || json.success === false) {
+      throw new Error(json.message || \`AegisDB request failed (\${res.status})\`);
+    }
+    return json.data !== undefined ? json.data : json;
+  }
+
+  // ── Authentication API ────────────────────────────────────────────────────────
+  get auth() {
+    return {
+      getConfig: () => this.request('/api/v1/project-auth/config'),
+      signUp: async (email, password, name) => {
+        const res = await this.request('/api/v1/project-auth/register', {
+          method: 'POST',
+          body: { email, password, name }
+        });
+        if (res?.token) this.setToken(res.token);
+        return res;
+      },
+      signIn: async (email, password) => {
+        const res = await this.request('/api/v1/project-auth/login', {
+          method: 'POST',
+          body: { email, password }
+        });
+        if (res?.token) this.setToken(res.token);
+        return res;
+      },
+      signInWithOAuth: async (provider, token) => {
+        const res = await this.request(\`/api/v1/project-auth/oauth/\${provider}\`, {
+          method: 'POST',
+          body: { token }
+        });
+        if (res?.token) this.setToken(res.token);
+        return res;
+      },
+      signOut: () => this.setToken('')
+    };
+  }
+
+  // ── Database API ──────────────────────────────────────────────────────────────
+  collection(name) {
+    return {
+      insert: (data) => this.request(\`/api/v1/db/collections/\${name}/documents\`, { method: 'POST', body: { data } }),
+      find: (filter = {}, options = {}) => {
+        const params = new URLSearchParams();
+        if (filter && Object.keys(filter).length > 0) params.append('filter', JSON.stringify(filter));
+        if (options.limit) params.append('limit', options.limit);
+        if (options.offset) params.append('offset', options.offset);
+        if (options.sortBy) params.append('sortBy', options.sortBy);
+        if (options.sortOrder) params.append('sortOrder', options.sortOrder);
+        const query = params.toString() ? \`?\${params.toString()}\` : '';
+        return this.request(\`/api/v1/db/collections/\${name}/documents\${query}\`);
+      },
+      findById: (id) => this.request(\`/api/v1/db/collections/\${name}/documents/\${id}\`),
+      update: (id, data) => this.request(\`/api/v1/db/collections/\${name}/documents/\${id}\`, { method: 'PATCH', body: { data } }),
+      delete: (id) => this.request(\`/api/v1/db/collections/\${name}/documents/\${id}\`, { method: 'DELETE' }),
+      subscribe: (onEvent, onError) => {
+        const url = \`\${this.baseUrl}/api/v1/db/collections/\${name}/realtime\${this.apiKey ? '?apiKey=' + this.apiKey : ''}\`;
+        const eventSource = new EventSource(url);
+        eventSource.onmessage = (e) => {
+          try { onEvent(JSON.parse(e.data)); } catch (err) { onEvent(e.data); }
+        };
+        if (onError) eventSource.onerror = onError;
+        return () => eventSource.close();
+      }
+    };
+  }
+
+  // ── Storage API ───────────────────────────────────────────────────────────────
+  get storage() {
+    return {
+      upload: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return this.request('/api/v1/storage/upload', { method: 'POST', body: formData });
+      },
+      getUrl: (filename) => \`\${this.baseUrl}/api/v1/storage/assets/\${filename}\`
+    };
+  }
+}
+
+// Export for module systems or attach to window
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { AegisClient };
+} else if (typeof window !== 'undefined') {
+  window.AegisClient = AegisClient;
+}`;
+}
+
+function updatePromptUI() {
+  const baseUrl = getEffectivePromptBaseUrl();
+  const isDual = promptEndpointConfig.mode === 'both';
+  const dualUrl = getEffectivePromptDualUrl();
+
+  const migrationText = buildMigrationPrompt(baseUrl, isDual, dualUrl);
+  const newAppText = buildNewAppPrompt(baseUrl, isDual, dualUrl);
+  const sdkText = buildAegisClientCode(baseUrl);
+
+  // 1. Update Pill Badges
+  const pills = document.querySelectorAll('.label-prompt-endpoint-pill');
+  pills.forEach((pill) => {
+    pill.textContent = isDual ? `${baseUrl} + ${dualUrl}` : baseUrl;
+  });
+
+  // 2. Update Modal Key architecture Base Endpoint
+  const baseLabel = document.getElementById('label-modal-base-endpoint');
+  if (baseLabel) {
+    baseLabel.textContent = isDual ? `${baseUrl} & ${dualUrl} (REST & SSE Realtime)` : `${baseUrl} (REST & SSE Realtime)`;
+  }
+
+  // 3. Quick Migration Prompt in About
+  const btnQuickMig = document.getElementById('btn-quick-copy-migration');
+  if (btnQuickMig) {
+    btnQuickMig.setAttribute('data-text', migrationText);
+    btnQuickMig.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard.writeText(migrationText);
+      const icon = btnQuickMig.querySelector('i');
+      if (icon) {
+        icon.classList.remove('fa-copy');
+        icon.classList.add('fa-check');
+        setTimeout(() => {
+          icon.classList.remove('fa-check');
+          icon.classList.add('fa-copy');
+        }, 2000);
+      }
+      showToast(`Copied Migration Prompt configured for ${baseUrl}!`, 'success');
+    };
+  }
+  const prevQuickMig = document.getElementById('preview-quick-migration');
+  if (prevQuickMig) {
+    prevQuickMig.textContent = `"You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to AegisDB (BaaS running at ${baseUrl})..."`;
+  }
+
+  // 4. Quick New App Prompt in About
+  const btnQuickNew = document.getElementById('btn-quick-copy-newapp');
+  if (btnQuickNew) {
+    btnQuickNew.setAttribute('data-text', newAppText);
+    btnQuickNew.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard.writeText(newAppText);
+      const icon = btnQuickNew.querySelector('i');
+      if (icon) {
+        icon.classList.remove('fa-copy');
+        icon.classList.add('fa-check');
+        setTimeout(() => {
+          icon.classList.remove('fa-check');
+          icon.classList.add('fa-copy');
+        }, 2000);
+      }
+      showToast(`Copied New App Prompt configured for ${baseUrl}!`, 'success');
+    };
+  }
+  const prevQuickNew = document.getElementById('preview-quick-newapp');
+  if (prevQuickNew) {
+    prevQuickNew.textContent = `"You are an expert full-stack engineer. Build a complete, modern web application backed by AegisDB (self-hosted BaaS running at ${baseUrl})..."`;
+  }
+
+  // 5. Modal Prompt Option 1
+  const preModalMig = document.getElementById('pre-prompt-migration');
+  if (preModalMig) preModalMig.textContent = migrationText;
+  const btnModalMig = document.getElementById('btn-copy-modal-migration');
+  if (btnModalMig) {
+    btnModalMig.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard.writeText(migrationText);
+      const icon = btnModalMig.querySelector('i');
+      if (icon) {
+        icon.classList.remove('fa-copy');
+        icon.classList.add('fa-check');
+        setTimeout(() => {
+          icon.classList.remove('fa-check');
+          icon.classList.add('fa-copy');
+        }, 2000);
+      }
+      showToast(`Copied Migration Prompt configured for ${baseUrl}!`, 'success');
+    };
+  }
+
+  // 6. Modal Prompt Option 2
+  const preModalNew = document.getElementById('pre-prompt-newapp');
+  if (preModalNew) preModalNew.textContent = newAppText;
+  const btnModalNew = document.getElementById('btn-copy-modal-newapp');
+  if (btnModalNew) {
+    btnModalNew.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard.writeText(newAppText);
+      const icon = btnModalNew.querySelector('i');
+      if (icon) {
+        icon.classList.remove('fa-copy');
+        icon.classList.add('fa-check');
+        setTimeout(() => {
+          icon.classList.remove('fa-check');
+          icon.classList.add('fa-copy');
+        }, 2000);
+      }
+      showToast(`Copied New Project Prompt configured for ${baseUrl}!`, 'success');
+    };
+  }
+
+  // 7. Modal SDK Snippet
+  const preModalSdk = document.getElementById('pre-prompt-client-sdk');
+  if (preModalSdk) {
+    const codeEl = preModalSdk.querySelector('code') || preModalSdk;
+    codeEl.textContent = sdkText;
+  }
+  const btnModalSdk = document.getElementById('btn-copy-modal-sdk');
+  if (btnModalSdk) {
+    btnModalSdk.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigator.clipboard.writeText(sdkText);
+      const icon = btnModalSdk.querySelector('i');
+      if (icon) {
+        icon.classList.remove('fa-copy');
+        icon.classList.add('fa-check');
+        setTimeout(() => {
+          icon.classList.remove('fa-check');
+          icon.classList.add('fa-copy');
+        }, 2000);
+      }
+      showToast(`Copied Drop-in AegisClient.js for ${baseUrl}!`, 'success');
+    };
+  }
+
+  // 8. Update Mode Buttons active state across both toolbars
+  document.querySelectorAll('.btn-prompt-mode').forEach((btn) => {
+    const mode = btn.getAttribute('data-mode');
+    if (mode === promptEndpointConfig.mode) {
+      btn.className = 'btn-prompt-mode px-2.5 py-1 rounded-lg text-xs font-bold transition bg-emerald-600 text-white shadow-sm';
+    } else {
+      btn.className = 'btn-prompt-mode px-2.5 py-1 rounded-lg text-xs font-medium transition text-slate-300 hover:text-white hover:bg-slate-800/60';
+    }
+  });
+
+  // 9. Sync Inputs
+  document.querySelectorAll('.input-prompt-host').forEach((inp) => {
+    if (document.activeElement !== inp) {
+      inp.value = promptEndpointConfig.host || '';
+    }
+  });
+  document.querySelectorAll('.input-prompt-port').forEach((inp) => {
+    if (document.activeElement !== inp) {
+      inp.value = promptEndpointConfig.port || '3000';
+    }
+  });
+
+  // Save Config in LocalStorage
+  try {
+    localStorage.setItem('aegis_prompt_config', JSON.stringify(promptEndpointConfig));
+  } catch (_) {}
+}
+
+async function initPromptEndpointManager() {
+  // 1. Fetch system status to get active server port and network IP
+  try {
+    const res = await fetch('/api/v1/system/status');
+    const data = await res.json().catch(() => ({}));
+    if (data.networkIp) promptEndpointConfig.networkIp = data.networkIp;
+    if (data.port) promptEndpointConfig.port = data.port.toString();
+  } catch (_) {}
+
+  // 2. Load cached preference if any
+  try {
+    const saved = localStorage.getItem('aegis_prompt_config');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.mode) promptEndpointConfig.mode = parsed.mode;
+      if (parsed.host) promptEndpointConfig.host = parsed.host;
+      if (parsed.port) promptEndpointConfig.port = parsed.port;
+    }
+  } catch (_) {}
+
+  // 3. Attach Listeners to all buttons and inputs (supports both about banner and modal)
+  document.querySelectorAll('.btn-prompt-mode').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.preventDefault();
+      const mode = btn.getAttribute('data-mode');
+      promptEndpointConfig.mode = mode;
+      if (mode === 'localhost') {
+        promptEndpointConfig.host = 'localhost';
+      } else if (mode === 'network') {
+        promptEndpointConfig.host = promptEndpointConfig.networkIp;
+      }
+      updatePromptUI();
+    };
+  });
+
+  document.querySelectorAll('.input-prompt-host').forEach((inp) => {
+    inp.oninput = () => {
+      promptEndpointConfig.host = inp.value.trim();
+      promptEndpointConfig.mode = 'custom';
+      updatePromptUI();
+    };
+  });
+
+  document.querySelectorAll('.input-prompt-port').forEach((inp) => {
+    inp.oninput = () => {
+      promptEndpointConfig.port = inp.value.trim() || '3000';
+      updatePromptUI();
+    };
+  });
+
+  // Copy Active Endpoint URL Button in About Banner
+  document.querySelectorAll('.btn-copy-active-prompt-endpoint').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const currentUrl = computeLivePromptEndpoint();
+      navigator.clipboard.writeText(currentUrl);
+      showToast(`Copied active endpoint URL: ${currentUrl}`, 'success');
+    };
+  });
+
+  // Initial render
+  updatePromptUI();
+}
+
+window.openAiContextModal = function() {
+  updatePromptUI();
+  document.getElementById('modal-ai-context')?.classList.remove('hidden');
+};
+
+// ── Server Hosting & Scheduled Migration Manager ─────────────────────────────
+let migrationCountdownTimer = null;
+let activeScheduledMigration = null;
+
+function computeLiveEndpointUrl(mode, host, port, customDomain) {
+  const p = port || '3000';
+  const networkIp = promptEndpointConfig.networkIp || '192.168.31.57';
+  if (mode === 'localhost') return `http://localhost:${p}`;
+  if (mode === 'network') return `http://${networkIp}:${p}`;
+  if (mode === 'both') return `http://localhost:${p}`;
+  if (mode === 'custom') {
+    if (customDomain && customDomain.trim()) {
+      const cleanDomain = customDomain.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+      return `http://${cleanDomain}${p ? `:${p}` : ''}`;
+    }
+    const cleanHost = (host || 'localhost').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    return `http://${cleanHost}:${p}`;
+  }
+  return `http://localhost:${p}`;
+}
+
+function updateServerHostingCardPreview() {
+  const mode = document.getElementById('setting-server-hosting-mode')?.value || 'both';
+  const port = document.getElementById('setting-server-port')?.value || '3000';
+  const customDomain = document.getElementById('setting-custom-domain')?.value || '';
+  const networkIp = promptEndpointConfig.networkIp || '192.168.31.57';
+  const hostInput = document.getElementById('setting-server-host');
+
+  if (hostInput) {
+    if (mode === 'localhost') hostInput.value = '127.0.0.1';
+    else if (mode === 'network') hostInput.value = networkIp;
+    else if (mode === 'both') hostInput.value = '0.0.0.0';
+  }
+
+  const detectedBadge = document.getElementById('label-detected-network-ip');
+  if (detectedBadge) detectedBadge.textContent = networkIp;
+
+  const localUrlEl = document.getElementById('label-setting-local-url');
+  if (localUrlEl) localUrlEl.textContent = `http://localhost:${port}`;
+
+  const networkUrlEl = document.getElementById('label-setting-network-url');
+  if (networkUrlEl) networkUrlEl.textContent = `http://${networkIp}:${port}`;
+
+  const modeBadge = document.getElementById('label-setting-mode-badge');
+  if (modeBadge) {
+    if (mode === 'both') modeBadge.textContent = `Dual Listening (0.0.0.0:${port})`;
+    else if (mode === 'localhost') modeBadge.textContent = `Localhost Only (127.0.0.1:${port})`;
+    else if (mode === 'network') modeBadge.textContent = `Wi-Fi IP (${networkIp}:${port})`;
+    else modeBadge.textContent = `Custom (${customDomain || 'custom'})`;
+  }
+}
+
+function updateScheduleModalPreview() {
+  const mode = document.getElementById('schedule-target-mode')?.value || 'both';
+  const port = document.getElementById('schedule-target-port')?.value || '3000';
+  const customDomain = document.getElementById('schedule-custom-domain')?.value || '';
+  const networkIp = promptEndpointConfig.networkIp || '192.168.31.57';
+  const hostInput = document.getElementById('schedule-target-host');
+
+  if (hostInput) {
+    if (mode === 'localhost') hostInput.value = '127.0.0.1';
+    else if (mode === 'network') hostInput.value = networkIp;
+    else if (mode === 'both') hostInput.value = '0.0.0.0';
+  }
+
+  const detectedBadge = document.getElementById('label-schedule-detected-ip');
+  if (detectedBadge) detectedBadge.textContent = networkIp;
+
+  const localPreviewEl = document.getElementById('label-schedule-local-preview');
+  if (localPreviewEl) localPreviewEl.textContent = `http://localhost:${port}`;
+
+  const networkPreviewEl = document.getElementById('label-schedule-network-preview');
+  if (networkPreviewEl) networkPreviewEl.textContent = `http://${networkIp}:${port}`;
+
+  const modeBadge = document.getElementById('label-schedule-mode-badge');
+  if (modeBadge) {
+    if (mode === 'both') modeBadge.textContent = `Dual Host (0.0.0.0:${port})`;
+    else if (mode === 'localhost') modeBadge.textContent = `Localhost Only (127.0.0.1:${port})`;
+    else if (mode === 'network') modeBadge.textContent = `Wi-Fi IP (${networkIp}:${port})`;
+    else modeBadge.textContent = `Custom (${customDomain || 'custom'})`;
+  }
+
+  // Update suggested notice message
+  const dtVal = document.getElementById('schedule-target-datetime')?.value;
+  const timeStr = dtVal ? new Date(dtVal).toLocaleTimeString() : 'the scheduled time';
+  const msgInput = document.getElementById('schedule-notice-message');
+  if (msgInput) {
+    if (mode === 'both') {
+      msgInput.value = `Server endpoint is scheduled to migrate to http://localhost:${port} (Wi-Fi: http://${networkIp}:${port}) at ${timeStr}. Please update your client configuration.`;
+    } else if (mode === 'network') {
+      msgInput.value = `Server endpoint is scheduled to migrate to http://${networkIp}:${port} at ${timeStr}. Please update your client configuration.`;
+    } else if (mode === 'localhost') {
+      msgInput.value = `Server endpoint is scheduled to migrate to http://localhost:${port} at ${timeStr}. Please update your client configuration.`;
+    } else {
+      msgInput.value = `Server endpoint is scheduled to migrate to http://${customDomain || 'custom-host'}:${port} at ${timeStr}. Please update your client configuration.`;
+    }
+  }
+}
+
+function formatRemainingSeconds(seconds) {
+  if (seconds <= 0) return '00:00:00';
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function startScheduledMigrationCountdown(migration) {
+  activeScheduledMigration = migration;
+  if (migrationCountdownTimer) clearInterval(migrationCountdownTimer);
+
+  const banner = document.getElementById('banner-scheduled-migration');
+  const cardBox = document.getElementById('box-pending-migration-card');
+
+  if (!migration || migration.status !== 'pending') {
+    if (banner) banner.classList.add('hidden');
+    if (cardBox) cardBox.classList.add('hidden');
+    return;
+  }
+
+  const scheduledTime = new Date(migration.scheduledAt).getTime();
+  const updateTimer = () => {
+    const now = Date.now();
+    const remainingSec = Math.max(0, Math.ceil((scheduledTime - now) / 1000));
+    const timeStr = formatRemainingSeconds(remainingSec);
+
+    // Update Banner for All Users
+    if (banner) {
+      banner.classList.remove('hidden');
+      const countEl = document.getElementById('label-migration-countdown');
+      if (countEl) countEl.textContent = `In ${timeStr}`;
+      const msgEl = document.getElementById('label-migration-message');
+      if (msgEl) msgEl.textContent = migration.noticeMessage || 'AegisDB is scheduled to migrate to a new hosting port/IP address.';
+      const urlEl = document.getElementById('label-migration-target-url');
+      if (urlEl) urlEl.textContent = migration.newBaseUrl;
+    }
+
+    // Update Super Admin Card Box
+    if (cardBox && state.user?.isSuperAdmin) {
+      cardBox.classList.remove('hidden');
+      const cardCountEl = document.getElementById('label-card-migration-countdown');
+      if (cardCountEl) cardCountEl.textContent = timeStr;
+      const cardDetailsEl = document.getElementById('label-card-migration-details');
+      if (cardDetailsEl) cardDetailsEl.textContent = `Target: ${migration.newBaseUrl} at ${new Date(migration.scheduledAt).toLocaleTimeString()}`;
+    }
+
+    if (remainingSec <= 0) {
+      clearInterval(migrationCountdownTimer);
+      migrationCountdownTimer = null;
+    }
+  };
+
+  updateTimer();
+  migrationCountdownTimer = setInterval(updateTimer, 1000);
+}
+
+function computeClientRedirectUrl(newBaseUrl) {
+  try {
+    const currentHost = window.location.hostname;
+    const currentProtocol = window.location.protocol;
+    const parsed = new URL(newBaseUrl);
+    const targetPort = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+
+    // If client is on localhost or 127.0.0.1, keep accessing via localhost with new port
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      return `${currentProtocol}//${currentHost}:${targetPort}`;
+    }
+    // If client is on a network IP (e.g. 192.168.31.57), keep that network IP with new port
+    if (currentHost && currentHost !== '0.0.0.0') {
+      return `${currentProtocol}//${currentHost}:${targetPort}`;
+    }
+    return newBaseUrl;
+  } catch (_) {
+    return newBaseUrl;
+  }
+}
+
+function triggerClientMigrationRedirect(newBaseUrl) {
+  if (!newBaseUrl) return;
+  const cleanTargetUrl = computeClientRedirectUrl(newBaseUrl);
+  let targetUrlWithHash = cleanTargetUrl;
+
+  // Encode active session handover payload so user is never logged out across ports
+  if (state.accessToken && state.user) {
+    try {
+      const payload = {
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken || state.accessToken,
+        user: state.user
+      };
+      const encoded = btoa(encodeURIComponent(JSON.stringify(payload)));
+      const parsed = new URL(cleanTargetUrl);
+      parsed.hash = `auth_handover=${encoded}`;
+      targetUrlWithHash = parsed.toString();
+    } catch (_) {}
+  }
+
+  const overlay = document.getElementById('overlay-migration-transition');
+  if (overlay) {
+    // Set CLEAN URL (never showing raw base64 hash!)
+    const urlEl = document.getElementById('label-transition-target-url');
+    if (urlEl) urlEl.textContent = cleanTargetUrl;
+    overlay.classList.remove('hidden');
+
+    const statusEl = document.getElementById('label-transition-status');
+    const countEl = document.getElementById('label-transition-countdown');
+    const elapsedEl = document.getElementById('label-transition-elapsed');
+    const termContainer = document.getElementById('container-transition-terminal');
+
+    const pipe3 = document.getElementById('step-pipe-3');
+    const pipe4 = document.getElementById('step-pipe-4');
+
+    const startTime = Date.now();
+    let isRedirecting = false;
+    let attempts = 0;
+    const maxAttempts = 30; // 30 x 400ms = 12s max window
+
+    const logCmd = (text, type = 'info') => {
+      if (!termContainer) return;
+      const div = document.createElement('div');
+      let prefix = '<span class="text-emerald-400">➜</span>';
+      if (type === 'warn') prefix = '<span class="text-amber-400">⚠️</span>';
+      if (type === 'success') prefix = '<span class="text-emerald-300 font-bold">✓</span>';
+      if (type === 'sys') prefix = '<span class="text-cyan-400">⚙️</span>';
+
+      div.innerHTML = `${prefix} <span class="${type === 'success' ? 'text-emerald-300 font-bold' : type === 'warn' ? 'text-amber-300' : 'text-slate-300'}">${escapeHTML(text)}</span>`;
+      termContainer.appendChild(div);
+      termContainer.scrollTop = termContainer.scrollHeight;
+    };
+
+    if (termContainer) {
+      termContainer.innerHTML = '';
+      logCmd(`Terminating existing listener on active socket...`, 'sys');
+      logCmd(`Rebinding TCP listener to target ${cleanTargetUrl}...`, 'sys');
+      logCmd(`Securing zero-login admin session handover ticket...`, 'info');
+    }
+
+    // Timer interval
+    const timerInterval = setInterval(() => {
+      if (isRedirecting) {
+        clearInterval(timerInterval);
+        return;
+      }
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      if (elapsedEl) elapsedEl.textContent = `Elapsed: ${elapsed}s`;
+    }, 100);
+
+    const performRedirect = () => {
+      if (isRedirecting) return;
+      isRedirecting = true;
+      clearInterval(timerInterval);
+
+      if (pipe3) {
+        pipe3.className = 'p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition';
+        pipe3.innerHTML = '<i class="fa-solid fa-check text-[10px] block mb-0.5"></i><span>3. Probed</span>';
+      }
+      if (pipe4) {
+        pipe4.className = 'p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-bold animate-pulse transition';
+        pipe4.innerHTML = '<i class="fa-solid fa-check-double text-[10px] block mb-0.5"></i><span>4. Live</span>';
+      }
+
+      logCmd(`HTTP 200 OK confirmed on ${cleanTargetUrl}!`, 'success');
+      logCmd(`Transferring active session into dashboard...`, 'success');
+
+      if (statusEl) statusEl.innerHTML = '<span class="text-emerald-300 font-bold">✓ Socket live & responding! Loading session...</span>';
+      if (countEl) countEl.textContent = '✓ Ready';
+
+      // Cleanly teardown old WebSocket
+      try {
+        if (state.ws) {
+          state.ws.onclose = null;
+          state.ws.onerror = null;
+          state.ws.close();
+          state.ws = null;
+        }
+      } catch (_) {}
+
+      setTimeout(() => {
+        window.location.replace(targetUrlWithHash);
+      }, 350);
+    };
+
+    const probePort = async () => {
+      if (isRedirecting) return;
+      attempts += 1;
+      if (statusEl) statusEl.textContent = `Verifying new port health (Attempt ${attempts}/${maxAttempts})...`;
+      if (countEl) countEl.textContent = `⏳ ${attempts}/${maxAttempts}`;
+
+      logCmd(`Probing TCP socket health on ${cleanTargetUrl} (Attempt ${attempts})...`, 'info');
+
+      // Dual probe 1: Image Favicon loader (bypasses CORS restrictions)
+      try {
+        const testImg = new Image();
+        testImg.onload = () => performRedirect();
+        testImg.src = `${cleanTargetUrl}/favicon.ico?_t=${Date.now()}`;
+      } catch (_) {}
+
+      // Dual probe 2: Fetch probe with cache-busting
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
+
+        const probeRes = await fetch(`${cleanTargetUrl}/api/v1/system/status?_t=${Date.now()}`, {
+          method: 'GET',
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        clearTimeout(timeoutId);
+
+        if (probeRes.ok || probeRes.status === 200 || probeRes.status === 304 || probeRes.status === 401) {
+          performRedirect();
+          return;
+        }
+      } catch (_) {
+        // Socket still rebinding, retry
+      }
+
+      if (attempts < maxAttempts && !isRedirecting) {
+        setTimeout(probePort, 400);
+      } else if (!isRedirecting) {
+        // Fallback
+        logCmd(`Proceeding to load endpoint...`, 'warn');
+        performRedirect();
+      }
+    };
+
+    // Give server 300ms to initiate socket rebind before first probe
+    setTimeout(probePort, 300);
+  } else {
+    window.location.replace(targetUrlWithHash);
+  }
+}
+
+function renderServerHostingTab(data) {
+  if (!data) return;
+  const netIp = data.networkIp || '192.168.31.57';
+  const port = data.serverPort || 3000;
+  const host = data.serverHost || '0.0.0.0';
+  const mode = data.serverHostingMode || 'both';
+  const domain = data.customDomain || '';
+  const canonicalUrl = data.canonicalBaseUrl || computeLiveEndpointUrl(mode, host, port, domain);
+
+  // Detected IP
+  const detectedIpEl = document.getElementById('hosttab-detected-network-ip');
+  if (detectedIpEl) detectedIpEl.textContent = netIp;
+  document.querySelectorAll('.hosttab-card-netip').forEach(el => el.textContent = netIp);
+
+  // Status Badge
+  const statusBadge = document.getElementById('hosttab-current-status-badge');
+  if (statusBadge) statusBadge.textContent = `Online: ${canonicalUrl}`;
+
+  // Inputs
+  const inputHost = document.getElementById('hosttab-input-host');
+  if (inputHost) inputHost.value = host;
+  const inputPort = document.getElementById('hosttab-input-port');
+  if (inputPort) inputPort.value = port;
+  const inputDomain = document.getElementById('hosttab-input-custom-domain');
+  if (inputDomain) inputDomain.value = domain;
+
+  // Preset button label
+  const presetDetectedBtn = document.getElementById('hosttab-btn-preset-detected-ip');
+  if (presetDetectedBtn) {
+    presetDetectedBtn.setAttribute('data-host', netIp);
+    presetDetectedBtn.textContent = `${netIp} (Wi-Fi)`;
+  }
+
+  // Highlight active mode card
+  document.querySelectorAll('.host-mode-card').forEach(card => {
+    const cardMode = card.getAttribute('data-mode');
+    if (cardMode === mode) {
+      card.className = 'host-mode-card active p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/10';
+    } else {
+      card.className = 'host-mode-card p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-slate-900/40 border-white/10 hover:border-white/20';
+    }
+  });
+
+  // Update Preview URLs
+  const previewLocalEl = document.getElementById('hosttab-preview-local-url');
+  if (previewLocalEl) previewLocalEl.textContent = `http://localhost:${port}`;
+  const previewNetEl = document.getElementById('hosttab-preview-network-url');
+  if (previewNetEl) previewNetEl.textContent = `http://${netIp}:${port}`;
+
+  // Update CLI Commands
+  const cliStartEl = document.getElementById('hosttab-cli-start-cmd');
+  if (cliStartEl) cliStartEl.textContent = `PORT=${port} HOST=${host} npm run dev`;
+  const cliCurlEl = document.getElementById('hosttab-cli-curl-cmd');
+  if (cliCurlEl) cliCurlEl.textContent = `curl http://localhost:${port}/api/v1/system/status`;
+
+  const modeTag = document.getElementById('hosttab-preview-mode-tag');
+  if (modeTag) {
+    if (mode === 'both') modeTag.textContent = `Dual Binding (0.0.0.0:${port})`;
+    else if (mode === 'localhost') modeTag.textContent = `Localhost Only (127.0.0.1:${port})`;
+    else if (mode === 'network') modeTag.textContent = `Wi-Fi Network IP (${netIp}:${port})`;
+    else modeTag.textContent = `Custom (${domain || host}:${port})`;
+  }
+
+  // Update Code Previews
+  const aiPromptEl = document.getElementById('hosttab-text-ai-prompt');
+  if (aiPromptEl) aiPromptEl.textContent = buildMigrationPrompt(canonicalUrl, false, '');
+  const sdkCodeEl = document.getElementById('hosttab-text-sdk-code');
+  if (sdkCodeEl) sdkCodeEl.textContent = buildAegisClientCode(canonicalUrl);
+
+  // Check pending migration inside tab
+  const tabPendingBox = document.getElementById('hosttab-box-pending-migration');
+  if (tabPendingBox) {
+    if (data.pendingMigration && data.pendingMigration.status === 'pending') {
+      tabPendingBox.classList.remove('hidden');
+      const detEl = document.getElementById('hosttab-migration-details');
+      if (detEl) detEl.textContent = `Target: ${data.pendingMigration.newBaseUrl} scheduled for ${new Date(data.pendingMigration.scheduledAt).toLocaleTimeString()}`;
+    } else {
+      tabPendingBox.classList.add('hidden');
+    }
+  }
+}
+
+function initServerHostingTab() {
+  const getSelectedMode = () => {
+    const activeCard = document.querySelector('.host-mode-card.active');
+    return activeCard?.getAttribute('data-mode') || 'both';
+  };
+
+  const syncHostTabLivePreviews = () => {
+    const mode = getSelectedMode();
+    const host = document.getElementById('hosttab-input-host')?.value || '0.0.0.0';
+    const port = parseInt(document.getElementById('hosttab-input-port')?.value || '3000', 10);
+    const domain = document.getElementById('hosttab-input-custom-domain')?.value || '';
+    const netIp = promptEndpointConfig.networkIp || '192.168.31.57';
+    const canonical = computeLiveEndpointUrl(mode, host, port, domain);
+
+    const localEl = document.getElementById('hosttab-preview-local-url');
+    if (localEl) localEl.textContent = `http://localhost:${port}`;
+    const netEl = document.getElementById('hosttab-preview-network-url');
+    if (netEl) netEl.textContent = `http://${netIp}:${port}`;
+
+    const cliStartEl = document.getElementById('hosttab-cli-start-cmd');
+    if (cliStartEl) cliStartEl.textContent = `PORT=${port} HOST=${host} npm run dev`;
+    const cliCurlEl = document.getElementById('hosttab-cli-curl-cmd');
+    if (cliCurlEl) cliCurlEl.textContent = `curl http://localhost:${port}/api/v1/system/status`;
+
+    const tagEl = document.getElementById('hosttab-preview-mode-tag');
+    if (tagEl) {
+      if (mode === 'both') tagEl.textContent = `Dual Binding (${host}:${port})`;
+      else if (mode === 'localhost') tagEl.textContent = `Localhost Only (${host}:${port})`;
+      else if (mode === 'network') tagEl.textContent = `Wi-Fi Network (${host}:${port})`;
+      else tagEl.textContent = `Custom (${domain || host}:${port})`;
+    }
+
+    const aiPromptEl = document.getElementById('hosttab-text-ai-prompt');
+    if (aiPromptEl) aiPromptEl.textContent = buildMigrationPrompt(canonical, false, '');
+    const sdkCodeEl = document.getElementById('hosttab-text-sdk-code');
+    if (sdkCodeEl) sdkCodeEl.textContent = buildAegisClientCode(canonical);
+  };
+
+  // Copy CLI commands
+  document.querySelectorAll('.btn-copy-cli-cmd').forEach((btn) => {
+    btn.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const targetId = btn.getAttribute('data-target');
+      const targetEl = document.getElementById(targetId);
+      if (targetEl) {
+        navigator.clipboard.writeText(targetEl.textContent.trim());
+        showToast(`Copied command: ${targetEl.textContent.trim()}`, 'success');
+      }
+    };
+  });
+
+  // Visual Mode Card clicks
+  document.querySelectorAll('.host-mode-card').forEach((card) => {
+    card.onclick = () => {
+      document.querySelectorAll('.host-mode-card').forEach((c) => {
+        c.className = 'host-mode-card p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-slate-900/40 border-white/10 hover:border-white/20';
+      });
+      card.className = 'host-mode-card active p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/10';
+
+      const mode = card.getAttribute('data-mode');
+      const host = card.getAttribute('data-host');
+      const inputHost = document.getElementById('hosttab-input-host');
+      if (inputHost) inputHost.value = host;
+
+      syncHostTabLivePreviews();
+    };
+  });
+
+  // Host preset buttons
+  document.querySelectorAll('.btn-host-preset').forEach((btn) => {
+    btn.onclick = () => {
+      const host = btn.getAttribute('data-host') || '0.0.0.0';
+      const inputHost = document.getElementById('hosttab-input-host');
+      if (inputHost) inputHost.value = host;
+      syncHostTabLivePreviews();
+    };
+  });
+
+  // Port preset buttons
+  document.querySelectorAll('.btn-port-preset').forEach((btn) => {
+    btn.onclick = () => {
+      const port = btn.getAttribute('data-port') || '3000';
+      const inputPort = document.getElementById('hosttab-input-port');
+      if (inputPort) inputPort.value = port;
+      syncHostTabLivePreviews();
+    };
+  });
+
+  // Detected Wi-Fi IP button in header
+  const btnUseDetectedIp = document.getElementById('hosttab-btn-use-detected-ip');
+  if (btnUseDetectedIp) {
+    btnUseDetectedIp.onclick = () => {
+      const netIp = promptEndpointConfig.networkIp || '192.168.31.57';
+      const inputHost = document.getElementById('hosttab-input-host');
+      if (inputHost) inputHost.value = netIp;
+      navigator.clipboard.writeText(netIp);
+      showToast(`Selected and copied detected Wi-Fi IP: ${netIp}`, 'info');
+      syncHostTabLivePreviews();
+    };
+  }
+
+  // Inputs oninput
+  ['hosttab-input-host', 'hosttab-input-port', 'hosttab-input-custom-domain'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.oninput = syncHostTabLivePreviews;
+      el.onchange = syncHostTabLivePreviews;
+    }
+  });
+
+  // Reset Defaults
+  const btnReset = document.getElementById('hosttab-btn-reset-defaults');
+  if (btnReset) {
+    btnReset.onclick = () => {
+      const inputHost = document.getElementById('hosttab-input-host');
+      if (inputHost) inputHost.value = '0.0.0.0';
+      const inputPort = document.getElementById('hosttab-input-port');
+      if (inputPort) inputPort.value = '3000';
+      const inputDomain = document.getElementById('hosttab-input-custom-domain');
+      if (inputDomain) inputDomain.value = '';
+      document.querySelectorAll('.host-mode-card').forEach((c, idx) => {
+        c.className = idx === 0 ? 'host-mode-card active p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/10' : 'host-mode-card p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-slate-900/40 border-white/10 hover:border-white/20';
+      });
+      syncHostTabLivePreviews();
+      showToast('Reset host parameters to defaults (0.0.0.0:3000).', 'info');
+    };
+  }
+
+  // Apply, Save & Switch Immediately
+  const btnApply = document.getElementById('hosttab-btn-apply-switch');
+  if (btnApply) {
+    btnApply.onclick = async () => {
+      const serverHostingMode = getSelectedMode();
+      const serverHost = document.getElementById('hosttab-input-host')?.value || '0.0.0.0';
+      const serverPort = parseInt(document.getElementById('hosttab-input-port')?.value || '3000', 10);
+      const customDomain = document.getElementById('hosttab-input-custom-domain')?.value || '';
+
+      try {
+        btnApply.disabled = true;
+        btnApply.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying...';
+        const res = await apiRequest('/api/v1/admin/platform-settings', 'PATCH', {
+          serverHostingMode,
+          serverHost,
+          serverPort,
+          customDomain
+        });
+        showToast('Server hosting configuration applied successfully!', 'success');
+        const newUrl = res.data?.canonicalBaseUrl || computeLiveEndpointUrl(serverHostingMode, serverHost, serverPort, customDomain);
+        triggerClientMigrationRedirect(newUrl);
+      } catch (err) {
+        btnApply.disabled = false;
+        btnApply.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket text-sm"></i> <span>Apply, Save & Switch Immediately</span>';
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Open Schedule Modal from Tab
+  const btnOpenSched = document.getElementById('hosttab-btn-open-schedule');
+  if (btnOpenSched) {
+    btnOpenSched.onclick = () => {
+      const mode = getSelectedMode();
+      const host = document.getElementById('hosttab-input-host')?.value || '0.0.0.0';
+      const port = document.getElementById('hosttab-input-port')?.value || '3000';
+      const domain = document.getElementById('hosttab-input-custom-domain')?.value || '';
+
+      const schMode = document.getElementById('schedule-target-mode');
+      if (schMode) schMode.value = mode;
+      const schHost = document.getElementById('schedule-target-host');
+      if (schHost) schHost.value = host;
+      const schPort = document.getElementById('schedule-target-port');
+      if (schPort) schPort.value = port;
+      const schDomain = document.getElementById('schedule-custom-domain');
+      if (schDomain) schDomain.value = domain;
+
+      updateScheduleModalPreview();
+      showModal('modal-schedule-migration');
+    };
+  }
+
+  // Scanner Refresh Button
+  const btnRefreshScanner = document.getElementById('btn-refresh-port-scanner');
+  if (btnRefreshScanner) {
+    btnRefreshScanner.onclick = () => {
+      loadPortDiagnostics();
+      showToast('Rescanning local network ports & interfaces...', 'info');
+    };
+  }
+
+  // Live Debounced Port Conflict Validator
+  const inputPortEl = document.getElementById('hosttab-input-port');
+  if (inputPortEl) {
+    inputPortEl.addEventListener('input', () => {
+      clearTimeout(portCheckDebounceTimer);
+      portCheckDebounceTimer = setTimeout(() => {
+        const portVal = inputPortEl.value;
+        const hostVal = document.getElementById('hosttab-input-host')?.value || '0.0.0.0';
+        checkCustomPortLive(portVal, hostVal);
+      }, 350);
+    });
+  }
+
+  // Copy Preview URLs
+  document.querySelectorAll('.btn-copy-preview-url').forEach((btn) => {
+    btn.onclick = () => {
+      const targetId = btn.getAttribute('data-target');
+      const text = document.getElementById(targetId)?.textContent || '';
+      if (text) {
+        navigator.clipboard.writeText(text);
+        showToast(`Copied URL: ${text}`, 'success');
+      }
+    };
+  });
+
+  // Copy AI Prompt
+  const btnCopyPrompt = document.getElementById('hosttab-btn-copy-ai-prompt');
+  if (btnCopyPrompt) {
+    btnCopyPrompt.onclick = () => {
+      const text = document.getElementById('hosttab-text-ai-prompt')?.textContent || '';
+      if (text) {
+        navigator.clipboard.writeText(text);
+        showToast('Copied dynamic AI migration prompt!', 'success');
+      }
+    };
+  }
+
+  // Copy SDK Code
+  const btnCopySdk = document.getElementById('hosttab-btn-copy-sdk-code');
+  if (btnCopySdk) {
+    btnCopySdk.onclick = () => {
+      const text = document.getElementById('hosttab-text-sdk-code')?.textContent || '';
+      if (text) {
+        navigator.clipboard.writeText(text);
+        showToast('Copied SDK integration snippet!', 'success');
+      }
+    };
+  }
+
+  // Terminal Filter
+  const selectFilter = document.getElementById('select-terminal-filter');
+  if (selectFilter) {
+    selectFilter.onchange = () => {
+      currentTerminalFilter = selectFilter.value;
+      renderLiveTerminalLogs();
+    };
+  }
+
+  // Toggle Pause/Resume
+  const btnTogglePause = document.getElementById('btn-toggle-terminal-stream');
+  if (btnTogglePause) {
+    btnTogglePause.onclick = () => {
+      isTerminalStreamPaused = !isTerminalStreamPaused;
+      const label = document.getElementById('label-toggle-terminal-stream');
+      const badge = document.getElementById('badge-terminal-live');
+      if (isTerminalStreamPaused) {
+        if (label) label.textContent = 'Resume';
+        btnTogglePause.querySelector('i')?.classList.replace('fa-pause', 'fa-play');
+        if (badge) {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span><span>PAUSED</span>';
+        }
+      } else {
+        if (label) label.textContent = 'Pause';
+        btnTogglePause.querySelector('i')?.classList.replace('fa-play', 'fa-pause');
+        if (badge) {
+          badge.className = 'px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1';
+          badge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span><span>STREAMING</span>';
+        }
+        renderLiveTerminalLogs();
+      }
+    };
+  }
+
+  // Clear Terminal Logs
+  const btnClear = document.getElementById('btn-clear-terminal-logs');
+  if (btnClear) {
+    btnClear.onclick = () => {
+      terminalLogEntries = [];
+      renderLiveTerminalLogs();
+      showToast('Terminal screen buffer cleared.', 'info');
+    };
+  }
+
+  // Copy Terminal Logs
+  const btnCopyLogs = document.getElementById('btn-copy-terminal-logs');
+  if (btnCopyLogs) {
+    btnCopyLogs.onclick = () => {
+      if (terminalLogEntries.length === 0) {
+        showToast('Terminal buffer is empty.', 'info');
+        return;
+      }
+      const text = terminalLogEntries.map(e => `[${e.timestamp}] ${e.message}`).join('\n');
+      navigator.clipboard.writeText(text);
+      showToast(`Copied ${terminalLogEntries.length} log lines to clipboard!`, 'success');
+    };
+  }
+
+  // Auto-scroll toggle
+  const labelAutoScroll = document.getElementById('label-terminal-autoscroll');
+  if (labelAutoScroll) {
+    labelAutoScroll.onclick = () => {
+      isTerminalAutoScroll = !isTerminalAutoScroll;
+      labelAutoScroll.textContent = `Auto-scroll: ${isTerminalAutoScroll ? 'ON' : 'OFF'}`;
+      labelAutoScroll.className = isTerminalAutoScroll ? 'text-emerald-400 cursor-pointer hover:underline' : 'text-slate-500 cursor-pointer hover:underline';
+    };
+  }
+}
+
+// ── Live Server Terminal Console Streamer ─────────────────────────────────────
+let isTerminalStreamPaused = false;
+let isTerminalAutoScroll = true;
+let terminalLogEntries = [];
+let currentTerminalFilter = 'all';
+
+function formatTerminalLine(entry) {
+  const ts = new Date(entry.timestamp).toLocaleTimeString();
+  let colorClass = 'text-slate-300';
+  let badge = '';
+
+  if (entry.level === 'request') {
+    colorClass = 'text-emerald-300';
+    badge = '<span class="text-[9px] px-1 py-0.2 rounded bg-emerald-500/20 text-emerald-300 mr-1.5 font-bold">REQ</span>';
+  } else if (entry.level === 'error') {
+    colorClass = 'text-rose-400 font-bold';
+    badge = '<span class="text-[9px] px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 mr-1.5 font-bold">ERR</span>';
+  } else if (entry.level === 'warn') {
+    colorClass = 'text-amber-300';
+    badge = '<span class="text-[9px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 mr-1.5 font-bold">WRN</span>';
+  } else if (entry.level === 'system') {
+    colorClass = 'text-cyan-300 font-bold';
+    badge = '<span class="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300 mr-1.5 font-bold">SYS</span>';
+  }
+
+  return `<div class="flex items-start space-x-1.5 py-0.5 leading-relaxed hover:bg-white/5 px-1 rounded transition ${colorClass}">
+    <span class="text-slate-600 text-[10px] select-none pt-0.5">${ts}</span>
+    <span class="flex-1 select-text">${badge}${escapeHTML(entry.message)}</span>
+  </div>`;
+}
+
+function renderLiveTerminalLogs() {
+  const container = document.getElementById('container-live-terminal-stream');
+  const countEl = document.getElementById('label-terminal-entry-count');
+  if (!container) return;
+
+  let filtered = terminalLogEntries;
+  if (currentTerminalFilter !== 'all') {
+    filtered = terminalLogEntries.filter(e => e.level === currentTerminalFilter);
+  }
+
+  if (countEl) countEl.textContent = `${filtered.length} entries`;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `<div class="text-slate-500 italic text-[11px]">No log entries found for filter "${currentTerminalFilter}".</div>`;
+    return;
+  }
+
+  container.innerHTML = filtered.map(formatTerminalLine).join('');
+
+  if (isTerminalAutoScroll) {
+    container.scrollTop = container.scrollHeight;
+  }
+}
+
+function handleIncomingTerminalLog(entry) {
+  terminalLogEntries.push(entry);
+  if (terminalLogEntries.length > 300) {
+    terminalLogEntries.shift();
+  }
+
+  if (isTerminalStreamPaused) return;
+
+  const container = document.getElementById('container-live-terminal-stream');
+  if (!container) return;
+
+  if (currentTerminalFilter === 'all' || entry.level === currentTerminalFilter) {
+    if (container.querySelector('.italic')) {
+      container.innerHTML = '';
+    }
+    const div = document.createElement('div');
+    div.innerHTML = formatTerminalLine(entry);
+    if (div.firstElementChild) {
+      container.appendChild(div.firstElementChild);
+    }
+
+    const countEl = document.getElementById('label-terminal-entry-count');
+    if (countEl) countEl.textContent = `${terminalLogEntries.length} entries`;
+
+    if (isTerminalAutoScroll) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+}
+
+async function loadLiveTerminalLogs() {
   if (!state.user?.isSuperAdmin) return;
-  const card = document.getElementById('card-platform-settings');
-  if (card) card.classList.remove('hidden');
+  try {
+    const res = await apiRequest('/api/v1/admin/terminal-logs', 'GET');
+    if (Array.isArray(res?.data)) {
+      terminalLogEntries = res.data;
+      renderLiveTerminalLogs();
+    }
+  } catch (err) {
+    console.warn('Failed to load initial terminal logs:', err);
+  }
+}
+
+let portCheckDebounceTimer = null;
+
+async function checkCustomPortLive(port, host = '0.0.0.0') {
+  const badge = document.getElementById('hosttab-port-validation-badge');
+  if (!badge) return;
+  const p = parseInt(port, 10);
+  if (isNaN(p) || p < 1 || p > 65535) {
+    badge.className = 'text-[10px] font-mono text-rose-400 font-semibold';
+    badge.textContent = '❌ Invalid Port (1-65535)';
+    return;
+  }
+
+  badge.className = 'text-[10px] font-mono text-slate-400 font-semibold';
+  badge.textContent = 'Scanning port...';
+
+  try {
+    const res = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: p, host });
+    if (res?.available) {
+      badge.className = 'text-[10px] font-mono text-emerald-400 font-semibold';
+      badge.textContent = `✓ Port ${p} is Free & Ready`;
+    } else {
+      badge.className = 'text-[10px] font-mono text-rose-400 font-semibold';
+      badge.textContent = `⚠️ Port ${p} in use / conflict`;
+    }
+  } catch (err) {
+    badge.className = 'text-[10px] font-mono text-amber-400 font-semibold';
+    badge.textContent = 'Port checked';
+  }
+}
+
+async function loadPortDiagnostics() {
+  if (!state.user?.isSuperAdmin) return;
+  const portsGrid = document.getElementById('container-scanned-ports-grid');
+  const ifacesGrid = document.getElementById('container-scanned-interfaces-grid');
+
+  if (portsGrid) {
+    portsGrid.innerHTML = `
+      <div class="text-xs text-slate-400 flex items-center space-x-1.5 py-1">
+        <i class="fa-solid fa-spinner fa-spin text-emerald-400"></i>
+        <span>Probing local candidate ports for availability...</span>
+      </div>
+    `;
+  }
+
+  try {
+    const res = await apiRequest('/api/v1/admin/platform-settings/port-diagnostics');
+    if (!res) return;
+
+    // Render Scanned Ports
+    if (portsGrid && res.candidatePorts) {
+      portsGrid.innerHTML = '';
+      res.candidatePorts.forEach((cp) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        if (cp.status === 'active_aegis') {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-2 transition cursor-default shadow';
+          btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>${cp.port}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 uppercase font-semibold">Active Server</span>`;
+        } else if (cp.status === 'free') {
+          btn.className = 'btn-scanned-port-chip px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-white/5 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 transition flex items-center space-x-2 cursor-pointer shadow-sm hover:scale-105 active:scale-95';
+          btn.setAttribute('data-port', cp.port);
+          btn.title = 'Click to auto-fill this verified free port';
+          btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400"></span><span>${cp.port}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-semibold">Free</span>`;
+          btn.onclick = () => {
+            const portInput = document.getElementById('hosttab-input-port');
+            if (portInput) {
+              portInput.value = cp.port;
+              portInput.dispatchEvent(new Event('input'));
+            }
+            showToast(`Selected verified free port: ${cp.port}`, 'success');
+          };
+        } else {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-medium bg-rose-500/10 text-rose-300/70 border border-rose-500/20 opacity-75 cursor-not-allowed flex items-center space-x-2';
+          btn.title = cp.label || 'Occupied / In Use by another application';
+          btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>${cp.port}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 uppercase font-semibold">In Use</span>`;
+        }
+        portsGrid.appendChild(btn);
+      });
+    }
+
+    // Render Scanned Interfaces
+    if (ifacesGrid && res.interfaces) {
+      ifacesGrid.innerHTML = '';
+      res.interfaces.forEach((iface) => {
+        const card = document.createElement('div');
+        card.className = 'p-2.5 rounded-xl bg-slate-900/60 border border-white/10 flex items-center justify-between space-x-2';
+        const isWifi = iface.type === 'wifi';
+        const isLoop = iface.type === 'loopback';
+        const isAll = iface.type === 'all';
+        const icon = isWifi ? 'fa-wifi text-amber-400' : isLoop ? 'fa-laptop-code text-indigo-400' : isAll ? 'fa-globe text-emerald-400' : 'fa-network-wired text-blue-400';
+        card.innerHTML = `
+          <div class="flex items-center space-x-2 min-w-0">
+            <i class="fa-solid ${icon} text-xs shrink-0"></i>
+            <div class="truncate">
+              <div class="text-[10px] text-slate-400 uppercase font-semibold truncate">${iface.name}</div>
+              <div class="text-xs font-mono font-bold text-white truncate">${iface.address}</div>
+            </div>
+          </div>
+          <button type="button" class="btn-bind-interface px-2 py-1 rounded-lg text-[10px] font-semibold bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 transition shrink-0" data-address="${iface.address}">
+            Use
+          </button>
+        `;
+        const btnUse = card.querySelector('.btn-bind-interface');
+        if (btnUse) {
+          btnUse.onclick = () => {
+            const hostInput = document.getElementById('hosttab-input-host');
+            if (hostInput) {
+              hostInput.value = iface.address;
+              hostInput.dispatchEvent(new Event('input'));
+            }
+            showToast(`Set bind host address to: ${iface.address}`, 'info');
+          };
+        }
+        ifacesGrid.appendChild(card);
+      });
+    }
+
+  } catch (err) {
+    if (portsGrid) {
+      portsGrid.innerHTML = `<div class="text-xs text-rose-400 p-2">Failed to load port diagnostics.</div>`;
+    }
+  }
+}
+
+async function loadPlatformSettings() {
+  const cardPlatform = document.getElementById('card-platform-settings');
+  const cardHosting = document.getElementById('card-server-hosting-settings');
+
+  if (!state.user?.isSuperAdmin) {
+    if (cardPlatform) cardPlatform.classList.add('hidden');
+    if (cardHosting) cardHosting.classList.add('hidden');
+    return;
+  }
+
+  if (cardPlatform) cardPlatform.classList.remove('hidden');
+  if (cardHosting) cardHosting.classList.remove('hidden');
+
   try {
     const data = await apiRequest('/api/v1/admin/platform-settings');
     if (data) {
       document.getElementById('setting-google-client-id').value = data.googleClientId || '';
       document.getElementById('toggle-google-auth').checked = data.googleAuthEnabled || false;
+      const demoToggle = document.getElementById('toggle-demo-login');
+      if (demoToggle) demoToggle.checked = data.demoLoginEnabled !== false;
       document.getElementById('setting-backup-mode').value = data.backupMode || 'none';
       document.getElementById('setting-backup-interval').value = data.backupIntervalMinutes || '';
       document.getElementById('setting-backup-retention-days').value = data.backupRetentionDays || '7';
@@ -2727,6 +4235,51 @@ async function loadPlatformSettings() {
       document.getElementById('setting-s3-secret').value = data.s3SecretKey || '';
       const maintToggle = document.getElementById('toggle-maintenance-mode');
       if (maintToggle) maintToggle.checked = data.maintenanceMode || false;
+
+      // Populate Server Hosting Settings & Recommended Labels
+      const netIp = data.networkIp || '192.168.31.57';
+      const hostModeEl = document.getElementById('setting-server-hosting-mode');
+      if (hostModeEl) {
+        if (hostModeEl.options && hostModeEl.options.length >= 3) {
+          hostModeEl.options[0].text = `🌐 Both Localhost & Wi-Fi Network (0.0.0.0) [Recommended: localhost + ${netIp}]`;
+          hostModeEl.options[1].text = `💻 Localhost Only (127.0.0.1:3000)`;
+          hostModeEl.options[2].text = `📱 Local Wi-Fi Network IP (${netIp})`;
+        }
+        hostModeEl.value = data.serverHostingMode || 'both';
+      }
+
+      const schModeEl = document.getElementById('schedule-target-mode');
+      if (schModeEl && schModeEl.options && schModeEl.options.length >= 3) {
+        schModeEl.options[0].text = `🌐 Both Localhost & Wi-Fi Network (0.0.0.0) [Recommended: localhost + ${netIp}]`;
+        schModeEl.options[1].text = `💻 Localhost Only (127.0.0.1)`;
+        schModeEl.options[2].text = `📱 Local Wi-Fi Network IP (${netIp})`;
+      }
+
+      const hostInput = document.getElementById('setting-server-host');
+      if (hostInput) hostInput.value = data.serverHost || '0.0.0.0';
+
+      const portEl = document.getElementById('setting-server-port');
+      if (portEl) portEl.value = data.serverPort || 3000;
+      const domainEl = document.getElementById('setting-custom-domain');
+      if (domainEl) domainEl.value = data.customDomain || '';
+      
+      const statusBadge = document.getElementById('label-current-hosting-status');
+      if (statusBadge) {
+        statusBadge.textContent = `Online: ${data.canonicalBaseUrl || `http://localhost:${data.serverPort || 3000}`}`;
+      }
+
+      updateServerHostingCardPreview();
+      renderServerHostingTab(data);
+      loadPortDiagnostics();
+
+      // Check Pending Scheduled Migration
+      if (data.pendingMigration) {
+        startScheduledMigrationCountdown(data.pendingMigration);
+      } else {
+        document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
+        document.getElementById('box-pending-migration-card')?.classList.add('hidden');
+        document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
+      }
 
       // Render Backup Statuses
       if (data.lastBackupAt) {
@@ -2942,6 +4495,31 @@ document.addEventListener('DOMContentLoaded', async () => {
   initGoogleAuth();
   initInactivityTracker();
   initStorageUpload();
+  initPromptEndpointManager();
+  initServerHostingTab();
+
+  // ── 0. Check for Cross-Port Session Handover (Zero-Login Migration) ──────────
+  if (window.location.hash && window.location.hash.includes('auth_handover=')) {
+    try {
+      const match = window.location.hash.match(/auth_handover=([^&]+)/);
+      if (match && match[1]) {
+        const decoded = JSON.parse(decodeURIComponent(atob(match[1])));
+        if (decoded.accessToken && decoded.user) {
+          state.accessToken = decoded.accessToken;
+          state.refreshToken = decoded.refreshToken || decoded.accessToken;
+          state.user = decoded.user;
+          localStorage.setItem('aegis_access_token', decoded.accessToken);
+          localStorage.setItem('aegis_token', decoded.accessToken);
+          localStorage.setItem('aegis_refresh_token', decoded.refreshToken || decoded.accessToken);
+          localStorage.setItem('aegis_user', JSON.stringify(decoded.user));
+          // Clean hash without refreshing
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
+      }
+    } catch (e) {
+      console.warn('Session handover decode error:', e);
+    }
+  }
 
   // Check for Google Auth Redirect Hash
   if (window.location.hash.includes('id_token=')) {
@@ -3070,6 +4648,29 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
+  // 1-Click Demo Admin Login Handler
+  const btnDemoAdmin = document.getElementById('btn-demo-admin-login');
+  if (btnDemoAdmin) {
+    btnDemoAdmin.onclick = () => {
+      const tabLogin = document.getElementById('tab-btn-login');
+      if (tabLogin) tabLogin.click();
+
+      const inputEmail = document.getElementById('input-email');
+      const inputPassword = document.getElementById('input-password');
+      if (inputEmail) inputEmail.value = 'admin@aegisdb.dev';
+      if (inputPassword) inputPassword.value = 'Admin@123';
+
+      const form = document.getElementById('auth-form');
+      if (form) {
+        if (typeof form.requestSubmit === 'function') {
+          form.requestSubmit();
+        } else {
+          document.getElementById('btn-auth-submit')?.click();
+        }
+      }
+    };
+  }
+
   // Auth Form Submission
   const authForm = document.getElementById('auth-form');
   if (authForm) {
@@ -3163,16 +4764,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
   }
 
-  // Quick Demo Admin Login Handler
-  const btnDemoAdmin = document.getElementById('btn-demo-admin-login');
-  if (btnDemoAdmin && authForm) {
-    btnDemoAdmin.onclick = () => {
-      document.getElementById('input-email').value = 'admin@aegisdb.dev';
-      document.getElementById('input-password').value = 'Admin@123';
-      showToast('Demo Super Admin credentials populated. Signing in...', 'info');
-      authForm.dispatchEvent(new Event('submit'));
-    };
-  }
+
 
   // Data Browser Sub-Tab Switchers (Documents vs Collection Rules)
   const btnSubDocs = document.getElementById('btn-subtab-documents');
@@ -3328,9 +4920,13 @@ document.addEventListener('DOMContentLoaded', async () => {
       
       if (!name) return;
       try {
-        await apiRequest('/api/v1/auth/profile', 'PATCH', { name, email, currentPassword });
-        state.user.name = name;
-        if (email) state.user.email = email;
+        const res = await apiRequest('/api/v1/auth/profile', 'PATCH', { name, email, currentPassword });
+        if (res && res.user) {
+          state.user = { ...state.user, ...res.user };
+        } else {
+          state.user.name = name;
+          if (email) state.user.email = email;
+        }
         localStorage.setItem('aegis_user', JSON.stringify(state.user));
         
         // clear password field
@@ -3338,6 +4934,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (pwdField) pwdField.value = '';
         
         updateUserProfileUI();
+        setRoleMode(state.user.isSuperAdmin ? 'superadmin' : 'developer');
         showToast('Profile updated successfully.', 'success');
       } catch (err) {
         showToast(err.message, 'error');
@@ -3351,12 +4948,264 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSavePlatform.onclick = async () => {
       const googleClientId = document.getElementById('setting-google-client-id')?.value;
       const googleAuthEnabled = document.getElementById('toggle-google-auth')?.checked;
+      const demoLoginEnabled = document.getElementById('toggle-demo-login')?.checked;
       try {
-        await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { googleClientId, googleAuthEnabled });
-        showToast('Platform settings updated successfully. Reload page to see changes on login.', 'success');
+        await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { googleClientId, googleAuthEnabled, demoLoginEnabled });
+        showToast('Platform settings updated successfully. Login screen will reflect changes.', 'success');
       } catch (err) {
         showToast(err.message, 'error');
       }
+    };
+  }
+
+  // Server Hosting Settings Inputs live preview
+  ['setting-server-hosting-mode', 'setting-server-host', 'setting-server-port', 'setting-custom-domain'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.oninput = updateServerHostingCardPreview;
+      el.onchange = updateServerHostingCardPreview;
+    }
+  });
+
+  // Card Quick Mode Chips
+  document.querySelectorAll('.btn-card-quick-mode').forEach((btn) => {
+    btn.onclick = () => {
+      const mode = btn.getAttribute('data-mode') || 'both';
+      const select = document.getElementById('setting-server-hosting-mode');
+      if (select) select.value = mode;
+      document.querySelectorAll('.btn-card-quick-mode').forEach((b) => {
+        b.className = b === btn ? 'btn-card-quick-mode px-2.5 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 text-[11px] font-semibold transition border border-emerald-500/30' : 'btn-card-quick-mode px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-medium transition border border-white/10';
+      });
+      updateServerHostingCardPreview();
+    };
+  });
+
+  ['schedule-target-mode', 'schedule-target-host', 'schedule-target-port', 'schedule-custom-domain', 'schedule-target-datetime'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.oninput = updateScheduleModalPreview;
+      el.onchange = updateScheduleModalPreview;
+    }
+  });
+
+  // Schedule Modal Quick Mode Chips
+  document.querySelectorAll('.btn-schedule-quick-mode').forEach((btn) => {
+    btn.onclick = () => {
+      const mode = btn.getAttribute('data-mode') || 'both';
+      const select = document.getElementById('schedule-target-mode');
+      if (select) select.value = mode;
+      document.querySelectorAll('.btn-schedule-quick-mode').forEach((b) => {
+        b.className = b === btn ? 'btn-schedule-quick-mode px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-200 text-[11px] font-semibold transition border border-amber-500/30' : 'btn-schedule-quick-mode px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-medium transition border border-white/10';
+      });
+      updateScheduleModalPreview();
+    };
+  });
+
+  // Apply, Save & Switch Hosting Now
+  const btnApplySwitchHosting = document.getElementById('btn-apply-switch-hosting');
+  if (btnApplySwitchHosting) {
+    btnApplySwitchHosting.onclick = async () => {
+      const serverHostingMode = document.getElementById('setting-server-hosting-mode')?.value || 'both';
+      const serverHost = document.getElementById('setting-server-host')?.value || '0.0.0.0';
+      const serverPort = parseInt(document.getElementById('setting-server-port')?.value || '3000', 10);
+      const customDomain = document.getElementById('setting-custom-domain')?.value || '';
+      try {
+        btnApplySwitchHosting.disabled = true;
+        btnApplySwitchHosting.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying...';
+        const res = await apiRequest('/api/v1/admin/platform-settings', 'PATCH', {
+          serverHostingMode,
+          serverHost,
+          serverPort,
+          customDomain
+        });
+        showToast('Server hosting configuration applied successfully.', 'success');
+        const newUrl = res.data?.canonicalBaseUrl || computeLiveEndpointUrl(serverHostingMode, serverHost, serverPort, customDomain);
+        triggerClientMigrationRedirect(newUrl);
+      } catch (err) {
+        btnApplySwitchHosting.disabled = false;
+        btnApplySwitchHosting.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> <span>Apply, Save & Switch Now</span>';
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Open Schedule Migration Modal
+  const btnOpenScheduleModal = document.getElementById('btn-open-schedule-modal');
+  if (btnOpenScheduleModal) {
+    btnOpenScheduleModal.onclick = () => {
+      const currentMode = document.getElementById('setting-server-hosting-mode')?.value || 'both';
+      const currentHost = document.getElementById('setting-server-host')?.value || '0.0.0.0';
+      const currentPort = document.getElementById('setting-server-port')?.value || '3000';
+      const currentDomain = document.getElementById('setting-custom-domain')?.value || '';
+
+      const schMode = document.getElementById('schedule-target-mode');
+      if (schMode) schMode.value = currentMode;
+      const schHost = document.getElementById('schedule-target-host');
+      if (schHost) schHost.value = currentHost;
+      const schPort = document.getElementById('schedule-target-port');
+      if (schPort) schPort.value = currentPort;
+      const schDomain = document.getElementById('schedule-custom-domain');
+      if (schDomain) schDomain.value = currentDomain;
+
+      // Default delay to 10 minutes in future
+      const defaultDate = new Date(Date.now() + 10 * 60000);
+      const isoLocal = new Date(defaultDate.getTime() - defaultDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const dtInput = document.getElementById('schedule-target-datetime');
+      if (dtInput) dtInput.value = isoLocal;
+
+      updateScheduleModalPreview();
+      showModal('modal-schedule-migration');
+    };
+  }
+
+  // Schedule Delay Presets
+  document.querySelectorAll('.btn-schedule-delay-preset').forEach((btn) => {
+    btn.onclick = () => {
+      const mins = parseInt(btn.getAttribute('data-minutes') || '10', 10);
+      const targetDate = new Date(Date.now() + mins * 60000);
+      const isoLocal = new Date(targetDate.getTime() - targetDate.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      const dtInput = document.getElementById('schedule-target-datetime');
+      if (dtInput) dtInput.value = isoLocal;
+      updateScheduleModalPreview();
+    };
+  });
+
+  // Schedule Migration Form Submit
+  const formSchedule = document.getElementById('form-schedule-migration');
+  if (formSchedule) {
+    formSchedule.onsubmit = async (e) => {
+      e.preventDefault();
+      const targetMode = document.getElementById('schedule-target-mode')?.value || 'both';
+      const targetHost = document.getElementById('schedule-target-host')?.value || '0.0.0.0';
+      const targetPort = parseInt(document.getElementById('schedule-target-port')?.value || '3000', 10);
+      const customDomain = document.getElementById('schedule-custom-domain')?.value || '';
+      const dtVal = document.getElementById('schedule-target-datetime')?.value;
+      const noticeMessage = document.getElementById('schedule-notice-message')?.value;
+
+      if (!dtVal) {
+        showToast('Please select a scheduled execution date and time.', 'error');
+        return;
+      }
+
+      const scheduledAt = new Date(dtVal).toISOString();
+      try {
+        const res = await apiRequest('/api/v1/admin/platform-settings/migration/schedule', 'POST', {
+          targetMode,
+          targetHost,
+          targetPort,
+          customDomain,
+          scheduledAt,
+          noticeMessage
+        });
+        hideModal('modal-schedule-migration');
+        showToast('Migration scheduled and notice rolled out to all active users!', 'success');
+        if (res.data) {
+          startScheduledMigrationCountdown(res.data);
+        }
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Execute Scheduled Migration Early
+  const btnExecNow = document.getElementById('btn-execute-migration-now');
+  if (btnExecNow) {
+    btnExecNow.onclick = async () => {
+      if (!activeScheduledMigration?.id) return;
+      try {
+        btnExecNow.disabled = true;
+        await apiRequest('/api/v1/admin/platform-settings/migration/execute-now', 'POST', { id: activeScheduledMigration.id });
+        showToast('Migration executed immediately.', 'success');
+      } catch (err) {
+        btnExecNow.disabled = false;
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  const hosttabBtnExecNow = document.getElementById('hosttab-btn-execute-now');
+  if (hosttabBtnExecNow) {
+    hosttabBtnExecNow.onclick = async () => {
+      if (!activeScheduledMigration?.id) {
+        showToast('No active scheduled migration found.', 'error');
+        return;
+      }
+      try {
+        hosttabBtnExecNow.disabled = true;
+        await apiRequest('/api/v1/admin/platform-settings/migration/execute-now', 'POST', { id: activeScheduledMigration.id });
+        showToast('Migration executed immediately.', 'success');
+      } catch (err) {
+        hosttabBtnExecNow.disabled = false;
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Cancel Scheduled Migration
+  const btnCancelMig = document.getElementById('btn-cancel-scheduled-migration');
+  if (btnCancelMig) {
+    btnCancelMig.onclick = async () => {
+      try {
+        const id = activeScheduledMigration?.id;
+        await apiRequest('/api/v1/admin/platform-settings/migration/cancel', 'POST', { id });
+        if (migrationCountdownTimer) {
+          clearInterval(migrationCountdownTimer);
+          migrationCountdownTimer = null;
+        }
+        activeScheduledMigration = null;
+        document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
+        document.getElementById('box-pending-migration-card')?.classList.add('hidden');
+        document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
+        showToast('Scheduled migration cancelled and notice rolled out.', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  const hosttabBtnCancel = document.getElementById('hosttab-btn-cancel-schedule');
+  if (hosttabBtnCancel) {
+    hosttabBtnCancel.onclick = async () => {
+      try {
+        const id = activeScheduledMigration?.id;
+        await apiRequest('/api/v1/admin/platform-settings/migration/cancel', 'POST', { id });
+        if (migrationCountdownTimer) {
+          clearInterval(migrationCountdownTimer);
+          migrationCountdownTimer = null;
+        }
+        activeScheduledMigration = null;
+        document.getElementById('banner-scheduled-migration')?.classList.add('hidden');
+        document.getElementById('box-pending-migration-card')?.classList.add('hidden');
+        document.getElementById('hosttab-box-pending-migration')?.classList.add('hidden');
+        showToast('Scheduled migration cancelled and notice rolled out.', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Banner Copy Buttons
+  const btnCopyUpUrl = document.getElementById('btn-copy-upcoming-url');
+  if (btnCopyUpUrl) {
+    btnCopyUpUrl.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const url = activeScheduledMigration?.newBaseUrl || 'http://localhost:3000';
+      navigator.clipboard.writeText(url);
+      showToast(`Copied upcoming base URL: ${url}`, 'success');
+    };
+  }
+
+  const btnCopyUpPrompt = document.getElementById('btn-copy-upcoming-prompt');
+  if (btnCopyUpPrompt) {
+    btnCopyUpPrompt.onclick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const url = activeScheduledMigration?.newBaseUrl || 'http://localhost:3000';
+      const prompt = buildMigrationPrompt(url, false, '');
+      navigator.clipboard.writeText(prompt);
+      showToast(`Copied updated migration prompt for ${url}!`, 'success');
     };
   }
 
@@ -5385,7 +7234,6 @@ window.openAdminLoginFromMaintenance = function() {
 
   const inputEmail = document.getElementById('input-email');
   if (inputEmail) {
-    inputEmail.value = 'admin@aegisdb.dev';
     inputEmail.focus();
   }
 };

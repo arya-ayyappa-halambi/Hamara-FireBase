@@ -166,6 +166,7 @@ export function initSqlite(): void {
       id TEXT PRIMARY KEY,
       googleAuthEnabled INTEGER DEFAULT 0,
       googleClientId TEXT,
+      demoLoginEnabled INTEGER DEFAULT 1,
       maintenanceMode INTEGER DEFAULT 0,
       backupMode TEXT DEFAULT 'none',
       backupIntervalMinutes INTEGER DEFAULT 1440,
@@ -176,7 +177,25 @@ export function initSqlite(): void {
       s3SecretKey TEXT,
       lastBackupAt TEXT,
       lastBackupStatus TEXT,
-      lastBackupS3Status TEXT
+      lastBackupS3Status TEXT,
+      serverHost TEXT DEFAULT '0.0.0.0',
+      serverPort INTEGER DEFAULT 3000,
+      serverHostingMode TEXT DEFAULT 'both',
+      customDomain TEXT DEFAULT ''
+    );
+
+    -- Scheduled endpoint migrations table schema
+    CREATE TABLE IF NOT EXISTS scheduled_endpoint_migrations (
+      id TEXT PRIMARY KEY,
+      targetHost TEXT NOT NULL,
+      targetPort INTEGER NOT NULL,
+      targetMode TEXT NOT NULL,
+      customDomain TEXT,
+      scheduledAt TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      noticeMessage TEXT,
+      createdAt TEXT NOT NULL,
+      executedAt TEXT
     );
 
     CREATE INDEX IF NOT EXISTS idx_docs_owner_proj_coll ON documents(ownerId, projectId, collectionName);
@@ -417,7 +436,7 @@ export function initSqlite(): void {
     // Already exists
   }
 
-  // Backup configuration columns for platform_settings
+  // Backup and Hosting configuration columns for platform_settings
   const platformCols = [
     { name: 'backupMode', def: "TEXT DEFAULT 'none'" },
     { name: 'backupIntervalMinutes', def: 'INTEGER DEFAULT 1440' },
@@ -425,13 +444,36 @@ export function initSqlite(): void {
     { name: 's3Region', def: 'TEXT' },
     { name: 's3AccessKey', def: 'TEXT' },
     { name: 's3SecretKey', def: 'TEXT' },
-    { name: 'maintenanceMode', def: 'INTEGER DEFAULT 0' }
+    { name: 'maintenanceMode', def: 'INTEGER DEFAULT 0' },
+    { name: 'demoLoginEnabled', def: 'INTEGER DEFAULT 1' },
+    { name: 'serverHost', def: "TEXT DEFAULT '0.0.0.0'" },
+    { name: 'serverPort', def: 'INTEGER DEFAULT 3000' },
+    { name: 'serverHostingMode', def: "TEXT DEFAULT 'both'" },
+    { name: 'customDomain', def: "TEXT DEFAULT ''" }
   ];
   for (const col of platformCols) {
     try {
       db.exec(`ALTER TABLE platform_settings ADD COLUMN ${col.name} ${col.def};`);
     } catch {}
   }
+
+  // Ensure scheduled_endpoint_migrations table exists
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS scheduled_endpoint_migrations (
+        id TEXT PRIMARY KEY,
+        targetHost TEXT NOT NULL,
+        targetPort INTEGER NOT NULL,
+        targetMode TEXT NOT NULL,
+        customDomain TEXT,
+        scheduledAt TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        noticeMessage TEXT,
+        createdAt TEXT NOT NULL,
+        executedAt TEXT
+      );
+    `);
+  } catch {}
 
   // Backup config for projects
   try {

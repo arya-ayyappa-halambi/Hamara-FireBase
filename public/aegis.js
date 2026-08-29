@@ -12,7 +12,8 @@
 
   class AegisClient {
     constructor(options = {}) {
-      this.baseUrl = (options.baseUrl || localStorage.getItem('aegisBaseUrl') || 'http://localhost:3000').replace(/\/+$/, '');
+      const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
+      this.baseUrl = (options.baseUrl || localStorage.getItem('aegisBaseUrl') || defaultOrigin).replace(/\/+$/, '');
       this.apiKey = options.apiKey || localStorage.getItem('aegisApiKey') || 'aegis_pk_a85e45e984ca9724ca01019954cf2f17';
       this._token = localStorage.getItem('aegisToken') || null;
       this._user = this._loadStoredUser();
@@ -39,7 +40,8 @@
     }
 
     setBaseUrl(url) {
-      this.baseUrl = (url || 'http://localhost:3000').replace(/\/+$/, '');
+      const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
+      this.baseUrl = (url || defaultOrigin).replace(/\/+$/, '');
       localStorage.setItem('aegisBaseUrl', this.baseUrl);
       this._emit('configChange', { baseUrl: this.baseUrl, apiKey: this.apiKey });
     }

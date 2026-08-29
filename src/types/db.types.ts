@@ -9,7 +9,7 @@
  * A raw document value — any JSON-serialisable type.
  * Using `unknown` forces callers to perform type narrowing before use.
  */
-export type DocumentValue = string | number | boolean | null | DocumentValue[] | DocumentObject;
+export type DocumentValue = string | number | boolean | null | undefined | DocumentValue[] | DocumentObject;
 export type DocumentObject = { [key: string]: DocumentValue };
 
 /**
@@ -22,7 +22,7 @@ export interface Document extends DocumentObject {
   _createdAt: string; // ISO-8601
   _updatedAt: string; // ISO-8601
   _version?: number;
-  _rules?: Record<string, any> | null;
+  _rules?: DocumentObject | null;
 }
 
 // ── Query ─────────────────────────────────────────────────────────────────────

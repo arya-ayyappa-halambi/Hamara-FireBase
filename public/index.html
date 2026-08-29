@@ -459,7 +459,7 @@
 
             <div class="space-y-1">
               <label class="text-xs font-semibold uppercase tracking-wider text-slate-400">Email Address</label>
-              <input type="email" id="input-email" required class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" placeholder="admin@aegisdb.dev">
+              <input type="email" id="input-email" required class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" placeholder="name@example.com">
             </div>
 
             <div class="space-y-1">
@@ -496,19 +496,22 @@
               <i class="fa-solid fa-arrow-right text-xs"></i>
             </button>
 
-            <div class="relative flex py-1 items-center">
-              <div class="flex-grow border-t border-white/10"></div>
-              <span class="flex-shrink mx-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Or Quick Demo</span>
-              <div class="flex-grow border-t border-white/10"></div>
+            <!-- 1-Click Demo Admin Login -->
+            <div id="container-demo-admin-login" class="pt-1">
+              <button type="button" id="btn-demo-admin-login" class="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-yellow-500/10 border border-amber-500/30 hover:border-amber-400 text-amber-300 hover:text-amber-200 text-xs font-semibold shadow-lg shadow-amber-500/10 transition active:scale-[0.98] flex items-center justify-between group">
+                <div class="flex items-center space-x-2">
+                  <span class="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  <span class="font-bold flex items-center space-x-1.5">
+                    <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                    <span>1-Click Admin Login (Demo)</span>
+                  </span>
+                </div>
+                <span class="font-mono text-[10px] text-amber-400/90 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 group-hover:bg-amber-500/30 transition">admin@aegisdb.dev</span>
+              </button>
             </div>
 
-            <button type="button" id="btn-demo-admin-login" class="w-full py-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 font-medium text-xs transition flex items-center justify-center space-x-2">
-              <i class="fa-solid fa-crown text-amber-400"></i>
-              <span>Fill Demo Admin (`admin@aegisdb.dev`)</span>
-            </button>
-
             <!-- Dynamic Google Auth Container -->
-            <div id="google-auth-container" class="hidden flex flex-col items-center space-y-4 pt-2">
+            <div id="google-auth-container" class="hidden flex flex-col w-full items-center space-y-4 pt-2">
               <div class="relative flex w-full items-center">
                 <div class="flex-grow border-t border-white/10"></div>
                 <span class="flex-shrink mx-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Or</span>
@@ -697,7 +700,7 @@
         <div class="flex items-center space-x-3 pl-3 border-l border-white/10">
           <div class="text-right hidden lg:block">
             <div id="user-display-name" class="text-xs font-semibold text-white">Super Admin</div>
-            <div id="user-display-email" class="text-[10px] text-slate-400">admin@aegisdb.dev</div>
+            <div id="user-display-email" class="text-[10px] text-slate-400">user@example.com</div>
           </div>
           <button id="btn-logout" title="Sign Out" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition">
             <i class="fa-solid fa-right-from-bracket"></i>
@@ -770,6 +773,10 @@
             <button data-tab="tab-sec-ops" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-shield-virus text-base text-amber-400 w-5"></i>
               <span class="nav-text">SecOps & Backups</span>
+            </button>
+            <button data-tab="tab-server-hosting" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
+              <i class="fa-solid fa-server text-base text-amber-400 w-5"></i>
+              <span class="nav-text">Network & Hosting</span>
             </button>
             <button data-tab="tab-platform-policies" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition">
               <i class="fa-solid fa-scale-balanced text-base text-amber-400 w-5"></i>
@@ -846,6 +853,41 @@
 
       <!-- ── MAIN CONTENT WORKSPACE PANELS ───────────────────────────────── -->
       <main class="flex-1 overflow-y-auto p-8 custom-scrollbar">
+
+        <!-- ── GLOBAL SCHEDULED ENDPOINT MIGRATION NOTICE BANNER ─────────── -->
+        <div id="banner-scheduled-migration" class="hidden mb-6 p-4 rounded-2xl bg-gradient-to-r from-amber-950/80 via-slate-900/90 to-amber-950/80 border border-amber-500/40 shadow-2xl backdrop-blur-md">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-start space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-base flex-shrink-0 mt-0.5">
+                <i class="fa-solid fa-hourglass-half"></i>
+              </div>
+              <div class="space-y-1">
+                <div class="flex items-center space-x-2">
+                  <span class="text-xs font-bold uppercase tracking-wider text-amber-400">⏳ Upcoming Server Endpoint Migration</span>
+                  <span id="label-migration-countdown" class="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">In 00:00:00</span>
+                </div>
+                <p id="label-migration-message" class="text-xs text-slate-300">AegisDB is scheduled to migrate to a new hosting port/IP address.</p>
+                <div class="flex items-center space-x-2 text-[11px] font-mono text-amber-200">
+                  <span>Target Endpoint:</span>
+                  <span id="label-migration-target-url" class="font-bold underline">http://localhost:3000</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <button type="button" id="btn-copy-upcoming-url" class="px-3 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 text-xs font-medium transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-copy"></i>
+                <span>Copy Target URL</span>
+              </button>
+              <button type="button" id="btn-copy-upcoming-prompt" class="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-200 border border-indigo-500/30 text-xs font-medium transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-robot"></i>
+                <span>Copy Updated Prompt</span>
+              </button>
+              <button type="button" onclick="document.getElementById('banner-scheduled-migration').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition" title="Dismiss Notice">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        </div>
 
         <!-- ════════════════════════════════════════════════════════════════ -->
         <!-- WORKSPACE 1: GLOBAL INFRASTRUCTURE & TELEMETRY (SUPER ADMIN)      -->
@@ -1460,6 +1502,406 @@
                   <i class="fa-solid fa-broom mr-1"></i> Purge Expired Backups
                 </button>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: NETWORK & SERVER HOSTING CENTER (SUPER ADMIN)         -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-server-hosting" class="workspace-panel space-y-6 hidden">
+          <!-- Workspace Header -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2.5">
+                <i class="fa-solid fa-network-wired text-amber-400"></i>
+                <span>Network & Server Hosting Center</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Configure live IP addresses, binding hostnames, port allocation, and automated migration rollouts.</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-slate-900/80 border border-white/10 text-xs">
+                <span class="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span class="text-slate-400">Detected Wi-Fi IP:</span>
+                <button type="button" id="hosttab-btn-use-detected-ip" class="font-mono font-bold text-emerald-400 hover:underline flex items-center space-x-1" title="Click to use detected IP">
+                  <span id="hosttab-detected-network-ip">192.168.31.57</span>
+                  <i class="fa-solid fa-copy text-[10px]"></i>
+                </button>
+              </div>
+              <span id="hosttab-current-status-badge" class="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                Online: http://localhost:3000
+              </span>
+            </div>
+          </div>
+
+          <!-- Pending Migration Banner Inside Tab (if active) -->
+          <div id="hosttab-box-pending-migration" class="hidden p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 shadow-xl space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-hourglass-half text-amber-400 animate-spin-slow text-base"></i>
+                <span class="text-sm font-bold text-amber-300">Scheduled Endpoint Migration Active</span>
+              </div>
+              <span id="hosttab-migration-countdown" class="px-3 py-1 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-200 border border-amber-500/30">00:00:00</span>
+            </div>
+            <p id="hosttab-migration-details" class="text-xs text-slate-300">Targeting http://192.168.31.57:3000 at scheduled time.</p>
+            <div class="flex items-center space-x-2 pt-1">
+              <button type="button" id="hosttab-btn-execute-now" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-bolt"></i>
+                <span>Execute Migration Immediately</span>
+              </button>
+              <button type="button" id="hosttab-btn-cancel-schedule" class="px-4 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-semibold transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-ban"></i>
+                <span>Cancel Scheduled Migration</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- 1. Visual Interactive Hosting Mode Selector Cards -->
+          <div class="space-y-2">
+            <label class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-1.5">
+              <i class="fa-solid fa-layer-group text-amber-400"></i>
+              <span>Select Hosting & Network Access Mode</span>
+            </label>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <!-- Mode Card 1: Both 0.0.0.0 -->
+              <div class="host-mode-card active p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-gradient-to-br from-emerald-950/30 via-slate-900/60 to-slate-900 border-emerald-500 shadow-lg shadow-emerald-500/10" data-mode="both" data-host="0.0.0.0">
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                      <i class="fa-solid fa-globe text-emerald-400"></i>
+                      <span>Dual Host (0.0.0.0)</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Recommended</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">Simultaneously listen on Localhost & local Wi-Fi IP for cross-device testing.</p>
+                </div>
+                <div class="space-y-1 text-[10px] font-mono text-emerald-300/80 bg-black/40 p-2 rounded-xl border border-white/5">
+                  <div>➜ Local: localhost</div>
+                  <div>➜ Wi-Fi: <span class="hosttab-card-netip">192.168.31.57</span></div>
+                </div>
+              </div>
+
+              <!-- Mode Card 2: Localhost 127.0.0.1 -->
+              <div class="host-mode-card p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-slate-900/40 border-white/10 hover:border-white/20" data-mode="localhost" data-host="127.0.0.1">
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                      <i class="fa-solid fa-laptop-code text-indigo-400"></i>
+                      <span>Localhost (127.0.0.1)</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-medium bg-white/5 text-slate-400">Isolated</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">Strictly isolated to this machine only. Rejects all external network requests.</p>
+                </div>
+                <div class="text-[10px] font-mono text-indigo-300/80 bg-black/40 p-2 rounded-xl border border-white/5">
+                  ➜ Local: http://localhost
+                </div>
+              </div>
+
+              <!-- Mode Card 3: Wi-Fi Network IP -->
+              <div class="host-mode-card p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-slate-900/40 border-white/10 hover:border-white/20" data-mode="network" data-host="192.168.31.57">
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                      <i class="fa-solid fa-wifi text-amber-400"></i>
+                      <span>Wi-Fi Network IP</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">Mobile Access</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">Binds directly to physical Wi-Fi IP for direct mobile apps & client testing.</p>
+                </div>
+                <div class="text-[10px] font-mono text-amber-300/80 bg-black/40 p-2 rounded-xl border border-white/5">
+                  ➜ Wi-Fi: <span class="hosttab-card-netip">http://192.168.31.57</span>
+                </div>
+              </div>
+
+              <!-- Mode Card 4: Custom Domain -->
+              <div class="host-mode-card p-4 rounded-2xl border cursor-pointer transition relative flex flex-col justify-between space-y-3 bg-slate-900/40 border-white/10 hover:border-white/20" data-mode="custom" data-host="0.0.0.0">
+                <div class="space-y-1.5">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                      <i class="fa-solid fa-sliders text-purple-400"></i>
+                      <span>Custom Host / Domain</span>
+                    </span>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20">Custom DNS</span>
+                  </div>
+                  <p class="text-[11px] text-slate-400 leading-relaxed">Custom domain, reverse-proxy hostname, or static IP address.</p>
+                </div>
+                <div class="text-[10px] font-mono text-purple-300/80 bg-black/40 p-2 rounded-xl border border-white/5">
+                  ➜ Custom: api.aegisdb.dev
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Real-Time Port & IP Availability Scanner Panel -->
+          <div class="glass-panel p-5 rounded-2xl border border-emerald-500/20 bg-slate-950/70 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs">
+                  <i class="fa-solid fa-radar"></i>
+                </div>
+                <div>
+                  <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
+                    <span>Live Port & IP Availability Scanner</span>
+                    <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-semibold bg-emerald-500/20 text-emerald-300">Conflict Detection Active</span>
+                  </h3>
+                  <p class="text-[11px] text-slate-400">Live socket test across candidate ports and IP interfaces. Click any free port to auto-fill without conflicts.</p>
+                </div>
+              </div>
+              <button type="button" id="btn-refresh-port-scanner" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-white/10 transition flex items-center space-x-1.5 self-start sm:self-auto">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Scan Now</span>
+              </button>
+            </div>
+
+            <!-- Scanned Ports Grid -->
+            <div class="space-y-1.5">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Available Candidate Ports</div>
+              <div id="container-scanned-ports-grid" class="flex flex-wrap gap-2 pt-1">
+                <!-- Dynamically populated candidate port chips -->
+                <div class="text-xs text-slate-400 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-spinner fa-spin"></i>
+                  <span>Scanning local ports...</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Scanned Local Network Interfaces -->
+            <div class="space-y-1.5 pt-1">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Detected Network Interfaces & Host IP Addresses</div>
+              <div id="container-scanned-interfaces-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5 pt-1">
+                <!-- Dynamically populated interfaces -->
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Direct IP, Port & Hostname Editor -->
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-5">
+            <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+              <i class="fa-solid fa-pen-to-square text-amber-400"></i>
+              <span>Endpoint & Bind Parameters</span>
+            </h3>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <!-- Bind Host / IP Input -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Host IP / Bind Address</label>
+                  <span class="text-[10px] text-slate-500">e.g. 0.0.0.0 or 192.168.x.x</span>
+                </div>
+                <input type="text" id="hosttab-input-host" value="0.0.0.0" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono font-bold text-white" placeholder="0.0.0.0">
+                <div class="flex flex-wrap gap-1.5 pt-1">
+                  <button type="button" class="btn-host-preset px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition" data-host="0.0.0.0">0.0.0.0 (Dual)</button>
+                  <button type="button" class="btn-host-preset px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition" data-host="127.0.0.1">127.0.0.1 (Local)</button>
+                  <button type="button" class="btn-host-preset px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 transition" data-host="192.168.31.57" id="hosttab-btn-preset-detected-ip">192.168.31.57 (Wi-Fi)</button>
+                </div>
+              </div>
+
+              <!-- Port Input -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Server Port</label>
+                  <span id="hosttab-port-validation-badge" class="text-[10px] font-mono text-emerald-400 font-semibold">✓ Free to Bind</span>
+                </div>
+                <input type="number" id="hosttab-input-port" value="3000" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono font-bold text-white" placeholder="3000">
+                <div class="flex flex-wrap gap-1.5 pt-1">
+                  <button type="button" class="btn-port-preset px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition" data-port="3000">3000 (Active)</button>
+                  <button type="button" class="btn-port-preset px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition" data-port="4000">4000</button>
+                  <button type="button" class="btn-port-preset px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition" data-port="5000">5000</button>
+                  <button type="button" class="btn-port-preset px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition" data-port="8080">8080</button>
+                </div>
+              </div>
+
+              <!-- Custom Domain Override -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Custom Domain / FQDN</label>
+                  <span class="text-[10px] text-slate-500">Optional</span>
+                </div>
+                <input type="text" id="hosttab-input-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-white" placeholder="api.aegisdb.dev">
+                <p class="text-[10px] text-slate-500 pt-1">If specified, AI prompts and client snippets will use this domain.</p>
+              </div>
+            </div>
+
+            <!-- Active Endpoint URLs Result Box -->
+            <div class="p-4 rounded-2xl bg-black/60 border border-emerald-500/30 space-y-3">
+              <div class="flex items-center justify-between border-b border-white/10 pb-2">
+                <span class="text-xs font-bold text-white flex items-center space-x-2">
+                  <i class="fa-solid fa-link text-emerald-400"></i>
+                  <span>Target Canonical Endpoints</span>
+                </span>
+                <span id="hosttab-preview-mode-tag" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                  Dual Binding (0.0.0.0:3000)
+                </span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between">
+                  <div class="space-y-0.5">
+                    <span class="text-[10px] uppercase font-semibold text-slate-400">Localhost URL (This Mac)</span>
+                    <div id="hosttab-preview-local-url" class="font-mono text-xs font-bold text-emerald-400">http://localhost:3000</div>
+                  </div>
+                  <button type="button" class="btn-copy-preview-url p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition" data-target="hosttab-preview-local-url" title="Copy URL">
+                    <i class="fa-solid fa-copy"></i>
+                  </button>
+                </div>
+                <div class="p-3 rounded-xl bg-slate-900/80 border border-white/10 flex items-center justify-between">
+                  <div class="space-y-0.5">
+                    <span class="text-[10px] uppercase font-semibold text-slate-400">Wi-Fi Network URL (Phones / Devices)</span>
+                    <div id="hosttab-preview-network-url" class="font-mono text-xs font-bold text-amber-300">http://192.168.31.57:3000</div>
+                  </div>
+                  <button type="button" class="btn-copy-preview-url p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition" data-target="hosttab-preview-network-url" title="Copy URL">
+                    <i class="fa-solid fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center justify-between gap-4 pt-2">
+              <div class="flex items-center space-x-3">
+                <button type="button" id="hosttab-btn-apply-switch" class="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 transition flex items-center space-x-2 active:scale-95">
+                  <i class="fa-solid fa-arrow-right-to-bracket text-sm"></i>
+                  <span>Apply, Save & Switch Immediately</span>
+                </button>
+                <button type="button" id="hosttab-btn-open-schedule" class="px-5 py-3 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 font-bold text-xs transition flex items-center space-x-2 active:scale-95">
+                  <i class="fa-solid fa-calendar-clock text-sm"></i>
+                  <span>Schedule Migration & Roll Out Notice</span>
+                </button>
+              </div>
+              <button type="button" id="hosttab-btn-reset-defaults" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-xs transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Reset to Defaults (0.0.0.0:3000)</span>
+              </button>
+            </div>
+          <!-- Live Terminal CLI Command Sync Card -->
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-white flex items-center space-x-2">
+                <i class="fa-solid fa-terminal text-emerald-400"></i>
+                <span>Synchronized Terminal Commands</span>
+              </h3>
+              <span class="text-[10px] text-slate-400">Live CLI commands synced to chosen host & port</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="p-3 rounded-xl bg-black/60 border border-white/10 flex items-center justify-between">
+                <div class="space-y-0.5 overflow-hidden">
+                  <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">CLI Start Command</span>
+                  <div id="hosttab-cli-start-cmd" class="font-mono text-xs text-emerald-400 truncate">PORT=3000 HOST=0.0.0.0 npm run dev</div>
+                </div>
+                <button type="button" class="btn-copy-cli-cmd p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs transition" data-target="hosttab-cli-start-cmd" title="Copy CLI Command">
+                  <i class="fa-solid fa-copy"></i>
+                </button>
+              </div>
+              <div class="p-3 rounded-xl bg-black/60 border border-white/10 flex items-center justify-between">
+                <div class="space-y-0.5 overflow-hidden">
+                  <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">cURL Health Check</span>
+                  <div id="hosttab-cli-curl-cmd" class="font-mono text-xs text-amber-300 truncate">curl http://localhost:3000/api/v1/system/status</div>
+                </div>
+                <button type="button" class="btn-copy-cli-cmd p-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs transition" data-target="hosttab-cli-curl-cmd" title="Copy cURL Command">
+                  <i class="fa-solid fa-copy"></i>
+                </button>
+              </div>
+          <!-- Live Server Terminal & Console Streamer -->
+          <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-slate-900 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <i class="fa-solid fa-terminal text-xs"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white flex items-center space-x-2">
+                    <span>Live AegisDB Terminal & Log Streamer</span>
+                    <span id="badge-terminal-live" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
+                      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>STREAMING</span>
+                    </span>
+                  </h3>
+                  <p class="text-[10px] text-slate-400">Real-time stdout/stderr, socket rebinding events, and live API request stream.</p>
+                </div>
+              </div>
+
+              <!-- Terminal Action Controls -->
+              <div class="flex items-center space-x-2">
+                <select id="select-terminal-filter" class="px-2.5 py-1.5 rounded-lg glass-input text-xs font-medium text-slate-300 bg-slate-900 border border-white/10">
+                  <option value="all">All Logs</option>
+                  <option value="request">HTTP Requests (→)</option>
+                  <option value="system">System / Banners</option>
+                  <option value="warn">Warnings</option>
+                  <option value="error">Errors</option>
+                </select>
+                <button type="button" id="btn-toggle-terminal-stream" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium transition flex items-center space-x-1.5" title="Pause / Resume Live Streaming">
+                  <i class="fa-solid fa-pause text-xs"></i>
+                  <span id="label-toggle-terminal-stream">Pause</span>
+                </button>
+                <button type="button" id="btn-clear-terminal-logs" class="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-medium transition flex items-center space-x-1.5" title="Clear Console Screen">
+                  <i class="fa-solid fa-trash-can text-xs"></i>
+                  <span>Clear</span>
+                </button>
+                <button type="button" id="btn-copy-terminal-logs" class="px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition flex items-center space-x-1.5" title="Copy Log Buffer">
+                  <i class="fa-solid fa-copy text-xs"></i>
+                  <span>Copy</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Terminal Window Box (macOS Style) -->
+            <div class="rounded-2xl bg-slate-950 border border-slate-800 shadow-2xl overflow-hidden font-mono text-xs">
+              <!-- Window Header -->
+              <div class="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-white/10">
+                <div class="flex items-center space-x-2">
+                  <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
+                  <span class="w-3 h-3 rounded-full bg-yellow-500/80 inline-block"></span>
+                  <span class="w-3 h-3 rounded-full bg-green-500/80 inline-block"></span>
+                  <span class="text-[11px] text-slate-400 pl-2">aegis-server-process (live stdout)</span>
+                </div>
+                <div class="flex items-center space-x-3 text-[10px] text-slate-500">
+                  <span id="label-terminal-entry-count">0 entries</span>
+                  <span class="text-slate-600">|</span>
+                  <span id="label-terminal-autoscroll" class="text-emerald-400 cursor-pointer hover:underline">Auto-scroll: ON</span>
+                </div>
+              </div>
+
+              <!-- Terminal Output Stream -->
+              <div id="container-live-terminal-stream" class="h-64 overflow-y-auto p-4 space-y-1 text-slate-300 font-mono select-text custom-scrollbar">
+                <!-- Log entries injected dynamically -->
+                <div class="text-slate-500 italic text-[11px]">Connecting to AegisDB live log stream...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Dynamic Code & Client Snippets -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Dynamic AI Prompt Snippet -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center space-x-2">
+                  <i class="fa-solid fa-robot text-indigo-400"></i>
+                  <span>Live Dynamic AI Migration Prompt</span>
+                </h3>
+                <button type="button" id="hosttab-btn-copy-ai-prompt" class="px-3 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-[11px] font-semibold transition flex items-center space-x-1.5">
+                  <i class="fa-solid fa-copy"></i>
+                  <span>Copy Prompt</span>
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400">Paste this prompt into Antigravity or any LLM to automatically migrate existing Firebase/Supabase apps to this endpoint.</p>
+              <pre class="p-3.5 rounded-xl bg-black/60 border border-white/10 text-[11px] font-mono text-slate-300 max-h-36 overflow-y-auto whitespace-pre-wrap" id="hosttab-text-ai-prompt"></pre>
+            </div>
+
+            <!-- Dynamic AegisClient Initialization -->
+            <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-3">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center space-x-2">
+                  <i class="fa-solid fa-code text-amber-400"></i>
+                  <span>Client SDK Integration Snippet</span>
+                </h3>
+                <button type="button" id="hosttab-btn-copy-sdk-code" class="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 text-[11px] font-semibold transition flex items-center space-x-1.5">
+                  <i class="fa-solid fa-copy"></i>
+                  <span>Copy Snippet</span>
+                </button>
+              </div>
+              <p class="text-[11px] text-slate-400">Initialize `AegisClient` in your frontend or mobile app targeting this endpoint.</p>
+              <pre class="p-3.5 rounded-xl bg-black/60 border border-white/10 text-[11px] font-mono text-amber-200/90 max-h-36 overflow-y-auto whitespace-pre-wrap" id="hosttab-text-sdk-code"></pre>
             </div>
           </div>
         </section>
@@ -2358,7 +2800,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 </div>
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Email Address</label>
-                  <input type="email" id="setting-email" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="admin@aegisdb.dev">
+                  <input type="email" id="setting-email" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" placeholder="name@example.com">
                 </div>
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Current Password (Required for Email Change)</label>
@@ -2397,9 +2839,130 @@ const docs = await aegis.collection('todos').get();</code></pre>
                     <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
                   </label>
                 </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-900/50 border border-white/5">
+                  <div class="flex flex-col">
+                    <span class="text-xs font-semibold text-white flex items-center space-x-1.5">
+                      <i class="fa-solid fa-shield-halved text-amber-400"></i>
+                      <span>1-Click Demo Admin Login</span>
+                    </span>
+                    <span class="text-[10px] text-slate-400">Show 1-Click demo credentials login button on public login and admin screens.</span>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-demo-login" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
                 <button id="btn-save-platform-settings" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition active:scale-95">
                   Save Platform Settings
                 </button>
+              </div>
+            </div>
+
+            <!-- Server Hosting & Endpoint Migration Card (Super Admin Only) -->
+            <div id="card-server-hosting-settings" class="glass-panel p-6 rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/20 via-slate-900/60 to-slate-950/80 space-y-4 hidden">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                  <div class="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-sm">
+                    <i class="fa-solid fa-server"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-semibold text-white">Server Hosting & Migration Center</h3>
+                    <p class="text-xs text-slate-400">Configure hosting mode, port, and manage immediate or scheduled endpoint migrations.</p>
+                  </div>
+                </div>
+                <span id="label-current-hosting-status" class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Active</span>
+              </div>
+
+              <!-- Pending Migration Alert Box inside Card -->
+              <div id="box-pending-migration-card" class="hidden p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>Scheduled Migration Pending</span>
+                  </span>
+                  <span id="label-card-migration-countdown" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-200">00:00:00</span>
+                </div>
+                <p id="label-card-migration-details" class="text-xs text-slate-300">Migrating to target endpoint...</p>
+                <div class="flex items-center space-x-2 pt-1">
+                  <button type="button" id="btn-execute-migration-now" class="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow transition flex items-center space-x-1">
+                    <i class="fa-solid fa-bolt"></i>
+                    <span>Execute Now</span>
+                  </button>
+                  <button type="button" id="btn-cancel-scheduled-migration" class="px-3 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-semibold transition flex items-center space-x-1">
+                    <i class="fa-solid fa-ban"></i>
+                    <span>Cancel Schedule</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="space-y-3">
+                <!-- Detected IP Badge & Quick Chips -->
+                <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-900/60 border border-white/5">
+                  <div class="flex items-center space-x-2">
+                    <span class="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span class="text-xs text-slate-300">Detected Local Wi-Fi IP:</span>
+                    <span id="label-detected-network-ip" class="font-mono text-xs font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">192.168.31.57</span>
+                  </div>
+                  <div class="flex items-center space-x-1.5">
+                    <button type="button" class="btn-card-quick-mode px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 text-[11px] font-semibold transition border border-emerald-500/30" data-mode="both">Dual (0.0.0.0)</button>
+                    <button type="button" class="btn-card-quick-mode px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-medium transition border border-white/10" data-mode="localhost">Local (127.0.0.1)</button>
+                    <button type="button" class="btn-card-quick-mode px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-medium transition border border-white/10" data-mode="network">Wi-Fi IP</button>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Hosting Mode</label>
+                    <select id="setting-server-hosting-mode" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs cursor-pointer">
+                      <option value="both">🌐 Both Local & Wi-Fi (0.0.0.0) [Recommended]</option>
+                      <option value="localhost">💻 Localhost Only (127.0.0.1)</option>
+                      <option value="network">📱 Local Wi-Fi IP (192.168.31.57)</option>
+                      <option value="custom">⚙️ Custom Domain / Host</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Host IP / Bind Address</label>
+                    <input type="text" id="setting-server-host" value="0.0.0.0" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="0.0.0.0">
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Server Port</label>
+                    <input type="number" id="setting-server-port" value="3000" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="3000">
+                  </div>
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Custom Domain / IP Override (Optional)</label>
+                  <input type="text" id="setting-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="e.g. api.aegisdb.dev or 192.168.1.50">
+                </div>
+
+                <!-- Detailed Target Endpoint Display -->
+                <div class="p-3.5 rounded-xl bg-black/50 border border-emerald-500/20 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Active Endpoint URLs</span>
+                    <span id="label-setting-mode-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300">Dual Listening (0.0.0.0)</span>
+                  </div>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                    <div class="p-2 rounded-lg bg-white/5 flex items-center justify-between">
+                      <span class="text-slate-400">Local:</span>
+                      <span id="label-setting-local-url" class="font-bold text-emerald-400">http://localhost:3000</span>
+                    </div>
+                    <div class="p-2 rounded-lg bg-white/5 flex items-center justify-between">
+                      <span class="text-slate-400">Wi-Fi Network:</span>
+                      <span id="label-setting-network-url" class="font-bold text-amber-300">http://192.168.31.57:3000</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-3 pt-2">
+                  <button type="button" id="btn-apply-switch-hosting" class="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-lg shadow-emerald-500/20 transition flex items-center space-x-2 active:scale-95">
+                    <i class="fa-solid fa-arrow-right-to-bracket"></i>
+                    <span>Apply, Save & Switch Now</span>
+                  </button>
+                  <button type="button" id="btn-open-schedule-modal" class="px-4 py-2.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border border-amber-500/30 text-xs font-semibold transition flex items-center space-x-2 active:scale-95">
+                    <i class="fa-solid fa-clock"></i>
+                    <span>Schedule Migration & Roll Out Notice</span>
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -2646,13 +3209,29 @@ const docs = await aegis.collection('todos').get();</code></pre>
                   </div>
                   <div>
                     <h3 class="text-lg font-bold text-white">AI Agent & Developer Prompt Center</h3>
-                    <p class="text-xs text-slate-400">Zero-error, optimized prompts and context templates for Gemini, Copilot, Cursor & Claude.</p>
+                    <p class="text-xs text-slate-400">Zero-error, dynamic prompts and context templates synchronized with your active host & port.</p>
                   </div>
                 </div>
-                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center space-x-2 w-fit">
+                <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openAiContextModal();" class="px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-semibold transition flex items-center space-x-2 w-fit">
                   <i class="fa-solid fa-book-open"></i>
                   <span>Open Full AI Manual</span>
                 </button>
+              </div>
+
+              <!-- Synchronized Server Endpoint Status Banner (Read-Only) -->
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-black/50 border border-emerald-500/20">
+                <div class="flex items-center space-x-2.5">
+                  <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span class="text-xs font-semibold text-slate-300">Synchronized Server Endpoint:</span>
+                  <span class="label-prompt-endpoint-pill px-3 py-1 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">http://localhost:3000</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span class="text-[11px] text-slate-400">All prompts automatically sync to this active endpoint</span>
+                  <button type="button" class="btn-copy-active-prompt-endpoint px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-xs transition flex items-center space-x-1" title="Copy Endpoint URL">
+                    <i class="fa-solid fa-copy text-[10px]"></i>
+                    <span>Copy URL</span>
+                  </button>
+                </div>
               </div>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2663,13 +3242,13 @@ const docs = await aegis.collection('todos').get();</code></pre>
                       <i class="fa-solid fa-arrow-right-arrow-left"></i>
                       <span>App Migration Prompt</span>
                     </span>
-                    <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to AegisDB (BaaS running at http://localhost:3000). Please refactor the project's data and auth layers according to AegisDB specifications: 1) Pass the project API key via header 'x-aegis-api-key' and user session JWT via 'Authorization: Bearer <token>'. 2) Authenticate project users via POST /api/v1/project-auth/register, /login, and /oauth/:provider. Check auth capabilities via GET /api/v1/project-auth/config. 3) Perform document CRUD via /api/v1/db/collections/<name>/documents (POST to insert with { data: { ... } }, GET to query with pagination ?limit=50&offset=0, PATCH /:id to update, DELETE /:id to remove). 4) Support Row-Level Security by embedding '_rules' ({ 'read': 'auth != null', 'write': 'auth.id == data.ownerId' }) in document data. 5) Real-time CDC via EventSource('/api/v1/db/collections/<name>/realtime'). 6) File uploads via POST /api/v1/storage/upload (FormData field 'file'). Handle errors and responses ({ success, message, data }) cleanly." class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy Migration Prompt">
+                    <button type="button" id="btn-quick-copy-migration" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy Migration Prompt">
                       <i class="fa-solid fa-copy"></i>
                       <span>Copy</span>
                     </button>
                   </div>
-                  <p class="text-xs text-slate-400 line-clamp-3 italic">
-                    "You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to AegisDB (BaaS running at http://localhost:3000). Please refactor the project's data and auth layers according to AegisDB specifications..."
+                  <p id="preview-quick-migration" class="text-xs text-slate-400 line-clamp-3 italic">
+                    "You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to AegisDB..."
                   </p>
                 </div>
 
@@ -2680,13 +3259,13 @@ const docs = await aegis.collection('todos').get();</code></pre>
                       <i class="fa-solid fa-plus-circle"></i>
                       <span>New Project Prompt</span>
                     </span>
-                    <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.getAttribute('data-text')); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" data-text="You are an expert full-stack engineer. Build a complete, modern web application backed by AegisDB (self-hosted BaaS running at http://localhost:3000). 1) Client Architecture: Build a clean client module that attaches 'x-aegis-api-key' and 'Authorization: Bearer <token>' to all requests. 2) User Auth: Discover auth config via GET /api/v1/project-auth/config, support Email/Password registration (POST /api/v1/project-auth/register), login (POST /api/v1/project-auth/login), and OAuth (POST /api/v1/project-auth/oauth/:provider). 3) Database CRUD: Persist data in collections using POST /api/v1/db/collections/<name>/documents with { data: { ... } }, query with GET /api/v1/db/collections/<name>/documents, update with PATCH /:id, delete with DELETE /:id. 4) Row-Level Security: Embed '_rules': { 'read': 'auth != null', 'write': 'auth.id == data.ownerId' } on documents for row ownership. 5) Real-Time CDC: Stream live changes using EventSource('/api/v1/db/collections/<name>/realtime'). 6) File Uploads: Upload files via POST /api/v1/storage/upload using FormData with field 'file'. Provide a polished, responsive UI with loading skeletons, error toasts, and optimistic updates." class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy New App Prompt">
+                    <button type="button" id="btn-quick-copy-newapp" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-xs font-medium transition flex items-center space-x-1.5" title="Copy New App Prompt">
                       <i class="fa-solid fa-copy"></i>
                       <span>Copy</span>
                     </button>
                   </div>
-                  <p class="text-xs text-slate-400 line-clamp-3 italic">
-                    "You are an expert full-stack engineer. Build a complete, modern web application backed by AegisDB (self-hosted BaaS running at http://localhost:3000). Client Architecture: Build a clean client module that attaches 'x-aegis-api-key'..."
+                  <p id="preview-quick-newapp" class="text-xs text-slate-400 line-clamp-3 italic">
+                    "You are an expert full-stack engineer. Build a complete, modern web application backed by AegisDB..."
                   </p>
                 </div>
               </div>
@@ -2705,7 +3284,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
               </div>
             </div>
             <div class="flex flex-wrap gap-3 mt-4 md:mt-0">
-              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-ai-context').classList.remove('hidden')" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors flex items-center space-x-2">
+              <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openAiContextModal();" class="px-5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-colors flex items-center space-x-2">
                 <i class="fa-solid fa-robot"></i>
                 <span>AI / Dev Context</span>
               </button>
@@ -2943,6 +3522,16 @@ console.log('Deployment status:', deployment.status);</code></pre>
 
       <!-- Body Scroll Area -->
       <div class="overflow-y-auto custom-scrollbar flex-1 pr-3 space-y-6 text-sm text-slate-300">
+
+        <!-- Synchronized Server Endpoint Status Banner in Modal (Read-Only) -->
+        <div class="p-4 rounded-2xl bg-black/50 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-2.5">
+            <span class="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-xs font-semibold text-slate-300">Synchronized Server Endpoint:</span>
+            <span class="label-prompt-endpoint-pill px-3 py-1 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">http://localhost:3000</span>
+          </div>
+          <span class="text-[11px] text-slate-400">All prompt options below re-render live from active server configuration</span>
+        </div>
         
         <!-- Key Architecture Points -->
         <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/10 space-y-3">
@@ -2953,7 +3542,7 @@ console.log('Deployment status:', deployment.status);</code></pre>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
             <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
               <span class="text-emerald-400 font-semibold block">📍 Base Endpoint</span>
-              <span class="font-mono text-slate-400">http://localhost:3000 (REST & SSE Realtime)</span>
+              <span id="label-modal-base-endpoint" class="font-mono text-slate-400">http://localhost:3000 (REST & SSE Realtime)</span>
             </div>
             <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
               <span class="text-emerald-400 font-semibold block">🔑 Headers</span>
@@ -2980,11 +3569,11 @@ console.log('Deployment status:', deployment.status);</code></pre>
             <span class="text-[10px] text-indigo-400 font-medium">Click to Copy</span>
           </div>
           <div class="bg-slate-900/90 p-4 rounded-2xl border border-indigo-500/30 relative group">
-            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 p-2 rounded-xl border border-indigo-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Migration Prompt">
+            <button type="button" id="btn-copy-modal-migration" class="absolute top-3 right-3 text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 p-2 rounded-xl border border-indigo-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Migration Prompt">
               <i class="fa-solid fa-copy"></i>
               <span>Copy Prompt</span>
             </button>
-            <pre class="pr-24 text-xs font-mono text-indigo-200 whitespace-pre-wrap leading-relaxed">You are an expert full-stack engineer and cloud architect.
+            <pre id="pre-prompt-migration" class="pr-24 text-xs font-mono text-indigo-200 whitespace-pre-wrap leading-relaxed">You are an expert full-stack engineer and cloud architect.
 I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to AegisDB (a self-hosted, lightweight BaaS).
 
 AegisDB Server Specifications:
@@ -3004,16 +3593,20 @@ Please systematically migrate the application according to these specifications:
    - Insert Document: POST http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents
      Headers: { 'Content-Type': 'application/json', 'x-aegis-api-key': apiKey, 'Authorization': 'Bearer &lt;token&gt;' }
      Body: { data: { ...fields } }
-   - Query Documents: GET http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents?limit=50&offset=0&sortBy=_createdAt&sortOrder=desc
+   - Query & Filter Documents: GET http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents?filter={"status":"active"}&amp;limit=50&amp;offset=0&amp;sortBy=_createdAt&amp;sortOrder=desc
+     * Translate Firestore where() clauses to server-side JSON filters in query param 'filter'.
+     * Supported Operators: equality {"field":"val"} or {"field":{"$eq":"val"}}, inequality {"$ne":"val"}, comparisons {"$gt":10, "$gte":10, "$lt":100, "$lte":100}, string search {"$contains":"text"}.
    - Fetch Single Document: GET http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents/&lt;id&gt;
    - Update Document: PATCH http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents/&lt;id&gt;
      Body: { data: { ...fieldsToUpdate } }
    - Delete Document: DELETE http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents/&lt;id&gt;
+   - Transactions: Refactor Firestore runTransaction calls into standard atomic read-then-write flows (GET /documents/:id -&gt; compute mutations -&gt; PATCH /documents/:id).
 
 3. ROW-LEVEL SECURITY & SECURITY RULES:
-   - To assign fine-grained row ownership or custom access rules to any document, attach a reserved '_rules' object inside the document data:
-     { data: { ...fields, _rules: { "read": "auth != null", "write": "auth.id == data.ownerId" } } }
-   - Rule variables available: 'auth' (user context), 'data' (incoming payload), 'resource' (existing DB row).
+   - To assign fine-grained row ownership or custom access rules to documents, attach a reserved '_rules' object inside the document data:
+     * For user profiles: { data: { ...userFields, _rules: { "read": "auth != null", "write": "auth.id == resource.id || auth.id == data.id || auth.id == data.ownerId" } } }
+     * For entity collections: { data: { ...itemFields, _rules: { "read": "auth != null", "create": "auth != null &amp;&amp; auth.id == data.ownerId", "update": "auth.id == resource.ownerId", "delete": "auth.id == resource.ownerId" } } }
+   - Rule variables available in JS VM: 'auth' (user session), 'data' (incoming payload), 'resource' (existing document from DB), 'request' (request context).
 
 4. REAL-TIME DATA SYNC (onSnapshot -> Server-Sent Events):
    - Connect live streams via:
@@ -3042,47 +3635,11 @@ Refactor all existing mock data, Firebase, and Supabase client calls to use thes
             <span class="text-[10px] text-emerald-400 font-medium">Click to Copy</span>
           </div>
           <div class="bg-slate-900/90 p-4 rounded-2xl border border-emerald-500/30 relative group">
-            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 p-2 rounded-xl border border-emerald-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy New App Prompt">
+            <button type="button" id="btn-copy-modal-newapp" class="absolute top-3 right-3 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 p-2 rounded-xl border border-emerald-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy New App Prompt">
               <i class="fa-solid fa-copy"></i>
               <span>Copy Prompt</span>
             </button>
-            <pre class="pr-24 text-xs font-mono text-emerald-200 whitespace-pre-wrap leading-relaxed">You are an expert full-stack software engineer.
-Build a complete, modern, high-performance web application backed by AegisDB (a self-hosted Backend-as-a-Service running at http://localhost:3000).
-
-ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
-
-1. CLIENT ARCHITECTURE & AUTHENTICATION:
-   - Create a clean API service layer (or use AegisClient) that automatically attaches:
-     * Header 'x-aegis-api-key': &lt;PROJECT_API_KEY&gt; (from localStorage 'aegisApiKey' or config)
-     * Header 'Authorization': 'Bearer ' + &lt;USER_JWT_TOKEN&gt; (from localStorage 'aegisToken')
-   - Implement complete user lifecycle UI (Register, Login, OAuth, Logout):
-     * Check enabled auth options: GET /api/v1/project-auth/config
-     * Register: POST /api/v1/project-auth/register with { email, password, name }
-     * Login: POST /api/v1/project-auth/login with { email, password }
-     * OAuth: POST /api/v1/project-auth/oauth/&lt;provider&gt; with { token }
-
-2. DATABASE & COLLECTION ARCHITECTURE:
-   - Structure business data into organized collections (e.g. 'items', 'tasks', 'profiles', 'orders').
-   - Create documents: POST /api/v1/db/collections/&lt;name&gt;/documents with { data: { ...item } }
-   - Read with pagination: GET /api/v1/db/collections/&lt;name&gt;/documents?limit=25&offset=0
-   - Update: PATCH /api/v1/db/collections/&lt;name&gt;/documents/&lt;id&gt; with { data: { ...updates } }
-   - Delete: DELETE /api/v1/db/collections/&lt;name&gt;/documents/&lt;id&gt;
-
-3. ROW-LEVEL SECURITY (RLS) RULES:
-   - Protect private user data by attaching '_rules' to created documents:
-     { "read": "auth != null", "write": "auth.id == data.ownerId" }
-
-4. REAL-TIME CHANGE DATA CAPTURE (CDC):
-   - Keep views synced in real time using Server-Sent Events (SSE):
-     const sse = new EventSource('http://localhost:3000/api/v1/db/collections/&lt;name&gt;/realtime?apiKey=' + apiKey);
-     sse.onmessage = (e) => { const change = JSON.parse(e.data); updateState(change); };
-
-5. FILE STORAGE & UPLOADS:
-   - Upload assets via POST /api/v1/storage/upload using FormData with field 'file'.
-   - Display uploaded images/files using http://localhost:3000/api/v1/storage/assets/&lt;filename&gt;.
-
-6. USER EXPERIENCE & INTERFACE:
-   - Deliver a responsive, polished UI with loading skeletons, optimistic UI updates, error toasts, and clean empty states.</pre>
+            <pre id="pre-prompt-newapp" class="pr-24 text-xs font-mono text-emerald-200 whitespace-pre-wrap leading-relaxed"></pre>
           </div>
         </div>
 
@@ -3096,17 +3653,18 @@ ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
             <span class="text-[10px] text-amber-400 font-medium">Ready to Drop into Any Project</span>
           </div>
           <div class="bg-slate-900/90 p-4 rounded-2xl border border-white/10 relative group">
-            <button type="button" onclick="event.preventDefault(); event.stopPropagation(); navigator.clipboard.writeText(this.nextElementSibling.innerText); const i=this.querySelector('i'); i.classList.remove('fa-copy'); i.classList.add('fa-check'); setTimeout(() => {i.classList.remove('fa-check'); i.classList.add('fa-copy');}, 2000)" class="absolute top-3 right-3 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 p-2 rounded-xl border border-amber-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Drop-in Client Code">
+            <button type="button" id="btn-copy-modal-sdk" class="absolute top-3 right-3 text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 p-2 rounded-xl border border-amber-500/30 transition-all flex items-center space-x-1 text-xs font-semibold" title="Copy Drop-in Client Code">
               <i class="fa-solid fa-copy"></i>
               <span>Copy Code</span>
             </button>
-            <pre class="pr-24 text-xs font-mono text-amber-300 overflow-x-auto whitespace-pre leading-relaxed"><code>/**
+            <pre id="pre-prompt-client-sdk" class="pr-24 text-xs font-mono text-amber-300 overflow-x-auto whitespace-pre leading-relaxed"><code>/**
  * AegisClient — Official Universal Drop-in SDK for AegisDB
  * Works in Browser (Vanilla JS, React, Vue, Svelte, Next.js) and Node.js
  */
 class AegisClient {
   constructor(options = {}) {
-    this.baseUrl = (options.baseUrl || 'http://localhost:3000').replace(/\/+$/, '');
+    const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
+    this.baseUrl = (options.baseUrl || defaultOrigin).replace(/\/+$/, '');
     this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') || '';
     this.token = options.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisToken') : '') || '';
   }
@@ -4134,6 +4692,192 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         <div id="appeal-view-decision-actions" class="flex items-center space-x-2">
           <!-- Injected dynamically based on notice status -->
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 7. Schedule Endpoint Migration & Rollout Modal (Super Admin) -->
+  <div id="modal-schedule-migration" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel rounded-3xl p-6 max-w-lg w-full border border-amber-500/30 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-300 flex items-center justify-center">
+            <i class="fa-solid fa-calendar-clock text-base"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Schedule Endpoint Migration</h3>
+            <p class="text-[11px] text-slate-400">Roll out advance countdown notices to all active users</p>
+          </div>
+        </div>
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); hideModal('modal-schedule-migration')" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-white/10 transition">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <form id="form-schedule-migration" class="space-y-4 text-xs">
+        <!-- Detected IP Badge & Quick Mode Chips in Modal -->
+        <div class="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-900/60 border border-white/5">
+          <div class="flex items-center space-x-2">
+            <span class="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
+            <span class="text-slate-300">Detected Wi-Fi IP:</span>
+            <span id="label-schedule-detected-ip" class="font-mono font-bold text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">192.168.31.57</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <button type="button" class="btn-schedule-quick-mode px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-[11px] font-semibold transition border border-amber-500/30" data-mode="both">Dual (0.0.0.0)</button>
+            <button type="button" class="btn-schedule-quick-mode px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-medium transition border border-white/10" data-mode="localhost">Local (127.0.0.1)</button>
+            <button type="button" class="btn-schedule-quick-mode px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-medium transition border border-white/10" data-mode="network">Wi-Fi IP</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="space-y-1">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Target Mode</label>
+            <select id="schedule-target-mode" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs cursor-pointer">
+              <option value="both">🌐 Both Local & Wi-Fi (0.0.0.0)</option>
+              <option value="localhost">💻 Localhost Only (127.0.0.1)</option>
+              <option value="network">📱 Local Wi-Fi IP (192.168.31.57)</option>
+              <option value="custom">⚙️ Custom Domain / Host</option>
+            </select>
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Host IP / Bind Address</label>
+            <input type="text" id="schedule-target-host" value="0.0.0.0" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="0.0.0.0">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Target Port</label>
+            <input type="number" id="schedule-target-port" value="3000" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="3000">
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Custom Domain / IP Override (Optional)</label>
+          <input type="text" id="schedule-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="api.aegisdb.dev or 192.168.1.50">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Schedule Execution Delay</label>
+          <div class="grid grid-cols-4 gap-2 mb-2">
+            <button type="button" class="btn-schedule-delay-preset px-2.5 py-1.5 rounded-lg bg-slate-900 border border-white/10 hover:border-amber-400/50 text-slate-300 text-xs font-medium transition text-center" data-minutes="2">2 Mins</button>
+            <button type="button" class="btn-schedule-delay-preset px-2.5 py-1.5 rounded-lg bg-slate-900 border border-white/10 hover:border-amber-400/50 text-slate-300 text-xs font-medium transition text-center" data-minutes="10">10 Mins</button>
+            <button type="button" class="btn-schedule-delay-preset px-2.5 py-1.5 rounded-lg bg-slate-900 border border-white/10 hover:border-amber-400/50 text-slate-300 text-xs font-medium transition text-center" data-minutes="30">30 Mins</button>
+            <button type="button" class="btn-schedule-delay-preset px-2.5 py-1.5 rounded-lg bg-slate-900 border border-white/10 hover:border-amber-400/50 text-slate-300 text-xs font-medium transition text-center" data-minutes="60">1 Hour</button>
+          </div>
+          <input type="datetime-local" id="schedule-target-datetime" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono">
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Rollout Announcement Message to Users</label>
+          <textarea id="schedule-notice-message" rows="2" class="w-full p-3 rounded-xl glass-input text-xs resize-none" placeholder="AegisDB server endpoint will be migrated to the new URL. Please update your client configs."></textarea>
+        </div>
+
+        <!-- Detailed Migration Endpoint Preview -->
+        <div class="p-3.5 rounded-xl bg-black/50 border border-amber-500/20 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Target Endpoint URLs</span>
+            <span id="label-schedule-mode-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300">Dual Host (0.0.0.0)</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+            <div class="p-2 rounded-lg bg-white/5 flex items-center justify-between">
+              <span class="text-slate-400">Local:</span>
+              <span id="label-schedule-local-preview" class="font-bold text-emerald-400">http://localhost:3000</span>
+            </div>
+            <div class="p-2 rounded-lg bg-white/5 flex items-center justify-between">
+              <span class="text-slate-400">Wi-Fi IP:</span>
+              <span id="label-schedule-network-preview" class="font-bold text-amber-300">http://192.168.31.57:3000</span>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white font-bold text-xs transition shadow-lg shadow-amber-600/30 active:scale-98 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-paper-plane"></i>
+          <span>Schedule Migration & Broadcast Notice</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- 8. Automated Migration Redirection Countdown Overlay -->
+  <div id="overlay-migration-transition" class="fixed inset-0 z-[200] hidden flex flex-col items-center justify-center p-4 sm:p-6 bg-slate-950/95 backdrop-blur-2xl text-center select-none">
+    <div class="max-w-lg w-full glass-panel p-6 sm:p-8 rounded-3xl border border-emerald-500/40 shadow-2xl shadow-emerald-950/50 space-y-5 animate-scale-in text-left">
+      <!-- Header -->
+      <div class="flex items-center space-x-3.5 pb-2 border-b border-white/10">
+        <div class="relative flex-shrink-0">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-xl shadow-lg shadow-emerald-500/30">
+            <i class="fa-solid fa-server fa-bounce"></i>
+          </div>
+          <span class="absolute -bottom-1 -right-1 flex h-3.5 w-3.5">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
+          </span>
+        </div>
+        <div>
+          <h3 class="text-base sm:text-lg font-bold text-white tracking-tight flex items-center space-x-2">
+            <span>Migrating Server Endpoint</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">ZERO DOWNTIME</span>
+          </h3>
+          <p class="text-xs text-slate-400">Rebinding TCP socket & synchronizing active session handover.</p>
+        </div>
+      </div>
+
+      <!-- Clean Destination URL Banner -->
+      <div class="p-3.5 rounded-2xl bg-black/60 border border-emerald-500/30 flex items-center justify-between">
+        <div class="space-y-0.5 overflow-hidden">
+          <span class="text-[10px] uppercase font-semibold text-slate-400">Target Destination Endpoint</span>
+          <div class="font-mono text-xs sm:text-sm text-emerald-400 font-bold truncate" id="label-transition-target-url">
+            http://192.168.31.57:3000
+          </div>
+        </div>
+        <span class="px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex-shrink-0 ml-2">
+          <i class="fa-solid fa-bolt mr-1"></i>AUTO-SWITCH
+        </span>
+      </div>
+
+      <!-- Step Progress Pipeline -->
+      <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-semibold">
+        <div id="step-pipe-1" class="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition">
+          <i class="fa-solid fa-check text-[10px] block mb-0.5"></i>
+          <span>1. Unbind</span>
+        </div>
+        <div id="step-pipe-2" class="p-2 rounded-xl bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition">
+          <i class="fa-solid fa-check text-[10px] block mb-0.5"></i>
+          <span>2. Rebind</span>
+        </div>
+        <div id="step-pipe-3" class="p-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse transition">
+          <i class="fa-solid fa-circle-notch fa-spin text-[10px] block mb-0.5"></i>
+          <span>3. Probe</span>
+        </div>
+        <div id="step-pipe-4" class="p-2 rounded-xl bg-white/5 text-slate-500 border border-white/5 transition">
+          <i class="fa-solid fa-shield-halved text-[10px] block mb-0.5"></i>
+          <span>4. Handover</span>
+        </div>
+      </div>
+
+      <!-- Live Terminal Commands Running Window -->
+      <div class="rounded-2xl bg-black/80 border border-slate-800 p-3.5 space-y-1 font-mono text-[11px] select-text">
+        <div class="flex items-center justify-between text-[10px] text-slate-500 pb-1.5 border-b border-white/5">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Running Migration Commands</span>
+          </div>
+          <span id="label-transition-elapsed" class="text-emerald-400 font-bold">Elapsed: 0.0s</span>
+        </div>
+        <div id="container-transition-terminal" class="space-y-1 max-h-28 overflow-y-auto custom-scrollbar pt-1 text-slate-300">
+          <div class="text-slate-500">➜ Initiating live socket rebind...</div>
+        </div>
+      </div>
+
+      <!-- Status & Instructions -->
+      <div class="flex items-center justify-between text-xs pt-1">
+        <div class="flex items-center space-x-2 text-emerald-400">
+          <i class="fa-solid fa-spinner fa-spin text-[11px]"></i>
+          <span id="label-transition-status" class="font-medium">Verifying new port health...</span>
+        </div>
+        <span id="label-transition-countdown" class="text-xs font-mono font-bold text-slate-400">⏳ 1/30</span>
+      </div>
+
+      <div class="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-white/5 flex items-center space-x-2">
+        <i class="fa-solid fa-circle-info text-blue-400 flex-shrink-0"></i>
+        <span>Please do not close or refresh this tab. Your session will transition seamlessly.</span>
       </div>
     </div>
   </div>

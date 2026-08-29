@@ -15,6 +15,7 @@ import 'dotenv/config'; // must be first — loads .env before anything else rea
 
 import express, { Application, Request, Response } from 'express';
 import * as path from 'path';
+import * as os from 'os';
 import cors from 'cors';
 import helmet from 'helmet';
 import hpp from 'hpp';
@@ -32,7 +33,7 @@ import { globalErrorHandler, notFoundHandler } from './middleware/error.middlewa
 import { authLimiter, apiLimiter } from './middleware/rateLimit.middleware';
 import { ensureUploadDir }   from './storage/storage.service';
 import { ensureHosterDirs, initRuntimeAdapter } from './hoster/hoster.service';
-import { initSqlite } from './db/sqlite.connection';
+import { initSqlite, getDb } from './db/sqlite.connection';
 
 import { wsService } from './realtime/websocket.service';
 import { replicationService } from './services/replication.service';
@@ -41,6 +42,7 @@ import { metricsService } from './services/metrics.service';
 import { securityHeaders, dynamicCors } from './middleware/security.middleware';
 import { maintenanceModeMiddleware } from './middleware/maintenance.middleware';
 import { accountPurgeSchedulerService } from './services/account-purge-scheduler.service';
+import { endpointMigrationScheduler } from './services/endpoint-migration-scheduler.service';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -152,7 +154,7 @@ function createApp(): Application {
   app.use(maintenanceModeMiddleware);
 
   // ── API Routes ───────────────────────────────────────────────────────────
-  app.use('/api/v1/auth',     authLimiter, authRouter);
+  app.use('/api/v1/auth',     authRouter);
   app.use('/api/v1/project-auth', projectAuthRouter);
   app.use('/api/v1/projects', projectRouter);
   app.use('/api/v1/db',       dbRouter);
@@ -186,49 +188,177 @@ function createApp(): Application {
   return app;
 }
 
+import http from 'http';
+
+let currentApp: Application | null = null;
+let currentServer: http.Server | null = null;
+let activePort = 3000;
+let activeHost = '0.0.0.0';
+
+/**
+ * Dynamically rebinds the HTTP and WebSocket server to a new port and host in-memory.
+ */
+export function rebindServer(newPort: number, newHost: string = '0.0.0.0'): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!currentApp) {
+      return reject(new Error('Application is not initialized'));
+    }
+
+    // Always bind on 0.0.0.0 unless localhost (127.0.0.1) is explicitly requested
+    const hostToBind = (newHost === '127.0.0.1' || newHost === 'localhost') ? '127.0.0.1' : '0.0.0.0';
+
+    if (activePort === newPort && activeHost === newHost && currentServer?.listening) {
+      return resolve();
+    }
+
+    const performListen = () => {
+      const server = http.createServer(currentApp!);
+      currentServer = server;
+
+      server.on('error', (err: any) => {
+        console.error(`❌ [Server] Failed to bind to port ${newPort} on ${hostToBind}:`, err.message);
+        reject(err);
+      });
+
+      server.listen(newPort, hostToBind, () => {
+        activePort = newPort;
+        activeHost = newHost;
+        process.env.PORT = newPort.toString();
+        process.env.HOST = newHost;
+
+        const interfaces = os.networkInterfaces();
+        let netIp = '127.0.0.1';
+        for (const name of Object.keys(interfaces)) {
+          for (const iface of interfaces[name] || []) {
+            if (iface.family === 'IPv4' && !iface.internal) {
+              netIp = iface.address;
+              break;
+            }
+          }
+        }
+
+        console.log('');
+        console.log('┌────────────────────────────────────────────────────────────┐');
+        console.log('│        AegisDB Server Live Port Switch (Rebound) 🛡️        │');
+        console.log('├────────────────────────────────────────────────────────────┤');
+        console.log(`│  ➜  Local:    http://localhost:${newPort}`.padEnd(61) + '│');
+        console.log(`│  ➜  Network:  http://${netIp}:${newPort}`.padEnd(61) + '│');
+        console.log('├────────────────────────────────────────────────────────────┤');
+        console.log(`│  Status  : Switched to Port ${newPort}`.padEnd(61) + '│');
+        console.log(`│  Access  : ${hostToBind === '0.0.0.0' ? 'Available via Localhost & Wi-Fi Network' : 'Localhost Only'}`.padEnd(61) + '│');
+        console.log(`│  CLI     : PORT=${newPort} HOST=${newHost} npm run dev`.padEnd(61) + '│');
+        console.log('└────────────────────────────────────────────────────────────┘');
+        console.log('');
+
+        wsService.init(server);
+        resolve();
+      });
+    };
+
+    if (currentServer && currentServer.listening) {
+      console.log(`[Server] Closing existing socket on port ${activePort} for rebind to ${newPort}...`);
+      try {
+        if (typeof (currentServer as any).closeAllConnections === 'function') {
+          (currentServer as any).closeAllConnections();
+        } else if (typeof (currentServer as any).closeIdleConnections === 'function') {
+          (currentServer as any).closeIdleConnections();
+        }
+      } catch (_) {}
+
+      currentServer.close((err) => {
+        if (err) console.warn('[Server] Notice during socket close:', err.message);
+        performListen();
+      });
+    } else {
+      performListen();
+    }
+  });
+}
+
+import { terminalStreamService } from './services/terminal-stream.service';
+
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 
 async function bootstrap(): Promise<void> {
+  terminalStreamService.init();
   validateEnv();
   initSqlite();          // SQLite database initialization
+  endpointMigrationScheduler.setRebindHandler(rebindServer);
+  endpointMigrationScheduler.start(); // Scheduled host & port migration watcher
   ensureUploadDir();    // uploads/biometrics/
   ensureHosterDirs();   // uploads/projects/ + workspaces/
   await initRuntimeAdapter(); // detect Docker vs Process mode
 
-  const app = createApp();
-  const PORT = parseInt(process.env.PORT ?? '3000', 10);
-  const HOST = process.env.HOST ?? '0.0.0.0';
+  currentApp = createApp();
 
-  const server = app.listen(PORT, HOST, () => {
+  // Load configured server port and host from platform_settings
+  let configuredPort = parseInt(process.env.PORT ?? '3000', 10);
+  let configuredHost = process.env.HOST ?? '0.0.0.0';
+  try {
+    const db = getDb();
+    const settings = db.prepare("SELECT serverPort, serverHost, serverHostingMode FROM platform_settings WHERE id = 'default'").get() as any;
+    if (settings) {
+      if (settings.serverPort) configuredPort = Number(settings.serverPort);
+      if (settings.serverHost) configuredHost = settings.serverHost;
+    }
+  } catch (_) {}
+
+  const PORT = configuredPort;
+  const HOST = configuredHost;
+  const hostToBind = (HOST === '127.0.0.1' || HOST === 'localhost') ? '127.0.0.1' : '0.0.0.0';
+
+  const getNetworkIp = (): string => {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name] || []) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+    return '127.0.0.1';
+  };
+
+  const networkIp = getNetworkIp();
+  activePort = PORT;
+  activeHost = HOST;
+
+  const server = http.createServer(currentApp);
+  currentServer = server;
+
+  server.listen(PORT, hostToBind, () => {
     console.log('');
-    console.log('┌──────────────────────────────────────────────────────┐');
-    console.log('│              AegisDB Server  🛡️                       │');
-    console.log('├──────────────────────────────────────────────────────┤');
-    console.log(`│  Status  : Running                                   │`);
-    console.log(`│  Address : ${HOST}:${PORT}`.padEnd(55) + '│');
-    console.log(`│  Env     : ${(process.env.NODE_ENV ?? 'development').padEnd(42)}│`);
-    console.log('├──────────────────────────────────────────────────────┤');
-    console.log('│  Auth    : POST /api/v1/auth/register                │');
-    console.log('│            POST /api/v1/auth/login                   │');
-    console.log('│            POST /api/v1/auth/refresh                 │');
-    console.log('│            POST /api/v1/auth/logout                  │');
-    console.log('├──────────────────────────────────────────────────────┤');
-    console.log('│  Projects: POST   /api/v1/projects                   │');
-    console.log('│            GET    /api/v1/projects                   │');
-    console.log('│            DELETE /api/v1/projects/:id               │');
-    console.log('├──────────────────────────────────────────────────────┤');
-    console.log('│  DB      : POST   /api/v1/db/collections             │');
-    console.log('│            GET    /api/v1/db/collections             │');
-    console.log('│            POST   /…/collections/:name/docs          │');
-    console.log('│            GET    /…/collections/:name/docs          │');
-    console.log('│            PATCH  /…/collections/:name/docs/:id      │');
-    console.log('│            DELETE /…/collections/:name/docs/:id      │');
-    console.log('├──────────────────────────────────────────────────────┤');
-    console.log('│  Realtime: WS /?token=...                            │');
-    console.log('├──────────────────────────────────────────────────────┤');
-    console.log('│  Admin   : GET   /api/v1/admin/stats                 │');
-    console.log('│            PATCH /api/v1/admin/rate-limits           │');
-    console.log('└──────────────────────────────────────────────────────┘');
+    console.log('┌────────────────────────────────────────────────────────────┐');
+    console.log('│                   AegisDB Server  🛡️                       │');
+    console.log('├────────────────────────────────────────────────────────────┤');
+    console.log(`│  ➜  Local:    http://localhost:${PORT}`.padEnd(61) + '│');
+    console.log(`│  ➜  Network:  http://${networkIp}:${PORT}`.padEnd(61) + '│');
+    console.log('├────────────────────────────────────────────────────────────┤');
+    console.log(`│  Status  : Running on Port ${PORT}`.padEnd(61) + '│');
+    console.log(`│  Access  : ${hostToBind === '0.0.0.0' ? 'Available via Localhost & Wi-Fi Network' : 'Localhost Only'}`.padEnd(61) + '│');
+    console.log(`│  Env     : ${(process.env.NODE_ENV ?? 'development')}`.padEnd(61) + '│');
+    console.log('├────────────────────────────────────────────────────────────┤');
+    console.log('│  Auth    : POST /api/v1/auth/register                      │');
+    console.log('│            POST /api/v1/auth/login                         │');
+    console.log('│            POST /api/v1/auth/refresh                       │');
+    console.log('│            POST /api/v1/auth/logout                        │');
+    console.log('├────────────────────────────────────────────────────────────┤');
+    console.log('│  Projects: POST   /api/v1/projects                         │');
+    console.log('│            GET    /api/v1/projects                         │');
+    console.log('│            DELETE /api/v1/projects/:id                     │');
+    console.log('├────────────────────────────────────────────────────────────┤');
+    console.log('│  DB      : POST   /api/v1/db/collections                   │');
+    console.log('│            GET    /api/v1/db/collections                   │');
+    console.log('│            POST   /…/collections/:name/docs                │');
+    console.log('│            GET    /…/collections/:name/docs                │');
+    console.log('│            PATCH  /…/collections/:name/docs/:id            │');
+    console.log('│            DELETE /…/collections/:name/docs/:id            │');
+    console.log('├────────────────────────────────────────────────────────────┤');
+    console.log('│  Realtime: WS /?token=...                                  │');
+    console.log('├────────────────────────────────────────────────────────────┤');
+    console.log('│  Admin   : GET   /api/v1/admin/stats                       │');
+    console.log('│            PATCH /api/v1/admin/rate-limits                 │');
+    console.log('└────────────────────────────────────────────────────────────┘');
     console.log('');
   });
 

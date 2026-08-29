@@ -27,6 +27,7 @@ import { getDb } from '../db/sqlite.connection';
 import { policyService } from '../services/policy.service';
 import { threatDetectionService } from '../services/threat-detection.service';
 import { accountModerationService } from '../services/account-moderation.service';
+import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 
 // ── Argon2id Configuration ────────────────────────────────────────────────────
 
@@ -388,9 +389,10 @@ export async function changePassword(
     }
   }
 
-  // 3. Hash new password and update DB
-  const newPasswordHash = await argon2.hash(newPassword);
-  db.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?').run(newPasswordHash, new Date().toISOString(), userId);
+  // 3. Hash new password using ARGON2_OPTIONS and update DB
+  const newPasswordHash = await argon2.hash(newPassword, ARGON2_OPTIONS);
+  db.prepare('UPDATE users SET passwordHash = ?, lockedUntil = NULL, updatedAt = ? WHERE id = ?')
+    .run(newPasswordHash, new Date().toISOString(), userId);
   return true;
 }
 
@@ -404,9 +406,9 @@ export async function setInitialPassword(userId: string, newPassword: string): P
   if (!user) throw new AppError('User not found.', 404);
 
   // Directly hash and update without requiring old password
-  const newHash = await hashPassword(newPassword);
+  const newHash = await argon2.hash(newPassword, ARGON2_OPTIONS);
 
-  db.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
+  db.prepare('UPDATE users SET passwordHash = ?, lockedUntil = NULL, updatedAt = ? WHERE id = ?')
     .run(newHash, new Date().toISOString(), userId);
     
   return true;
@@ -418,36 +420,51 @@ export async function updateUserProfile(userId: string, name: string, email?: st
   }
 
   const db = getDb();
-  const user = db.prepare('SELECT id, email, passwordHash FROM users WHERE id = ?').get(userId) as any;
-  if (!user) throw new AppError('User not found.', 404);
+  const existingUser = await userStore.findById(userId);
+  if (!existingUser) throw new AppError('User not found.', 404);
 
   const cleanName = name.trim();
-  let cleanEmail = user.email;
+  let cleanEmail = existingUser.email.trim().toLowerCase();
+  const rawUser = db.prepare('SELECT passwordHash, isSuperAdmin FROM users WHERE id = ?').get(userId) as any;
 
-  if (email && email.trim() !== '' && email.trim() !== user.email) {
+  if (email && email.trim() !== '' && email.trim().toLowerCase() !== existingUser.email.toLowerCase()) {
     cleanEmail = email.trim().toLowerCase();
     
-    // Require current password for email changes
-    if (!currentPassword) {
-      throw new AppError('Current password is required to change email address.', 400);
-    }
-    
-    // Verify password
-    const argon2 = await import('argon2');
-    const isValid = await argon2.verify(user.passwordHash, currentPassword);
-    if (!isValid) {
-      throw new AppError('Incorrect current password.', 401);
+    // Require current password for email changes if account has a password
+    if (rawUser && rawUser.passwordHash) {
+      if (!currentPassword) {
+        throw new AppError('Current password is required to change email address.', 400);
+      }
+      
+      const isValid = await argon2.verify(rawUser.passwordHash, currentPassword);
+      if (!isValid) {
+        throw new AppError('Incorrect current password.', 401);
+      }
     }
 
-    // Check uniqueness
-    const existing = db.prepare('SELECT id FROM users WHERE email = ? AND id != ?').get(cleanEmail, userId);
-    if (existing) {
-      throw new AppError('Email address is already in use by another account.', 409);
+    // Check uniqueness using blind index hash
+    const newEmailHash = envelopeEncryptionService.hashBlindIndex(cleanEmail);
+    const conflict = db.prepare('SELECT id, isSuperAdmin FROM users WHERE (emailHash = ? OR email = ?) AND id != ?').get(newEmailHash, cleanEmail, userId) as any;
+    
+    if (conflict) {
+      // If current user is Super Admin and conflict user is a non-admin (e.g. from an unlinked OAuth sign-in), clean it up
+      if (rawUser && rawUser.isSuperAdmin === 1 && conflict.isSuperAdmin !== 1) {
+        db.prepare('DELETE FROM refresh_tokens WHERE userId = ?').run(conflict.id);
+        db.prepare('DELETE FROM projects WHERE ownerId = ?').run(conflict.id);
+        db.prepare('DELETE FROM users WHERE id = ?').run(conflict.id);
+      } else {
+        throw new AppError('Email address is already in use by another account.', 409);
+      }
     }
   }
 
-  db.prepare('UPDATE users SET name = ?, email = ?, updatedAt = ? WHERE id = ?')
-    .run(cleanName, cleanEmail, new Date().toISOString(), userId);
+  const encName = envelopeEncryptionService.encryptField(cleanName, 'SYSTEM');
+  const encEmail = envelopeEncryptionService.encryptField(cleanEmail, 'SYSTEM');
+  const newEmailHash = envelopeEncryptionService.hashBlindIndex(cleanEmail);
+  const now = new Date().toISOString();
+
+  db.prepare('UPDATE users SET name = ?, email = ?, emailHash = ?, updatedAt = ? WHERE id = ?')
+    .run(JSON.stringify(encName), JSON.stringify(encEmail), newEmailHash, now, userId);
   
   const updatedUser = await userStore.findById(userId);
   return updatedUser ? toPublicUser(updatedUser) : null;

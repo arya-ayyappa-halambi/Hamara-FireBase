@@ -14,19 +14,21 @@ import { register, login, refresh, logout, setupMfaController, verifyMfaControll
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt } from '../middleware/auth.middleware';
+import { authLimiter } from '../middleware/rateLimit.middleware';
 
 const router = Router();
 
-// ── GET /config ───────────────────────────────────────────────────────────────
+// ── GET /config (Public Discovery - Never rate-limited by authLimiter) ──────
 router.get('/config', getConfig);
 router.get('/me', authenticateJwt, getMeController);
 
 // ── POST /google ──────────────────────────────────────────────────────────────
-router.post('/google', googleLogin);
+router.post('/google', authLimiter, googleLogin);
 
 // ── POST /register ────────────────────────────────────────────────────────────
 router.post(
   '/register',
+  authLimiter,
   validateBody(registerSchema),
   register,
 );
@@ -34,6 +36,7 @@ router.post(
 // ── POST /login ───────────────────────────────────────────────────────────────
 router.post(
   '/login',
+  authLimiter,
   checkFailedLoginLockout,
   validateBody(loginSchema),
   login,

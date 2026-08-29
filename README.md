@@ -22,11 +22,12 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 8. [Real-Time Change Data Capture (CDC)](#8-real-time-change-data-capture-cdc)
 9. [GDPR Privacy, Right to Erasure & Appeals](#9-gdpr-privacy-right-to-erasure--appeals)
 10. [Disaster Recovery & Backup Engine](#10-disaster-recovery--backup-engine)
-11. [Super Admin Console & Telemetry](#11-super-admin-console--telemetry)
-12. [Complete REST API Registry](#12-complete-rest-api-registry)
-13. [Performance Verification & Load Testing Suite](#13-performance-verification--load-testing-suite)
-14. [High-Availability & Production Deployment](#14-high-availability--production-deployment)
-15. [Official SDKs, Browser Drops & AI Agent Integration](#15-official-sdks-browser-drops--ai-agent-integration)
+11. [Network & Hosting Center, Zero-Downtime Socket Rebinding & Live Terminal Streamer](#11-network--hosting-center-zero-downtime-socket-rebinding--live-terminal-streamer)
+12. [Super Admin Console & Telemetry](#12-super-admin-console--telemetry)
+13. [Complete REST API Registry](#13-complete-rest-api-registry)
+14. [Performance Verification & Load Testing Suite](#14-performance-verification--load-testing-suite)
+15. [High-Availability & Production Deployment](#15-high-availability--production-deployment)
+16. [Official SDKs, Browser Drops & AI Agent Integration](#16-official-sdks-browser-drops--ai-agent-integration)
 
 ---
 
@@ -68,9 +69,13 @@ cp .env.example .env
 
 # 4. Start in development mode
 npm run dev
+
+# 5. (Optional) Interactive Terminal Startup
+# Prompts interactively for Host (Dual 0.0.0.0, Localhost, Wi-Fi LAN IP, or Custom) and Port
+npm run start:interactive
 ```
 
-The Developer Console will be immediately accessible at `http://localhost:3000` (or your configured `HOST` & `PORT`).
+The Developer Console will be immediately accessible at `http://localhost:3000` (or your chosen `HOST` & `PORT`).
 
 ### 🚀 One-Click Launch Scripts (LAN & Custom Port Binding)
 AegisDB includes pre-configured launch scripts to easily bind the server across local network IPs (LAN/WiFi) and custom ports:
@@ -489,7 +494,53 @@ AegisDB features an automated dual-target backup engine to ensure continuous dat
 
 ---
 
-## 11. Super Admin Console & Telemetry
+## 11. Network & Hosting Center, Zero-Downtime Socket Rebinding & Live Terminal Streamer
+
+AegisDB features a built-in, Super Admin-exclusive **Network & Server Hosting Control Center** (`#tab-server-hosting`) designed for frictionless local network, Wi-Fi LAN, and production domain migrations.
+
+```
+┌────────────────────────────────────────────────────────────────────────┐
+│             Network & Server Hosting Architecture                      │
+├────────────────────────────────────────────────────────────────────────┤
+│  1. In-Memory Socket Rebinding (Zero Process Restarts):                │
+│     server.closeAllConnections() ──► server.listen(newPort, newHost)   │
+│                                                                        │
+│  2. Dual-Mode Socket Health Probe:                                     │
+│     Favicon Image Probe (CORS-Bypass) + Cache-Busted REST Probing      │
+│                                                                        │
+│  3. Cross-Port Zero-Login Session Handover:                            │
+│     Old Origin (#auth_handover=...) ──► New Origin (Restores Session)  │
+│                                                                        │
+│  4. Live Terminal & Log Streamer Engine:                               │
+│     stdout/stderr Ring Buffer ──► WebSocket Broadcast (Real-time)      │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+### 🌐 1. Dynamic In-Memory TCP Socket Rebinding
+- **Zero Process Downtime**: Switch between `0.0.0.0` (Dual Localhost + Wi-Fi), `127.0.0.1` (Localhost Only), LAN IP (e.g. `192.168.x.x`), or Custom Hostnames and Ports (`3000`, `4000`, `8080`, `9000`, etc.) live from the UI without restarting Node.js or nodemon.
+- **Port Conflict Diagnostics**: Automatically probes candidate ports (`3000`-`9000`) and displays live free/in-use status chips for 1-click safe selection.
+- **Persistent Settings**: Saves the active port and host to SQLite `platform_settings` so server restarts persist the chosen binding.
+
+### 🔑 2. Cross-Port Zero-Login Session Handover Protocol
+- **Browser Port Partition Bypass**: Standard browsers isolate `localStorage` by port (`http://192.168.1.5:3000` cannot share tokens with `http://192.168.1.5:9000`).
+- **Encrypted Handover**: When migrating endpoints, AegisDB packages an active session handover ticket in the redirect URL hash (`#auth_handover=...`).
+- **Seamless Transfer**: The new port consumes the handover ticket, populates `localStorage` on the new origin, and cleanly purges the URL hash with `window.history.replaceState()`. **Zero re-login, zero re-authentication, and zero manual refresh required.**
+
+### 🖥️ 3. Live Embedded Terminal Console & Server Streamer
+- **WebSocket Log Broadcast**: Intercepts server `stdout` and `stderr` streams and broadcasts them in real time over WebSocket.
+- **Interactive Controls**:
+  - **Live Filter**: Filter logs by *All*, *HTTP Requests (`→`)*, *System Banners*, *Warnings*, or *Errors*.
+  - **Pause / Resume**: Freeze log streams to inspect stack traces or query payloads.
+  - **1-Click Copy Buffer**: Copy the entire formatted terminal log history to your clipboard.
+  - **Auto-Scroll**: Toggle automatic pinning to the newest log entries.
+
+### ⏰ 4. Scheduled Migration Rollouts & Cancellations
+- **Scheduled Deployments**: Schedule a future endpoint migration with customizable user broadcast notices and visual countdown banners across all connected screens.
+- **Instant Rollout / Cancellation**: Cancel scheduled migrations at any moment, automatically broadcasting cancellation notices over WebSocket and clearing banners across all active users.
+
+---
+
+## 12. Super Admin Console & Telemetry
 
 The Super Admin dashboard provides deep visibility into the health and performance of the entire platform.
 
@@ -500,7 +551,7 @@ The Super Admin dashboard provides deep visibility into the health and performan
 
 ---
 
-## 12. Complete REST API Registry
+## 13. Complete REST API Registry
 
 ### Public System & Monitoring
 | Method | Endpoint | Description |

@@ -2,9 +2,9 @@ import { customApiLimiter, customAuthLimiter } from './custom-rate-limit.middlew
 
 export const rateLimitConfig = {
   authWindowMinutes: 15,
-  authLimit: 10,
+  authLimit: 100,
   apiWindowMinutes: 15,
-  apiLimit: 1000,
+  apiLimit: 5000,
 };
 
 export const authLimiter = customAuthLimiter;

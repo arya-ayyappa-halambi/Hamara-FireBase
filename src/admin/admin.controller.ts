@@ -16,17 +16,29 @@ import { threatDetectionService } from '../services/threat-detection.service';
 import { accountModerationService } from '../services/account-moderation.service';
 import { userStore } from '../store/user.store';
 import { getDb } from '../db/sqlite.connection';
+import { endpointMigrationScheduler } from '../services/endpoint-migration-scheduler.service';
+import { wsService } from '../realtime/websocket.service';
+import { networkDiagnosticsService } from '../services/network-diagnostics.service';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const db = getDb();
-    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, maintenanceMode, backupMode, backupIntervalMinutes, backupRetentionDays, s3BucketName, s3Region, s3AccessKey, s3SecretKey, lastBackupAt, lastBackupStatus, lastBackupS3Status, lastBackupLocation, lastBackupS3Url FROM platform_settings WHERE id = ?').get('default') as any;
+    const settings = db.prepare('SELECT * FROM platform_settings WHERE id = ?').get('default') as any;
+    const networkIp = endpointMigrationScheduler.getNetworkIp();
+    const pendingMigration = endpointMigrationScheduler.getPendingMigration();
+    const serverHost = settings?.serverHost || '0.0.0.0';
+    const serverPort = settings?.serverPort || 3000;
+    const serverHostingMode = settings?.serverHostingMode || 'both';
+    const customDomain = settings?.customDomain || '';
+    const canonicalBaseUrl = endpointMigrationScheduler.computeBaseUrl(serverHostingMode, serverHost, serverPort, customDomain);
+
     res.status(200).json({
       success: true,
       message: 'Platform settings retrieved.',
       data: {
         googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
         googleClientId: settings ? settings.googleClientId : '',
+        demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true,
         backupMode: settings ? settings.backupMode : 'none',
         backupIntervalMinutes: settings ? settings.backupIntervalMinutes : 1440,
         backupRetentionDays: settings ? settings.backupRetentionDays : 7,
@@ -40,6 +52,13 @@ export async function getPlatformSettings(_req: Request, res: Response, next: Ne
         lastBackupS3Status: settings ? settings.lastBackupS3Status : null,
         lastBackupLocation: settings ? settings.lastBackupLocation : null,
         lastBackupS3Url: settings ? settings.lastBackupS3Url : null,
+        serverHost,
+        serverPort,
+        serverHostingMode,
+        customDomain,
+        networkIp,
+        canonicalBaseUrl,
+        pendingMigration
       }
     });
   } catch (err) { next(err); }
@@ -53,6 +72,7 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     // Merge new values with current values
     const googleAuthEnabled = req.body.googleAuthEnabled !== undefined ? req.body.googleAuthEnabled : current.googleAuthEnabled;
     const googleClientId = req.body.googleClientId !== undefined ? req.body.googleClientId : current.googleClientId;
+    const demoLoginEnabled = req.body.demoLoginEnabled !== undefined ? req.body.demoLoginEnabled : (current.demoLoginEnabled !== undefined ? current.demoLoginEnabled : 1);
     const backupMode = req.body.backupMode !== undefined ? req.body.backupMode : current.backupMode;
     const backupIntervalMinutes = req.body.backupIntervalMinutes !== undefined ? req.body.backupIntervalMinutes : current.backupIntervalMinutes;
     const backupRetentionDays = req.body.backupRetentionDays !== undefined ? req.body.backupRetentionDays : current.backupRetentionDays;
@@ -61,14 +81,20 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     const s3AccessKey = req.body.s3AccessKey !== undefined ? req.body.s3AccessKey : current.s3AccessKey;
     const s3SecretKey = req.body.s3SecretKey !== undefined ? req.body.s3SecretKey : current.s3SecretKey;
     const maintenanceMode = req.body.maintenanceMode !== undefined ? req.body.maintenanceMode : current.maintenanceMode;
+    const serverHost = req.body.serverHost !== undefined ? req.body.serverHost : (current.serverHost || '0.0.0.0');
+    const serverPort = req.body.serverPort !== undefined ? parseInt(req.body.serverPort, 10) : (current.serverPort || 3000);
+    const serverHostingMode = req.body.serverHostingMode !== undefined ? req.body.serverHostingMode : (current.serverHostingMode || 'both');
+    const customDomain = req.body.customDomain !== undefined ? req.body.customDomain : (current.customDomain || '');
 
     // Convert boolean to 1/0 for sqlite
-    const isEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
+    const isGoogleAuthEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
+    const isDemoLoginEnabled = demoLoginEnabled === true || demoLoginEnabled === 'true' || demoLoginEnabled === 1 ? 1 : 0;
     
     db.prepare(`
       UPDATE platform_settings 
       SET googleAuthEnabled = ?, 
           googleClientId = ?,
+          demoLoginEnabled = ?,
           backupMode = ?,
           backupIntervalMinutes = ?,
           backupRetentionDays = ?,
@@ -76,11 +102,16 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
           s3Region = ?,
           s3AccessKey = ?,
           s3SecretKey = ?,
-          maintenanceMode = ?
+          maintenanceMode = ?,
+          serverHost = ?,
+          serverPort = ?,
+          serverHostingMode = ?,
+          customDomain = ?
       WHERE id = ?
     `).run(
-      isEnabled, 
+      isGoogleAuthEnabled, 
       googleClientId || '', 
+      isDemoLoginEnabled,
       backupMode || 'none',
       backupIntervalMinutes || 1440,
       backupRetentionDays || 7,
@@ -89,6 +120,10 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
       s3AccessKey || '',
       s3SecretKey || '',
       maintenanceMode === true || maintenanceMode === 'true' || maintenanceMode === 1 ? 1 : 0,
+      serverHost,
+      serverPort,
+      serverHostingMode,
+      customDomain,
       'default'
     );
     
@@ -99,21 +134,134 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     // Automatically enforce retention policy on updated settings
     backupService.enforceRetention().catch((e) => console.error('Retention enforcement failed:', e));
 
+    const networkIp = endpointMigrationScheduler.getNetworkIp();
+    const newBaseUrl = endpointMigrationScheduler.computeBaseUrl(serverHostingMode, serverHost, serverPort, customDomain);
+
+    // Broadcast real-time config update over WebSocket
+    wsService.broadcast('SERVER_HOST_CONFIG_UPDATED', {
+      serverHost,
+      serverPort,
+      serverHostingMode,
+      customDomain,
+      newBaseUrl,
+      networkIp
+    });
+
+    // Rebind server socket if host or port has changed
+    const portChanged = serverPort !== Number(current.serverPort || 3000);
+    const hostChanged = serverHost !== (current.serverHost || '0.0.0.0');
+
+    if (portChanged || hostChanged) {
+      setTimeout(async () => {
+        try {
+          console.log(`[Admin] Triggering live socket rebind to ${serverHost}:${serverPort}...`);
+          const { rebindServer } = await import('../server');
+          await rebindServer(serverPort, serverHost);
+        } catch (err: any) {
+          console.error('[Admin] Rebind server failed:', err.message);
+        }
+      }, 500);
+    }
+
     res.status(200).json({
       success: true,
       message: 'Platform settings updated successfully.',
       data: {
-        googleAuthEnabled: isEnabled === 1,
+        googleAuthEnabled: isGoogleAuthEnabled === 1,
         googleClientId: googleClientId || '',
+        demoLoginEnabled: isDemoLoginEnabled === 1,
         backupMode: backupMode || 'none',
         backupIntervalMinutes: backupIntervalMinutes || 1440,
         backupRetentionDays: backupRetentionDays || 7,
         s3BucketName: s3BucketName || '',
         s3Region: s3Region || '',
         s3AccessKey: s3AccessKey || '',
-        s3SecretKey: s3SecretKey || ''
+        s3SecretKey: s3SecretKey || '',
+        serverHost,
+        serverPort,
+        serverHostingMode,
+        customDomain,
+        networkIp,
+        canonicalBaseUrl: newBaseUrl
       }
     });
+  } catch (err) { next(err); }
+}
+
+export async function getScheduledMigrationHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const migration = endpointMigrationScheduler.getPendingMigration();
+    res.status(200).json({ success: true, data: migration });
+  } catch (err) { next(err); }
+}
+
+export async function scheduleMigrationHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { targetHost, targetPort, targetMode, customDomain, scheduledAt, noticeMessage } = req.body;
+    if (!scheduledAt) {
+      res.status(400).json({ success: false, message: 'scheduledAt date-time is required.' });
+      return;
+    }
+
+    const migration = endpointMigrationScheduler.scheduleMigration({
+      targetHost,
+      targetPort: Number(targetPort || 3000),
+      targetMode,
+      customDomain,
+      scheduledAt,
+      noticeMessage
+    });
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'schedule_endpoint_migration',
+      ipAddress: req.ip,
+      status: 'success',
+      details: `Scheduled endpoint migration to ${migration.newBaseUrl} at ${scheduledAt}.`
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Endpoint migration scheduled successfully and notice rolled out.',
+      data: migration
+    });
+  } catch (err) { next(err); }
+}
+
+export async function cancelScheduledMigrationHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = req.body?.id;
+    const cancelled = endpointMigrationScheduler.cancelMigration(id);
+    res.status(200).json({ success: true, message: cancelled ? 'Scheduled migration cancelled.' : 'No active scheduled migration found.' });
+  } catch (err) { next(err); }
+}
+
+export async function executeScheduledMigrationNowHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = req.body?.id;
+    if (!id) throw new AppError('Migration ID is required.', 400);
+    const executed = await endpointMigrationScheduler.executeMigration(id);
+    res.status(200).json({ success: true, message: executed ? 'Migration executed immediately.' : 'Failed to execute migration.' });
+  } catch (err) { next(err); }
+}
+
+export async function broadcastEndpointNoticeHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { title, message, newBaseUrl, oldBaseUrl } = req.body;
+    if (!title || !message) {
+      throw new AppError('Title and message are required.', 400);
+    }
+    const networkIp = endpointMigrationScheduler.getNetworkIp();
+    wsService.broadcast('ENDPOINT_MIGRATION_NOTICE', {
+      title,
+      message,
+      newBaseUrl,
+      oldBaseUrl,
+      networkIp,
+      broadcastedAt: new Date().toISOString()
+    });
+    res.status(200).json({ success: true, message: 'Endpoint notice broadcasted to all active clients.' });
   } catch (err) { next(err); }
 }
 
@@ -446,6 +594,52 @@ export async function purgeExpiredBackups(req: Request, res: Response, next: Nex
       success: true,
       message: `Retention policy enforced. Purged ${result.localPurged} local and ${result.s3Purged} S3 expired backup(s) older than ${config.backupRetentionDays} days.`,
       data: result
+    });
+  } catch (err) { next(err); }
+}
+
+export async function getPortDiagnostics(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const db = getDb();
+    const settings = db.prepare('SELECT * FROM platform_settings WHERE id = ?').get('default') as any;
+    const currentPort = Number(settings?.serverPort || process.env.PORT || 3000);
+    const currentHost = settings?.serverHost || process.env.HOST || '0.0.0.0';
+
+    const diagnostics = await networkDiagnosticsService.getDiagnosticsReport(currentPort, currentHost);
+
+    res.status(200).json({
+      success: true,
+      message: 'Port & network diagnostics report generated.',
+      data: diagnostics
+    });
+  } catch (err) { next(err); }
+}
+
+export async function checkSinglePort(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { port, host } = req.body;
+    const portNum = Number(port);
+    const hostStr = host || '0.0.0.0';
+
+    const result = await networkDiagnosticsService.checkPortAvailability(portNum, hostStr);
+
+    res.status(200).json({
+      success: true,
+      message: result.reason,
+      data: result
+    });
+  } catch (err) { next(err); }
+}
+
+import { terminalStreamService } from '../services/terminal-stream.service';
+
+export async function getTerminalLogs(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const logs = terminalStreamService.getRecentLogs(200);
+    res.status(200).json({
+      success: true,
+      message: 'Terminal logs retrieved successfully.',
+      data: logs
     });
   } catch (err) { next(err); }
 }

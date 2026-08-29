@@ -16,12 +16,20 @@ import {
   createBackup,
   getPlatformSettings,
   updatePlatformSettings,
+  getScheduledMigrationHandler,
+  scheduleMigrationHandler,
+  cancelScheduledMigrationHandler,
+  executeScheduledMigrationNowHandler,
+  broadcastEndpointNoticeHandler,
+  getPortDiagnostics,
+  checkSinglePort,
   getSecurityAlerts,
   dismissSecurityAlert,
   manualFlagUser,
   issueComplianceNotice,
   listComplianceNotices,
-  reviewComplianceNotice
+  reviewComplianceNotice,
+  getTerminalLogs
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -31,8 +39,16 @@ const router = Router();
 router.use(authenticateJwt, requireSuperAdmin);
 router.use(apiLimiter);
 
+router.get('/terminal-logs', getTerminalLogs);
 router.get('/platform-settings', getPlatformSettings);
 router.patch('/platform-settings', updatePlatformSettings);
+router.get('/platform-settings/port-diagnostics', getPortDiagnostics);
+router.post('/platform-settings/check-port', checkSinglePort);
+router.get('/platform-settings/migration', getScheduledMigrationHandler);
+router.post('/platform-settings/migration/schedule', scheduleMigrationHandler);
+router.post('/platform-settings/migration/cancel', cancelScheduledMigrationHandler);
+router.post('/platform-settings/migration/execute-now', executeScheduledMigrationNowHandler);
+router.post('/platform-settings/broadcast-notice', broadcastEndpointNoticeHandler);
 
 router.get('/stats', getStats);
 router.get('/users', getUsers);
