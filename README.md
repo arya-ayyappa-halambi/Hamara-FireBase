@@ -1,18 +1,19 @@
-# AegisDB 🛡️ — Next-Generation Open-Source BaaS
+# AegisDB — Next-Generation Open-Source BaaS
 
 AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, ultra-performant, and provides developers with a full suite of cloud backend primitives straight out of the box—complete with a modern, glassmorphic developer console featuring a Mac-style collapsible sidebar.
 
-![AegisDB Engine](https://img.shields.io/badge/AegisDB-Engine-6366f1?style=for-the-badge&logo=shield&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=for-the-badge&logo=typescript&logoColor=white)
-![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_Mode-003b57?style=for-the-badge&logo=sqlite&logoColor=white)
-![OAuth 2.0](https://img.shields.io/badge/OAuth_2.0-Google_|_Apple_|_GitHub-2496ed?style=for-the-badge&logo=google&logoColor=white)
-![Security Rules](https://img.shields.io/badge/Security-Row_Level_&_Collection-10b981?style=for-the-badge&logo=target&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Ready-2496ed?style=for-the-badge&logo=docker&logoColor=white)
+![AegisDB Engine](https://img.shields.io/badge/AegisDB-Engine-6366f1?style=flat-square&logo=shield&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=flat-square&logo=typescript&logoColor=white)
+![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_Mode-003b57?style=flat-square&logo=sqlite&logoColor=white)
+![OAuth 2.0](https://img.shields.io/badge/OAuth_2.0-Google_|_Apple_|_GitHub-2496ed?style=flat-square&logo=google&logoColor=white)
+![Security Rules](https://img.shields.io/badge/Security-Row_Level_&_Collection-10b981?style=flat-square&logo=auth0&logoColor=white)
+![Platform](https://img.shields.io/badge/Platform-macOS_|_Windows_|_Linux-informational?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
 ---
 
-## 📑 Table of Contents
-1. [Overview & Core Value Proposition](#1-overview--core-value-proposition)
+## Table of Contents
+1. [About AegisDB, Vision & Value Proposition](#1-about-aegisdb-vision--core-value-proposition)
 2. [Quick Start, 1-Click Launchers & Zero-Config Setup](#2-quick-start-1-click-launchers--zero-config-setup)
 3. [Architecture & Storage Engine](#3-architecture--storage-engine)
 4. [Document Database & Row-Level Security (RLS)](#4-document-database--row-level-security-rls)
@@ -33,10 +34,10 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 
 ## 1. About AegisDB, Vision & Core Value Proposition
 
-### 📖 What is AegisDB?
+### What is AegisDB?
 **AegisDB** is a lightweight, zero-configuration, production-ready **Backend-as-a-Service (BaaS)** and self-hosted Firebase alternative. Designed from first principles in TypeScript, AegisDB delivers complete cloud backend primitives—authentication, relational & JSON document databases, real-time reactive streams, granular row-level security (RLS), multi-tenant isolation, GDPR privacy compliance, S3 disaster recovery, and automated 1-click cross-platform hosting—without external cloud vendor lock-in or recurring monthly database bills.
 
-### 🎯 Why Was AegisDB Built?
+### Why Was AegisDB Built?
 Modern cloud databases (like Firebase Firestore, AWS DynamoDB, and Supabase) often introduce:
 1. **Unpredictable Billing & Vendor Lock-In**: Complex pricing tiers charging per-read, per-write, and per-GB egress.
 2. **Setup Overhead & Heavy Dependencies**: Requiring complex Docker orchestration, PostgreSQL server clusters, or dedicated cloud accounts just for simple application backends.
@@ -46,33 +47,33 @@ Modern cloud databases (like Firebase Firestore, AWS DynamoDB, and Supabase) oft
 
 ---
 
-### 📊 AegisDB vs. Traditional Cloud & BaaS Solutions
+### AegisDB vs. Traditional Cloud & BaaS Solutions
 
-| Feature / Primitive | 🛡️ AegisDB | 🔥 Firebase Firestore | ⚡ Supabase | 📦 PocketBase |
+| Feature / Primitive | **AegisDB** | **Firebase Firestore** | **Supabase** | **PocketBase** |
 | :--- | :---: | :---: | :---: | :---: |
-| **Self-Hosting Complexity** | **Zero-Config (1-Click)** | ❌ Proprietary Cloud | ⚠️ Complex (10+ Containers) | ✅ Single Go Binary |
+| **Self-Hosting Complexity** | **Zero-Config (1-Click)** | — Proprietary Cloud | ⚠️ Complex (10+ Containers) | ✓ Single Go Binary |
 | **Storage Engine** | **SQLite WAL Mode** | Cloud NoSQL | PostgreSQL Cluster | SQLite |
 | **Memory Footprint** | **~45 MB RAM** | Cloud Hosted | ~800 MB+ RAM | ~30 MB RAM |
-| **Row-Level Security (RLS)** | ✅ **Native Declarative** | ⚠️ Complex Rules Engine | ✅ PostgreSQL RLS | ⚠️ Collection API Rules |
-| **Multi-Tenant Projects** | ✅ **Built-in Isolation** | ❌ Multi-Project Setup | ⚠️ Separate DBs | ❌ Single App Realm |
-| **Envelope Encryption** | ✅ **AES-256-GCM + DEK/KEK** | ❌ Platform Key Only | ⚠️ Manual pgcrypto | ❌ None |
-| **GDPR Portability & Shred**| ✅ **Built-in Art. 20 Export**| ❌ Manual Scripts | ❌ Manual SQL | ❌ Manual SQL |
-| **Zero-Downtime Socket Switch**| ✅ **Live GUI Port Rebind** | ❌ N/A | ❌ N/A | ❌ N/A |
-| **1-Click Native Launchers** | ✅ **Mac / Win / Linux** | ❌ Cloud Only | ❌ Docker Only | ⚠️ Terminal CLI |
+| **Row-Level Security (RLS)** | ✓ **Native Declarative** | ⚠️ Complex Rules Engine | ✓ PostgreSQL RLS | ⚠️ Collection API Rules |
+| **Multi-Tenant Projects** | ✓ **Built-in Isolation** | — Multi-Project Setup | ⚠️ Separate DBs | — Single App Realm |
+| **Envelope Encryption** | ✓ **AES-256-GCM + DEK/KEK** | — Platform Key Only | ⚠️ Manual pgcrypto | — None |
+| **GDPR Portability & Shred**| ✓ **Built-in Art. 20 Export**| — Manual Scripts | — Manual SQL | — Manual SQL |
+| **Zero-Downtime Socket Switch**| ✓ **Live GUI Port Rebind** | — N/A | — N/A | — N/A |
+| **1-Click Native Launchers** | ✓ **Mac / Win / Linux** | — Cloud Only | — Docker Only | ⚠️ Terminal CLI |
 
 ---
 
-### ✨ Core Capabilities & Feature Highlights
-- 🚀 **Zero-Config Self-Hosting**: Runs anywhere Node.js runs—from a Raspberry Pi to high-core cloud VMs.
-- ⚡ **SQLite WAL-Mode Acceleration**: Parallel, lock-free reads and serialized microsecond writes.
-- 🛡️ **Dual-Layer Security Rules**: Granular, declarative access control at both **Collection-Level** and **Individual Document-Level (Row-Level Security)**.
-- 🔑 **Multi-Tenant Project Isolation**: Independent API keys, user rosters, OAuth configs, and schemas per project.
-- 🌐 **Project-Level OAuth 2.0 Hub**: Google, Apple, and GitHub sign-in with configurable Open SaaS vs. Enterprise Admin-Only provisioning policies.
-- 🔒 **Two-Tier Envelope Encryption**: Master KEK wrapping per-project DEKs with field-level AES-256-GCM authenticated encryption.
-- 📦 **GDPR / CCPA / DPDP Compliance**: Native Article 20 data portability, 7-day cooling-off erasure windows, and cryptographic shredding.
-- 📡 **Real-Time CDC**: Streaming live database mutations over Server-Sent Events (SSE) and WebSockets.
-- 📊 **Real-Time Telemetry**: Live CPU, V8 heap memory, event loop latency, and query execution metrics powered by Chart.js.
-- 💻 **Drop-In Browser SDK & Native TypeScript Client**: Instant access via `<script src="/aegis.js"></script>` or `@aegis/sdk`.
+### Core Capabilities & Feature Highlights
+- **Zero-Config Self-Hosting**: Runs anywhere Node.js runs—from a Raspberry Pi to high-core cloud VMs.
+- **SQLite WAL-Mode Acceleration**: Parallel, lock-free reads and serialized microsecond writes.
+- **Dual-Layer Security Rules**: Granular, declarative access control at both **Collection-Level** and **Individual Document-Level (Row-Level Security)**.
+- **Multi-Tenant Project Isolation**: Independent API keys, user rosters, OAuth configs, and schemas per project.
+- **Project-Level OAuth 2.0 Hub**: Google, Apple, and GitHub sign-in with configurable Open SaaS vs. Enterprise Admin-Only provisioning policies.
+- **Two-Tier Envelope Encryption**: Master KEK wrapping per-project DEKs with field-level AES-256-GCM authenticated encryption.
+- **GDPR / CCPA / DPDP Compliance**: Native Article 20 data portability, 7-day cooling-off erasure windows, and cryptographic shredding.
+- **Real-Time CDC**: Streaming live database mutations over Server-Sent Events (SSE) and WebSockets.
+- **Real-Time Telemetry**: Live CPU, V8 heap memory, event loop latency, and query execution metrics powered by Chart.js.
+- **Drop-In Browser SDK & Native TypeScript Client**: Instant access via `<script src="/aegis.js"></script>` or `@aegis/sdk`.
 
 ---
 
@@ -83,7 +84,7 @@ AegisDB includes a built-in pre-flight auto-bootstrapper. On a freshly cloned re
 2. Generates a production-ready `.env` file populated with strong 64-character cryptographic keys (`JWT_SECRET`, `ENCRYPTION_KEY`, `EMAIL_HASH_PEPPER`, `RECOVERY_PIN`).
 3. Creates all required database and asset storage directories (`data/`, `uploads/`, `workspaces/`, `backups/`).
 
-### 🛠️ 1-Click Universal First-Time Setup (New Machines & Fresh Clones)
+### 1-Click Universal First-Time Setup (New Machines & Fresh Clones)
 
 When setting up AegisDB on a brand-new computer for the first time, double-click the dedicated setup launcher for your operating system. It executes an automated, **zero-interaction** setup pipeline in under 15 seconds:
 1. **Silent Runtime Provisioning**: Automatically detects if Node.js is installed. On Windows 11/10, it downloads and executes a silent background installation of Node.js 20 LTS (`msiexec /i ... /qn /norestart`) with zero manual wizard screens to click through, and dynamically refreshes the Windows Registry PATH.
@@ -93,29 +94,29 @@ When setting up AegisDB on a brand-new computer for the first time, double-click
 5. **Storage & Directory Structure**: Provisions all required database and asset storage folders (`data/`, `uploads/`, `uploads/biometrics/`, `workspaces/`, `backups/`).
 6. **TypeScript Compilation & Launch**: Compiles the project (`npm run build`), starts the server in Dual Host mode (`0.0.0.0:3000`), and automatically opens your default browser directly to the **Server Hosting & Network Center** (`http://localhost:3000/#tab-server-hosting`) via PowerShell `Start-Process`.
 
-- **🍎 macOS**: Double-click **`setup.command`** in Finder (or run `./setup.command`).
-- **🪟 Windows**: Double-click **`setup.bat`** in File Explorer.
-- **🐧 Linux & CLI**: Run `./setup.sh` or `npm run setup`.
+- **macOS** ![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white): Double-click **`setup.command`** in Finder (or run `./setup.command`).
+- **Windows** ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white): Double-click **`setup.bat`** in File Explorer.
+- **Linux & POSIX** ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black): Run `./setup.sh` or `npm run setup`.
 
 ---
 
-### 🚀 Universal 1-Click Start Launchers (Daily Usage)
+### Universal 1-Click Start Launchers (Daily Usage)
 
-#### 🍎 macOS (1-Click Finder Execution)
+#### macOS Launcher (Finder & Terminal) ![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white)
 Double-click **`start.command`** in your project folder, or run:
 ```bash
 ./start.command
 ```
 *Launches an interactive terminal setup menu, checks real-time port availability, and automatically opens your browser to the Developer Console.*
 
-#### 🪟 Windows (1-Click File Explorer Execution)
+#### Windows Launcher (File Explorer & Command Prompt) ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white)
 Double-click **`start.bat`** in File Explorer, or run:
 ```cmd
 start.bat
 ```
 *Opens Command Prompt with the interactive hosting menu, validates Node runtime across `Program Files` and Registry, and auto-opens the browser.*
 
-#### 🐧 Linux & Terminal CLI
+#### Linux & POSIX Terminal Launcher ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black)
 ```bash
 ./start.sh
 # Or run the standalone CLI binary:
@@ -126,18 +127,18 @@ npm start
 
 ---
 
-### 🛑 Universal 1-Click Stop Launchers & Port Clearance
+### Universal 1-Click Stop Launchers & Port Clearance
 
 To stop the server, terminate all background processes, and release all network ports:
 
-- **🍎 macOS**: Double-click **`stop.command`** in Finder (or run `./stop.command`). Automatically terminates the Node server process tree and closes the active terminal window.
-- **🪟 Windows**: Double-click **`stop.bat`** in File Explorer. Uses Windows PowerShell `Get-NetTCPConnection` to identify active listeners and executes whole-tree process termination (`taskkill /F /T`) along with WMI supervisor cleanup to prevent `nodemon` from automatically respawning. Includes a native PowerShell fallback if Node is not on PATH.
-- **🐧 Linux & CLI**: Run `./stop.sh` or `npm run stop` / `npm run kill`.
-- **🛡️ Super Admin Console**: Open **Server Hosting & Network Center** (`/#tab-server-hosting`) and click **"🛑 Stop Server"** to gracefully shut down the server, release the port, and close the terminal window directly from your browser.
+- **macOS** ![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white): Double-click **`stop.command`** in Finder (or run `./stop.command`). Automatically terminates the Node server process tree and closes the active terminal window.
+- **Windows** ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white): Double-click **`stop.bat`** in File Explorer. Uses Windows PowerShell `Get-NetTCPConnection` to identify active listeners and executes whole-tree process termination (`taskkill /F /T`) along with WMI supervisor cleanup to prevent `nodemon` from automatically respawning. Includes a native PowerShell fallback if Node is not on PATH.
+- **Linux & POSIX** ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black): Run `./stop.sh` or `npm run stop` / `npm run kill`.
+- **Developer Console**: Open **Server Hosting & Network Center** (`/#tab-server-hosting`) and click **"Stop Server"** to gracefully shut down the server, release the port, and close the terminal window directly from your browser.
 
 ---
 
-### 🎛️ Interactive Terminal Setup Wizard
+### Interactive Terminal Setup Wizard
 When launching, the terminal wizard guides you through:
 1. **Hosting & Network Access Modes**:
    - `[1] Dual Host (0.0.0.0)` — Simultaneous Localhost + Wi-Fi / LAN Access *(Recommended)*
@@ -484,8 +485,8 @@ pm2 reload aegisdb
 ## 16. Official SDKs, Browser Drops & AI Agent Integration
 
 AegisDB provides two native client integration methods:
-1. **🌐 Drop-in Browser Script (`/aegis.js`)**: Zero-build vanilla JS script served directly by your AegisDB instance.
-2. **📦 Native Node/TypeScript SDK (`@aegis/sdk`)**: Type-safe SDK with full support for React, Vue, Next.js, Svelte, and Node backends.
+1. **Drop-in Browser Script (`/aegis.js`)**: Zero-build vanilla JS script served directly by your AegisDB instance.
+2. **Native Node/TypeScript SDK (`@aegis/sdk`)**: Type-safe SDK with full support for React, Vue, Next.js, Svelte, and Node backends.
 
 ---
 
@@ -580,7 +581,7 @@ const unsub = aegis.realtime.subscribe('notes', (event) => {
 
 ---
 
-### 🤖 AI Agent Copy-Paste Prompt 1: Complete App Migration
+### AI Agent Prompt 1: Complete App Migration
 ```markdown
 You are an expert full-stack engineer and cloud architect.
 I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to AegisDB (a self-hosted, lightweight BaaS).
@@ -631,7 +632,7 @@ Refactor all existing mock data, Firebase, and Supabase client calls to use thes
 
 ---
 
-### 🚀 AI Agent Copy-Paste Prompt 2: Build New Application from Scratch
+### AI Agent Prompt 2: Build New Application from Scratch
 ```markdown
 You are an expert full-stack software engineer.
 Build a complete, modern, high-performance web application backed by AegisDB (a self-hosted Backend-as-a-Service running at http://localhost:3000).
@@ -674,7 +675,7 @@ ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
 
 ---
 
-### 📦 Universal Drop-In SDK (`AegisClient.js` / `AegisClient.ts`)
+### Universal Drop-In SDK (`AegisClient.js` / `AegisClient.ts`)
 ```javascript
 /**
  * AegisClient — Official Universal Drop-in SDK for AegisDB
@@ -822,5 +823,5 @@ export default AegisClient;
 
 ---
 
-## 📄 License
+## License
 This project is open-source and licensed under the [MIT License](LICENSE).
