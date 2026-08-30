@@ -692,3 +692,62 @@ export async function getTerminalLogs(_req: Request, res: Response, next: NextFu
     });
   } catch (err) { next(err); }
 }
+
+export async function shutdownServerHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = (req as any).user;
+    const db = getDb();
+    const settings = db.prepare("SELECT serverPort, serverHost FROM platform_settings WHERE id = 'default'").get() as any;
+    const port = settings?.serverPort || parseInt(process.env.PORT || '3000', 10);
+
+    // Log Super Admin action in audit logs
+    auditLogService.logAction({
+      actorId: user?.id || null,
+      actorEmail: user?.email || null,
+      actionType: 'SERVER_SHUTDOWN',
+      projectId: null,
+      ipAddress: req.ip || null,
+      status: 'success',
+      details: JSON.stringify({ port, reason: 'Super Admin initiated graceful shutdown from Developer Dashboard' })
+    });
+
+    // Broadcast WebSocket event to all connected clients
+    wsService.broadcast('SERVER_SHUTDOWN', {
+      message: `AegisDB Server on port ${port} was stopped by Super Admin (${user?.email || 'admin'}).`,
+      port,
+      stoppedBy: user?.email || 'Super Admin',
+      stoppedAt: new Date().toISOString()
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Server shutdown initiated on port ${port}. All connections closed and port released.`,
+      data: { port, pid: process.pid }
+    });
+
+    // Delay 600ms to allow HTTP response and WebSocket broadcast to be flushed, then terminate process
+    setTimeout(() => {
+      console.log(`\n🛑 [Server] Super Admin (${user?.email || 'admin'}) initiated shutdown.`);
+      console.log(`✅ AegisDB Server on port ${port} successfully killed. Port is now freed!\n`);
+
+      // On macOS, close the Terminal window running start.command / serve.js
+      if (process.platform === 'darwin') {
+        try {
+          const { exec } = require('child_process');
+          exec(`osascript -e 'tell application "Terminal"
+            repeat with w in windows
+              if (name of w contains "start.command") or (name of w contains "serve.js") or (name of w contains "AegisDB") then
+                close w
+              end if
+            end repeat
+          end tell'`);
+        } catch (_) {}
+      }
+
+      process.exit(0);
+    }, 600);
+  } catch (err) {
+    next(err);
+  }
+}
+

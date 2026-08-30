@@ -29,7 +29,8 @@ import {
   issueComplianceNotice,
   listComplianceNotices,
   reviewComplianceNotice,
-  getTerminalLogs
+  getTerminalLogs,
+  shutdownServerHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -39,6 +40,7 @@ const router = Router();
 router.use(authenticateJwt, requireSuperAdmin);
 router.use(apiLimiter);
 
+router.post('/server/shutdown', shutdownServerHandler);
 router.get('/terminal-logs', getTerminalLogs);
 router.get('/platform-settings', getPlatformSettings);
 router.patch('/platform-settings', updatePlatformSettings);

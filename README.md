@@ -115,6 +115,14 @@ When launched, the CLI wizard provides:
 2. **Live Socket Port Scanner**: Real-time CLI verification of free vs occupied ports (`● 3000 [FREE]`, `● 4000 [IN USE]`, `● 5000 [FREE]`) with immediate conflict warnings.
 3. **Direct Browser Auto-Open**: Automatically opens your browser to `http://localhost:<PORT>/#tab-server-hosting`.
 
+### 🛑 1-Click Server Stop & Port Release Scripts
+To stop the server and cleanly release all network ports at any time:
+
+- **🍎 macOS**: Double-click **`stop.command`** in Finder (or run `./stop.command`).
+- **🪟 Windows**: Double-click **`stop.bat`** in File Explorer (or run `stop.bat`).
+- **🐧 Linux & CLI**: Run `./stop.sh` or `npm run stop` / `npm run kill`.
+- **🛡️ Super Admin Console**: Open **Server Hosting & Network Center** (`/#tab-server-hosting`) and click **"🛑 Stop Server"** to gracefully shut down the server directly from your browser.
+
 ### Initial Administrator Setup
 1. Open `http://localhost:3000` in your web browser.
 2. Click **Register Account** on the login screen. The very first registered account is automatically promoted to **Super Admin**.

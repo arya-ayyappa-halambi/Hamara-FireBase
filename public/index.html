@@ -1533,6 +1533,10 @@
               <span id="hosttab-current-status-badge" class="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 Online: http://localhost:3000
               </span>
+              <button type="button" id="hosttab-btn-shutdown-server" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/20 hover:bg-rose-600 hover:text-white text-rose-300 border border-rose-500/30 transition flex items-center space-x-1.5 shadow-sm active:scale-95" title="Stop live server and release port">
+                <i class="fa-solid fa-power-off text-rose-400"></i>
+                <span>Stop Server</span>
+              </button>
             </div>
           </div>
 
@@ -4891,6 +4895,73 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       <div class="text-[11px] text-slate-400 bg-slate-900/60 p-2.5 rounded-xl border border-white/5 flex items-center space-x-2">
         <i class="fa-solid fa-circle-info text-blue-400 flex-shrink-0"></i>
         <span>Please do not close or refresh this tab. Your session will transition seamlessly.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 9. Super Admin Server Shutdown Confirmation Modal -->
+  <div id="modal-confirm-server-shutdown" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="max-w-md w-full glass-panel p-6 sm:p-7 rounded-3xl border border-rose-500/40 shadow-2xl shadow-rose-950/50 space-y-5 animate-scale-in text-left">
+      <div class="flex items-center space-x-3.5 pb-2 border-b border-white/10">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-xl shadow-lg shadow-rose-500/20">
+          <i class="fa-solid fa-power-off fa-fade"></i>
+        </div>
+        <div>
+          <h3 class="text-base font-bold text-white tracking-tight flex items-center space-x-2">
+            <span>Stop AegisDB Server</span>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">SUPER ADMIN</span>
+          </h3>
+          <p class="text-xs text-slate-400">Gracefully stop backend processes & release TCP port.</p>
+        </div>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-rose-950/20 border border-rose-500/20 text-xs text-slate-300 space-y-2">
+        <p class="font-medium text-rose-200 flex items-center space-x-1.5">
+          <i class="fa-solid fa-triangle-exclamation text-rose-400"></i>
+          <span>Are you sure you want to stop the live server?</span>
+        </p>
+        <p class="text-[11px] text-slate-400 leading-relaxed">
+          Stopping the server will terminate all active database connections, disconnect WebSocket clients, and completely release <span id="label-shutdown-port-display" class="font-mono font-bold text-amber-300">Port 3000</span>.
+        </p>
+        <div class="text-[11px] text-slate-500 pt-1">
+          ➜ To start the server again, double-click <span class="font-mono text-slate-300">start.command</span>, <span class="font-mono text-slate-300">start.bat</span>, or run <span class="font-mono text-slate-300">npm start</span>.
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 pt-1">
+        <button type="button" id="modal-shutdown-btn-cancel" class="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition active:scale-98">
+          Cancel
+        </button>
+        <button type="button" id="modal-shutdown-btn-confirm" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition active:scale-98 flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-power-off"></i>
+          <span>Stop Server Now</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 10. Server Stopped Fullscreen Graceful Notice Overlay -->
+  <div id="overlay-server-stopped" class="fixed inset-0 z-[250] hidden flex flex-col items-center justify-center p-6 bg-slate-950/95 backdrop-blur-2xl text-center select-none">
+    <div class="max-w-md w-full glass-panel p-8 rounded-3xl border border-rose-500/40 shadow-2xl shadow-rose-950/60 space-y-6 animate-scale-in text-center">
+      <div class="w-16 h-16 mx-auto rounded-3xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-2xl shadow-xl shadow-rose-500/20">
+        <i class="fa-solid fa-power-off"></i>
+      </div>
+      <div class="space-y-2">
+        <h2 class="text-xl font-bold text-white tracking-tight">AegisDB Server Stopped</h2>
+        <p class="text-xs text-slate-400 leading-relaxed" id="overlay-stopped-message">
+          The server process has been safely shut down by the Super Admin and <span id="overlay-stopped-port-badge" class="font-mono font-bold text-emerald-400">Port 3000</span> is now released.
+        </p>
+      </div>
+      <div class="p-4 rounded-2xl bg-slate-900/80 border border-white/10 text-left text-xs text-slate-300 space-y-2">
+        <div class="font-bold text-slate-200 flex items-center space-x-1.5">
+          <i class="fa-solid fa-play text-emerald-400"></i>
+          <span>To restart AegisDB:</span>
+        </div>
+        <ul class="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+          <li>🍎 macOS: Double-click <code class="text-emerald-300 font-mono">start.command</code></li>
+          <li>🪟 Windows: Double-click <code class="text-emerald-300 font-mono">start.bat</code></li>
+          <li>🐧 Linux / CLI: Run <code class="text-emerald-300 font-mono">npm start</code></li>
+        </ul>
       </div>
     </div>
   </div>

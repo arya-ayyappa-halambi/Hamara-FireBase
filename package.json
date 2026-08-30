@@ -13,6 +13,8 @@
     "start": "node scripts/serve.js",
     "start:interactive": "node scripts/serve.js",
     "start:prod": "node dist/server.js",
+    "stop": "node scripts/stop.js",
+    "kill": "node scripts/stop.js",
     "build": "tsc --project tsconfig.json",
     "clean": "rm -rf dist",
     "reset-admin": "ts-node src/scripts/reset-admin.ts"
