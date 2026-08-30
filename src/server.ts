@@ -41,6 +41,7 @@ import metricsRouter      from './routes/metrics.routes';
 import { metricsService } from './services/metrics.service';
 import { securityHeaders, dynamicCors } from './middleware/security.middleware';
 import { maintenanceModeMiddleware } from './middleware/maintenance.middleware';
+import { ipAccessControlMiddleware } from './middleware/ip-access-control.middleware';
 import { accountPurgeSchedulerService } from './services/account-purge-scheduler.service';
 import { endpointMigrationScheduler } from './services/endpoint-migration-scheduler.service';
 
@@ -118,6 +119,9 @@ function createApp(): Application {
       next();
     });
   }
+
+  // ── Network Access Control & Device Tracking Middleware ─────────────────
+  app.use(ipAccessControlMiddleware);
 
   // ── Static Files (Web Dashboard) ───────────────────────────────────────────
   app.use(express.static('public', {

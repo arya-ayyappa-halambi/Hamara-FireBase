@@ -30,7 +30,14 @@ import {
   listComplianceNotices,
   reviewComplianceNotice,
   getTerminalLogs,
-  shutdownServerHandler
+  shutdownServerHandler,
+  getNetworkRulesHandler,
+  addNetworkRuleHandler,
+  deleteNetworkRuleHandler,
+  getTrackedDevicesHandler,
+  toggleBlockDeviceHandler,
+  getNetworkSettingsHandler,
+  updateNetworkSettingsHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -39,6 +46,15 @@ const router = Router();
 // Only allow Super Admins
 router.use(authenticateJwt, requireSuperAdmin);
 router.use(apiLimiter);
+
+// ── Network Access Control & Device Tracking ─────────────────────────────────
+router.get('/network/rules', getNetworkRulesHandler);
+router.post('/network/rules', addNetworkRuleHandler);
+router.delete('/network/rules/:id', deleteNetworkRuleHandler);
+router.get('/network/devices', getTrackedDevicesHandler);
+router.post('/network/devices/:ip/toggle-block', toggleBlockDeviceHandler);
+router.get('/network/settings', getNetworkSettingsHandler);
+router.patch('/network/settings', updateNetworkSettingsHandler);
 
 router.post('/server/shutdown', shutdownServerHandler);
 router.get('/terminal-logs', getTerminalLogs);

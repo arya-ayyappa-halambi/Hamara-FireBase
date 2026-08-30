@@ -19,6 +19,7 @@ import { getDb } from '../db/sqlite.connection';
 import { endpointMigrationScheduler } from '../services/endpoint-migration-scheduler.service';
 import { wsService } from '../realtime/websocket.service';
 import { networkDiagnosticsService } from '../services/network-diagnostics.service';
+import { networkAccessService } from '../services/network-access.service';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -763,4 +764,129 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
     next(err);
   }
 }
+
+// ── Network Access Control & Device Tracking Handlers ───────────────────────
+
+export async function getNetworkRulesHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const rules = networkAccessService.getRules();
+    res.status(200).json({
+      success: true,
+      message: 'Network access rules retrieved.',
+      data: rules
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addNetworkRuleHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { ipPattern, label, ruleType, action } = req.body;
+    if (!ipPattern) {
+      res.status(400).json({ success: false, message: 'ipPattern is required (e.g. 192.168.1.50 or 192.168.1.0/24).' });
+      return;
+    }
+
+    const user = (req as any).user;
+    const rule = networkAccessService.addRule({
+      ipPattern,
+      label: label || `Rule for ${ipPattern}`,
+      ruleType,
+      action: action || 'allow',
+      createdBy: user?.email || 'Super Admin'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Network access rule created successfully.',
+      data: rule
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteNetworkRuleHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const deleted = networkAccessService.deleteRule(id);
+    if (!deleted) {
+      res.status(404).json({ success: false, message: 'Network access rule not found.' });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Network access rule deleted.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getTrackedDevicesHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const devices = networkAccessService.getTrackedDevices(100);
+    res.status(200).json({
+      success: true,
+      message: 'Tracked client devices retrieved.',
+      data: devices
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function toggleBlockDeviceHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { ip } = req.params;
+    const { isBlocked } = req.body;
+
+    const result = networkAccessService.toggleBlockDevice(decodeURIComponent(ip), isBlocked);
+    res.status(200).json({
+      success: true,
+      message: result.isBlocked ? `Device ${ip} blocked.` : `Device ${ip} unblocked.`,
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getNetworkSettingsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const settings = networkAccessService.getNetworkSettings();
+    const networkIp = endpointMigrationScheduler.getNetworkIp();
+    res.status(200).json({
+      success: true,
+      message: 'Network access settings retrieved.',
+      data: {
+        ...settings,
+        detectedNetworkIp: networkIp
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateNetworkSettingsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { ipFilteringEnabled, ipFilterDefaultPolicy } = req.body;
+    const updated = networkAccessService.updateNetworkSettings({
+      ipFilteringEnabled,
+      ipFilterDefaultPolicy
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Network access settings updated.',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 

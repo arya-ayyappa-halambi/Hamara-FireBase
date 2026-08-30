@@ -449,13 +449,47 @@ export function initSqlite(): void {
     { name: 'serverHost', def: "TEXT DEFAULT '0.0.0.0'" },
     { name: 'serverPort', def: 'INTEGER DEFAULT 3000' },
     { name: 'serverHostingMode', def: "TEXT DEFAULT 'both'" },
-    { name: 'customDomain', def: "TEXT DEFAULT ''" }
+    { name: 'customDomain', def: "TEXT DEFAULT ''" },
+    { name: 'ipFilteringEnabled', def: 'INTEGER DEFAULT 0' },
+    { name: 'ipFilterDefaultPolicy', def: "TEXT DEFAULT 'allow'" }
   ];
   for (const col of platformCols) {
     try {
       db.exec(`ALTER TABLE platform_settings ADD COLUMN ${col.name} ${col.def};`);
     } catch {}
   }
+
+  // Network Access Control & Device Tracking Tables
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS network_access_rules (
+        id TEXT PRIMARY KEY,
+        ipPattern TEXT NOT NULL,
+        label TEXT NOT NULL,
+        ruleType TEXT NOT NULL DEFAULT 'ip',
+        action TEXT NOT NULL DEFAULT 'allow',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        createdBy TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_net_rules_pattern ON network_access_rules(ipPattern);
+
+      CREATE TABLE IF NOT EXISTS tracked_client_devices (
+        ipAddress TEXT PRIMARY KEY,
+        userAgent TEXT,
+        deviceType TEXT DEFAULT 'desktop',
+        osName TEXT DEFAULT 'Unknown',
+        browserName TEXT DEFAULT 'Unknown',
+        lastUserId TEXT,
+        lastUserEmail TEXT,
+        requestCount INTEGER DEFAULT 1,
+        firstSeenAt TEXT NOT NULL,
+        lastSeenAt TEXT NOT NULL,
+        isBlocked INTEGER DEFAULT 0
+      );
+      CREATE INDEX IF NOT EXISTS idx_tracked_dev_lastSeen ON tracked_client_devices(lastSeenAt);
+    `);
+  } catch {}
 
   // Ensure scheduled_endpoint_migrations table exists
   try {

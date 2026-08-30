@@ -528,6 +528,9 @@ window.switchWorkspace = function switchWorkspace(tabId) {
   } else if (tabId === 'tab-server-hosting') {
     loadPlatformSettings();
     if (typeof loadLiveTerminalLogs === 'function') loadLiveTerminalLogs();
+    if (typeof window.loadNetworkAccessSettings === 'function') window.loadNetworkAccessSettings();
+    if (typeof window.loadNetworkRules === 'function') window.loadNetworkRules();
+    if (typeof window.loadTrackedDevicesTable === 'function') window.loadTrackedDevicesTable();
   } else if (tabId === 'tab-project-management') {
     loadMyProjects();
   } else if (tabId === 'tab-data-browser') {
@@ -2632,6 +2635,18 @@ function connectGlobalWebSocket() {
           }
         } else if (data.type === 'ENDPOINT_MIGRATION_NOTICE') {
           showToast(`🔔 ${data.data?.title || 'Notice'}: ${data.data?.message || ''}`, 'info');
+        } else if (data.type === 'DEVICE_TRACKER_UPDATED') {
+          if (state.user?.isSuperAdmin && typeof window.handleDeviceTrackerWsEvent === 'function') {
+            window.handleDeviceTrackerWsEvent(data.data);
+          }
+        } else if (data.type === 'NETWORK_RULES_UPDATED') {
+          if (state.user?.isSuperAdmin && typeof window.loadNetworkRules === 'function') {
+            window.loadNetworkRules();
+          }
+        } else if (data.type === 'NETWORK_SETTINGS_UPDATED') {
+          if (state.user?.isSuperAdmin && typeof window.loadNetworkAccessSettings === 'function') {
+            window.loadNetworkAccessSettings();
+          }
         } else if (data.type === 'TERMINAL_LOG_STREAM') {
           if (data.data?.entry) {
             handleIncomingTerminalLog(data.data.entry);
@@ -7728,5 +7743,323 @@ window.logout = async function() {
     localStorage.removeItem('aegis_refresh_token');
     localStorage.removeItem('aegis_user');
     window.location.reload();
+  }
+};
+
+// ════════════════════════════════════════════════════════════════════════════════
+//  Network Access Control & Real-Time Device Tracking
+// ════════════════════════════════════════════════════════════════════════════════
+
+let cachedNetworkRules = [];
+let cachedTrackedDevices = [];
+
+window.loadNetworkAccessSettings = async function() {
+  const toggleEl = document.getElementById('toggle-enforce-ip-whitelist');
+  const badgeEl = document.getElementById('badge-ip-filter-status');
+  const labelEl = document.getElementById('label-whitelist-toggle');
+  if (!badgeEl) return;
+
+  try {
+    const res = await apiRequest('/api/v1/admin/network/settings', 'GET');
+    const settings = res.data || res;
+    const isEnforced = !!settings.ipFilteringEnabled;
+
+    if (toggleEl) toggleEl.checked = isEnforced;
+    if (labelEl) labelEl.textContent = isEnforced ? 'Whitelist Enforced' : 'Enforce Whitelist';
+
+    if (badgeEl) {
+      if (isEnforced) {
+        badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+        badgeEl.textContent = '🔒 Whitelist Enforced (Restricted)';
+      } else {
+        badgeEl.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30';
+        badgeEl.textContent = '🌐 Open LAN (All Allowed)';
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to load network access settings:', err);
+  }
+};
+
+window.handleToggleIpFiltering = async function(enabled) {
+  try {
+    await apiRequest('/api/v1/admin/network/settings', 'PATCH', {
+      ipFilteringEnabled: enabled,
+      ipFilterDefaultPolicy: enabled ? 'deny' : 'allow'
+    });
+    showToast(enabled ? '🔒 IP Whitelisting Enforced. Only approved devices can connect.' : '🌐 Open LAN mode enabled. All local network devices can connect.', 'info');
+    window.loadNetworkAccessSettings();
+    window.loadTrackedDevicesTable();
+  } catch (err) {
+    showToast(err.message || 'Failed to update access control policy', 'error');
+    window.loadNetworkAccessSettings();
+  }
+};
+
+window.loadNetworkRules = async function() {
+  const container = document.getElementById('container-network-rules-list');
+  const countBadge = document.getElementById('badge-network-rules-count');
+  if (!container) return;
+
+  try {
+    const res = await apiRequest('/api/v1/admin/network/rules', 'GET');
+    cachedNetworkRules = Array.isArray(res) ? res : (res.data || []);
+    if (countBadge) countBadge.textContent = `${cachedNetworkRules.length} rule${cachedNetworkRules.length === 1 ? '' : 's'} configured`;
+
+    if (cachedNetworkRules.length === 0) {
+      container.innerHTML = `
+        <div class="p-6 rounded-2xl bg-black/40 border border-white/5 text-center text-slate-400 text-xs col-span-full space-y-2">
+          <div class="w-8 h-8 rounded-xl bg-slate-900 border border-white/10 flex items-center justify-center mx-auto text-slate-400">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
+          <p class="font-medium text-slate-300">No Custom IP Rules Configured</p>
+          <p class="text-[11px] text-slate-500">Localhost is always allowed by default. Click <strong class="text-indigo-400">"Add IP / Subnet Rule"</strong> or click <strong class="text-emerald-400">"+ Whitelist"</strong> on any tracked device below.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = cachedNetworkRules.map(rule => {
+      const isAllow = rule.action === 'allow';
+      return `
+        <div class="p-4 rounded-2xl bg-slate-900/70 border border-white/10 hover:border-white/20 transition space-y-3 relative group">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-white flex items-center space-x-1.5 truncate max-w-[180px]" title="${escapeHTML(rule.label)}">
+              <i class="fa-solid ${isAllow ? 'fa-circle-check text-emerald-400' : 'fa-circle-xmark text-rose-400'} text-xs"></i>
+              <span>${escapeHTML(rule.label)}</span>
+            </span>
+            <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${isAllow ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-300 border border-rose-500/20'}">
+              ${isAllow ? 'ALLOW' : 'DENY'}
+            </span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-black/50 border border-white/5 space-y-1">
+            <div class="flex items-center justify-between text-[11px] font-mono text-slate-300">
+              <span class="text-slate-500">Pattern:</span>
+              <span class="font-bold text-indigo-300">${escapeHTML(rule.ipPattern)}</span>
+            </div>
+            <div class="flex items-center justify-between text-[10px] text-slate-500">
+              <span>Type: ${escapeHTML(rule.ruleType.toUpperCase())}</span>
+              <span>Added: ${new Date(rule.createdAt).toLocaleDateString()}</span>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <span class="text-[10px] text-slate-500 truncate" title="Created by ${escapeHTML(rule.createdBy || 'Super Admin')}">By ${escapeHTML(rule.createdBy || 'Admin')}</span>
+            <button type="button" onclick="window.deleteNetworkRule('${rule.id}')" class="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-semibold transition active:scale-95 flex items-center space-x-1" title="Delete Rule">
+              <i class="fa-solid fa-trash text-[9px]"></i>
+              <span>Remove</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="p-4 text-center text-rose-400 text-xs col-span-full">Failed to load rules: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.openAddNetworkRuleModal = function(prefillIp, prefillLabel) {
+  const inputLabel = document.getElementById('input-netrule-label');
+  const inputPattern = document.getElementById('input-netrule-pattern');
+  const selectAction = document.getElementById('select-netrule-action');
+
+  if (inputLabel) inputLabel.value = prefillLabel || '';
+  if (inputPattern) inputPattern.value = prefillIp || '';
+  if (selectAction) selectAction.value = 'allow';
+
+  const modal = document.getElementById('modal-add-network-rule');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+};
+
+window.submitAddNetworkRule = async function() {
+  const label = document.getElementById('input-netrule-label')?.value.trim();
+  const ipPattern = document.getElementById('input-netrule-pattern')?.value.trim();
+  const action = document.getElementById('select-netrule-action')?.value || 'allow';
+
+  if (!ipPattern) {
+    showToast('Please enter an IP address, CIDR subnet, or range.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest('/api/v1/admin/network/rules', 'POST', {
+      label: label || `Rule for ${ipPattern}`,
+      ipPattern,
+      action
+    });
+    hideModal('modal-add-network-rule');
+    showToast(`Network rule for "${ipPattern}" saved successfully!`, 'success');
+    window.loadNetworkRules();
+    window.loadTrackedDevicesTable();
+  } catch (err) {
+    showToast(err.message || 'Failed to save network rule', 'error');
+  }
+};
+
+window.deleteNetworkRule = async function(ruleId) {
+  if (!confirm('Are you sure you want to remove this network access rule?')) return;
+  try {
+    await apiRequest(`/api/v1/admin/network/rules/${ruleId}`, 'DELETE');
+    showToast('Network rule removed.', 'info');
+    window.loadNetworkRules();
+    window.loadTrackedDevicesTable();
+  } catch (err) {
+    showToast(err.message || 'Failed to delete rule', 'error');
+  }
+};
+
+window.loadTrackedDevicesTable = async function() {
+  const tbody = document.getElementById('table-tracked-devices-body');
+  const countBadge = document.getElementById('badge-tracked-devices-count');
+  if (!tbody) return;
+
+  try {
+    const res = await apiRequest('/api/v1/admin/network/devices', 'GET');
+    cachedTrackedDevices = Array.isArray(res) ? res : (res.data || []);
+    if (countBadge) countBadge.textContent = `${cachedTrackedDevices.length} device${cachedTrackedDevices.length === 1 ? '' : 's'}`;
+    window.renderTrackedDevicesTable(cachedTrackedDevices);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-rose-400 text-xs">Failed to load device logs: ${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+window.filterTrackedDevicesTable = function() {
+  const query = (document.getElementById('input-search-devices')?.value || '').toLowerCase().trim();
+  if (!query) {
+    window.renderTrackedDevicesTable(cachedTrackedDevices);
+    return;
+  }
+
+  const filtered = cachedTrackedDevices.filter(d =>
+    d.ipAddress.toLowerCase().includes(query) ||
+    d.osName.toLowerCase().includes(query) ||
+    d.browserName.toLowerCase().includes(query) ||
+    (d.lastUserEmail && d.lastUserEmail.toLowerCase().includes(query)) ||
+    d.deviceType.toLowerCase().includes(query)
+  );
+  window.renderTrackedDevicesTable(filtered);
+};
+
+window.renderTrackedDevicesTable = function(devices) {
+  const tbody = document.getElementById('table-tracked-devices-body');
+  if (!tbody) return;
+
+  if (!devices || devices.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-6 text-center text-slate-500 text-xs">No active devices logged yet.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = devices.map(d => {
+    // Determine OS / Device Icon
+    let osIcon = 'fa-solid fa-desktop';
+    if (d.osName === 'iOS') osIcon = 'fa-brands fa-apple text-slate-300';
+    else if (d.osName === 'macOS') osIcon = 'fa-brands fa-apple text-slate-300';
+    else if (d.osName === 'Android') osIcon = 'fa-brands fa-android text-emerald-400';
+    else if (d.osName === 'Windows') osIcon = 'fa-brands fa-windows text-blue-400';
+    else if (d.osName === 'Linux') osIcon = 'fa-brands fa-linux text-amber-400';
+
+    // Interface Type
+    let ifaceBadge = '';
+    const ip = d.ipAddress;
+    if (ip === '127.0.0.1' || ip === 'localhost' || ip === '::1') {
+      ifaceBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">Localhost (Loopback)</span>';
+    } else if (ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.16.')) {
+      ifaceBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Wi-Fi / LAN Extender</span>';
+    } else {
+      ifaceBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">Public WAN</span>';
+    }
+
+    // Access status
+    let statusBadge = '';
+    if (d.isBlocked) {
+      statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 inline-flex items-center"><i class="fa-solid fa-ban text-[9px] mr-1"></i>BLOCKED</span>';
+    } else if (d.isWhitelisted || ip === '127.0.0.1') {
+      statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 inline-flex items-center"><i class="fa-solid fa-check text-[9px] mr-1"></i>Whitelisted</span>';
+    } else {
+      statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-300 border border-slate-500/30 inline-flex items-center"><i class="fa-solid fa-globe text-[9px] mr-1"></i>LAN Allowed</span>';
+    }
+
+    const isLocal = ip === '127.0.0.1' || ip === 'localhost' || ip === '::1';
+
+    return `
+      <tr class="hover:bg-white/5 transition">
+        <td class="p-3.5">
+          <div class="flex items-center space-x-2.5 font-sans">
+            <div class="w-7 h-7 rounded-lg bg-slate-800 border border-white/10 flex items-center justify-center text-xs">
+              <i class="${osIcon}"></i>
+            </div>
+            <div>
+              <div class="text-xs font-bold text-white">${escapeHTML(d.osName)} • ${escapeHTML(d.browserName)}</div>
+              <div class="text-[10px] text-slate-500 capitalize">${escapeHTML(d.deviceType)}</div>
+            </div>
+          </div>
+        </td>
+        <td class="p-3.5 font-mono text-xs font-bold text-indigo-300">
+          <span class="inline-flex items-center space-x-1">
+            <span>${escapeHTML(d.ipAddress)}</span>
+            <button type="button" onclick="navigator.clipboard.writeText('${d.ipAddress}'); showToast('IP copied', 'info');" class="text-slate-500 hover:text-white transition text-[10px]" title="Copy IP">
+              <i class="fa-solid fa-copy"></i>
+            </button>
+          </span>
+        </td>
+        <td class="p-3.5">${ifaceBadge}</td>
+        <td class="p-3.5">
+          ${d.lastUserEmail ? `<span class="text-slate-200 text-xs font-semibold font-mono">${escapeHTML(d.lastUserEmail)}</span>` : `<span class="text-slate-500 italic text-[11px]">Unauthenticated / API</span>`}
+        </td>
+        <td class="p-3.5 text-center font-mono font-bold text-slate-200">${d.requestCount}</td>
+        <td class="p-3.5 text-[11px] text-slate-400">${new Date(d.lastSeenAt).toLocaleTimeString()}</td>
+        <td class="p-3.5 text-center">${statusBadge}</td>
+        <td class="p-3.5 text-right">
+          <div class="flex items-center justify-end space-x-1.5 font-sans">
+            ${!d.isWhitelisted && !isLocal ? `
+              <button type="button" onclick="window.openAddNetworkRuleModal('${d.ipAddress}', '${escapeHTML(d.osName)} (${escapeHTML(d.browserName)})')" class="px-2 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold transition active:scale-95 flex items-center space-x-1" title="Add this device to Whitelist">
+                <i class="fa-solid fa-plus text-[9px]"></i>
+                <span>Whitelist</span>
+              </button>
+            ` : ''}
+            ${!isLocal ? `
+              <button type="button" onclick="window.toggleBlockDevice('${d.ipAddress}', ${!d.isBlocked})" class="px-2 py-1 rounded-lg ${d.isBlocked ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'} hover:opacity-80 border text-[10px] font-semibold transition active:scale-95 flex items-center space-x-1" title="${d.isBlocked ? 'Unblock device' : 'Block device'}">
+                <i class="fa-solid ${d.isBlocked ? 'fa-unlock' : 'fa-ban'} text-[9px]"></i>
+                <span>${d.isBlocked ? 'Unblock' : 'Block'}</span>
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.toggleBlockDevice = async function(ipAddress, blockState) {
+  try {
+    const res = await apiRequest(`/api/v1/admin/network/devices/${encodeURIComponent(ipAddress)}/toggle-block`, 'POST', {
+      isBlocked: blockState
+    });
+    showToast(res.message || (blockState ? `Device ${ipAddress} blocked.` : `Device ${ipAddress} unblocked.`), blockState ? 'warning' : 'success');
+    window.loadTrackedDevicesTable();
+  } catch (err) {
+    showToast(err.message || 'Failed to update device status', 'error');
+  }
+};
+
+window.handleDeviceTrackerWsEvent = function(data) {
+  if (data?.device) {
+    const idx = cachedTrackedDevices.findIndex(d => d.ipAddress === data.device.ipAddress);
+    if (idx !== -1) {
+      cachedTrackedDevices[idx] = { ...cachedTrackedDevices[idx], ...data.device };
+    } else {
+      cachedTrackedDevices.unshift(data.device);
+    }
+    window.renderTrackedDevicesTable(cachedTrackedDevices);
+  } else if (data?.ipAddress) {
+    const found = cachedTrackedDevices.find(d => d.ipAddress === data.ipAddress);
+    if (found) {
+      found.isBlocked = !!data.isBlocked;
+      window.renderTrackedDevicesTable(cachedTrackedDevices);
+    }
   }
 };

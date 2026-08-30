@@ -1,0 +1,97 @@
+// ─────────────────────────────────────────────────────────────────────────────
+//  src/middleware/ip-access-control.middleware.ts
+//  AegisDB — Network Access Control & IP Whitelist Security Guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Request, Response, NextFunction } from 'express';
+import { networkAccessService } from '../services/network-access.service';
+
+export function ipAccessControlMiddleware(req: Request, res: Response, next: NextFunction): void {
+  // Extract client IP address reliably
+  const rawIp = (
+    (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+    req.ip ||
+    req.socket.remoteAddress ||
+    '127.0.0.1'
+  );
+
+  const clientIp = networkAccessService.normalizeIp(rawIp);
+  const userAgent = req.headers['user-agent'] || '';
+
+  // Extract user info if authenticated
+  const user = (req as any).user;
+  const userId = user?.id || null;
+  const userEmail = user?.email || null;
+
+  // 1. Record device activity in real time
+  networkAccessService.recordDeviceActivity({
+    ipAddress: clientIp,
+    userAgent,
+    userId,
+    userEmail
+  });
+
+  // 2. Evaluate access permissions
+  const { allowed, reason } = networkAccessService.isAccessAllowed(clientIp);
+
+  if (allowed) {
+    return next();
+  }
+
+  // 3. Reject unauthorized device with HTTP 403
+  const isApiRequest = req.path.startsWith('/api/') || req.headers.accept?.includes('application/json');
+
+  if (isApiRequest) {
+    res.status(403).json({
+      success: false,
+      code: 'NETWORK_ACCESS_DENIED',
+      message: '403 Forbidden: Device Access Denied by AegisDB Network Security Policy.',
+      clientIp,
+      reason,
+      timestamp: new Date().toISOString()
+    });
+    return;
+  }
+
+  // Render glassmorphic Access Denied HTML page for browser visits
+  const deniedHtml = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>403 Access Denied — AegisDB Security</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  </head>
+  <body class="bg-slate-950 text-slate-100 min-h-screen flex items-center justify-center p-4 selection:bg-rose-500 selection:text-white font-sans antialiased">
+    <div class="max-w-md w-full p-8 rounded-3xl bg-slate-900/80 border border-rose-500/30 shadow-2xl backdrop-blur-xl text-center space-y-6">
+      <div class="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400 text-2xl shadow-inner">
+        <i class="fa-solid fa-shield-halved"></i>
+      </div>
+      <div class="space-y-2">
+        <h1 class="text-xl font-bold text-white tracking-tight">403 Access Denied</h1>
+        <p class="text-xs text-slate-400 leading-relaxed">This device is not authorized to access this AegisDB server instance.</p>
+      </div>
+      <div class="p-4 rounded-2xl bg-black/40 border border-white/5 text-left space-y-2 font-mono text-xs">
+        <div class="flex justify-between text-slate-400">
+          <span>Your IP Address:</span>
+          <strong class="text-rose-400 font-bold">${clientIp}</strong>
+        </div>
+        <div class="flex justify-between text-slate-400">
+          <span>Security Reason:</span>
+          <span class="text-slate-200 text-right truncate max-w-[200px]" title="${reason}">${reason}</span>
+        </div>
+        <div class="flex justify-between text-slate-400">
+          <span>Timestamp:</span>
+          <span class="text-slate-400">${new Date().toLocaleTimeString()}</span>
+        </div>
+      </div>
+      <p class="text-[11px] text-slate-500">Contact the Super Administrator of this server to add your IP address to the approved whitelist.</p>
+    </div>
+  </body>
+  </html>
+  `;
+
+  res.status(403).setHeader('Content-Type', 'text/html').send(deniedHtml);
+}

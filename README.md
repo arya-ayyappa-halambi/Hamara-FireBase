@@ -306,10 +306,19 @@ AegisDB features an automated disaster recovery engine supporting local snapshot
 
 ## 11. Network & Server Hosting Center, Zero-Downtime Socket Rebinding & Live Terminal Streamer
 
-The **Network & Server Hosting Center** (`/#tab-server-hosting`) provides complete control over network binding, active IP interfaces, port migration, and live server telemetry:
+The **Network & Server Hosting Center** (`/#tab-server-hosting`) provides complete control over network binding, active IP interfaces, port migration, live server telemetry, and granular device-level access control:
 
 - **Live Host Binding Modes**: Seamlessly toggle between **Dual Host (`0.0.0.0`)**, **Localhost (`127.0.0.1`)**, **Wi-Fi LAN IP**, and **Custom Domain**.
 - **Zero-Downtime Socket Rebinding**: Dynamically rebind the active HTTP/WebSocket server to new IP addresses and ports without dropping active sessions.
+- **IP Whitelisting & Subnet Access Control**:
+  - **Open LAN vs. Strict Whitelist**: Switch between open local network access and strict whitelist-only mode with 1 click.
+  - **Subnet & Extender Control**: Approve or block entire Wi-Fi extenders or subnets using CIDR notation (e.g. `192.168.31.0/24`, `10.0.0.0/16`) or IP ranges (e.g. `192.168.31.100-192.168.31.200`).
+  - **Zero-Lockout Guarantee**: Localhost (`127.0.0.1`, `::1`) is hardcoded as unconditionally allowed, ensuring administrators are never locked out of the console.
+  - **Glassmorphic 403 Security Screen**: Unauthorized devices visiting via browser receive a clean security access denied screen displaying their client IP, timestamp, and contact instructions.
+- **Real-Time Client IP & Device Tracking**:
+  - **Live Device Fingerprinting**: Automatically parses User-Agents to detect Device Type (`mobile`, `tablet`, `desktop`, `bot`), OS (`iOS`, `Android`, `macOS`, `Windows`, `Linux`), and Browser (`Safari`, `Chrome`, `Firefox`, `Edge`, `Postman`).
+  - **Live Traffic Logs**: Tracks connected client IPs, logged-in user accounts, 24h request counts, and last seen timestamps with zero database write bottlenecks.
+  - **1-Click Actions**: Instantly add active client devices to the whitelist with **"+ Whitelist"** or block untrusted devices with **"Block"**.
 - **Live Terminal Log Streamer**: Real-time ANSI-colored terminal log feed streamed over WebSockets directly to the web dashboard.
 - **Scheduled Automated Migrations**: Schedule endpoint migrations with countdown timers and automated client redirection handover.
 
@@ -390,6 +399,13 @@ The Super Admin developer console provides real-time oversight and administrativ
 | `GET` | `/api/v1/admin/stats` | Real-time CPU, RAM, and SQLite query metrics |
 | `PATCH` | `/api/v1/admin/platform-settings` | Update hosting mode, bind IP, port, or custom domain |
 | `POST` | `/api/v1/admin/server/shutdown` | Gracefully shut down server, release port & close terminal |
+| `GET` | `/api/v1/admin/network/rules` | Fetch all configured IP/CIDR/range access rules |
+| `POST` | `/api/v1/admin/network/rules` | Create a new IP, CIDR subnet, or range rule |
+| `DELETE` | `/api/v1/admin/network/rules/:id` | Delete a network access rule |
+| `GET` | `/api/v1/admin/network/devices` | Retrieve real-time tracked client devices & traffic stats |
+| `POST` | `/api/v1/admin/network/devices/:ip/toggle-block` | Toggle 1-click blocking state for a device IP |
+| `GET` | `/api/v1/admin/network/settings` | Fetch IP filtering enforcement status & default policy |
+| `PATCH` | `/api/v1/admin/network/settings` | Toggle whitelist enforcement or update default policy |
 | `PATCH` | `/api/v1/admin/rate-limits` | Adjust global token bucket rate limits live |
 | `GET` | `/api/v1/admin/account-deletions` | Inspect active and historical account deletion queues |
 | `POST` | `/api/v1/admin/account-deletions/:id/cancel` | Retain an account upon user appeal |
@@ -397,10 +413,29 @@ The Super Admin developer console provides real-time oversight and administrativ
 
 ---
 
-## 14. Performance Verification & Load Testing Suite
+## 14. Performance Verification & Automated Test Suites
 
-AegisDB includes an automated stress and performance benchmarking harness located in `/loadtest`:
+AegisDB includes comprehensive integration tests and automated performance stress benchmarking harnesses:
 
+### Automated Integration & Security Tests
+```bash
+# 1. Network Access Control, CIDR Subnets & Zero-Lockout Tests (24 checks)
+npx ts-node tests/network-access-control.test.ts
+
+# 2. Dedicated IP Blocking, Subnet Ranges & Extender Control (20 checks)
+npx ts-node tests/ip-blocking-and-ranges.test.ts
+
+# 3. Two-Tier Envelope Encryption & Key Rotation
+npx ts-node tests/envelope-encryption.test.ts
+
+# 4. Row-Level Security Rules & Collection RBAC
+npx ts-node tests/security-rules.test.ts
+
+# 5. Refresh Token Family & Reuse Detection
+npx ts-node tests/token-family.test.ts
+```
+
+### Performance & Load Benchmarking (`/loadtest`)
 ```bash
 # 1. Read-Only Throughput & Latency (Simulates concurrent read traffic)
 node loadtest/read-only-test.js
