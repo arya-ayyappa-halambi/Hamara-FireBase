@@ -29,7 +29,6 @@ const C = {
 const ROOT_DIR = path.resolve(__dirname, '..');
 
 function printBanner() {
-  console.clear();
   console.log('');
   console.log(`${C.cyan}╔════════════════════════════════════════════════════════════╗${C.reset}`);
   console.log(`${C.cyan}║${C.reset}       ${C.bold}🛡️  AegisDB First-Time Universal Device Setup${C.reset}        ${C.cyan}║${C.reset}`);
@@ -68,7 +67,6 @@ function verifyNodeRuntime() {
 // 2. Check & Install Project Dependencies
 function verifyAndInstallDependencies() {
   const nodeModulesPath = path.join(ROOT_DIR, 'node_modules');
-  const packageJsonPath = path.join(ROOT_DIR, 'package.json');
   const betterSqlite3Path = path.join(ROOT_DIR, 'node_modules', 'better-sqlite3');
   const expressPath = path.join(ROOT_DIR, 'node_modules', 'express');
 
@@ -172,7 +170,7 @@ function verifyBuild() {
   }
 }
 
-// 6. Check Socket Port Readiness
+// 6. Check Socket Port Readiness & Kill Lingering Processes
 function checkPortFree(port = 3000) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -191,6 +189,30 @@ function checkPortFree(port = 3000) {
     });
     socket.connect(port, '127.0.0.1');
   });
+}
+
+function freePort(port) {
+  try {
+    if (process.platform === 'win32') {
+      const output = execSync(`netstat -ano | findstr :${port}`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+      output.split('\n').filter(l => l.includes('LISTENING')).forEach(l => {
+        const parts = l.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && pid !== '0' && pid !== process.pid.toString()) {
+          execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
+        }
+      });
+    } else {
+      const output = execSync(`lsof -n -iTCP:${port} -sTCP:LISTEN -t`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+      if (output) {
+        output.split('\n').forEach(p => {
+          if (p.trim() && p.trim() !== process.pid.toString()) {
+            execSync(`kill -9 ${p.trim()}`, { stdio: 'ignore' });
+          }
+        });
+      }
+    }
+  } catch (_) {}
 }
 
 function openBrowser(url) {
@@ -260,12 +282,17 @@ async function main() {
   console.log('');
 
   logStep(6, totalSteps, 'Verifying Port & Launching First-Time Experience');
-  const isPort3000Free = await checkPortFree(3000);
+  const targetPort = 3000;
+  const targetHost = '0.0.0.0';
+  const targetMode = 'both';
+
+  const isPort3000Free = await checkPortFree(targetPort);
   if (!isPort3000Free) {
-    logWarning('Port 3000 is occupied. The server launcher will resolve port selection.');
-  } else {
-    logSuccess('Port 3000 verified [FREE & READY]');
+    logInfo(`Port ${targetPort} is occupied. Freeing port for fresh setup...`);
+    freePort(targetPort);
+    await new Promise(r => setTimeout(r, 400));
   }
+  logSuccess(`Port ${targetPort} verified [FREE & READY]`);
   console.log('');
 
   console.log(`${C.emerald}╔════════════════════════════════════════════════════════════╗${C.reset}`);
@@ -285,13 +312,29 @@ async function main() {
   }
   console.log('');
 
-  console.log(`${C.cyan}🚀 Launching AegisDB and opening Server Hosting & Network Center...${C.reset}\n`);
+  const hostingCenterUrl = `http://localhost:${targetPort}/#tab-server-hosting`;
+  console.log(`${C.cyan}🚀 Launching AegisDB on ${targetHost}:${targetPort}...${C.reset}\n`);
 
-  // Forward straight to serve.js in dual host mode with browser open
-  const serveScript = path.join(ROOT_DIR, 'scripts', 'serve.js');
-  const child = spawn(process.execPath, [serveScript, '--host=0.0.0.0', '--port=3000', '--mode=both', '--open'], {
+  // Active health probe to launch browser when live
+  (async () => {
+    const isReady = await waitUntilServerReady(targetPort);
+    if (isReady) {
+      console.log(`\n${C.emerald}🌐 AegisDB is live! Opening browser to Server Hosting & Network Center...${C.reset}\n`);
+      openBrowser(hostingCenterUrl);
+    }
+  })();
+
+  // Spawn nodemon dev server directly in foreground
+  const child = spawn('npx', ['nodemon', '--watch', 'src', '--watch', '.env', '--ext', 'ts', '--exec', 'ts-node', 'src/server.ts'], {
     cwd: ROOT_DIR,
-    stdio: 'inherit'
+    env: {
+      ...process.env,
+      HOST: targetHost,
+      PORT: targetPort.toString(),
+      HOST_MODE: targetMode
+    },
+    stdio: 'inherit',
+    shell: true
   });
 
   child.on('exit', (code) => {

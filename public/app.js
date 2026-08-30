@@ -3750,7 +3750,7 @@ function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
     const startTime = Date.now();
     let isRedirecting = false;
     let attempts = 0;
-    const maxAttempts = 30; // 30 x 400ms = 12s max window
+    const maxAttempts = 50; // 50 x 350ms = ~17.5s max window
 
     const logCmd = (text, type = 'info') => {
       if (!termContainer) return;
@@ -3880,8 +3880,7 @@ function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
       if (attempts < maxAttempts && !isRedirecting) {
         setTimeout(probePort, 350);
       } else if (!isRedirecting) {
-        // Fallback
-        logCmd(`Proceeding to load endpoint...`, 'warn');
+        logCmd(`Attempt limit reached. Proceeding to target endpoint...`, 'warn');
         performRedirect();
       }
     };

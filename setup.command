@@ -5,7 +5,14 @@
 
 cd "$(dirname "$0")" || exit 1
 
-export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.nvm/versions/node/$(ls "$HOME/.nvm/versions/node" 2>/dev/null | tail -n 1)/bin:$PATH"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
+if [ -d "$HOME/.nvm/versions/node" ]; then
+  NVM_LATEST="$(ls "$HOME/.nvm/versions/node" 2>/dev/null | tail -n 1)"
+  if [ -n "$NVM_LATEST" ]; then
+    export PATH="$HOME/.nvm/versions/node/$NVM_LATEST/bin:$PATH"
+  fi
+fi
 
 if ! command -v node &> /dev/null; then
   echo ""
@@ -33,8 +40,15 @@ fi
 
 if ! command -v node &> /dev/null; then
   echo "❌ Node.js is required. Please install it from https://nodejs.org and re-run setup.command."
-  read -n 1 -s -r -p "Press any key to close..."
+  read -n 1 -s -r -p "Press any key to close this window..."
   exit 1
 fi
 
 node scripts/setup.js "$@"
+SETUP_EXIT=$?
+
+if [ $SETUP_EXIT -ne 0 ]; then
+  echo ""
+  echo "⚠️ Setup exited with code $SETUP_EXIT."
+  read -n 1 -s -r -p "Press any key to close this window..."
+fi
