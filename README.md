@@ -31,11 +31,38 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 
 ---
 
-## 1. Overview & Core Value Proposition
+## 1. About AegisDB, Vision & Core Value Proposition
 
-**AegisDB** is engineered to eliminate the operational complexity and prohibitive costs of enterprise cloud databases (such as AWS DynamoDB, Google Cloud Firestore, and Firebase) while maintaining enterprise-grade security and developer ergonomics.
+### 📖 What is AegisDB?
+**AegisDB** is a lightweight, zero-configuration, production-ready **Backend-as-a-Service (BaaS)** and self-hosted Firebase alternative. Designed from first principles in TypeScript, AegisDB delivers complete cloud backend primitives—authentication, relational & JSON document databases, real-time reactive streams, granular row-level security (RLS), multi-tenant isolation, GDPR privacy compliance, S3 disaster recovery, and automated 1-click cross-platform hosting—without external cloud vendor lock-in or recurring monthly database bills.
 
-### ✨ Key Capabilities
+### 🎯 Why Was AegisDB Built?
+Modern cloud databases (like Firebase Firestore, AWS DynamoDB, and Supabase) often introduce:
+1. **Unpredictable Billing & Vendor Lock-In**: Complex pricing tiers charging per-read, per-write, and per-GB egress.
+2. **Setup Overhead & Heavy Dependencies**: Requiring complex Docker orchestration, PostgreSQL server clusters, or dedicated cloud accounts just for simple application backends.
+3. **Data Sovereignty & Privacy Concerns**: Lack of native GDPR/DPDP cryptographic shredding, cooling-off windows, and offline local network capabilities.
+
+**AegisDB solves this** by packing an entire enterprise backend into a single zero-dependency Node.js engine backed by high-performance SQLite in WAL (Write-Ahead Logging) mode, providing microsecond write latency, lock-free parallel reads, and instant 1-click double-clickable launchers for macOS, Windows, and Linux.
+
+---
+
+### 📊 AegisDB vs. Traditional Cloud & BaaS Solutions
+
+| Feature / Primitive | 🛡️ AegisDB | 🔥 Firebase Firestore | ⚡ Supabase | 📦 PocketBase |
+| :--- | :---: | :---: | :---: | :---: |
+| **Self-Hosting Complexity** | **Zero-Config (1-Click)** | ❌ Proprietary Cloud | ⚠️ Complex (10+ Containers) | ✅ Single Go Binary |
+| **Storage Engine** | **SQLite WAL Mode** | Cloud NoSQL | PostgreSQL Cluster | SQLite |
+| **Memory Footprint** | **~45 MB RAM** | Cloud Hosted | ~800 MB+ RAM | ~30 MB RAM |
+| **Row-Level Security (RLS)** | ✅ **Native Declarative** | ⚠️ Complex Rules Engine | ✅ PostgreSQL RLS | ⚠️ Collection API Rules |
+| **Multi-Tenant Projects** | ✅ **Built-in Isolation** | ❌ Multi-Project Setup | ⚠️ Separate DBs | ❌ Single App Realm |
+| **Envelope Encryption** | ✅ **AES-256-GCM + DEK/KEK** | ❌ Platform Key Only | ⚠️ Manual pgcrypto | ❌ None |
+| **GDPR Portability & Shred**| ✅ **Built-in Art. 20 Export**| ❌ Manual Scripts | ❌ Manual SQL | ❌ Manual SQL |
+| **Zero-Downtime Socket Switch**| ✅ **Live GUI Port Rebind** | ❌ N/A | ❌ N/A | ❌ N/A |
+| **1-Click Native Launchers** | ✅ **Mac / Win / Linux** | ❌ Cloud Only | ❌ Docker Only | ⚠️ Terminal CLI |
+
+---
+
+### ✨ Core Capabilities & Feature Highlights
 - 🚀 **Zero-Config Self-Hosting**: Runs anywhere Node.js runs—from a Raspberry Pi to high-core cloud VMs.
 - ⚡ **SQLite WAL-Mode Acceleration**: Parallel, lock-free reads and serialized microsecond writes.
 - 🛡️ **Dual-Layer Security Rules**: Granular, declarative access control at both **Collection-Level** and **Individual Document-Level (Row-Level Security)**.
