@@ -324,18 +324,19 @@ function freePort(port) {
 // ── Cross-Platform Browser Opener ─────────────────────────────────────────────
 function openBrowser(url) {
   const platform = process.platform;
-  let cmd = '';
-  if (platform === 'darwin') {
-    cmd = `open "${url}"`;
-  } else if (platform === 'win32') {
-    cmd = `start "" "${url}"`;
-  } else {
-    cmd = `xdg-open "${url}"`;
+  try {
+    if (platform === 'darwin') {
+      exec(`open "${url}"`);
+    } else if (platform === 'win32') {
+      exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process '${url}'"`, (err) => {
+        if (err) exec(`start "" "${url}"`);
+      });
+    } else {
+      exec(`xdg-open "${url}"`);
+    }
+  } catch (_) {
+    if (platform === 'win32') exec(`start "" "${url}"`);
   }
-
-  exec(cmd, (err) => {
-    if (err) console.warn(`[Launcher] Note: Could not auto-launch browser: ${err.message}`);
-  });
 }
 
 // ── Main Launch Orchestrator ──────────────────────────────────────────────────
@@ -480,7 +481,7 @@ async function main() {
   startServer(targetHost, targetPort, targetMode, shouldOpen);
 }
 
-function waitUntilServerReady(port, checkAborted, maxAttempts = 80, intervalMs = 250) {
+function waitUntilServerReady(port, checkAborted, maxAttempts = 160, intervalMs = 250) {
   return new Promise((resolve) => {
     let attempts = 0;
     const probe = () => {

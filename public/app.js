@@ -2831,17 +2831,23 @@ async function initGoogleAuth() {
       }
     }
 
-    // Google Auth Button Visibility & Handler
+    // Google Auth Button Visibility & Handler (Dynamic from Admin Platform Settings)
     const container = document.getElementById('google-auth-container');
     const btn = document.getElementById('btn-custom-google-login');
-    const clientId = (data?.googleClientId || '157686321493-s99028uh1v2oeamlmuk63rsc2429g2sn.apps.googleusercontent.com').trim();
+    const isGoogleEnabled = Boolean(data?.googleAuthEnabled && data?.googleClientId && data.googleClientId.trim().length > 0);
+    const clientId = (data?.googleClientId || '').trim();
 
     if (container) {
-      container.classList.remove('hidden');
-      container.style.display = 'flex';
+      if (isGoogleEnabled) {
+        container.classList.remove('hidden');
+        container.style.display = 'flex';
+      } else {
+        container.classList.add('hidden');
+        container.style.display = 'none';
+      }
     }
     
-    if (btn) {
+    if (btn && isGoogleEnabled) {
       btn.onclick = (e) => {
         e.preventDefault();
         const redirectUri = window.location.origin;
@@ -2851,17 +2857,10 @@ async function initGoogleAuth() {
       };
     }
   } catch (err) {
-    console.error('Failed to init Auth Config', err);
-    // Fallback click handler if backend config fetch failed
-    const btn = document.getElementById('btn-custom-google-login');
-    if (btn) {
-      btn.onclick = (e) => {
-        e.preventDefault();
-        const clientId = '157686321493-s99028uh1v2oeamlmuk63rsc2429g2sn.apps.googleusercontent.com';
-        const redirectUri = window.location.origin;
-        const nonce = Math.random().toString(36).substring(2);
-        window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
-      };
+    const container = document.getElementById('google-auth-container');
+    if (container) {
+      container.classList.add('hidden');
+      container.style.display = 'none';
     }
   }
 }
@@ -2888,11 +2887,21 @@ async function handleGoogleCredentialResponse(response) {
   }
 }
 
-window.executeGoogleLogin = function() {
-  const clientId = '157686321493-s99028uh1v2oeamlmuk63rsc2429g2sn.apps.googleusercontent.com';
-  const redirectUri = window.location.origin;
-  const nonce = Math.random().toString(36).substring(2);
-  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
+window.executeGoogleLogin = async function() {
+  try {
+    const res = await fetch('/api/v1/auth/config');
+    const { data } = await res.json();
+    const clientId = (data?.googleClientId || '').trim();
+    if (!data?.googleAuthEnabled || !clientId) {
+      showToast('Google OAuth is not configured on this server. Please enable it in Platform Settings.', 'error');
+      return;
+    }
+    const redirectUri = window.location.origin;
+    const nonce = Math.random().toString(36).substring(2);
+    window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
+  } catch (err) {
+    showToast('Google OAuth is currently unavailable.', 'error');
+  }
 };
 
 window.executeDemoAdminLogin = async function() {

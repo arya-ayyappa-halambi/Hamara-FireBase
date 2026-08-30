@@ -253,19 +253,26 @@ function openBrowser(url) {
     if (process.platform === 'darwin') {
       spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
     } else if (process.platform === 'win32') {
-      spawn('cmd.exe', ['/c', 'start', '""', url], { detached: true, stdio: 'ignore' }).unref();
+      // Use PowerShell Start-Process to properly handle URLs with # anchor fragments on Windows
+      spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `Start-Process '${url}'`], { detached: true, stdio: 'ignore' }).unref();
     } else {
       spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
     }
-  } catch (_) {}
+  } catch (_) {
+    try {
+      if (process.platform === 'win32') {
+        spawn('cmd.exe', ['/c', 'start', '""', url], { detached: true, stdio: 'ignore' }).unref();
+      }
+    } catch (_) {}
+  }
 }
 
-function waitUntilServerReady(port = 3000, maxAttempts = 60, intervalMs = 250) {
+function waitUntilServerReady(port = 3000, maxAttempts = 160, intervalMs = 250) {
   return new Promise((resolve) => {
     let attempts = 0;
     const probe = () => {
       attempts++;
-      const req = http.get(`http://127.0.0.1:${port}/api/v1/system/status`, { timeout: 350 }, (res) => {
+      const req = http.get(`http://127.0.0.1:${port}/api/v1/system/status`, { timeout: 400 }, (res) => {
         if (res.statusCode >= 200 && res.statusCode < 500) {
           return resolve(true);
         }
