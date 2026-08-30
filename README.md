@@ -58,7 +58,13 @@ AegisDB includes a built-in pre-flight auto-bootstrapper. On a freshly cloned re
 
 ### 🛠️ 1-Click Universal First-Time Setup (New Machines & Fresh Clones)
 
-When setting up AegisDB on a brand-new computer for the first time, run the dedicated setup launcher for your operating system. It automatically verifies/installs the Node.js LTS runtime if missing, installs all dependencies (`npm install`), creates strong 64-character `.env` secrets, initializes storage, compiles TypeScript, and opens the **Server Hosting & Network Center**:
+When setting up AegisDB on a brand-new computer for the first time, double-click the dedicated setup launcher for your operating system. It executes an automated, **zero-interaction** setup pipeline in under 15 seconds:
+1. **Silent Runtime Provisioning**: Automatically detects if Node.js is installed. On Windows 11/10, it downloads and executes a silent background installation of Node.js 20 LTS (`msiexec /i ... /qn /norestart`) with zero manual wizard screens to click through, and dynamically refreshes the Windows Registry PATH.
+2. **Fast Pre-Built Native Dependencies**: Uses `better-sqlite3@11.8.1` with pre-compiled native `.node` binary addons for Windows x64, macOS (Apple Silicon & Intel), and Linux—bypassing C++ compiler requirements completely.
+3. **High-Speed Package Pipeline**: Runs `npm install --no-audit --no-fund --loglevel=error` to skip unnecessary vulnerability and fund scan delays.
+4. **Security & Cryptography**: Auto-generates a production-grade `.env` file populated with strong 64-character cryptographic keys (`JWT_SECRET`, `ENCRYPTION_KEY`, `EMAIL_HASH_PEPPER`, `RECOVERY_PIN`).
+5. **Storage & Directory Structure**: Provisions all required database and asset storage folders (`data/`, `uploads/`, `uploads/biometrics/`, `workspaces/`, `backups/`).
+6. **TypeScript Compilation & Launch**: Compiles the project (`npm run build`), starts the server in Dual Host mode (`0.0.0.0:3000`), and automatically opens your default browser directly to the **Server Hosting & Network Center** (`http://localhost:3000/#tab-server-hosting`) via PowerShell `Start-Process`.
 
 - **🍎 macOS**: Double-click **`setup.command`** in Finder (or run `./setup.command`).
 - **🪟 Windows**: Double-click **`setup.bat`** in File Explorer.
@@ -80,7 +86,7 @@ Double-click **`start.bat`** in File Explorer, or run:
 ```cmd
 start.bat
 ```
-*Opens Command Prompt with the interactive hosting menu and auto-opens the browser.*
+*Opens Command Prompt with the interactive hosting menu, validates Node runtime across `Program Files` and Registry, and auto-opens the browser.*
 
 #### 🐧 Linux & Terminal CLI
 ```bash
@@ -98,7 +104,7 @@ npm start
 To stop the server, terminate all background processes, and release all network ports:
 
 - **🍎 macOS**: Double-click **`stop.command`** in Finder (or run `./stop.command`). Automatically terminates the Node server process tree and closes the active terminal window.
-- **🪟 Windows**: Double-click **`stop.bat`** in File Explorer.
+- **🪟 Windows**: Double-click **`stop.bat`** in File Explorer. Uses Windows PowerShell `Get-NetTCPConnection` to identify active listeners and executes whole-tree process termination (`taskkill /F /T`) along with WMI supervisor cleanup to prevent `nodemon` from automatically respawning. Includes a native PowerShell fallback if Node is not on PATH.
 - **🐧 Linux & CLI**: Run `./stop.sh` or `npm run stop` / `npm run kill`.
 - **🛡️ Super Admin Console**: Open **Server Hosting & Network Center** (`/#tab-server-hosting`) and click **"🛑 Stop Server"** to gracefully shut down the server, release the port, and close the terminal window directly from your browser.
 
