@@ -1,4 +1,5 @@
 @echo off
+setlocal EnableDelayedExpansion
 REM ─────────────────────────────────────────────────────────────────────────────
 REM  AegisDB 1-Click Universal Setup (Double-Clickable in Windows File Explorer)
 REM ─────────────────────────────────────────────────────────────────────────────
@@ -12,78 +13,104 @@ echo         [AegisDB] First-Time Universal Device Setup ^& Dependency Installer
 echo ============================================================================
 echo.
 
-REM Refresh PATH from common installation directories and Windows Registry
+:CHECK_NODE
+REM Refresh PATH with common Node.js install locations
 set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%LOCALAPPDATA%\Programs\nodejs;%APPDATA%\npm;%PATH%"
 
-REM Probe for node executable
-set "NODE_EXE="
-if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"
-if not defined NODE_EXE if exist "%ProgramFiles(x86)%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles(x86)%\nodejs\node.exe"
-if not defined NODE_EXE if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" set "NODE_EXE=%LOCALAPPDATA%\Programs\nodejs\node.exe"
-if not defined NODE_EXE (
-    where node >nul 2>nul
-    if %errorlevel% equ 0 set "NODE_EXE=node"
+if exist "%ProgramFiles%\nodejs\node.exe" (
+    set "NODE_BIN=%ProgramFiles%\nodejs\node.exe"
+    goto NODE_FOUND
+)
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+    set "NODE_BIN=%ProgramFiles(x86)%\nodejs\node.exe"
+    goto NODE_FOUND
+)
+if exist "%LOCALAPPDATA%\Programs\nodejs\node.exe" (
+    set "NODE_BIN=%LOCALAPPDATA%\Programs\nodejs\node.exe"
+    goto NODE_FOUND
 )
 
-if not defined NODE_EXE (
-    echo [1/3] Node.js runtime not found on this Windows machine.
-    echo       Downloading official Node.js LTS installer from nodejs.org...
-    echo.
-
-    set "MSI_FILE=%TEMP%\node-v20-x64.msi"
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '  ➜ Downloading Node.js LTS 64-bit installer...'; Invoke-WebRequest -Uri 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi' -OutFile '%MSI_FILE%'"
-    
-    if not exist "%MSI_FILE%" (
-        echo.
-        echo [ERROR] Failed to download Node.js installer.
-        echo Please download and install Node.js manually from: https://nodejs.org
-        echo.
-        pause
-        exit /b 1
-    )
-
-    echo.
-    echo ============================================================================
-    echo   [ACTION REQUIRED]
-    echo   The Node.js Setup Wizard is now opening on your screen.
-    echo   Please click: Next -^> Accept -^> Next -^> Install -^> Finish
-    echo ============================================================================
-    echo.
-
-    msiexec.exe /i "%MSI_FILE%"
-    
-    REM Refresh PATH from Windows Registry after installation
-    for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
-    for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USR_PATH=%%B"
-    set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%LOCALAPPDATA%\Programs\nodejs;%APPDATA%\npm;%SYS_PATH%;%USR_PATH%;%PATH%"
-
-    if exist "%ProgramFiles%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles%\nodejs\node.exe"
-    if not defined NODE_EXE if exist "%ProgramFiles(x86)%\nodejs\node.exe" set "NODE_EXE=%ProgramFiles(x86)%\nodejs\node.exe"
-    if not defined NODE_EXE (
-        where node >nul 2>nul
-        if %errorlevel% equ 0 set "NODE_EXE=node"
-    )
+where node >nul 2>nul
+if %errorlevel% equ 0 (
+    set "NODE_BIN=node"
+    goto NODE_FOUND
 )
 
-if not defined NODE_EXE (
+REM If we reach here, Node.js is NOT installed!
+echo ----------------------------------------------------------------------------
+echo  [1/3] Node.js is NOT installed on this Windows PC.
+echo        Downloading official Node.js 20 LTS installer from nodejs.org...
+echo ----------------------------------------------------------------------------
+echo.
+
+set "MSI_FILE=%TEMP%\node-v20-x64.msi"
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '  ➜ Downloading Node.js LTS 64-bit installer...'; (New-Object System.Net.WebClient).DownloadFile('https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi', $env:MSI_FILE)"
+
+if not exist "%MSI_FILE%" (
     echo.
-    echo [ERROR] Node.js is required to run AegisDB.
-    echo Please complete Node.js installation from https://nodejs.org and re-run setup.bat.
+    echo [ERROR] Failed to download Node.js installer automatically.
+    echo Please download and install Node.js manually from: https://nodejs.org
     echo.
     pause
     exit /b 1
 )
 
-echo [2/3] Node.js runtime confirmed:
-"%NODE_EXE%" -v
+echo.
+echo ============================================================================
+echo   [ACTION REQUIRED]
+echo   The official Node.js Setup Wizard is now opening on your screen.
+echo   👉 Please click: Next -^> Accept -^> Next -^> Next -^> Install -^> Finish
+echo ============================================================================
 echo.
 
-echo [3/3] Launching AegisDB automated dependency installer ^& bootstrapper...
+start /wait msiexec.exe /i "%MSI_FILE%"
+
+echo.
+echo   ➜ Refreshing environment variables and verifying installation...
 echo.
 
-"%NODE_EXE%" scripts\setup.js %*
+REM Refresh Registry PATH
+for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
+for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USR_PATH=%%B"
+set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%LOCALAPPDATA%\Programs\nodejs;%APPDATA%\npm;!SYS_PATH!;!USR_PATH!;!PATH!"
+
+if exist "%ProgramFiles%\nodejs\node.exe" (
+    set "NODE_BIN=%ProgramFiles%\nodejs\node.exe"
+    goto NODE_FOUND
+)
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+    set "NODE_BIN=%ProgramFiles(x86)%\nodejs\node.exe"
+    goto NODE_FOUND
+)
+where node >nul 2>nul
+if %errorlevel% equ 0 (
+    set "NODE_BIN=node"
+    goto NODE_FOUND
+)
+
+echo.
+echo [ERROR] Node.js installation was not completed or not found.
+echo Please download and install Node.js from https://nodejs.org and re-run setup.bat.
+echo.
+pause
+exit /b 1
+
+:NODE_FOUND
+echo ----------------------------------------------------------------------------
+echo  [2/3] Node.js runtime confirmed:
+"%NODE_BIN%" -v
+echo ----------------------------------------------------------------------------
+echo.
+
+echo ----------------------------------------------------------------------------
+echo  [3/3] Installing all dependencies and launching AegisDB...
+echo ----------------------------------------------------------------------------
+echo.
+
+"%NODE_BIN%" scripts\setup.js %*
 if %errorlevel% neq 0 (
     echo.
-    echo [WARNING] Setup encountered an issue or was terminated.
+    echo [WARNING] Setup finished with code %errorlevel%.
     pause
 )
