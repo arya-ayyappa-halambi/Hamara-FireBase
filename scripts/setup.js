@@ -2,7 +2,7 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  scripts/setup.js
-//  AegisDB 1-Click First-Time Setup & Dependency Bootstrapper
+//  AegisDB 1-Click Universal First-Time Setup & Dependency Bootstrapper
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fs = require('fs');
@@ -33,7 +33,7 @@ function printBanner() {
   console.log(`${C.cyan}╔════════════════════════════════════════════════════════════╗${C.reset}`);
   console.log(`${C.cyan}║${C.reset}       ${C.bold}🛡️  AegisDB First-Time Universal Device Setup${C.reset}        ${C.cyan}║${C.reset}`);
   console.log(`${C.cyan}╚════════════════════════════════════════════════════════════╝${C.reset}`);
-  console.log(`${C.gray}  Automated environment verification & zero-config onboarding${C.reset}\n`);
+  console.log(`${C.gray}  Automated dependency installation & zero-config onboarding${C.reset}\n`);
 }
 
 function logStep(stepNum, totalSteps, title) {
@@ -52,7 +52,7 @@ function logWarning(msg) {
   console.log(`    ${C.amber}⚠ ${msg}${C.reset}`);
 }
 
-// 1. Check Node.js Version
+// 1. Check Node.js & npm Runtime Version
 function verifyNodeRuntime() {
   const currentVer = process.version;
   const major = parseInt(currentVer.replace(/^v/, '').split('.')[0], 10);
@@ -61,38 +61,80 @@ function verifyNodeRuntime() {
     console.error(`   Please update Node.js from https://nodejs.org\n`);
     process.exit(1);
   }
-  logSuccess(`Node.js runtime verified (${C.bold}${currentVer}${C.reset}) on ${process.platform} (${os.arch()})`);
+
+  let npmVer = 'unknown';
+  try {
+    npmVer = execSync('npm -v', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+  } catch (_) {}
+
+  logSuccess(`Node.js runtime verified (${C.bold}${currentVer}${C.reset}) & npm (${C.bold}v${npmVer}${C.reset}) on ${process.platform} (${os.arch()})`);
 }
 
-// 2. Check & Install Project Dependencies
+// 2. Check & Install Project npm Dependencies
 function verifyAndInstallDependencies() {
   const nodeModulesPath = path.join(ROOT_DIR, 'node_modules');
   const betterSqlite3Path = path.join(ROOT_DIR, 'node_modules', 'better-sqlite3');
   const expressPath = path.join(ROOT_DIR, 'node_modules', 'express');
+  const typescriptPath = path.join(ROOT_DIR, 'node_modules', 'typescript');
 
-  const isInstalled = fs.existsSync(nodeModulesPath) && fs.existsSync(betterSqlite3Path) && fs.existsSync(expressPath);
+  const isInstalled = fs.existsSync(nodeModulesPath) &&
+    fs.existsSync(betterSqlite3Path) &&
+    fs.existsSync(expressPath) &&
+    fs.existsSync(typescriptPath);
 
   if (isInstalled) {
-    logSuccess('Project dependencies already installed');
+    logSuccess('Core application dependencies verified in node_modules');
     return;
   }
 
-  logInfo('Fresh clone detected: Installing npm dependencies (this may take a minute)...');
+  logInfo('Fresh clone detected: Installing all project packages via npm (please wait)...');
   try {
     execSync('npm install --no-audit --no-fund', {
       cwd: ROOT_DIR,
       stdio: 'inherit'
     });
-    logSuccess('npm dependencies installed successfully');
+    logSuccess('All project dependencies downloaded & installed successfully');
   } catch (err) {
     console.error(`\n${C.rose}❌ Failed to install npm dependencies automatically.${C.reset}`);
     console.error(`   Error: ${err.message}`);
-    console.error(`   Please run 'npm install' manually in the project root directory.\n`);
+    console.error(`   Please run 'npm install' in this folder.\n`);
     process.exit(1);
   }
 }
 
-// 3. Cryptographic Environment Secrets Setup
+// 3. Verify Native Binary Addons (better-sqlite3 & argon2)
+function verifyNativeAddons() {
+  logInfo('Verifying native C++ binary addons for ' + os.arch() + '...');
+  let needsRebuild = false;
+
+  try {
+    require(path.join(ROOT_DIR, 'node_modules', 'better-sqlite3'));
+  } catch (err) {
+    logWarning('better-sqlite3 native binary requires compilation on this device');
+    needsRebuild = true;
+  }
+
+  try {
+    require(path.join(ROOT_DIR, 'node_modules', 'argon2'));
+  } catch (err) {
+    logWarning('argon2 native binary requires compilation on this device');
+    needsRebuild = true;
+  }
+
+  if (needsRebuild) {
+    logInfo('Compiling native pre-built addons (npm rebuild)...');
+    try {
+      execSync('npm rebuild', { cwd: ROOT_DIR, stdio: 'inherit' });
+      logSuccess('Native binary addons compiled successfully');
+    } catch (err) {
+      logWarning('Addon rebuild notice: ' + err.message);
+    }
+  } else {
+    logSuccess('Native binary addons (SQLite & Argon2id) validated');
+  }
+}
+
+// 4. Cryptographic Environment Secrets Setup (.env)
 function verifyAndGenerateEnv() {
   const envPath = path.join(ROOT_DIR, '.env');
   const envExamplePath = path.join(ROOT_DIR, '.env.example');
@@ -102,7 +144,7 @@ function verifyAndGenerateEnv() {
     return;
   }
 
-  logInfo('Creating production-ready .env with cryptographically strong keys...');
+  logInfo('Generating production-ready .env with cryptographically strong keys...');
   const randomSecret = (len = 64) => crypto.randomBytes(len).toString('hex');
   const randomPin = () => Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -135,14 +177,16 @@ function verifyAndGenerateEnv() {
   }
 
   fs.writeFileSync(envPath, content, 'utf8');
-  logSuccess('Generated fresh .env file with 64-character encryption keys');
+  logSuccess('Generated fresh .env with 64-character encryption keys & recovery PIN');
 }
 
-// 4. Provision Required Directories
+// 5. Provision Required Directories
 function provisionDirectories() {
   const dirs = [
     path.join(ROOT_DIR, 'data'),
     path.join(ROOT_DIR, 'uploads'),
+    path.join(ROOT_DIR, 'uploads', 'biometrics'),
+    path.join(ROOT_DIR, 'uploads', 'projects'),
     path.join(ROOT_DIR, 'uploads', 'temp'),
     path.join(ROOT_DIR, 'workspaces'),
     path.join(ROOT_DIR, 'backups')
@@ -153,12 +197,12 @@ function provisionDirectories() {
       fs.mkdirSync(dir, { recursive: true });
     }
   }
-  logSuccess('Provisioned local directories (data/, uploads/, workspaces/, backups/)');
+  logSuccess('Provisioned storage folders (data/, uploads/, workspaces/, backups/)');
 }
 
-// 5. TypeScript Project Build Verification
+// 6. TypeScript Project Build Verification
 function verifyBuild() {
-  logInfo('Compiling TypeScript and verifying project build...');
+  logInfo('Compiling TypeScript project (npm run build)...');
   try {
     execSync('npm run build', {
       cwd: ROOT_DIR,
@@ -166,11 +210,11 @@ function verifyBuild() {
     });
     logSuccess('TypeScript build compiled cleanly (dist/)');
   } catch (err) {
-    logWarning('TypeScript build warning (development server will compile on the fly)');
+    logWarning('TypeScript compilation warning (dev server will compile on the fly)');
   }
 }
 
-// 6. Check Socket Port Readiness & Kill Lingering Processes
+// 7. Check Socket Port Readiness & Kill Lingering Processes
 function checkPortFree(port = 3000) {
   return new Promise((resolve) => {
     const socket = new net.Socket();
@@ -259,36 +303,40 @@ function waitUntilServerReady(port = 3000, maxAttempts = 60, intervalMs = 250) {
 async function main() {
   printBanner();
 
-  const totalSteps = 6;
+  const totalSteps = 7;
 
-  logStep(1, totalSteps, 'Checking Node.js & System Runtime');
+  logStep(1, totalSteps, 'Checking Node.js Runtime & npm Package Manager');
   verifyNodeRuntime();
   console.log('');
 
-  logStep(2, totalSteps, 'Verifying Project Dependencies');
+  logStep(2, totalSteps, 'Installing Application & Tooling Dependencies');
   verifyAndInstallDependencies();
   console.log('');
 
-  logStep(3, totalSteps, 'Generating Cryptographic Keys & .env Configuration');
+  logStep(3, totalSteps, 'Validating Native Binary Addons (SQLite & Argon2)');
+  verifyNativeAddons();
+  console.log('');
+
+  logStep(4, totalSteps, 'Generating Cryptographic Keys & .env Configuration');
   verifyAndGenerateEnv();
   console.log('');
 
-  logStep(4, totalSteps, 'Provisioning Storage & Database Directories');
+  logStep(5, totalSteps, 'Provisioning Storage & Database Directories');
   provisionDirectories();
   console.log('');
 
-  logStep(5, totalSteps, 'Validating TypeScript Compilation');
+  logStep(6, totalSteps, 'Validating TypeScript Project Compilation');
   verifyBuild();
   console.log('');
 
-  logStep(6, totalSteps, 'Verifying Port & Launching First-Time Experience');
+  logStep(7, totalSteps, 'Checking Port Availability & Starting AegisDB');
   const targetPort = 3000;
   const targetHost = '0.0.0.0';
   const targetMode = 'both';
 
   const isPort3000Free = await checkPortFree(targetPort);
   if (!isPort3000Free) {
-    logInfo(`Port ${targetPort} is occupied. Freeing port for fresh setup...`);
+    logInfo(`Port ${targetPort} is occupied. Releasing port for fresh launch...`);
     freePort(targetPort);
     await new Promise(r => setTimeout(r, 400));
   }

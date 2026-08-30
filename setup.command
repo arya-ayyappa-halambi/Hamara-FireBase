@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  AegisDB 1-Click macOS First-Time Setup (Double-Clickable in Finder)
+#  AegisDB 1-Click macOS First-Time Universal Setup (Double-Clickable in Finder)
 # ─────────────────────────────────────────────────────────────────────────────
 
 cd "$(dirname "$0")" || exit 1
@@ -16,8 +16,10 @@ fi
 
 if ! command -v node &> /dev/null; then
   echo ""
-  echo "🔍 Node.js runtime not found on this Mac."
-  echo "🚀 Attempting automatic installation of Node.js LTS..."
+  echo "============================================================================"
+  echo "  🔍 Node.js runtime not found on this Mac."
+  echo "  🚀 Attempting automatic installation of Node.js LTS..."
+  echo "============================================================================"
   echo ""
 
   if command -v brew &> /dev/null; then
@@ -26,12 +28,13 @@ if ! command -v node &> /dev/null; then
     export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
   else
     echo "🌐 Downloading official Node.js installer from nodejs.org..."
-    TEMP_PKG="/tmp/node-install.pkg"
+    TEMP_PKG="/tmp/node-v20-install.pkg"
     curl -fsSL "https://nodejs.org/dist/v20.18.0/node-v20.18.0.pkg" -o "$TEMP_PKG"
     if [ -f "$TEMP_PKG" ]; then
-      echo "📦 Opening Node.js official installer..."
+      echo "📦 Opening Node.js official installer wizard..."
       open "$TEMP_PKG"
-      echo "👉 Please complete the Node.js installer window that just opened, then press any key here to continue..."
+      echo ""
+      echo "👉 Please complete the Node.js installer wizard on your screen, then press any key here to continue..."
       read -n 1 -s -r
       export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
     fi
@@ -39,7 +42,10 @@ if ! command -v node &> /dev/null; then
 fi
 
 if ! command -v node &> /dev/null; then
-  echo "❌ Node.js is required. Please install it from https://nodejs.org and re-run setup.command."
+  echo ""
+  echo "❌ Node.js is required to run AegisDB."
+  echo "   Please install it from https://nodejs.org and re-run setup.command."
+  echo ""
   read -n 1 -s -r -p "Press any key to close this window..."
   exit 1
 fi

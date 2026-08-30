@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  AegisDB 1-Click Linux / POSIX First-Time Setup
+#  AegisDB 1-Click Linux / POSIX First-Time Universal Setup
 # ─────────────────────────────────────────────────────────────────────────────
 
 cd "$(dirname "$0")" || exit 1
@@ -9,10 +9,10 @@ export PATH="/usr/local/bin:$HOME/.nvm/versions/node/$(ls "$HOME/.nvm/versions/n
 
 if ! command -v node &> /dev/null; then
   echo ""
-  echo "============================================================"
-  echo "  Node.js runtime not found on this Linux machine."
-  echo "  Attempting automatic installation of Node.js LTS..."
-  echo "============================================================"
+  echo "============================================================================"
+  echo "  🔍 Node.js runtime not found on this Linux machine."
+  echo "  🚀 Attempting automatic installation of Node.js LTS..."
+  echo "============================================================================"
   echo ""
 
   if command -v apt-get &> /dev/null; then
@@ -35,7 +35,10 @@ if ! command -v node &> /dev/null; then
 fi
 
 if ! command -v node &> /dev/null; then
-  echo "❌ Node.js is required. Please install Node.js 18+ from https://nodejs.org and re-run ./setup.sh."
+  echo ""
+  echo "❌ Node.js is required to run AegisDB."
+  echo "   Please install Node.js 18+ from https://nodejs.org and re-run ./setup.sh."
+  echo ""
   exit 1
 fi
 
