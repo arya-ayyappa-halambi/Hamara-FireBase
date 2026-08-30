@@ -38,13 +38,34 @@ if (portArgIndex !== -1) {
 function getListeningPidsOnPort(port) {
   try {
     if (process.platform === 'win32') {
-      const output = execSync(`netstat -ano | findstr :${port}`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
       const pids = new Set();
-      output.split('\n').filter(l => l.includes('LISTENING')).forEach(l => {
-        const parts = l.trim().split(/\s+/);
-        const pid = parts[parts.length - 1];
-        if (pid && pid !== '0' && pid !== process.pid.toString()) pids.add(pid);
-      });
+      // Method 1: PowerShell Get-NetTCPConnection (built-in on Windows 10/11)
+      try {
+        const psOut = execSync(
+          `powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"`,
+          { stdio: ['pipe', 'pipe', 'ignore'] }
+        ).toString().trim();
+        if (psOut) {
+          psOut.split(/\r?\n/).forEach(p => {
+            const trimmed = p.trim();
+            if (trimmed && trimmed !== '0' && trimmed !== process.pid.toString()) {
+              pids.add(trimmed);
+            }
+          });
+        }
+      } catch (_) {}
+
+      // Method 2: netstat fallback
+      if (pids.size === 0) {
+        const output = execSync('netstat -ano', { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+        output.split(/\r?\n/).forEach(l => {
+          if (l.includes('LISTENING') && (l.includes(`:${port} `) || l.includes(`:${port}\t`))) {
+            const parts = l.trim().split(/\s+/);
+            const pid = parts[parts.length - 1];
+            if (pid && pid !== '0' && pid !== process.pid.toString()) pids.add(pid);
+          }
+        });
+      }
       return Array.from(pids);
     } else {
       const output = execSync(`lsof -n -iTCP:${port} -sTCP:LISTEN -t`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
@@ -70,8 +91,12 @@ function killPid(pid) {
 
 function killLingeringNodeProcesses() {
   if (process.platform === 'win32') {
+    // Terminate any node / nodemon processes executing server.ts or serve.js
     try {
-      execSync('taskkill /F /IM node.exe /FI "WINDOWTITLE eq AegisDB*"', { stdio: 'ignore' });
+      execSync(
+        `powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe') -and ($_.CommandLine -match 'server.ts' -or $_.CommandLine -match 'serve.js' -or $_.CommandLine -match 'nodemon') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
+        { stdio: ['ignore', 'ignore', 'ignore'] }
+      );
     } catch (_) {}
   } else {
     try {
@@ -147,7 +172,7 @@ async function main() {
   }
 
   console.log('');
-  console.log(`${C.emerald}✅ AegisDB server successfully killed. All ports are freed!${C.reset}\n`);
+  console.log(`${C.emerald}✅ AegisDB server successfully stopped. All ports are freed!${C.reset}\n`);
 
   // On macOS, close any Terminal windows running the AegisDB start.command or serve.js
   if (process.platform === 'darwin') {
