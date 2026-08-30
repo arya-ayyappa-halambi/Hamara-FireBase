@@ -1,15 +1,15 @@
 @echo off
 setlocal EnableDelayedExpansion
 REM ─────────────────────────────────────────────────────────────────────────────
-REM  AegisDB 1-Click Universal Setup (Double-Clickable in Windows File Explorer)
+REM  AegisDB 1-Click Fast Setup (Double-Clickable in Windows File Explorer)
 REM ─────────────────────────────────────────────────────────────────────────────
 
 cd /d "%~dp0"
-title AegisDB First-Time Universal Setup
+title AegisDB 1-Click Fast Universal Setup
 
 echo.
 echo ============================================================================
-echo         [AegisDB] First-Time Universal Device Setup ^& Dependency Installer
+echo         [AegisDB] 1-Click Fast Universal Device Setup ^& Auto-Installer
 echo ============================================================================
 echo.
 
@@ -38,14 +38,14 @@ if %errorlevel% equ 0 (
 
 REM If we reach here, Node.js is NOT installed!
 echo ----------------------------------------------------------------------------
-echo  [1/3] Node.js is NOT installed on this Windows PC.
-echo        Downloading official Node.js 20 LTS installer from nodejs.org...
+echo  [1/3] Node.js runtime not found.
+echo        Auto-downloading ^& installing official Node.js 20 LTS (please wait)...
 echo ----------------------------------------------------------------------------
 echo.
 
 set "MSI_FILE=%TEMP%\node-v20-x64.msi"
 
-powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '  ➜ Downloading Node.js LTS 64-bit installer...'; (New-Object System.Net.WebClient).DownloadFile('https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi', $env:MSI_FILE)"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Write-Host '  ➜ Fetching official Node.js LTS 64-bit package...'; (New-Object System.Net.WebClient).DownloadFile('https://nodejs.org/dist/v20.18.0/node-v20.18.0-x64.msi', $env:MSI_FILE)"
 
 if not exist "%MSI_FILE%" (
     echo.
@@ -56,19 +56,8 @@ if not exist "%MSI_FILE%" (
     exit /b 1
 )
 
-echo.
-echo ============================================================================
-echo   [ACTION REQUIRED]
-echo   The official Node.js Setup Wizard is now opening on your screen.
-echo   👉 Please click: Next -^> Accept -^> Next -^> Next -^> Install -^> Finish
-echo ============================================================================
-echo.
-
-start /wait msiexec.exe /i "%MSI_FILE%"
-
-echo.
-echo   ➜ Refreshing environment variables and verifying installation...
-echo.
+echo   ➜ Performing silent background installation (approx. 5 seconds)...
+msiexec.exe /i "%MSI_FILE%" /qn /norestart
 
 REM Refresh Registry PATH
 for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
@@ -89,8 +78,31 @@ if %errorlevel% equ 0 (
     goto NODE_FOUND
 )
 
+REM If silent install required elevated UAC, launch wizard interactively
 echo.
-echo [ERROR] Node.js installation was not completed or not found.
+echo   ➜ Finalizing installer with standard Setup Wizard...
+start /wait msiexec.exe /i "%MSI_FILE%"
+
+for /f "tokens=2*" %%A in ('reg query "HKLM\System\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
+for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USR_PATH=%%B"
+set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%LOCALAPPDATA%\Programs\nodejs;%APPDATA%\npm;!SYS_PATH!;!USR_PATH!;!PATH!"
+
+if exist "%ProgramFiles%\nodejs\node.exe" (
+    set "NODE_BIN=%ProgramFiles%\nodejs\node.exe"
+    goto NODE_FOUND
+)
+if exist "%ProgramFiles(x86)%\nodejs\node.exe" (
+    set "NODE_BIN=%ProgramFiles(x86)%\nodejs\node.exe"
+    goto NODE_FOUND
+)
+where node >nul 2>nul
+if %errorlevel% equ 0 (
+    set "NODE_BIN=node"
+    goto NODE_FOUND
+)
+
+echo.
+echo [ERROR] Node.js installation was not completed.
 echo Please download and install Node.js from https://nodejs.org and re-run setup.bat.
 echo.
 pause
@@ -104,7 +116,7 @@ echo ---------------------------------------------------------------------------
 echo.
 
 echo ----------------------------------------------------------------------------
-echo  [3/3] Installing all dependencies and launching AegisDB...
+echo  [3/3] Fast-installing dependencies and booting AegisDB...
 echo ----------------------------------------------------------------------------
 echo.
 
