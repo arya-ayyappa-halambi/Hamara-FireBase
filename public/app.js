@@ -12,7 +12,7 @@ window.onerror = function(message, source, lineno, colno, error) {
   document.body?.appendChild(toast);
   setTimeout(() => toast?.remove(), 15000);
 };
-console.log('✅ app.js v15 loaded successfully');
+console.log('✅ app.js v17 loaded successfully');
 
 function escapeHTML(str) {
   if (!str) return '';
@@ -2560,13 +2560,41 @@ function connectGlobalWebSocket() {
             if (typeof loadUserManagement === 'function') loadUserManagement();
           }
         } else if (data.type === 'SERVER_HOST_CONFIG_UPDATED') {
+          const oldMode = promptEndpointConfig.mode;
           if (data.data?.networkIp) promptEndpointConfig.networkIp = data.data.networkIp;
           if (data.data?.serverPort) promptEndpointConfig.port = data.data.serverPort.toString();
           if (data.data?.serverHostingMode) promptEndpointConfig.mode = data.data.serverHostingMode;
           if (data.data?.serverHost) promptEndpointConfig.host = data.data.serverHost;
           if (data.data?.customDomain !== undefined) promptEndpointConfig.customDomain = data.data.customDomain;
           updatePromptUI();
-          const targetInfo = data.data?.newBaseUrl || `Port ${data.data?.serverPort || 3000}`;
+
+          const newMode = data.data?.serverHostingMode;
+          const port = data.data?.serverPort || window.location.port || '3000';
+          const isOnLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+          // If mode switched to localhost-only and client is on an IP → redirect to localhost
+          if (newMode === 'localhost' && !isOnLocalhost) {
+            showToast('🔄 Server switched to Localhost Only. Redirecting...', 'warning');
+            setTimeout(() => window.location.replace(`http://localhost:${port}`), 800);
+            return;
+          }
+          // If mode switched to network-only and client is on localhost → redirect to IP
+          if (newMode === 'network' && isOnLocalhost) {
+            const ip = data.data?.networkIp || promptEndpointConfig.networkIp;
+            if (ip) {
+              showToast('🔄 Server switched to Network Only. Redirecting...', 'warning');
+              setTimeout(() => window.location.replace(`http://${ip}:${port}`), 800);
+              return;
+            }
+          }
+          // If mode changed at all, refresh to sync UI
+          if (newMode && oldMode && newMode !== oldMode) {
+            showToast(`🌐 Server hosting mode changed to ${newMode}. Refreshing...`, 'info');
+            setTimeout(() => window.location.reload(), 800);
+            return;
+          }
+
+          const targetInfo = data.data?.newBaseUrl || `Port ${port}`;
           showToast(`🌐 Server endpoint configuration updated (${targetInfo}). Live prompts synced.`, 'info');
         } else if (data.type === 'ENDPOINT_MIGRATION_SCHEDULED') {
           if (data.data?.migration) {
@@ -2600,7 +2628,7 @@ function connectGlobalWebSocket() {
             if (data.data?.serverHostingMode) promptEndpointConfig.mode = data.data.serverHostingMode;
             if (data.data?.customDomain !== undefined) promptEndpointConfig.customDomain = data.data.customDomain;
             updatePromptUI();
-            triggerClientMigrationRedirect(data.data.newBaseUrl);
+            triggerClientMigrationRedirect(data.data.newBaseUrl, data.data.serverHostingMode);
           }
         } else if (data.type === 'ENDPOINT_MIGRATION_NOTICE') {
           showToast(`🔔 ${data.data?.title || 'Notice'}: ${data.data?.message || ''}`, 'info');
@@ -2785,32 +2813,38 @@ async function initGoogleAuth() {
       }
     }
 
-    // Google Auth Button Visibility
+    // Google Auth Button Visibility & Handler
     const container = document.getElementById('google-auth-container');
-    if (data && data.googleAuthEnabled && data.googleClientId && data.googleClientId.trim().length > 0) {
-      if (container) {
-        container.classList.remove('hidden');
-        container.style.display = 'flex';
-      }
-      
-      const btn = document.getElementById('btn-custom-google-login');
-      if (btn) {
-        btn.onclick = (e) => {
-          e.preventDefault();
-          const redirectUri = window.location.origin;
-          const nonce = Math.random().toString(36).substring(2);
-          const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(data.googleClientId.trim())}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
-          window.location.href = authUrl;
-        };
-      }
-    } else {
-      if (container) {
-        container.classList.add('hidden');
-        container.style.display = 'none';
-      }
+    const btn = document.getElementById('btn-custom-google-login');
+    const clientId = (data?.googleClientId || '157686321493-s99028uh1v2oeamlmuk63rsc2429g2sn.apps.googleusercontent.com').trim();
+
+    if (container) {
+      container.classList.remove('hidden');
+      container.style.display = 'flex';
+    }
+    
+    if (btn) {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const redirectUri = window.location.origin;
+        const nonce = Math.random().toString(36).substring(2);
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
+        window.location.href = authUrl;
+      };
     }
   } catch (err) {
     console.error('Failed to init Auth Config', err);
+    // Fallback click handler if backend config fetch failed
+    const btn = document.getElementById('btn-custom-google-login');
+    if (btn) {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const clientId = '157686321493-s99028uh1v2oeamlmuk63rsc2429g2sn.apps.googleusercontent.com';
+        const redirectUri = window.location.origin;
+        const nonce = Math.random().toString(36).substring(2);
+        window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
+      };
+    }
   }
 }
 
@@ -2824,8 +2858,8 @@ async function handleGoogleCredentialResponse(response) {
     localStorage.setItem('aegis_refresh_token', data.refreshToken);
     localStorage.setItem('aegis_user', JSON.stringify(data.user));
 
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('main-app').classList.remove('hidden');
+    document.getElementById('auth-screen')?.classList.add('hidden');
+    document.getElementById('main-app')?.classList.remove('hidden');
     showToast('Successfully authenticated with Google.', 'success');
     updateUserProfileUI();
     setRoleMode(data.user.isSuperAdmin ? 'superadmin' : 'developer');
@@ -2835,6 +2869,81 @@ async function handleGoogleCredentialResponse(response) {
     showToast(err.message, 'error');
   }
 }
+
+window.executeGoogleLogin = function() {
+  const clientId = '157686321493-s99028uh1v2oeamlmuk63rsc2429g2sn.apps.googleusercontent.com';
+  const redirectUri = window.location.origin;
+  const nonce = Math.random().toString(36).substring(2);
+  window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token id_token&scope=email profile&nonce=${nonce}`;
+};
+
+window.executeDemoAdminLogin = async function() {
+  const inputEmail = document.getElementById('input-email');
+  const inputPassword = document.getElementById('input-password');
+  if (inputEmail) inputEmail.value = 'admin@aegisdb.dev';
+  if (inputPassword) inputPassword.value = 'Admin@123';
+  
+  const tabLogin = document.getElementById('tab-btn-login');
+  if (tabLogin) tabLogin.click();
+
+  const btn = document.getElementById('btn-demo-admin-login');
+  if (btn) btn.disabled = true;
+
+  try {
+    const data = await apiRequest('/api/v1/auth/login', 'POST', { email: 'admin@aegisdb.dev', password: 'Admin@123' });
+    state.accessToken = data.token;
+    state.refreshToken = data.refreshToken;
+    state.user = data.user;
+    localStorage.setItem('aegis_access_token', data.token);
+    localStorage.setItem('aegis_refresh_token', data.refreshToken);
+    localStorage.setItem('aegis_user', JSON.stringify(data.user));
+
+    document.getElementById('auth-screen')?.classList.add('hidden');
+    document.getElementById('main-app')?.classList.remove('hidden');
+    showToast('Signed in as Super Administrator!', 'success');
+    updateUserProfileUI();
+    setRoleMode('superadmin');
+    connectGlobalWebSocket();
+    initGlobalData();
+  } catch (err) {
+    showToast(err.message || 'Login failed', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+window.logout = async function() {
+  try {
+    const refreshToken = localStorage.getItem('aegis_refresh_token') || '';
+    const accessToken = localStorage.getItem('aegis_access_token') || '';
+    if (refreshToken || accessToken) {
+      await fetch('/api/v1/auth/logout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({ refreshToken })
+      });
+    }
+  } catch (_) {}
+  try {
+    if (state.ws) {
+      state.ws.onclose = null;
+      state.ws.onerror = null;
+      state.ws.close();
+      state.ws = null;
+    }
+  } catch (_) {}
+  localStorage.removeItem('aegis_access_token');
+  localStorage.removeItem('aegis_token');
+  localStorage.removeItem('aegis_refresh_token');
+  localStorage.removeItem('aegis_user');
+  state.accessToken = null;
+  state.refreshToken = null;
+  state.user = null;
+  window.location.reload();
+};
 
 // ── Dynamic Host & Port Prompt Configurator ────────────────────────────────────
 
@@ -3541,7 +3650,7 @@ function startScheduledMigrationCountdown(migration) {
       migrationCountdownTimer = null;
       activeScheduledMigration = null;
       if (migration?.newBaseUrl) {
-        triggerClientMigrationRedirect(migration.newBaseUrl);
+        triggerClientMigrationRedirect(migration.newBaseUrl, migration.targetMode);
       }
     }
   };
@@ -3550,30 +3659,44 @@ function startScheduledMigrationCountdown(migration) {
   migrationCountdownTimer = setInterval(updateTimer, 1000);
 }
 
-function computeClientRedirectUrl(newBaseUrl) {
+function computeClientRedirectUrl(newBaseUrl, explicitMode) {
   try {
     const currentHost = window.location.hostname;
     const currentProtocol = window.location.protocol;
-    const parsed = new URL(newBaseUrl);
-    const targetPort = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
+    const parsed = new URL(newBaseUrl, window.location.origin);
+    const targetPort = parsed.port || promptEndpointConfig.port || (window.location.port ? window.location.port : '3000');
+    const targetHost = parsed.hostname;
 
-    // If client is on localhost or 127.0.0.1, keep accessing via localhost with new port
-    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
-      return `${currentProtocol}//${currentHost}:${targetPort}`;
+    // 1. If target mode is explicitly Localhost Only (127.0.0.1 or localhost)
+    if (explicitMode === 'localhost' || targetHost === '127.0.0.1' || targetHost === 'localhost') {
+      return `${currentProtocol}//localhost:${targetPort}`;
     }
-    // If client is on a network IP (e.g. 192.168.31.57), keep that network IP with new port
-    if (currentHost && currentHost !== '0.0.0.0') {
-      return `${currentProtocol}//${currentHost}:${targetPort}`;
+
+    // 2. If target mode is explicitly Network Wi-Fi Only
+    if (explicitMode === 'network') {
+      const netIp = promptEndpointConfig.networkIp || (targetHost !== '0.0.0.0' ? targetHost : '127.0.0.1');
+      return `${currentProtocol}//${netIp}:${targetPort}`;
     }
-    return newBaseUrl;
+
+    // 3. If target is Dual Binding (0.0.0.0 / both)
+    if (explicitMode === 'both' || targetHost === '0.0.0.0') {
+      // If current client is connecting via a LAN IP (e.g. 192.168.31.57), retain LAN IP with new port
+      if (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1' && currentHost !== '0.0.0.0') {
+        return `${currentProtocol}//${currentHost}:${targetPort}`;
+      }
+      return `${currentProtocol}//localhost:${targetPort}`;
+    }
+
+    // 4. Default: Return canonical target URL with explicit port
+    return `${currentProtocol}//${targetHost}:${targetPort}`;
   } catch (_) {
     return newBaseUrl;
   }
 }
 
-function triggerClientMigrationRedirect(newBaseUrl) {
+function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
   if (!newBaseUrl) return;
-  const cleanTargetUrl = computeClientRedirectUrl(newBaseUrl);
+  const cleanTargetUrl = computeClientRedirectUrl(newBaseUrl, explicitMode);
   let targetUrlWithHash = cleanTargetUrl;
 
   // Encode active session handover payload so user is never logged out across ports
@@ -3672,7 +3795,17 @@ function triggerClientMigrationRedirect(newBaseUrl) {
       } catch (_) {}
 
       setTimeout(() => {
-        window.location.replace(targetUrlWithHash);
+        const currentOrigin = window.location.origin;
+        try {
+          const targetOrigin = new URL(cleanTargetUrl).origin;
+          if (currentOrigin === targetOrigin) {
+            window.location.reload();
+          } else {
+            window.location.replace(targetUrlWithHash);
+          }
+        } catch (_) {
+          window.location.replace(targetUrlWithHash);
+        }
       }, 350);
     };
 
@@ -3687,7 +3820,7 @@ function triggerClientMigrationRedirect(newBaseUrl) {
       // Strict network fetch probe with cache-busting
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1500);
+        const timeoutId = setTimeout(() => controller.abort(), 1200);
 
         const probeRes = await fetch(`${cleanTargetUrl}/api/v1/system/status?_t=${Date.now()}`, {
           method: 'GET',
@@ -3702,11 +3835,32 @@ function triggerClientMigrationRedirect(newBaseUrl) {
           return;
         }
       } catch (_) {
-        // Socket still rebinding, retry
+        // If primary target is localhost and failed, or vice versa, probe localhost:port as dual fallback
+        try {
+          const parsed = new URL(cleanTargetUrl);
+          const port = parsed.port || '3000';
+          const fallbackProbeUrl = `http://localhost:${port}`;
+          if (cleanTargetUrl !== fallbackProbeUrl) {
+            const ctrl2 = new AbortController();
+            const to2 = setTimeout(() => ctrl2.abort(), 800);
+            const fbRes = await fetch(`${fallbackProbeUrl}/api/v1/system/status?_t=${Date.now()}`, {
+              method: 'GET',
+              signal: ctrl2.signal,
+              cache: 'no-store'
+            });
+            clearTimeout(to2);
+            if (fbRes.ok || fbRes.status === 200 || fbRes.status === 304 || fbRes.status === 401) {
+              logCmd(`Dual probe matched on localhost:${port}!`, 'success');
+              targetUrlWithHash = targetUrlWithHash.replace(cleanTargetUrl, fallbackProbeUrl);
+              performRedirect();
+              return;
+            }
+          }
+        } catch (_) {}
       }
 
       if (attempts < maxAttempts && !isRedirecting) {
-        setTimeout(probePort, 500);
+        setTimeout(probePort, 350);
       } else if (!isRedirecting) {
         // Fallback
         logCmd(`Proceeding to load endpoint...`, 'warn');
@@ -3714,8 +3868,8 @@ function triggerClientMigrationRedirect(newBaseUrl) {
       }
     };
 
-    // Give server 300ms to initiate socket rebind before first probe
-    setTimeout(probePort, 300);
+    // Give server 250ms to initiate socket rebind before first probe
+    setTimeout(probePort, 250);
   } else {
     window.location.replace(targetUrlWithHash);
   }
@@ -3952,7 +4106,7 @@ function initServerHostingTab() {
         });
         showToast('Server hosting configuration applied successfully!', 'success');
         const newUrl = res.data?.canonicalBaseUrl || computeLiveEndpointUrl(serverHostingMode, serverHost, serverPort, customDomain);
-        triggerClientMigrationRedirect(newUrl);
+        triggerClientMigrationRedirect(newUrl, serverHostingMode);
       } catch (err) {
         btnApply.disabled = false;
         btnApply.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket text-sm"></i> <span>Apply, Save & Switch Immediately</span>';
@@ -4611,20 +4765,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // Check maintenance mode immediately
-  try {
-    await apiRequest('/api/v1/system/status');
-  } catch (err) {
-    // If maintenance mode is active, it will automatically show the overlay and throw here.
-    console.warn('System is under maintenance.');
-  }
-
-  initGoogleAuth();
-  initInactivityTracker();
-  initStorageUpload();
-  initPromptEndpointManager();
-  initServerHostingTab();
-
   // ── 0. Check for Cross-Port Session Handover (Zero-Login Migration) ──────────
   if (window.location.hash && window.location.hash.includes('auth_handover=')) {
     try {
@@ -4639,7 +4779,6 @@ document.addEventListener('DOMContentLoaded', async () => {
           localStorage.setItem('aegis_token', decoded.accessToken);
           localStorage.setItem('aegis_refresh_token', decoded.refreshToken || decoded.accessToken);
           localStorage.setItem('aegis_user', JSON.stringify(decoded.user));
-          // Clean hash without refreshing
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
       }
@@ -4648,12 +4787,74 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // ── 1. Bind Auth Form & Tab UI Listeners Immediately (Synchronous) ───────────
+  const btnTabLogin = document.getElementById('tab-btn-login');
+  const btnTabRegister = document.getElementById('tab-btn-register');
+  const fieldName = document.getElementById('field-name');
+  const fieldTerms = document.getElementById('field-terms-agreement');
+
+  if (btnTabLogin && btnTabRegister) {
+    btnTabLogin.onclick = (e) => {
+      e?.preventDefault();
+      btnTabLogin.className = 'flex-1 text-center py-2 font-medium text-white border-b-2 border-indigo-500 transition';
+      btnTabRegister.className = 'flex-1 text-center py-2 font-medium text-slate-400 border-b-2 border-transparent hover:text-white transition';
+      fieldName?.classList.add('hidden');
+      fieldTerms?.classList.add('hidden');
+    };
+    btnTabRegister.onclick = (e) => {
+      e?.preventDefault();
+      btnTabRegister.className = 'flex-1 text-center py-2 font-medium text-white border-b-2 border-indigo-500 transition';
+      btnTabLogin.className = 'flex-1 text-center py-2 font-medium text-slate-400 border-b-2 border-transparent hover:text-white transition';
+      fieldName?.classList.remove('hidden');
+      fieldTerms?.classList.remove('hidden');
+    };
+  }
+
+  const btnForgotPassword = document.getElementById('btn-forgot-password');
+  if (btnForgotPassword) {
+    btnForgotPassword.onclick = async () => {
+      const email = document.getElementById('input-email')?.value;
+      if (!email) {
+        showToast('Please enter your email address first', 'error');
+        return;
+      }
+      try {
+        const data = await apiRequest('/api/v1/auth/forgot-password', 'POST', { email });
+        showToast(data.message, 'success');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    };
+  }
+
+
+
+  // Threat Alerts Bell Header Dropdown Toggle
+  const btnThreatAlerts = document.getElementById('btn-threat-alerts-header');
+  if (btnThreatAlerts) {
+    btnThreatAlerts.onclick = (e) => {
+      e.stopPropagation();
+      const dropdown = document.getElementById('dropdown-threat-alerts');
+      dropdown?.classList.toggle('hidden');
+    };
+    document.addEventListener('click', () => {
+      document.getElementById('dropdown-threat-alerts')?.classList.add('hidden');
+    });
+  }
+
+  // ── 2. Background Asynchronous Services & Session Bootstrap ──────────────────
+  initGoogleAuth();
+  initInactivityTracker();
+  initStorageUpload();
+  initPromptEndpointManager();
+  initServerHostingTab();
+
   // Check for Google Auth Redirect Hash
   if (window.location.hash.includes('id_token=')) {
     const params = new URLSearchParams(window.location.hash.substring(1));
     const idToken = params.get('id_token');
     if (idToken) {
-      window.location.hash = ''; // Clear hash
+      window.location.hash = '';
       try {
         const data = await apiRequest('/api/v1/auth/google', 'POST', { token: idToken });
         state.accessToken = data.token;
@@ -4663,14 +4864,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Successfully signed in with Google!', 'success');
         
         if (data.requiresPasswordSetup) {
-          document.getElementById('modal-initial-password').classList.remove('hidden');
+          document.getElementById('modal-initial-password')?.classList.remove('hidden');
         }
       } catch (err) {
         showToast(err.message || 'Google login failed', 'error');
       }
     }
   }
-
 
   // Check existing session
   if (state.user && state.accessToken) {
@@ -4681,7 +4881,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     connectGlobalWebSocket();
     initGlobalData();
 
-    // Sync fresh user profile from database to get real-time isFlagged / status
     (async () => {
       try {
         const meRes = await apiRequest('/api/v1/auth/me', 'GET');
@@ -4702,7 +4901,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
     }
 
-    // Check dynamic policy consent
     (async () => {
       try {
         const policy = await apiRequest('/api/v1/policies/current', 'GET');
@@ -4712,7 +4910,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (_) {}
     })();
 
-    // Check active compliance notices
     (async () => {
       try {
         const noticeRes = await apiRequest('/api/v1/auth/active-notice', 'GET');
@@ -4722,83 +4919,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       } catch (_) {}
     })();
   }
-
-  // Threat Alerts Bell Header Dropdown Toggle
-  const btnThreatAlerts = document.getElementById('btn-threat-alerts-header');
-  if (btnThreatAlerts) {
-    btnThreatAlerts.onclick = (e) => {
-      e.stopPropagation();
-      const dropdown = document.getElementById('dropdown-threat-alerts');
-      dropdown?.classList.toggle('hidden');
-    };
-    document.addEventListener('click', () => {
-      document.getElementById('dropdown-threat-alerts')?.classList.add('hidden');
-    });
-  }
-
-  // Auth Tab Switchers
-  const btnTabLogin = document.getElementById('tab-btn-login');
-  const btnTabRegister = document.getElementById('tab-btn-register');
-  const fieldName = document.getElementById('field-name');
-  const fieldTerms = document.getElementById('field-terms-agreement');
-
-  if (btnTabLogin && btnTabRegister) {
-    btnTabLogin.onclick = () => {
-      btnTabLogin.className = 'flex-1 text-center py-2 font-medium text-white border-b-2 border-indigo-500 transition';
-      btnTabRegister.className = 'flex-1 text-center py-2 font-medium text-slate-400 border-b-2 border-transparent hover:text-white transition';
-      fieldName?.classList.add('hidden');
-      fieldTerms?.classList.add('hidden');
-    };
-    btnTabRegister.onclick = () => {
-      btnTabRegister.className = 'flex-1 text-center py-2 font-medium text-white border-b-2 border-indigo-500 transition';
-      btnTabLogin.className = 'flex-1 text-center py-2 font-medium text-slate-400 border-b-2 border-transparent hover:text-white transition';
-      fieldName?.classList.remove('hidden');
-      fieldTerms?.classList.remove('hidden');
-    };
-  }
-
-
-  const btnForgotPassword = document.getElementById('btn-forgot-password');
-  if (btnForgotPassword) {
-    btnForgotPassword.onclick = async () => {
-      const email = document.getElementById('input-email').value;
-      if (!email) {
-        showToast('Please enter your email address first', 'error');
-        return;
-      }
-      try {
-        const data = await apiRequest('/api/v1/auth/forgot-password', 'POST', { email });
-        showToast(data.message, 'success');
-      } catch (err) {
-        showToast(err.message, 'error');
-      }
-    };
-  }
-
-  // 1-Click Demo Admin Login Handler
-  const btnDemoAdmin = document.getElementById('btn-demo-admin-login');
-  if (btnDemoAdmin) {
-    btnDemoAdmin.onclick = () => {
-      const tabLogin = document.getElementById('tab-btn-login');
-      if (tabLogin) tabLogin.click();
-
-      const inputEmail = document.getElementById('input-email');
-      const inputPassword = document.getElementById('input-password');
-      if (inputEmail) inputEmail.value = 'admin@aegisdb.dev';
-      if (inputPassword) inputPassword.value = 'Admin@123';
-
-      const form = document.getElementById('auth-form');
-      if (form) {
-        if (typeof form.requestSubmit === 'function') {
-          form.requestSubmit();
-        } else {
-          document.getElementById('btn-auth-submit')?.click();
-        }
-      }
-    };
-  }
-
-  // Auth Form Submission
   const authForm = document.getElementById('auth-form');
   if (authForm) {
     authForm.onsubmit = async (e) => {
@@ -4885,7 +5005,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Logout Button
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) {
-    btnLogout.onclick = () => { window.logout(); };
+    btnLogout.onclick = () => {
+      if (typeof window.logout === 'function') {
+        window.logout();
+      } else {
+        localStorage.clear();
+        window.location.reload();
+      }
+    };
   }
 
 
@@ -5144,7 +5271,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         showToast('Server hosting configuration applied successfully.', 'success');
         const newUrl = res.data?.canonicalBaseUrl || computeLiveEndpointUrl(serverHostingMode, serverHost, serverPort, customDomain);
-        triggerClientMigrationRedirect(newUrl);
+        triggerClientMigrationRedirect(newUrl, serverHostingMode);
       } catch (err) {
         btnApplySwitchHosting.disabled = false;
         btnApplySwitchHosting.innerHTML = '<i class="fa-solid fa-arrow-right-to-bracket"></i> <span>Apply, Save & Switch Now</span>';
@@ -5679,6 +5806,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
       } catch (err) {
         showToast(err.message, 'error');
+      }
+    };
+  }
+
+  // Mandatory Policy Gate Modal Event Listeners
+  const btnGateAccept = document.getElementById('btn-gate-accept');
+  if (btnGateAccept) {
+    btnGateAccept.onclick = (e) => {
+      e?.preventDefault();
+      if (typeof window.acceptCurrentPolicyGate === 'function') {
+        window.acceptCurrentPolicyGate();
+      }
+    };
+  }
+
+  const btnGateDecline = document.getElementById('btn-gate-decline');
+  if (btnGateDecline) {
+    btnGateDecline.onclick = (e) => {
+      e?.preventDefault();
+      if (typeof window.toggleGateDeclineOptions === 'function') {
+        window.toggleGateDeclineOptions();
       }
     };
   }
@@ -6506,8 +6654,11 @@ window.showMandatoryPolicyGate = async function(version) {
 
     window.switchGateTab('terms');
     const modal = document.getElementById('modal-mandatory-policy-gate');
-    modal?.classList.remove('hidden');
-    modal?.classList.add('flex');
+    if (modal) {
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      modal.style.display = 'flex';
+    }
   } catch (err) {
     console.error('Failed to load gate policies:', err);
   }
@@ -6538,6 +6689,11 @@ window.toggleGateDeclineOptions = function() {
 
 window.acceptCurrentPolicyGate = async function() {
   const version = (document.getElementById('gate-policy-version')?.textContent || 'v1.0.0').trim();
+  const btn = document.getElementById('btn-gate-accept');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i><span>Accepting...</span>';
+  }
   try {
     await apiRequest('/api/v1/auth/accept-policy', 'POST', { version });
     if (state.user) {
@@ -6545,11 +6701,19 @@ window.acceptCurrentPolicyGate = async function() {
       localStorage.setItem('aegis_user', JSON.stringify(state.user));
     }
     const modal = document.getElementById('modal-mandatory-policy-gate');
-    modal?.classList.add('hidden');
-    modal?.classList.remove('flex');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      modal.style.display = 'none';
+    }
     showToast(`Platform policies (${version}) accepted successfully!`, 'success');
   } catch (err) {
     showToast(err.message || 'Failed to accept policy', 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i><span>I Accept & Agree to Updated Policies</span>';
+    }
   }
 };
 

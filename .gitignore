@@ -33,6 +33,8 @@ uploads/projects/  # temporary zip files (deleted after extraction)
 # Phase 4 — SQLite database files
 *.db
 *.db*
+*.sqlite
+*.sqlite*
 test.env
 
 # Local Backups

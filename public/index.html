@@ -498,7 +498,7 @@
 
             <!-- 1-Click Demo Admin Login -->
             <div id="container-demo-admin-login" class="pt-1">
-              <button type="button" id="btn-demo-admin-login" class="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-yellow-500/10 border border-amber-500/30 hover:border-amber-400 text-amber-300 hover:text-amber-200 text-xs font-semibold shadow-lg shadow-amber-500/10 transition active:scale-[0.98] flex items-center justify-between group">
+              <button type="button" id="btn-demo-admin-login" onclick="window.executeDemoAdminLogin && window.executeDemoAdminLogin()" class="w-full py-2.5 px-3.5 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/20 to-yellow-500/10 border border-amber-500/30 hover:border-amber-400 text-amber-300 hover:text-amber-200 text-xs font-semibold shadow-lg shadow-amber-500/10 transition active:scale-[0.98] flex items-center justify-between group cursor-pointer">
                 <div class="flex items-center space-x-2">
                   <span class="flex h-2 w-2 rounded-full bg-amber-400 animate-pulse"></span>
                   <span class="font-bold flex items-center space-x-1.5">
@@ -511,13 +511,13 @@
             </div>
 
             <!-- Dynamic Google Auth Container -->
-            <div id="google-auth-container" class="hidden flex flex-col w-full items-center space-y-4 pt-2">
+            <div id="google-auth-container" class="flex flex-col w-full items-center space-y-4 pt-2">
               <div class="relative flex w-full items-center">
                 <div class="flex-grow border-t border-white/10"></div>
                 <span class="flex-shrink mx-3 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">Or</span>
                 <div class="flex-grow border-t border-white/10"></div>
               </div>
-              <button id="btn-custom-google-login" type="button" class="w-full flex items-center justify-center space-x-3 px-4 py-3 rounded-xl bg-white hover:bg-gray-100 text-gray-900 text-sm font-semibold shadow transition active:scale-95">
+              <button id="btn-custom-google-login" onclick="window.executeGoogleLogin && window.executeGoogleLogin()" type="button" class="w-full flex items-center justify-center space-x-3 px-4 py-3 rounded-xl bg-white hover:bg-gray-100 text-gray-900 text-sm font-semibold shadow transition active:scale-95 cursor-pointer">
                 <svg width="18" height="18" viewBox="0 0 48 48">
                   <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.7 17.74 9.5 24 9.5z"></path>
                   <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
@@ -3908,7 +3908,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   </div>
 
   <!-- Toast Notification Container -->
-  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col space-y-3 pointer-events-none"></div>
+  <div id="toast-container" class="fixed bottom-6 right-6 z-[999999] flex flex-col space-y-3 pointer-events-none"></div>
 
   <!-- TOTP MFA Setup Modal -->
   <div id="modal-mfa-setup" class="fixed inset-0 z-50 hidden flex items-center justify-center p-6 bg-slate-950/80 backdrop-blur-md">
@@ -4486,9 +4486,9 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       </p>
 
       <div class="flex border-b border-white/10 space-x-4">
-        <button type="button" onclick="switchGateTab('terms')" id="btn-gate-tab-terms" class="py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400">Terms & Conditions</button>
-        <button type="button" onclick="switchGateTab('security')" id="btn-gate-tab-security" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Security Policy</button>
-        <button type="button" onclick="switchGateTab('backup')" id="btn-gate-tab-backup" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Backup & Retention</button>
+        <button type="button" onclick="window.switchGateTab && window.switchGateTab('terms')" id="btn-gate-tab-terms" class="py-2 text-xs font-semibold text-amber-400 border-b-2 border-amber-400">Terms & Conditions</button>
+        <button type="button" onclick="window.switchGateTab && window.switchGateTab('security')" id="btn-gate-tab-security" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Security Policy</button>
+        <button type="button" onclick="window.switchGateTab && window.switchGateTab('backup')" id="btn-gate-tab-backup" class="py-2 text-xs font-semibold text-slate-400 border-b-2 border-transparent hover:text-white">Backup & Retention</button>
       </div>
 
       <div class="flex-1 overflow-y-auto custom-scrollbar p-4 bg-slate-950/60 rounded-xl border border-white/5 text-xs text-slate-300 space-y-3 leading-relaxed">
@@ -4500,23 +4500,23 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       <div id="gate-decline-options" class="hidden p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-3">
         <p class="text-xs text-rose-300 font-semibold">You have chosen to decline the updated platform policies. Declining prevents access to AegisDB services. Please select your preferred next step:</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); downloadMyDataExport()" class="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition">
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.downloadMyDataExport && window.downloadMyDataExport()" class="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition">
             <i class="fa-solid fa-download mr-1"></i> Export Data Bundle
           </button>
-          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); initiateAccountDeletionFromGate()" class="px-3 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/30 text-xs font-semibold transition">
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.initiateAccountDeletionFromGate && window.initiateAccountDeletionFromGate()" class="px-3 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/30 text-xs font-semibold transition">
             <i class="fa-solid fa-trash mr-1"></i> Delete Account (7d)
           </button>
-          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); logout()" class="px-3 py-2 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-xs font-semibold transition">
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.logout && window.logout()" class="px-3 py-2 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-xs font-semibold transition">
             <i class="fa-solid fa-right-from-bracket mr-1"></i> Sign Out
           </button>
         </div>
       </div>
 
       <div class="pt-3 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <button type="button" id="btn-gate-decline" onclick="toggleGateDeclineOptions()" class="text-xs text-slate-400 hover:text-rose-400 underline transition">
+        <button type="button" id="btn-gate-decline" onclick="window.toggleGateDeclineOptions && window.toggleGateDeclineOptions()" class="text-xs text-slate-400 hover:text-rose-400 underline transition">
           I Decline These Terms
         </button>
-        <button type="button" id="btn-gate-accept" onclick="acceptCurrentPolicyGate()" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg transition active:scale-95 flex items-center justify-center space-x-2">
+        <button type="button" id="btn-gate-accept" onclick="window.acceptCurrentPolicyGate && window.acceptCurrentPolicyGate()" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-lg transition active:scale-95 flex items-center justify-center space-x-2">
           <i class="fa-solid fa-check"></i>
           <span>I Accept & Agree to Updated Policies</span>
         </button>

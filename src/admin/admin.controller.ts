@@ -144,11 +144,12 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     const networkIp = endpointMigrationScheduler.getNetworkIp();
     const newBaseUrl = endpointMigrationScheduler.computeBaseUrl(serverHostingMode, serverHost, serverPort, customDomain);
 
-    // Rebind server socket if host or port has changed
+    // Rebind server socket if host, port, or mode has changed
     const portChanged = serverPort !== Number(current.serverPort || 3000);
     const hostChanged = serverHost !== (current.serverHost || '0.0.0.0');
+    const modeChanged = serverHostingMode !== (current.serverHostingMode || 'both');
 
-    if (portChanged || hostChanged) {
+    if (portChanged || hostChanged || modeChanged) {
       // Broadcast live migration redirect event to all connected clients across all tabs
       wsService.broadcast('ENDPOINT_MIGRATION_EXECUTED', {
         serverHost,
@@ -159,12 +160,18 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
         networkIp
       });
 
-      try {
-        console.log(`[Admin] Rebinding server live socket to ${serverHost}:${serverPort}...`);
-        const { rebindServer } = await import('../server');
-        await rebindServer(serverPort, serverHost);
-      } catch (err: any) {
-        console.error('[Admin] Rebind server failed:', err.message);
+      const currentBindAddr = (current.serverHost === '127.0.0.1' || current.serverHost === 'localhost' || current.serverHostingMode === 'localhost') ? '127.0.0.1' : '0.0.0.0';
+      const effectiveHost = (serverHostingMode === 'localhost' || serverHost === '127.0.0.1' || serverHost === 'localhost') ? '127.0.0.1' : serverHost;
+      const newBindAddr = (effectiveHost === '127.0.0.1' || effectiveHost === 'localhost') ? '127.0.0.1' : '0.0.0.0';
+
+      if (portChanged || currentBindAddr !== newBindAddr) {
+        try {
+          console.log(`[Admin] Rebinding server live socket to ${effectiveHost}:${serverPort}...`);
+          const { rebindServer } = await import('../server');
+          await rebindServer(serverPort, effectiveHost);
+        } catch (err: any) {
+          console.error('[Admin] Rebind server failed:', err.message);
+        }
       }
     } else {
       // Broadcast real-time config update over WebSocket

@@ -556,6 +556,19 @@ AegisDB features a built-in, Super Admin-exclusive **Network & Server Hosting Co
 - **Automatic Validation**: Validates candidate port numbers between `1` and `65535`.
 - **Permission Guard**: Disallows non-root processes from binding to privileged system ports (< 1024 like `80`, `443`, `1000`) on macOS and Linux, preventing silent connection drops and network lockouts. Valid unprivileged ports (e.g. `3000`, `4000`, `8080`, `9000`) are recommended.
 
+### 🔄 8. Bidirectional Host-Mode Switching (Dual ⇄ Localhost ⇄ Wi-Fi Network)
+- **Mode Change Detection**: The backend (`PATCH /api/v1/admin/platform-settings`) automatically detects changes to `serverHostingMode` even when the port remains unchanged, broadcasting `ENDPOINT_MIGRATION_EXECUTED` across all active WebSocket connections.
+- **Smart Same-Port Reload & Cross-Host Routing**:
+  - When switching from **Dual (`0.0.0.0`)** to **Localhost Only (`127.0.0.1`)**, clients connected via LAN IP (`192.168.x.x`) are automatically redirected to `http://localhost:<port>`, while clients already on `localhost` receive an immediate refresh.
+  - When switching from **Localhost Only** to **Wi-Fi Network Only**, clients on `localhost` are dynamically routed to the active LAN IP (`http://192.168.x.x:<port>`).
+  - When remaining on the same port, the migration pipeline executes a smart `window.location.reload()` to cleanly synchronize client state without triggering invalid browser no-ops.
+- **Real-Time Client Background Synchronization**: The WebSocket `SERVER_HOST_CONFIG_UPDATED` listener synchronizes non-migrated secondary browser tabs and remote devices on the local network in real-time.
+
+### 📜 9. Mandatory Policy Consent Gate & GDPR Governance
+- **Zero-Bypass Policy Enforcement**: When updated terms (e.g. `v1.1.0`) are rolled out by Super Admins, all users encounter a blocking, glassmorphic Policy Gate Modal upon sign-in.
+- **Cross-Browser Sanitization**: Enforces strict `.trim()` normalization on policy version strings to eliminate `400 Bad Request` errors caused by trailing whitespace on Safari.
+- **Full Decline Suite**: If users choose to decline updated terms, they can download an instant GDPR Article 20 JSON data export bundle, schedule 7-day account deletion, or cleanly sign out with automated server-side token revocation (`POST /api/v1/auth/logout`).
+
 ---
 
 ## 12. Super Admin Console & Telemetry
