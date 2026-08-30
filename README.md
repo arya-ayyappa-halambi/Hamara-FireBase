@@ -56,9 +56,17 @@ AegisDB includes a built-in pre-flight auto-bootstrapper. On a freshly cloned re
 2. Generates a production-ready `.env` file populated with strong 64-character cryptographic keys (`JWT_SECRET`, `ENCRYPTION_KEY`, `EMAIL_HASH_PEPPER`, `RECOVERY_PIN`).
 3. Creates all required database and asset storage directories (`data/`, `uploads/`, `workspaces/`, `backups/`).
 
+### 🛠️ 1-Click Universal First-Time Setup (New Machines & Fresh Clones)
+
+When setting up AegisDB on a brand-new computer for the first time, run the dedicated setup launcher for your operating system. It automatically verifies/installs the Node.js LTS runtime if missing, installs all dependencies (`npm install`), creates strong 64-character `.env` secrets, initializes storage, compiles TypeScript, and opens the **Server Hosting & Network Center**:
+
+- **🍎 macOS**: Double-click **`setup.command`** in Finder (or run `./setup.command`).
+- **🪟 Windows**: Double-click **`setup.bat`** in File Explorer.
+- **🐧 Linux & CLI**: Run `./setup.sh` or `npm run setup`.
+
 ---
 
-### 🚀 Universal 1-Click Start Launchers
+### 🚀 Universal 1-Click Start Launchers (Daily Usage)
 
 #### 🍎 macOS (1-Click Finder Execution)
 Double-click **`start.command`** in your project folder, or run:

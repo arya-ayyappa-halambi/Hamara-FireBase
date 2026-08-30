@@ -165,13 +165,15 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
       const newBindAddr = (effectiveHost === '127.0.0.1' || effectiveHost === 'localhost') ? '127.0.0.1' : '0.0.0.0';
 
       if (portChanged || currentBindAddr !== newBindAddr) {
-        try {
-          console.log(`[Admin] Rebinding server live socket to ${effectiveHost}:${serverPort}...`);
-          const { rebindServer } = await import('../server');
-          await rebindServer(serverPort, effectiveHost);
-        } catch (err: any) {
-          console.error('[Admin] Rebind server failed:', err.message);
-        }
+        setImmediate(async () => {
+          try {
+            console.log(`[Admin] Rebinding server live socket to ${effectiveHost}:${serverPort}...`);
+            const { rebindServer } = await import('../server');
+            await rebindServer(serverPort, effectiveHost);
+          } catch (err: any) {
+            console.error('[Admin] Rebind server failed:', err.message);
+          }
+        });
       }
     } else {
       // Broadcast real-time config update over WebSocket

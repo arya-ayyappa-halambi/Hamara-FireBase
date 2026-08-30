@@ -211,20 +211,27 @@ export function rebindServer(newPort: number, newHost: string = '0.0.0.0'): Prom
       return resolve();
     }
 
-    const performListen = () => {
-      const server = http.createServer(currentApp!);
-      currentServer = server;
+    const oldServer = currentServer;
+    const newServer = http.createServer(currentApp!);
+    currentServer = newServer;
 
-      server.on('error', (err: any) => {
-        console.error(`❌ [Server] Failed to bind to port ${newPort} on ${hostToBind}:`, err.message);
-        reject(err);
-      });
+    newServer.on('error', (err: any) => {
+      console.error(`❌ [Server] Failed to bind to port ${newPort} on ${hostToBind}:`, err.message);
+      if (oldServer) currentServer = oldServer;
+      reject(err);
+    });
 
-      server.listen(newPort, hostToBind, () => {
+    const startListen = () => {
+      newServer.listen(newPort, hostToBind, () => {
         activePort = newPort;
         activeHost = newHost;
         process.env.PORT = newPort.toString();
         process.env.HOST = newHost;
+
+        try {
+          const db = getDb();
+          db.prepare(`UPDATE platform_settings SET serverPort = ?, serverHost = ? WHERE id = 'default'`).run(newPort, newHost);
+        } catch (_) {}
 
         const interfaces = os.networkInterfaces();
         let netIp = '127.0.0.1';
@@ -250,27 +257,28 @@ export function rebindServer(newPort: number, newHost: string = '0.0.0.0'): Prom
         console.log('└────────────────────────────────────────────────────────────┘');
         console.log('');
 
-        wsService.init(server);
+        wsService.init(newServer);
+
+        // Gracefully close old server after new server is active
+        if (oldServer && oldServer.listening && oldServer !== newServer) {
+          try {
+            oldServer.close((err) => {
+              if (err) console.warn('[Server] Notice during old socket close:', err.message);
+            });
+          } catch (_) {}
+        }
+
         resolve();
       });
     };
 
-    if (currentServer && currentServer.listening) {
-      console.log(`[Server] Closing existing socket on port ${activePort} for rebind to ${newPort}...`);
-      try {
-        if (typeof (currentServer as any).closeAllConnections === 'function') {
-          (currentServer as any).closeAllConnections();
-        } else if (typeof (currentServer as any).closeIdleConnections === 'function') {
-          (currentServer as any).closeIdleConnections();
-        }
-      } catch (_) {}
-
-      currentServer.close((err) => {
-        if (err) console.warn('[Server] Notice during socket close:', err.message);
-        performListen();
+    // If binding on same port (only host changed), close old socket first to avoid EADDRINUSE
+    if (oldServer && oldServer.listening && activePort === newPort) {
+      oldServer.close(() => {
+        startListen();
       });
     } else {
-      performListen();
+      startListen();
     }
   });
 }
