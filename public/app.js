@@ -2643,7 +2643,16 @@ function connectGlobalWebSocket() {
           const portEl = document.getElementById('overlay-stopped-port-badge');
           if (msgEl) msgEl.textContent = `The server process has been safely shut down by ${stoppedBy} and Port ${port} is now released.`;
           if (portEl) portEl.textContent = `Port ${port}`;
-          if (typeof window.showModal === 'function') window.showModal('overlay-server-stopped');
+          if (typeof window.showModal === 'function') {
+            window.showModal('overlay-server-stopped');
+          } else {
+            const ov = document.getElementById('overlay-server-stopped');
+            if (ov) {
+              ov.classList.remove('hidden');
+              ov.classList.add('flex');
+              ov.style.setProperty('display', 'flex', 'important');
+            }
+          }
           showToast(`🛑 Server on port ${port} was stopped by ${stoppedBy}.`, 'error');
         }
       } catch (_) {}
