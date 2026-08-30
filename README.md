@@ -569,6 +569,12 @@ AegisDB features a built-in, Super Admin-exclusive **Network & Server Hosting Co
 - **Cross-Browser Sanitization**: Enforces strict `.trim()` normalization on policy version strings to eliminate `400 Bad Request` errors caused by trailing whitespace on Safari.
 - **Full Decline Suite**: If users choose to decline updated terms, they can download an instant GDPR Article 20 JSON data export bundle, schedule 7-day account deletion, or cleanly sign out with automated server-side token revocation (`POST /api/v1/auth/logout`).
 
+### 📡 10. Accurate Dual-Stage Port Scanner & Migration Port Reservation
+- **Dual-Stage Probing Engine**: Combines a real-time TCP connection handshake probe (`127.0.0.1`, `::1`, `localhost`) with multi-interface bind tests (`0.0.0.0`, `127.0.0.1`). Eliminates macOS IPv6 bypass false negatives, accurately detecting occupied ports (e.g. port `4000`).
+- **Scheduled Migration Reservation (`scheduled_reserved`)**: Ports booked for pending future migrations in SQLite are automatically reserved with amber status badges, preventing double-booking or port conflicts.
+- **Real-Time Custom Port Validation**: Typing any port into the interface provides instant live conflict feedback (`✓ Free & Ready`, `⚠️ In use by another process`, `⏳ Reserved for Scheduled Migration`, `✓ Active AegisDB Server`).
+- **Pre-Switch Conflict Gate**: Displays an interactive confirmation warning if an administrator attempts to immediately switch or schedule migration to an in-use or reserved port.
+
 ---
 
 ## 12. Super Admin Console & Telemetry

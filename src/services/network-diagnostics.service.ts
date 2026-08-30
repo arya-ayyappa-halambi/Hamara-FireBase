@@ -1,11 +1,13 @@
 import * as net from 'net';
 import * as os from 'os';
+import { getDb } from '../db/sqlite.connection';
 
 export interface PortDiagnosticResult {
   port: number;
-  status: 'active_aegis' | 'free' | 'occupied';
+  status: 'active_aegis' | 'free' | 'occupied' | 'scheduled_reserved' | 'privileged';
   label: string;
   available: boolean;
+  reason?: string;
 }
 
 export interface NetworkInterfaceInfo {
@@ -21,37 +23,113 @@ export interface NetworkDiagnosticsReport {
   detectedNetworkIp: string;
   interfaces: NetworkInterfaceInfo[];
   candidatePorts: PortDiagnosticResult[];
+  pendingMigrations: any[];
 }
 
 export class NetworkDiagnosticsService {
   /**
    * Probe whether a specific port is free to bind on the given host.
+   * Performs a dual-stage probe:
+   * 1. Active TCP Connect Probe on loopback & IPv6 to detect answering processes.
+   * 2. Multi-Host Bind Probe (0.0.0.0 & 127.0.0.1) to detect active socket listeners.
+   * 3. Pending Migration Reservation check in SQLite.
    */
-  public async checkPortAvailability(port: number, host: string = '0.0.0.0'): Promise<{ available: boolean; reason?: string }> {
+  public async checkPortAvailability(port: number, host: string = '0.0.0.0'): Promise<{ available: boolean; status: 'active_aegis' | 'free' | 'occupied' | 'scheduled_reserved' | 'privileged'; reason: string }> {
     if (isNaN(port) || port < 1 || port > 65535) {
-      return { available: false, reason: 'Invalid port number (must be between 1 and 65535)' };
+      return { available: false, status: 'occupied', reason: 'Invalid port number (must be between 1 and 65535)' };
     }
 
-    return new Promise((resolve) => {
-      const server = net.createServer();
-      server.unref();
+    if (port < 1024 && process.platform !== 'win32' && process.getuid && process.getuid() !== 0) {
+      return { available: false, status: 'privileged', reason: `Port ${port} is a privileged system port (< 1024) requiring root/sudo` };
+    }
 
-      server.on('error', (err: any) => {
-        if (err.code === 'EADDRINUSE') {
-          resolve({ available: false, reason: `Port ${port} is already in use by another process` });
-        } else if (err.code === 'EACCES') {
-          resolve({ available: false, reason: `Port ${port} requires elevated/root privileges` });
-        } else {
-          resolve({ available: false, reason: err.message || 'Port binding error' });
-        }
+    // Check if the port is currently reserved by a pending scheduled migration
+    try {
+      const db = getDb();
+      const pendingMigration = db.prepare("SELECT * FROM scheduled_endpoint_migrations WHERE status = 'pending' AND targetPort = ?").get(port) as any;
+      if (pendingMigration) {
+        return {
+          available: false,
+          status: 'scheduled_reserved',
+          reason: `Port ${port} is reserved for scheduled migration at ${new Date(pendingMigration.scheduledAt).toLocaleTimeString()}`
+        };
+      }
+    } catch (_) {}
+
+    // Stage 1: Active TCP Connection Probe (detects active listening services immediately)
+    const connectProbe = (targetHost: string): Promise<boolean> => {
+      return new Promise((resolve) => {
+        const socket = new net.Socket();
+        socket.setTimeout(200);
+        socket.on('connect', () => {
+          socket.destroy();
+          resolve(true); // Connected = Service is active on this port!
+        });
+        socket.on('timeout', () => {
+          socket.destroy();
+          resolve(false);
+        });
+        socket.on('error', () => {
+          socket.destroy();
+          resolve(false); // ECONNREFUSED = No active listener answering
+        });
+        socket.connect(port, targetHost);
       });
+    };
 
-      server.listen({ port, host: host === '0.0.0.0' ? undefined : host }, () => {
-        server.close(() => {
-          resolve({ available: true, reason: `Port ${port} is free and ready to bind` });
+    const isAnswering = await Promise.race([
+      connectProbe('127.0.0.1'),
+      connectProbe('::1'),
+      connectProbe('localhost')
+    ]);
+
+    if (isAnswering) {
+      return {
+        available: false,
+        status: 'occupied',
+        reason: `Port ${port} is currently in use by an active application or service`
+      };
+    }
+
+    // Stage 2: Multi-Host Server Bind Probe (detects exclusive bindings across interfaces)
+    const bindProbe = (targetHost: string): Promise<{ free: boolean; err?: string }> => {
+      return new Promise((resolve) => {
+        const server = net.createServer();
+        server.unref();
+        server.on('error', (err: any) => {
+          resolve({ free: false, err: err.code || err.message });
+        });
+        server.listen(port, targetHost, () => {
+          server.close(() => resolve({ free: true }));
         });
       });
-    });
+    };
+
+    // Test binding on 0.0.0.0 (all interfaces)
+    const b0 = await bindProbe('0.0.0.0');
+    if (!b0.free) {
+      return { available: false, status: 'occupied', reason: `Port ${port} is already in use (${b0.err})` };
+    }
+
+    // Test binding on 127.0.0.1 (loopback interface)
+    const b1 = await bindProbe('127.0.0.1');
+    if (!b1.free) {
+      return { available: false, status: 'occupied', reason: `Port ${port} is already in use on localhost (${b1.err})` };
+    }
+
+    // Test binding on specific host if custom
+    if (host && host !== '0.0.0.0' && host !== '127.0.0.1' && host !== 'localhost') {
+      const bHost = await bindProbe(host);
+      if (!bHost.free) {
+        return { available: false, status: 'occupied', reason: `Port ${port} is already in use on ${host} (${bHost.err})` };
+      }
+    }
+
+    return {
+      available: true,
+      status: 'free',
+      reason: `Port ${port} is free and ready to bind`
+    };
   }
 
   /**
@@ -62,6 +140,17 @@ export class NetworkDiagnosticsService {
     if (!candidatePortList.includes(currentPort)) {
       candidatePortList.unshift(currentPort);
     }
+
+    let pendingMigrations: any[] = [];
+    try {
+      const db = getDb();
+      pendingMigrations = db.prepare("SELECT * FROM scheduled_endpoint_migrations WHERE status = 'pending'").all() as any[];
+      for (const pm of pendingMigrations) {
+        if (pm.targetPort && !candidatePortList.includes(pm.targetPort)) {
+          candidatePortList.push(pm.targetPort);
+        }
+      }
+    } catch (_) {}
 
     // Detect Interfaces
     const interfaces: NetworkInterfaceInfo[] = [];
@@ -102,6 +191,9 @@ export class NetworkDiagnosticsService {
       }
     }
 
+    // Sort candidate ports numerically
+    candidatePortList.sort((a, b) => a - b);
+
     // Probe candidate ports concurrently
     const candidatePorts: PortDiagnosticResult[] = await Promise.all(
       candidatePortList.map(async (p) => {
@@ -110,26 +202,28 @@ export class NetworkDiagnosticsService {
             port: p,
             status: 'active_aegis',
             label: 'Active AegisDB Server',
-            available: true
+            available: true,
+            reason: `Port ${p} is the currently running active AegisDB server`
           };
         }
 
         const res = await this.checkPortAvailability(p, '0.0.0.0');
-        if (res.available) {
-          return {
-            port: p,
-            status: 'free',
-            label: 'Free & Available',
-            available: true
-          };
-        } else {
-          return {
-            port: p,
-            status: 'occupied',
-            label: res.reason || 'Occupied / In Use',
-            available: false
-          };
+        let label = 'Free & Available';
+        if (res.status === 'scheduled_reserved') {
+          label = 'Reserved for Scheduled Migration';
+        } else if (res.status === 'occupied') {
+          label = res.reason || 'Occupied / In Use';
+        } else if (res.status === 'privileged') {
+          label = 'Privileged System Port (< 1024)';
         }
+
+        return {
+          port: p,
+          status: res.status,
+          label,
+          available: res.available,
+          reason: res.reason
+        };
       })
     );
 
@@ -138,7 +232,8 @@ export class NetworkDiagnosticsService {
       currentHost,
       detectedNetworkIp,
       interfaces,
-      candidatePorts
+      candidatePorts,
+      pendingMigrations
     };
   }
 }

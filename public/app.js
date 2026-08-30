@@ -4095,6 +4095,16 @@ function initServerHostingTab() {
       const serverPort = parseInt(document.getElementById('hosttab-input-port')?.value || '3000', 10);
       const customDomain = document.getElementById('hosttab-input-custom-domain')?.value || '';
 
+      // Verify port availability live before executing switch
+      try {
+        const checkRes = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: serverPort, host: serverHost });
+        if (checkRes && !checkRes.available && checkRes.status !== 'active_aegis') {
+          const reasonText = checkRes.status === 'scheduled_reserved' ? 'is already reserved for a pending scheduled migration' : (checkRes.reason || 'appears to be occupied by another application');
+          const confirmProceed = confirm(`⚠️ Port Conflict Warning:\n\nPort ${serverPort} ${reasonText}.\n\nBinding to an occupied or reserved port may cause server socket collision. Do you still want to proceed with the immediate switch?`);
+          if (!confirmProceed) return;
+        }
+      } catch (_) {}
+
       try {
         btnApply.disabled = true;
         btnApply.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying...';
@@ -4381,12 +4391,21 @@ async function checkCustomPortLive(port, host = '0.0.0.0') {
 
   try {
     const res = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: p, host });
-    if (res?.available) {
+    if (res?.status === 'active_aegis') {
+      badge.className = 'text-[10px] font-mono text-emerald-400 font-semibold';
+      badge.textContent = `✓ Port ${p} is Current Active Server`;
+    } else if (res?.status === 'scheduled_reserved') {
+      badge.className = 'text-[10px] font-mono text-amber-400 font-semibold';
+      badge.textContent = `⏳ Port ${p} is Reserved for Scheduled Migration`;
+    } else if (res?.status === 'privileged') {
+      badge.className = 'text-[10px] font-mono text-amber-400 font-semibold';
+      badge.textContent = `⚠️ Port ${p} is Privileged (< 1024)`;
+    } else if (res?.available || res?.status === 'free') {
       badge.className = 'text-[10px] font-mono text-emerald-400 font-semibold';
       badge.textContent = `✓ Port ${p} is Free & Ready`;
     } else {
       badge.className = 'text-[10px] font-mono text-rose-400 font-semibold';
-      badge.textContent = `⚠️ Port ${p} in use / conflict`;
+      badge.textContent = `⚠️ Port ${p} in use by another process`;
     }
   } catch (err) {
     badge.className = 'text-[10px] font-mono text-amber-400 font-semibold';
@@ -4421,6 +4440,10 @@ async function loadPortDiagnostics() {
         if (cp.status === 'active_aegis') {
           btn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-2 transition cursor-default shadow';
           btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>${cp.port}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 uppercase font-semibold">Active Server</span>`;
+        } else if (cp.status === 'scheduled_reserved') {
+          btn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center space-x-2 transition cursor-default shadow';
+          btn.title = cp.reason || 'Reserved for pending scheduled migration';
+          btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span><span>${cp.port}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 uppercase font-semibold">Scheduled</span>`;
         } else if (cp.status === 'free') {
           btn.className = 'btn-scanned-port-chip px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-white/5 hover:bg-emerald-500/20 text-slate-200 hover:text-emerald-300 border border-white/10 hover:border-emerald-500/30 transition flex items-center space-x-2 cursor-pointer shadow-sm hover:scale-105 active:scale-95';
           btn.setAttribute('data-port', cp.port);
@@ -4436,10 +4459,23 @@ async function loadPortDiagnostics() {
           };
         } else {
           btn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-medium bg-rose-500/10 text-rose-300/70 border border-rose-500/20 opacity-75 cursor-not-allowed flex items-center space-x-2';
-          btn.title = cp.label || 'Occupied / In Use by another application';
+          btn.title = cp.reason || cp.label || 'Occupied / In Use by another application';
           btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-rose-500"></span><span>${cp.port}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 uppercase font-semibold">In Use</span>`;
         }
         portsGrid.appendChild(btn);
+      });
+
+      // Update preset buttons dynamically
+      const activePort = res.currentPort || promptEndpointConfig.port || 3000;
+      document.querySelectorAll('.btn-port-preset').forEach((presetBtn) => {
+        const pVal = parseInt(presetBtn.getAttribute('data-port') || '0', 10);
+        if (pVal === Number(activePort)) {
+          presetBtn.textContent = `${pVal} (Active)`;
+          presetBtn.className = 'btn-port-preset px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 transition';
+        } else {
+          presetBtn.textContent = `${pVal}`;
+          presetBtn.className = 'btn-port-preset px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition';
+        }
       });
     }
 
@@ -5260,6 +5296,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       const serverHost = document.getElementById('setting-server-host')?.value || '0.0.0.0';
       const serverPort = parseInt(document.getElementById('setting-server-port')?.value || '3000', 10);
       const customDomain = document.getElementById('setting-custom-domain')?.value || '';
+
+      // Verify port availability live before executing switch
+      try {
+        const checkRes = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: serverPort, host: serverHost });
+        if (checkRes && !checkRes.available && checkRes.status !== 'active_aegis') {
+          const reasonText = checkRes.status === 'scheduled_reserved' ? 'is already reserved for a pending scheduled migration' : (checkRes.reason || 'appears to be occupied by another application');
+          const confirmProceed = confirm(`⚠️ Port Conflict Warning:\n\nPort ${serverPort} ${reasonText}.\n\nBinding to an occupied or reserved port may cause server socket collision. Do you still want to proceed with the immediate switch?`);
+          if (!confirmProceed) return;
+        }
+      } catch (_) {}
+
       try {
         btnApplySwitchHosting.disabled = true;
         btnApplySwitchHosting.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Applying...';
@@ -5337,6 +5384,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         showToast('Please select a scheduled execution date and time.', 'error');
         return;
       }
+
+      // Check port availability before scheduling
+      try {
+        const checkRes = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: targetPort, host: targetHost });
+        if (checkRes && !checkRes.available && checkRes.status !== 'active_aegis') {
+          const reasonText = checkRes.status === 'scheduled_reserved' ? 'is already reserved for another pending scheduled migration' : (checkRes.reason || 'appears to be occupied by an active process');
+          const confirmProceed = confirm(`⚠️ Port Conflict Notice:\n\nTarget Port ${targetPort} ${reasonText}.\n\nDo you still want to schedule this endpoint migration?`);
+          if (!confirmProceed) return;
+        }
+      } catch (_) {}
 
       const scheduledAt = new Date(dtVal).toISOString();
       try {

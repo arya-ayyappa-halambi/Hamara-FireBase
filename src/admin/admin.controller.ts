@@ -653,6 +653,23 @@ export async function checkSinglePort(req: Request, res: Response, next: NextFun
     const portNum = Number(port);
     const hostStr = host || '0.0.0.0';
 
+    const db = getDb();
+    const settings = db.prepare('SELECT * FROM platform_settings WHERE id = ?').get('default') as any;
+    const currentPort = Number(settings?.serverPort || process.env.PORT || 3000);
+
+    if (portNum === currentPort) {
+      res.status(200).json({
+        success: true,
+        message: `Port ${portNum} is the currently running active AegisDB server.`,
+        data: {
+          available: true,
+          status: 'active_aegis',
+          reason: `Port ${portNum} is the currently active AegisDB server`
+        }
+      });
+      return;
+    }
+
     const result = await networkDiagnosticsService.checkPortAvailability(portNum, hostStr);
 
     res.status(200).json({
