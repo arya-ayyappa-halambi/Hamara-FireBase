@@ -4885,10 +4885,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Logout Button
   const btnLogout = document.getElementById('btn-logout');
   if (btnLogout) {
-    btnLogout.onclick = () => {
-      localStorage.clear();
-      window.location.reload();
-    };
+    btnLogout.onclick = () => { window.logout(); };
   }
 
 
@@ -6540,7 +6537,7 @@ window.toggleGateDeclineOptions = function() {
 };
 
 window.acceptCurrentPolicyGate = async function() {
-  const version = document.getElementById('gate-policy-version')?.textContent || 'v1.0.0';
+  const version = (document.getElementById('gate-policy-version')?.textContent || 'v1.0.0').trim();
   try {
     await apiRequest('/api/v1/auth/accept-policy', 'POST', { version });
     if (state.user) {
@@ -7353,5 +7350,21 @@ window.openAdminLoginFromMaintenance = function() {
   const inputEmail = document.getElementById('input-email');
   if (inputEmail) {
     inputEmail.focus();
+  }
+};
+
+window.logout = async function() {
+  try {
+    const refreshToken = localStorage.getItem('aegis_refresh_token');
+    if (refreshToken) {
+      await apiRequest('/api/v1/auth/logout', 'POST', { refreshToken });
+    }
+  } catch (err) {
+    console.error('Logout API error:', err);
+  } finally {
+    localStorage.removeItem('aegis_access_token');
+    localStorage.removeItem('aegis_refresh_token');
+    localStorage.removeItem('aegis_user');
+    window.location.reload();
   }
 };
