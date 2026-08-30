@@ -722,18 +722,29 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
     res.status(200).json({
       success: true,
       message: `Server shutdown initiated on port ${port}. All connections closed and port released.`,
-      data: { port, pid: process.pid }
+      data: { port, pid: process.pid, platform: process.platform }
     });
 
-    // Delay 600ms to allow HTTP response and WebSocket broadcast to be flushed, then terminate process
+    // Execute platform-specific detached stop worker after 400ms so HTTP response finishes sending
     setTimeout(() => {
       console.log(`\n🛑 [Server] Super Admin (${user?.email || 'admin'}) initiated shutdown.`);
       console.log(`✅ AegisDB Server on port ${port} successfully killed. Port is now freed!\n`);
 
-      // On macOS, close the Terminal window running start.command / serve.js
-      if (process.platform === 'darwin') {
-        try {
-          const { exec } = require('child_process');
+      try {
+        const { spawn, exec } = require('child_process');
+        const path = require('path');
+        const stopScript = path.resolve(process.cwd(), 'scripts/stop.js');
+
+        // Spawn detached stop engine that survives parent process exit and guarantees complete port release
+        const stopWorker = spawn(process.execPath, [stopScript, '--close-self', `--port=${port}`], {
+          detached: true,
+          stdio: 'ignore',
+          cwd: process.cwd()
+        });
+        stopWorker.unref();
+
+        // On macOS, send AppleScript to close any open terminal windows running start.command or serve.js
+        if (process.platform === 'darwin') {
           exec(`osascript -e 'tell application "Terminal"
             repeat with w in windows
               if (name of w contains "start.command") or (name of w contains "serve.js") or (name of w contains "AegisDB") then
@@ -741,11 +752,11 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
               end if
             end repeat
           end tell'`);
-        } catch (_) {}
-      }
+        }
+      } catch (_) {}
 
       process.exit(0);
-    }, 600);
+    }, 400);
   } catch (err) {
     next(err);
   }

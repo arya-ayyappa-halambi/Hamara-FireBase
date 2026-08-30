@@ -5913,22 +5913,84 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+window.executeServerShutdownFromUI = function() {
+  const activePort = window.location.port || '3000';
+  const portDisplay = document.getElementById('label-shutdown-port-display');
+  if (portDisplay) portDisplay.textContent = `Port ${activePort}`;
+
+  const isMac = (navigator.platform && navigator.platform.toUpperCase().indexOf('MAC') >= 0) || (navigator.userAgent && navigator.userAgent.indexOf('Mac') >= 0);
+  const isWin = (navigator.platform && navigator.platform.toUpperCase().indexOf('WIN') >= 0) || (navigator.userAgent && navigator.userAgent.indexOf('Windows') >= 0);
+  const deviceName = isMac ? '🍎 macOS Host' : (isWin ? '🪟 Windows Host' : '🐧 Linux / POSIX Host');
+  const cmdName = isMac ? 'stop.command' : (isWin ? 'stop.bat' : 'stop.sh');
+
+  const devEl = document.getElementById('label-shutdown-device-display');
+  if (devEl) devEl.textContent = `${deviceName} (${cmdName})`;
+
+  if (typeof window.showModal === 'function') {
+    window.showModal('modal-confirm-server-shutdown');
+  } else {
+    const el = document.getElementById('modal-confirm-server-shutdown');
+    if (el) {
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+      el.style.setProperty('display', 'flex', 'important');
+    }
+  }
+};
+
+window.confirmServerShutdownAction = async function() {
+  const btn = document.getElementById('modal-shutdown-btn-confirm');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Stopping Server...</span>';
+  }
+
+  try {
+    const res = await apiRequest('/api/v1/admin/server/shutdown', 'POST');
+    if (typeof window.hideModal === 'function') {
+      window.hideModal('modal-confirm-server-shutdown');
+    } else {
+      const el = document.getElementById('modal-confirm-server-shutdown');
+      if (el) {
+        el.classList.add('hidden');
+        el.classList.remove('flex');
+        el.style.setProperty('display', 'none', 'important');
+      }
+    }
+
+    const port = res.data?.port || window.location.port || '3000';
+    const msgEl = document.getElementById('overlay-stopped-message');
+    const portEl = document.getElementById('overlay-stopped-port-badge');
+    if (msgEl) msgEl.textContent = `The server process has been safely shut down by the Super Admin and Port ${port} is now released.`;
+    if (portEl) portEl.textContent = `Port ${port}`;
+
+    if (typeof window.showModal === 'function') {
+      window.showModal('overlay-server-stopped');
+    } else {
+      const ov = document.getElementById('overlay-server-stopped');
+      if (ov) {
+        ov.classList.remove('hidden');
+        ov.classList.add('flex');
+        ov.style.setProperty('display', 'flex', 'important');
+      }
+    }
+    showToast(`🛑 AegisDB Server on port ${port} killed successfully & port freed.`, 'success');
+  } catch (err) {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-power-off"></i> <span>Stop Server Now</span>';
+    }
+    showToast(err.message || 'Failed to stop server.', 'error');
+  }
+};
+
 function initServerShutdownHandlers() {
   const btnShutdownServer = document.getElementById('hosttab-btn-shutdown-server');
   const btnCancelShutdown = document.getElementById('modal-shutdown-btn-cancel');
   const btnConfirmShutdown = document.getElementById('modal-shutdown-btn-confirm');
 
   if (btnShutdownServer) {
-    btnShutdownServer.onclick = () => {
-      const activePort = window.location.port || '3000';
-      const portDisplay = document.getElementById('label-shutdown-port-display');
-      if (portDisplay) portDisplay.textContent = `Port ${activePort}`;
-      if (typeof window.showModal === 'function') {
-        window.showModal('modal-confirm-server-shutdown');
-      } else {
-        document.getElementById('modal-confirm-server-shutdown')?.classList.remove('hidden');
-      }
-    };
+    btnShutdownServer.onclick = () => window.executeServerShutdownFromUI();
   }
 
   if (btnCancelShutdown) {
@@ -5936,42 +5998,18 @@ function initServerShutdownHandlers() {
       if (typeof window.hideModal === 'function') {
         window.hideModal('modal-confirm-server-shutdown');
       } else {
-        document.getElementById('modal-confirm-server-shutdown')?.classList.add('hidden');
+        const el = document.getElementById('modal-confirm-server-shutdown');
+        if (el) {
+          el.classList.add('hidden');
+          el.classList.remove('flex');
+          el.style.setProperty('display', 'none', 'important');
+        }
       }
     };
   }
 
   if (btnConfirmShutdown) {
-    btnConfirmShutdown.onclick = async () => {
-      btnConfirmShutdown.disabled = true;
-      btnConfirmShutdown.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> <span>Stopping Server...</span>';
-
-      try {
-        const res = await apiRequest('/api/v1/admin/server/shutdown', 'POST');
-        if (typeof window.hideModal === 'function') {
-          window.hideModal('modal-confirm-server-shutdown');
-        } else {
-          document.getElementById('modal-confirm-server-shutdown')?.classList.add('hidden');
-        }
-
-        const port = res.data?.port || window.location.port || '3000';
-        const msgEl = document.getElementById('overlay-stopped-message');
-        const portEl = document.getElementById('overlay-stopped-port-badge');
-        if (msgEl) msgEl.textContent = `The server process has been safely shut down by the Super Admin and Port ${port} is now released.`;
-        if (portEl) portEl.textContent = `Port ${port}`;
-
-        if (typeof window.showModal === 'function') {
-          window.showModal('overlay-server-stopped');
-        } else {
-          document.getElementById('overlay-server-stopped')?.classList.remove('hidden');
-        }
-        showToast(`🛑 AegisDB Server on port ${port} killed successfully & port freed.`, 'success');
-      } catch (err) {
-        btnConfirmShutdown.disabled = false;
-        btnConfirmShutdown.innerHTML = '<i class="fa-solid fa-power-off"></i> <span>Stop Server Now</span>';
-        showToast(err.message || 'Failed to stop server.', 'error');
-      }
-    };
+    btnConfirmShutdown.onclick = () => window.confirmServerShutdownAction();
   }
 }
 

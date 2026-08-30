@@ -279,36 +279,46 @@ async function scanCandidatePorts() {
 }
 
 // ── Process & Port Management Helpers ─────────────────────────────────────────
-function getPidOnPort(port) {
+function getListeningPidsOnPort(port) {
   try {
     if (process.platform === 'win32') {
       const output = execSync(`netstat -ano | findstr :${port}`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
-      const lines = output.split('\n').filter(l => l.includes('LISTENING'));
-      if (lines.length > 0) {
-        const parts = lines[0].trim().split(/\s+/);
-        return parts[parts.length - 1];
-      }
+      const pids = new Set();
+      output.split('\n').filter(l => l.includes('LISTENING')).forEach(l => {
+        const parts = l.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && pid !== '0' && pid !== process.pid.toString()) pids.add(pid);
+      });
+      return Array.from(pids);
     } else {
-      const pid = execSync(`lsof -ti :${port}`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
-      if (pid) return pid.split('\n')[0];
+      const output = execSync(`lsof -n -iTCP:${port} -sTCP:LISTEN -t`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+      if (output) {
+        return output.split('\n').map(p => p.trim()).filter(p => p && p !== process.pid.toString());
+      }
     }
   } catch (_) {}
-  return null;
+  return [];
+}
+
+function getPidOnPort(port) {
+  const pids = getListeningPidsOnPort(port);
+  return pids.length > 0 ? pids[0] : null;
 }
 
 function freePort(port) {
-  try {
-    const pid = getPidOnPort(port);
-    if (pid) {
+  const pids = getListeningPidsOnPort(port);
+  let freed = false;
+  for (const pid of pids) {
+    try {
       if (process.platform === 'win32') {
         execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
       } else {
         execSync(`kill -9 ${pid}`, { stdio: 'ignore' });
       }
-      return true;
-    }
-  } catch (_) {}
-  return false;
+      freed = true;
+    } catch (_) {}
+  }
+  return freed;
 }
 
 // ── Cross-Platform Browser Opener ─────────────────────────────────────────────

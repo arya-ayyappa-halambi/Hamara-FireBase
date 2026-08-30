@@ -1533,7 +1533,7 @@
               <span id="hosttab-current-status-badge" class="px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 Online: http://localhost:3000
               </span>
-              <button type="button" id="hosttab-btn-shutdown-server" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/20 hover:bg-rose-600 hover:text-white text-rose-300 border border-rose-500/30 transition flex items-center space-x-1.5 shadow-sm active:scale-95" title="Stop live server and release port">
+              <button type="button" id="hosttab-btn-shutdown-server" onclick="window.executeServerShutdownFromUI()" class="px-3.5 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/20 hover:bg-rose-600 hover:text-white text-rose-300 border border-rose-500/30 transition flex items-center space-x-1.5 shadow-sm active:scale-95 cursor-pointer" title="Stop live server and release port">
                 <i class="fa-solid fa-power-off text-rose-400"></i>
                 <span>Stop Server</span>
               </button>
@@ -4921,7 +4921,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           <span>Are you sure you want to stop the live server?</span>
         </p>
         <p class="text-[11px] text-slate-400 leading-relaxed">
-          Stopping the server will terminate all active database connections, disconnect WebSocket clients, and completely release <span id="label-shutdown-port-display" class="font-mono font-bold text-amber-300">Port 3000</span>.
+          Stopping the server will terminate all active database connections, disconnect WebSocket clients, and completely release <span id="label-shutdown-port-display" class="font-mono font-bold text-amber-300">Port 3000</span> on <span id="label-shutdown-device-display" class="font-mono font-bold text-emerald-300">🍎 macOS Host (stop.command)</span>.
         </p>
         <div class="text-[11px] text-slate-500 pt-1">
           ➜ To start the server again, double-click <span class="font-mono text-slate-300">start.command</span>, <span class="font-mono text-slate-300">start.bat</span>, or run <span class="font-mono text-slate-300">npm start</span>.
@@ -4929,10 +4929,10 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       </div>
 
       <div class="flex items-center space-x-3 pt-1">
-        <button type="button" id="modal-shutdown-btn-cancel" class="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition active:scale-98">
+        <button type="button" id="modal-shutdown-btn-cancel" onclick="window.hideModal('modal-confirm-server-shutdown')" class="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition active:scale-98">
           Cancel
         </button>
-        <button type="button" id="modal-shutdown-btn-confirm" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition active:scale-98 flex items-center justify-center space-x-2">
+        <button type="button" id="modal-shutdown-btn-confirm" onclick="window.confirmServerShutdownAction()" class="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition active:scale-98 flex items-center justify-center space-x-2 cursor-pointer">
           <i class="fa-solid fa-power-off"></i>
           <span>Stop Server Now</span>
         </button>
@@ -4985,6 +4985,6 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   </script>
 
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=20260820_v3"></script>
+  <script src="app.js?v=20260830_stop_v5"></script>
 </body>
 </html>

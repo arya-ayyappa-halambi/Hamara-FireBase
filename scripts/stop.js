@@ -24,27 +24,42 @@ const C = {
 
 const candidatePorts = [3000, 3001, 3002, 4000, 5000, 8000, 8080, 9000];
 
-function getPidOnPort(port) {
+// Parse optional --port argument
+const portArgIndex = process.argv.findIndex(a => a === '--port' || a.startsWith('--port='));
+if (portArgIndex !== -1) {
+  const customPort = process.argv[portArgIndex].includes('=')
+    ? parseInt(process.argv[portArgIndex].split('=')[1], 10)
+    : parseInt(process.argv[portArgIndex + 1], 10);
+  if (!isNaN(customPort) && !candidatePorts.includes(customPort)) {
+    candidatePorts.unshift(customPort);
+  }
+}
+
+function getListeningPidsOnPort(port) {
   try {
     if (process.platform === 'win32') {
       const output = execSync(`netstat -ano | findstr :${port}`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
-      const lines = output.split('\n').filter(l => l.includes('LISTENING'));
-      if (lines.length > 0) {
-        const parts = lines[0].trim().split(/\s+/);
-        return parts[parts.length - 1];
-      }
+      const pids = new Set();
+      output.split('\n').filter(l => l.includes('LISTENING')).forEach(l => {
+        const parts = l.trim().split(/\s+/);
+        const pid = parts[parts.length - 1];
+        if (pid && pid !== '0' && pid !== process.pid.toString()) pids.add(pid);
+      });
+      return Array.from(pids);
     } else {
-      const pid = execSync(`lsof -ti :${port}`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
-      if (pid) return pid.split('\n')[0];
+      const output = execSync(`lsof -n -iTCP:${port} -sTCP:LISTEN -t`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
+      if (output) {
+        return output.split('\n').map(p => p.trim()).filter(p => p && p !== process.pid.toString());
+      }
     }
   } catch (_) {}
-  return null;
+  return [];
 }
 
 function killPid(pid) {
   try {
     if (process.platform === 'win32') {
-      execSync(`taskkill /F /PID ${pid}`, { stdio: 'ignore' });
+      execSync(`taskkill /F /T /PID ${pid}`, { stdio: 'ignore' });
     } else {
       execSync(`kill -9 ${pid}`, { stdio: 'ignore' });
     }
@@ -60,7 +75,7 @@ function killLingeringNodeProcesses() {
     } catch (_) {}
   } else {
     try {
-      execSync('pkill -f "nodemon.*src/server.ts|ts-node src/server.ts|scripts/serve.js"', { stdio: 'ignore' });
+      execSync('pkill -9 -f "nodemon.*src/server.ts|ts-node.*src/server.ts|node.*scripts/serve.js"', { stdio: 'ignore' });
     } catch (_) {}
   }
 }
@@ -98,11 +113,11 @@ async function main() {
   const killedPids = new Set();
 
   for (const port of candidatePorts) {
-    const pid = getPidOnPort(port);
-    if (pid && pid !== process.pid.toString()) {
+    const pids = getListeningPidsOnPort(port);
+    for (const pid of pids) {
       killedPids.add(pid);
       killPid(pid);
-      killedPorts.push(port);
+      if (!killedPorts.includes(port)) killedPorts.push(port);
     }
   }
 
