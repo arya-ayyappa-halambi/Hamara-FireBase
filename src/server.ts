@@ -291,15 +291,34 @@ async function bootstrap(): Promise<void> {
 
   currentApp = createApp();
 
-  // Load configured server port and host from platform_settings
-  let configuredPort = parseInt(process.env.PORT ?? '3000', 10);
-  let configuredHost = process.env.HOST ?? '0.0.0.0';
+  // Load configured server port and host
+  // CLI environment variables (process.env.PORT / HOST) have top priority; fall back to SQLite saved settings
+  let configuredPort = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
+  let configuredHost = process.env.HOST || '0.0.0.0';
+  let configuredMode = process.env.HOST_MODE || 'both';
+
   try {
     const db = getDb();
     const settings = db.prepare("SELECT serverPort, serverHost, serverHostingMode FROM platform_settings WHERE id = 'default'").get() as any;
     if (settings) {
-      if (settings.serverPort) configuredPort = Number(settings.serverPort);
-      if (settings.serverHost) configuredHost = settings.serverHost;
+      if (!process.env.PORT && settings.serverPort) {
+        configuredPort = Number(settings.serverPort);
+      }
+      if (!process.env.HOST && settings.serverHost) {
+        configuredHost = settings.serverHost;
+      }
+      if (!process.env.HOST_MODE && settings.serverHostingMode) {
+        configuredMode = settings.serverHostingMode;
+      }
+
+      // Sync active settings to SQLite
+      db.prepare(`
+        UPDATE platform_settings SET
+          serverPort = ?,
+          serverHost = ?,
+          serverHostingMode = ?
+        WHERE id = 'default'
+      `).run(configuredPort, configuredHost, configuredMode);
     }
   } catch (_) {}
 
@@ -325,6 +344,16 @@ async function bootstrap(): Promise<void> {
 
   const server = http.createServer(currentApp);
   currentServer = server;
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ [Server] Fatal Error: Port ${PORT} is already in use by another process.`);
+      console.error(`👉 Tip: Kill the process on port ${PORT} with 'lsof -ti :${PORT} | xargs kill -9' or start with a different port (e.g. PORT=${PORT + 1})\n`);
+    } else {
+      console.error(`\n❌ [Server] Failed to start HTTP server:`, err.message);
+    }
+    process.exit(1);
+  });
 
   server.listen(PORT, hostToBind, () => {
     console.log('');

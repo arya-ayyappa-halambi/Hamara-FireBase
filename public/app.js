@@ -5887,6 +5887,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     };
   }
+
+  // ── URL Hash Tab Deep-Linking (e.g. #tab-server-hosting) ───────────────────
+  if (window.location.hash && window.location.hash.startsWith('#tab-')) {
+    const targetTabId = window.location.hash.substring(1).split('&')[0].split('?')[0];
+    if (document.getElementById(targetTabId)) {
+      setTimeout(() => {
+        if (typeof window.switchWorkspace === 'function') {
+          window.switchWorkspace(targetTabId);
+        }
+      }, 150);
+    }
+  }
 });
 
 // ── API Key Tester ─────────────────────────────────────────────────────────────

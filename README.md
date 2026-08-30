@@ -77,34 +77,43 @@ npm run start:interactive
 
 The Developer Console will be immediately accessible at `http://localhost:3000` (or your chosen `HOST` & `PORT`).
 
-### 🚀 One-Click Launch Scripts (LAN & Custom Port Binding)
-AegisDB includes pre-configured launch scripts to easily bind the server across local network IPs (LAN/WiFi) and custom ports:
+### 🚀 Universal 1-Click Launch Scripts & Hosting Setup Wizard
+AegisDB provides zero-friction 1-click launchers and an interactive terminal setup wizard for all operating systems and devices:
 
-#### macOS / Linux (`start.sh`)
+#### 🍎 macOS (1-Click Double-Click in Finder)
+Simply double-click **`start.command`** in your project folder in Finder, or run:
 ```bash
-chmod +x start.sh
-./start.sh
+./start.command
 ```
-*Script configuration:*
-```bash
-#!/bin/bash
-export HOST=0.0.0.0    # Bind to all network interfaces (or your LAN IP)
-export PORT=3000       # Standard port (default: 3000)
-npm run dev
-```
+*Opens a clean terminal window, performs real-time port availability probing, lets you select Dual Host / Localhost / Wi-Fi IP, and opens your browser straight to the Server Hosting & Network Center (`/#tab-server-hosting`).*
 
-#### Windows (`start.bat`)
-Double-click `start.bat` or run:
+#### 🪟 Windows (1-Click Double-Click in File Explorer)
+Simply double-click **`start.bat`** in File Explorer, or run:
 ```cmd
 start.bat
 ```
-*Script configuration:*
-```cmd
-@echo off
-set HOST=0.0.0.0
-set PORT=3000
-npm run dev
+*Opens Command Prompt with the interactive setup menu and auto-launches the browser.*
+
+#### 🐧 Linux / Terminal Launcher (`start.sh` or `./bin/aegis`)
+```bash
+./start.sh
+# Or run the standalone CLI binary:
+./bin/aegis
+# Or using npm shortcuts:
+npm start
+npm run host:open
 ```
+
+### 🎛️ Interactive Terminal Wizard Options
+When launched, the CLI wizard provides:
+1. **Hosting Mode Selection**:
+   - `[1] Dual Host (0.0.0.0)` — Localhost + Wi-Fi / LAN Access [Recommended]
+   - `[2] Localhost Only (127.0.0.1)` — Isolated to this machine
+   - `[3] Wi-Fi Network Only (192.168.x.x)` — Mobile and external client testing
+   - `[4] Custom Host IP / Domain`
+   - `[5] Quick Start with Saved Defaults`
+2. **Live Socket Port Scanner**: Real-time CLI verification of free vs occupied ports (`● 3000 [FREE]`, `● 4000 [IN USE]`, `● 5000 [FREE]`) with immediate conflict warnings.
+3. **Direct Browser Auto-Open**: Automatically opens your browser to `http://localhost:<PORT>/#tab-server-hosting`.
 
 ### Initial Administrator Setup
 1. Open `http://localhost:3000` in your web browser.
