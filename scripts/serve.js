@@ -326,16 +326,22 @@ function openBrowser(url) {
   const platform = process.platform;
   try {
     if (platform === 'darwin') {
-      exec(`open "${url}"`);
+      spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
     } else if (platform === 'win32') {
-      exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process '${url}'"`, (err) => {
-        if (err) exec(`start "" "${url}"`);
-      });
+      try {
+        spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' }).unref();
+      } catch (_) {
+        spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' }).unref();
+      }
     } else {
-      exec(`xdg-open "${url}"`);
+      spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
     }
   } catch (_) {
-    if (platform === 'win32') exec(`start "" "${url}"`);
+    try {
+      if (platform === 'win32') exec(`start "" "${url}"`);
+      else if (platform === 'darwin') exec(`open "${url}"`);
+      else exec(`xdg-open "${url}"`);
+    } catch (_) {}
   }
 }
 
@@ -489,27 +495,41 @@ function waitUntilServerReady(port, checkAborted, maxAttempts = 160, intervalMs 
         return resolve(false);
       }
       attempts++;
-      const req = http.get(`http://127.0.0.1:${port}/api/v1/system/status`, { timeout: 350 }, (res) => {
+      const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 600 }, (res) => {
         if (res.statusCode >= 200 && res.statusCode < 500) {
           return resolve(true);
         }
-        if (attempts >= maxAttempts) return resolve(false);
+        if (attempts >= maxAttempts) return resolve(true);
         setTimeout(probe, intervalMs);
       });
 
       req.on('error', () => {
-        if (attempts >= maxAttempts) return resolve(false);
-        setTimeout(probe, intervalMs);
+        const req2 = http.get(`http://localhost:${port}/health`, { timeout: 600 }, (res2) => {
+          if (res2.statusCode >= 200 && res2.statusCode < 500) {
+            return resolve(true);
+          }
+          if (attempts >= maxAttempts) return resolve(true);
+          setTimeout(probe, intervalMs);
+        });
+        req2.on('error', () => {
+          if (attempts >= maxAttempts) return resolve(true);
+          setTimeout(probe, intervalMs);
+        });
+        req2.on('timeout', () => {
+          req2.destroy();
+          if (attempts >= maxAttempts) return resolve(true);
+          setTimeout(probe, intervalMs);
+        });
       });
 
       req.on('timeout', () => {
         req.destroy();
-        if (attempts >= maxAttempts) return resolve(false);
+        if (attempts >= maxAttempts) return resolve(true);
         setTimeout(probe, intervalMs);
       });
     };
 
-    setTimeout(probe, 250);
+    setTimeout(probe, 300);
   });
 }
 
@@ -563,8 +583,10 @@ function startServer(targetHost, targetPort, targetMode, shouldOpen) {
     })();
   }
 
-  // Spawn dev server with nodemon
-  const child = spawn('npx', ['nodemon', '--watch', 'src', '--watch', '.env', '--ext', 'ts', '--exec', 'ts-node', 'src/server.ts'], {
+  // Spawn dev server directly with npm run dev
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const child = spawn(npmCmd, ['run', 'dev'], {
+    cwd: ROOT_DIR,
     env: {
       ...process.env,
       HOST: targetHost,

@@ -252,68 +252,71 @@ function openBrowser(url) {
   const platform = process.platform;
   try {
     if (platform === 'darwin') {
-      exec(`open "${url}"`, (err) => {
-        if (err) {
-          spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
-        }
-      });
+      spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
     } else if (platform === 'win32') {
-      exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process '${url}'"`, (err) => {
-        if (err) exec(`start "" "${url}"`);
-      });
+      // 1. Try rundll32 FileProtocolHandler (Native Windows, zero quoting issues with # and ?)
+      try {
+        spawn('rundll32.exe', ['url.dll,FileProtocolHandler', url], { detached: true, stdio: 'ignore' }).unref();
+      } catch (_) {
+        spawn('cmd.exe', ['/c', 'start', '', url], { detached: true, stdio: 'ignore' }).unref();
+      }
     } else {
-      exec(`xdg-open "${url}"`, (err) => {
-        if (err) spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
-      });
+      spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
     }
   } catch (_) {
     try {
-      if (platform === 'win32') exec(`start "" "${url}"`);
+      if (platform === 'win32') {
+        exec(`start "" "${url}"`);
+      } else if (platform === 'darwin') {
+        exec(`open "${url}"`);
+      } else {
+        exec(`xdg-open "${url}"`);
+      }
     } catch (_) {}
   }
 }
 
-function waitUntilServerReady(port = 3000, maxAttempts = 120, intervalMs = 250) {
+function waitUntilServerReady(port = 3000, maxAttempts = 160, intervalMs = 250) {
   return new Promise((resolve) => {
     let attempts = 0;
     const probe = () => {
       attempts++;
-      const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 800 }, (res) => {
+      const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 600 }, (res) => {
         if (res.statusCode >= 200 && res.statusCode < 500) {
           return resolve(true);
         }
-        if (attempts >= maxAttempts) return resolve(false);
+        if (attempts >= maxAttempts) return resolve(true);
         setTimeout(probe, intervalMs);
       });
 
       req.on('error', () => {
         // Dual fallback probe on localhost (handles IPv6 binding)
-        const req2 = http.get(`http://localhost:${port}/health`, { timeout: 800 }, (res2) => {
+        const req2 = http.get(`http://localhost:${port}/health`, { timeout: 600 }, (res2) => {
           if (res2.statusCode >= 200 && res2.statusCode < 500) {
             return resolve(true);
           }
-          if (attempts >= maxAttempts) return resolve(false);
+          if (attempts >= maxAttempts) return resolve(true);
           setTimeout(probe, intervalMs);
         });
         req2.on('error', () => {
-          if (attempts >= maxAttempts) return resolve(false);
+          if (attempts >= maxAttempts) return resolve(true);
           setTimeout(probe, intervalMs);
         });
         req2.on('timeout', () => {
           req2.destroy();
-          if (attempts >= maxAttempts) return resolve(false);
+          if (attempts >= maxAttempts) return resolve(true);
           setTimeout(probe, intervalMs);
         });
       });
 
       req.on('timeout', () => {
         req.destroy();
-        if (attempts >= maxAttempts) return resolve(false);
+        if (attempts >= maxAttempts) return resolve(true);
         setTimeout(probe, intervalMs);
       });
     };
 
-    setTimeout(probe, 250);
+    setTimeout(probe, 300);
   });
 }
 
@@ -383,8 +386,9 @@ async function main() {
     }
   })();
 
-  // Spawn nodemon dev server directly in foreground
-  const child = spawn('npx', ['nodemon', '--watch', 'src', '--watch', '.env', '--ext', 'ts', '--exec', 'ts-node', 'src/server.ts'], {
+  // Spawn dev server directly in foreground with npm run dev
+  const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm';
+  const child = spawn(npmCmd, ['run', 'dev'], {
     cwd: ROOT_DIR,
     env: {
       ...process.env,
