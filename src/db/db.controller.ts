@@ -14,6 +14,7 @@ import { getDb } from './sqlite.connection';
 import { AppError, ApiResponse } from '../types/auth.types';
 import { sseRealtimeService } from '../services/sse-realtime.service';
 import { metricsService } from '../services/metrics.service';
+import { networkAccessService } from '../services/network-access.service';
 import {
   Collection,
   Document,
@@ -449,7 +450,7 @@ export async function updateCollection(req: Request, res: Response, next: NextFu
       actorEmail: req.user?.email,
       actionType: 'collection_update',
       projectId: projectId,
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Collection "${req.params.name}" schema/rules updated.`
     });

@@ -46,6 +46,7 @@ import { accountPurgeSchedulerService } from './services/account-purge-scheduler
 import { endpointMigrationScheduler } from './services/endpoint-migration-scheduler.service';
 import { trafficTopologyService } from './services/traffic-topology.service';
 import { tunnelManagerService } from './services/tunnel-manager.service';
+import { networkAccessService } from './services/network-access.service';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -87,6 +88,9 @@ function validateEnv(): void {
 function createApp(): Application {
   const app = express();
 
+  // Enable trust proxy so Express recognizes Cloudflare/Ngrok/Localtunnel reverse proxies
+  app.set('trust proxy', true);
+
   // ── Global Security & CORS Middleware ────────────────────────────────────
   app.use(helmet({
     contentSecurityPolicy: false, // Let custom securityHeaders handle CSP
@@ -117,8 +121,10 @@ function createApp(): Application {
     const bytesIn = Number(req.headers['content-length'] || 0) + (req.url ? req.url.length : 0) + 128;
     const hostHeader = (req.headers.host || '').toLowerCase();
     const isTunnel = Boolean(
+      req.headers['cf-connecting-ip'] ||
       req.headers['x-forwarded-proto'] ||
       req.headers['x-forwarded-host'] ||
+      hostHeader.includes('.trycloudflare.com') ||
       hostHeader.includes('.loca.lt') ||
       hostHeader.includes('.ngrok')
     );
@@ -126,7 +132,7 @@ function createApp(): Application {
     res.on('finish', () => {
       const durationMs = Math.max(0.5, Date.now() - startMs);
       const bytesOut = Number(res.getHeader('content-length') || 256);
-      const clientIp = req.ip || (req.socket ? req.socket.remoteAddress : '127.0.0.1') || '127.0.0.1';
+      const clientIp = networkAccessService.extractClientIp(req);
 
       trafficTopologyService.recordRequest({
         ip: clientIp,

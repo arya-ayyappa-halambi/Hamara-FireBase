@@ -15,6 +15,7 @@ import { failedLoginService } from '../services/failed-login-limiter.service';
 import { verifyGoogleToken } from './auth.google';
 import { getDb } from '../db/sqlite.connection';
 import { userStore } from '../store/user.store';
+import { networkAccessService } from '../services/network-access.service';
 
 // ── Google Auth & Config ──────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ export async function getConfig(req: Request, res: Response, next: NextFunction)
 }
 
 export async function googleLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
-  const ip = req.ip || 'unknown';
+  const ip = networkAccessService.extractClientIp(req);
   try {
     const { token } = req.body;
     if (!token) throw new AppError('Google token is required.', 400);
@@ -69,11 +70,12 @@ export async function register(
     if (req.body._hp_bot_catch) {
       throw new AppError('Suspicious activity detected.', 403);
     }
+    const ip = networkAccessService.extractClientIp(req);
     const dto: RegisterDto & { clientIp?: string; userAgent?: string } = {
       email:    req.body.email,
       password: req.body.password,
       name:     req.body.name,
-      clientIp: req.ip,
+      clientIp: ip,
       userAgent: req.headers['user-agent'] as string,
     };
 
@@ -98,7 +100,7 @@ export async function login(
   res: Response,
   next: NextFunction,
 ): Promise<void> {
-  const ip = req.ip || 'unknown';
+  const ip = networkAccessService.extractClientIp(req);
   const email = req.body?.email || '';
 
   try {

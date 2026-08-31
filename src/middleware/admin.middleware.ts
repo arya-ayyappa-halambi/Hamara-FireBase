@@ -19,7 +19,7 @@ export function requireSuperAdmin(req: Request, res: Response, next: NextFunctio
   // Super Admin Perimeter Check
   const netSettings = networkAccessService.getNetworkSettings();
   if (netSettings.adminEndpointIpLockEnabled) {
-    const clientIp = networkAccessService.normalizeIp(req.ip || '127.0.0.1');
+    const clientIp = networkAccessService.extractClientIp(req);
     const allowedSubnets = (netSettings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
     const isAllowedSubnet = allowedSubnets.some(sub => networkAccessService.matchIpPattern(clientIp, sub));
     const allRules = networkAccessService.getRules().filter(r => !r.isExpired);

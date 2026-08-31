@@ -2,10 +2,12 @@ import { Request, Response, NextFunction } from 'express';
 import { rateLimiterService } from '../services/rate-limiter.service';
 import { AppError } from '../types/auth.types';
 import { rateLimitConfig } from './rateLimit.middleware';
+import { networkAccessService } from '../services/network-access.service';
 
 export function customApiLimiter(req: Request | any, res: Response, next: NextFunction): void {
+  const clientIp = networkAccessService.extractClientIp(req);
   // Determine key: user ID, project ID, or IP
-  const key = req.project?.id || req.user?.sub || req.user?.id || req.ip || 'unknown';
+  const key = req.project?.id || req.user?.sub || req.user?.id || clientIp || 'unknown';
 
   // Determine limit: if user has a custom limit set, use that; otherwise fallback to rateLimitConfig
   let capacity = rateLimitConfig.apiLimit;
@@ -29,8 +31,9 @@ export function customApiLimiter(req: Request | any, res: Response, next: NextFu
 }
 
 export function customAuthLimiter(req: Request, res: Response, next: NextFunction): void {
+  const clientIp = networkAccessService.extractClientIp(req);
   // Auth limit: strict limit by IP address
-  const key = `auth::${req.ip || 'unknown'}`;
+  const key = `auth::${clientIp}`;
   const capacity = rateLimitConfig.authLimit;
   const windowMs = rateLimitConfig.authWindowMinutes * 60 * 1000;
 

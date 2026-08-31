@@ -11,6 +11,7 @@ import { auditLogService } from '../services/audit-log.service';
 import { webhookService } from '../services/webhook.service';
 import { metricsService } from '../services/metrics.service';
 import { projectBackupService } from '../services/project-backup.service';
+import { networkAccessService } from '../services/network-access.service';
 import path from 'path';
 
 function getOwnerId(req: Request): string {
@@ -108,7 +109,7 @@ export async function rotateApiKey(req: Request, res: Response, next: NextFuncti
       actorEmail: req.user?.email,
       actionType: 'project_key_rotation',
       projectId: id,
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: 'Project API keys rotated manually by user.'
     });
@@ -150,7 +151,7 @@ export async function updateAuthConfig(req: Request, res: Response, next: NextFu
       actorEmail: req.user?.email,
       actionType: 'project_config_update',
       projectId: id,
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: 'Project authentication configuration updated.'
     });
@@ -185,7 +186,7 @@ export async function registerWebhook(req: Request, res: Response, next: NextFun
       actorEmail: req.user?.email,
       actionType: 'webhook_register',
       projectId: id,
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Registered new webhook for ${url}`
     });
@@ -204,7 +205,7 @@ export async function deleteWebhook(req: Request, res: Response, next: NextFunct
       actorEmail: req.user?.email,
       actionType: 'webhook_delete',
       projectId: id,
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Deleted webhook ID ${webhookId}`
     });
@@ -238,7 +239,7 @@ export async function updateBackupConfig(req: Request, res: Response, next: Next
       actorEmail: req.user?.email,
       actionType: 'project_config_update',
       projectId: id,
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Project backup config updated.`
     });
@@ -259,7 +260,7 @@ export async function triggerBackup(req: Request, res: Response, next: NextFunct
       actorEmail: req.user?.email,
       actionType: 'project_backup_trigger',
       projectId: id,
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Project JSON backup generated manually.`
     });

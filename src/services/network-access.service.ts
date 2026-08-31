@@ -146,6 +146,37 @@ export class NetworkAccessService {
     return clean;
   }
 
+  /**
+   * Authoritatively extract the true origin client IP across direct connections,
+   * Cloudflare Tunnels (cf-connecting-ip), Ngrok, Localtunnel, and reverse proxies (x-forwarded-for).
+   */
+  public extractClientIp(req: any): string {
+    if (!req) return '127.0.0.1';
+    const headers = req.headers || {};
+
+    const cfIp = headers['cf-connecting-ip'] as string;
+    if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
+      return this.normalizeIp(cfIp.split(',')[0].trim());
+    }
+
+    const trueClientIp = headers['true-client-ip'] as string;
+    if (trueClientIp && typeof trueClientIp === 'string' && trueClientIp.trim()) {
+      return this.normalizeIp(trueClientIp.split(',')[0].trim());
+    }
+
+    const xRealIp = headers['x-real-ip'] as string;
+    if (xRealIp && typeof xRealIp === 'string' && xRealIp.trim()) {
+      return this.normalizeIp(xRealIp.split(',')[0].trim());
+    }
+
+    const xForwardedFor = headers['x-forwarded-for'] as string;
+    if (xForwardedFor && typeof xForwardedFor === 'string' && xForwardedFor.trim()) {
+      return this.normalizeIp(xForwardedFor.split(',')[0].trim());
+    }
+
+    return this.normalizeIp(req.ip || req.socket?.remoteAddress || '127.0.0.1');
+  }
+
   public getHostMachineIps(): Set<string> {
     const hostIps = new Set<string>(['127.0.0.1', '::1', 'localhost']);
     try {

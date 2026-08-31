@@ -258,7 +258,7 @@ export async function scheduleMigrationHandler(req: Request, res: Response, next
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'schedule_endpoint_migration',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Scheduled endpoint migration to ${migration.newBaseUrl} at ${scheduledAt}.`
     });
@@ -345,7 +345,7 @@ export async function updateUserLimits(req: Request, res: Response, next: NextFu
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'super_admin_operation',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Updated limits for user ID "${id}".`
     });
@@ -366,7 +366,7 @@ export async function updateRateLimits(req: Request, res: Response, next: NextFu
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'super_admin_operation',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Updated system rate limits: ${JSON.stringify(req.body)}`
     });
@@ -399,7 +399,7 @@ export async function cancelAccountDeletion(req: Request, res: Response, next: N
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'super_admin_operation',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Super admin cancelled deletion and retained account for request ID "${id}".`
     });
@@ -421,7 +421,7 @@ export async function resetUserMfa(req: Request, res: Response, next: NextFuncti
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'super_admin_operation',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Reset MFA for user ID "${id}".`
     });
@@ -481,7 +481,7 @@ export async function createBackup(req: Request, res: Response, next: NextFuncti
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'database_backup',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Database backup snapshot "${backup.filename}" created successfully.`
     });
@@ -496,7 +496,7 @@ export async function createBackup(req: Request, res: Response, next: NextFuncti
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'database_backup',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'failure',
       details: `Database backup snapshot creation failed: ${(err as Error).message}`
     });
@@ -627,7 +627,7 @@ export async function purgeExpiredBackups(req: Request, res: Response, next: Nex
       actorId: req.user?.sub,
       actorEmail: req.user?.email,
       actionType: 'purge_expired_backups',
-      ipAddress: req.ip,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: `Purged ${result.localPurged} local and ${result.s3Purged} S3 expired backup files (retention: ${config.backupRetentionDays} days).`
     });
@@ -716,7 +716,7 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
       actorEmail: user?.email || null,
       actionType: 'SERVER_SHUTDOWN',
       projectId: null,
-      ipAddress: req.ip || null,
+      ipAddress: networkAccessService.extractClientIp(req),
       status: 'success',
       details: JSON.stringify({ port, reason: 'Super Admin initiated graceful shutdown from Developer Dashboard' })
     });

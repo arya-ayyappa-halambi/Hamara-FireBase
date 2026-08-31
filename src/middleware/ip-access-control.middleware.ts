@@ -7,16 +7,13 @@ import { Request, Response, NextFunction } from 'express';
 import { networkAccessService } from '../services/network-access.service';
 
 export function ipAccessControlMiddleware(req: Request, res: Response, next: NextFunction): void {
-  // Extract client IP address reliably
-  const rawIp = (
-    (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
-    req.ip ||
-    req.socket.remoteAddress ||
-    '127.0.0.1'
-  );
-
-  const clientIp = networkAccessService.normalizeIp(rawIp);
+  // Extract true origin client IP address reliably across Cloudflare, Ngrok, Localtunnel & direct LAN
+  const clientIp = networkAccessService.extractClientIp(req);
   const userAgent = req.headers['user-agent'] || '';
+  const cfCountry = req.headers['cf-ipcountry'] as string | undefined;
+
+  // Attach normalized IP to req for downstream middlewares
+  (req as any).clientIp = clientIp;
 
   // Extract user info if authenticated
   const user = (req as any).user;

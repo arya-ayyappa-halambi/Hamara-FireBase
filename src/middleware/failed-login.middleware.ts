@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import { failedLoginService } from '../services/failed-login-limiter.service';
 import { AppError } from '../types/auth.types';
+import { networkAccessService } from '../services/network-access.service';
 
 export function checkFailedLoginLockout(req: Request, res: Response, next: NextFunction): void {
-  const ip = req.ip || 'unknown';
+  const ip = networkAccessService.extractClientIp(req);
   const email = req.body?.email || '';
 
   const status = failedLoginService.isLockedOut(ip, email);
