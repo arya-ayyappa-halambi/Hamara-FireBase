@@ -259,7 +259,21 @@ AegisDB incorporates defense-in-depth security principles across all layers:
   - Primary Key Encryption Key (KEK) derived from server environment secrets.
   - Per-project Data Encryption Keys (DEKs) wrapping sensitive fields with **AES-256-GCM**.
 - **Blind Index Email Search**: Irreversible, peppered HMAC-SHA256 blind indexing for encrypted user lookup.
-- **Automated Threat Detection**: Real-time rate anomaly detection, brute-force mitigation, and suspicious activity flagging.
+- **Automated Threat Detection & IP Quarantine Jail**:
+  - **Sliding Threat Window**: Tracks failed authentication attempts per IP in a rolling 60-second window.
+  - **Automatic IP Quarantine**: Instantly jails IPs with 5+ failed attempts for a 15-minute penalty period with HTTP 429 flood protection.
+  - **Anti-Lockout Invariant**: `127.0.0.1`, `::1`, and host network interfaces can never be locked out.
+  - **Admin Pardon & Manual Quarantine**: 1-click manual unjail and custom duration penalty tools.
+- **Temporary Time-Expiring IP Passes (TTL Whitelisting)**:
+  - Grants time-bounded guest access (`1h`, `8h`, `24h`, `7d`, `30d`, or `Permanent`).
+  - Active background pruner cleans expired rules automatically without performance overhead.
+- **Super Admin Endpoint Perimeter Lock**:
+  - Restricts `/api/v1/admin/*` and administrative logins strictly to the local host machine (`127.0.0.1`) and designated management subnets.
+  - Rejects unauthorized external devices with `"Access restricted: Super Administrator account can only be accessed from authorized management devices."`.
+- **Database Write Mutation Shield**:
+  - Allows public / untrusted client read queries (`GET`), while requiring a trusted whitelist IP for data modification operations (`POST`, `PATCH`, `PUT`, `DELETE`).
+- **Per-Project Multi-Tenant IP Isolation**:
+  - Scopes IP whitelist and denylist policies directly to specific tenant projects (`projectId`).
 
 ---
 
@@ -304,9 +318,9 @@ AegisDB features an automated disaster recovery engine supporting local snapshot
 
 ---
 
-## 11. Network & Server Hosting Center, Zero-Downtime Socket Rebinding & Live Terminal Streamer
+## 11. Network & Server Hosting Center, Zero-Downtime Socket Rebinding & Threat Intelligence
 
-The **Network & Server Hosting Center** (`/#tab-server-hosting`) provides complete control over network binding, active IP interfaces, port migration, live server telemetry, and granular device-level access control:
+The **Network & Server Hosting Center** (`/#tab-server-hosting`) provides complete control over network binding, active IP interfaces, port migration, live server telemetry, and multi-layered device security:
 
 - **Live Host Binding Modes**: Seamlessly toggle between **Dual Host (`0.0.0.0`)**, **Localhost (`127.0.0.1`)**, **Wi-Fi LAN IP**, and **Custom Domain**.
 - **Zero-Downtime Socket Rebinding**: Dynamically rebind the active HTTP/WebSocket server to new IP addresses and ports without dropping active sessions.
@@ -315,10 +329,21 @@ The **Network & Server Hosting Center** (`/#tab-server-hosting`) provides comple
   - **Subnet & Extender Control**: Approve or block entire Wi-Fi extenders or subnets using CIDR notation (e.g. `192.168.31.0/24`, `10.0.0.0/16`) or IP ranges (e.g. `192.168.31.100-192.168.31.200`).
   - **Zero-Lockout Guarantee**: Localhost (`127.0.0.1`, `::1`) is hardcoded as unconditionally allowed, ensuring administrators are never locked out of the console.
   - **Glassmorphic 403 Security Screen**: Unauthorized devices visiting via browser receive a clean security access denied screen displaying their client IP, timestamp, and contact instructions.
+- **Real-Time Geo-IP, Country Flags & Threat Intelligence**:
+  - **Zero-Latency Private LAN Detection**: Instantly classifies `127.0.0.1`, `::1`, `192.168.x.x`, `10.x.x.x`, `172.16-31.x.x` as `🏠 Private Subnet (LAN)` with 0ms overhead.
+  - **ISO Country Flag Generator**: Dynamically maps country codes to visual unicode emoji flags (e.g. `🇮🇳 IN`, `🇺🇸 US`, `🇬🇧 GB`, `🇩🇪 DE`, `🇯🇵 JP`).
+  - **Automated Threat Classifier & Scoring**: Evaluates client IPs and assigns threat scores (`0 – 100`), detecting Tor darknet exit nodes (`🧅 Tor Exit`), Anonymous Proxies/VPNs (`🕵️ VPN/Proxy`), Cloud Datacenters/VPS (`🏢 Cloud VPS`), and Clean Residential/LAN (`🛡️ Clean`).
+  - **Country-Level Geo-Fencing Rules**: 1-click rules to allow or deny traffic from entire nations (e.g. Only allow `IN` or block malicious foreign ASN traffic).
+  - **Live Geo-IP Inspector Tool**: Inspect any WAN/LAN IP address with 1-click presets to inspect ISP, ASN, geographic coordinates, and threat classification.
+- **Adaptive Subnet Rate Limiting & Bandwidth Throttling**:
+  - **Sliding-Window Rate Quotas**: Configurable Requests Per Minute (RPM), 5-second burst limits, and Kilobits/sec bandwidth caps per CIDR subnet.
+  - **Dual Mitigation Actions**: `🛑 Block (HTTP 429 Too Many Requests)` or `⏳ Throttle (Inject Artificial Latency Delay)`.
+  - **Standard Rate Limit Headers**: Injects `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`, and `X-Aegis-Throttled`.
+  - **Live Telemetry Throughput Meters**: Real-time RPS and throughput gauges per active client.
 - **Real-Time Client IP & Device Tracking**:
   - **Live Device Fingerprinting**: Automatically parses User-Agents to detect Device Type (`mobile`, `tablet`, `desktop`, `bot`), OS (`iOS`, `Android`, `macOS`, `Windows`, `Linux`), and Browser (`Safari`, `Chrome`, `Firefox`, `Edge`, `Postman`).
-  - **Live Traffic Logs**: Tracks connected client IPs, logged-in user accounts, 24h request counts, and last seen timestamps with zero database write bottlenecks.
-  - **1-Click Actions**: Instantly add active client devices to the whitelist with **"+ Whitelist"** or block untrusted devices with **"Block"**.
+  - **Live Enriched Traffic Logs**: Displays Country Flag, City, ISP, Threat Badge, last seen timestamp, and 24h request counts.
+  - **1-Click Actions**: Whitelist, Quarantine in Jail, or Toggle Block on any connected device.
 - **Live Terminal Log Streamer**: Real-time ANSI-colored terminal log feed streamed over WebSockets directly to the web dashboard.
 - **Scheduled Automated Migrations**: Schedule endpoint migrations with countdown timers and automated client redirection handover.
 
@@ -406,6 +431,16 @@ The Super Admin developer console provides real-time oversight and administrativ
 | `POST` | `/api/v1/admin/network/devices/:ip/toggle-block` | Toggle 1-click blocking state for a device IP |
 | `GET` | `/api/v1/admin/network/settings` | Fetch IP filtering enforcement status & default policy |
 | `PATCH` | `/api/v1/admin/network/settings` | Toggle whitelist enforcement or update default policy |
+| `GET` | `/api/v1/admin/network/geoip/:ip` | Real-time Geo-IP, ISP, ASN, and Threat Intelligence lookup |
+| `GET` | `/api/v1/admin/network/jail` | Fetch all quarantined/jailed abusive client IPs |
+| `POST` | `/api/v1/admin/network/jail` | Manually quarantine an IP with cooldown duration |
+| `POST` | `/api/v1/admin/network/jail/:ip/pardon` | Pardon/unjail a quarantined IP |
+| `DELETE` | `/api/v1/admin/network/jail/clear` | Clear all active IP quarantine penalties |
+| `GET` | `/api/v1/admin/network/rate-limits` | List all custom subnet rate limiting policies |
+| `POST` | `/api/v1/admin/network/rate-limits` | Create new CIDR subnet rate quota and burst cap |
+| `PATCH` | `/api/v1/admin/network/rate-limits/:id` | Update subnet rate policy limits and active status |
+| `DELETE` | `/api/v1/admin/network/rate-limits/:id` | Delete a subnet rate limiting policy |
+| `GET` | `/api/v1/admin/network/rate-limits/metrics` | Fetch real-time RPS and bandwidth telemetry metrics |
 | `PATCH` | `/api/v1/admin/rate-limits` | Adjust global token bucket rate limits live |
 | `GET` | `/api/v1/admin/account-deletions` | Inspect active and historical account deletion queues |
 | `POST` | `/api/v1/admin/account-deletions/:id/cancel` | Retain an account upon user appeal |
@@ -419,19 +454,34 @@ AegisDB includes comprehensive integration tests and automated performance stres
 
 ### Automated Integration & Security Tests
 ```bash
-# 1. Network Access Control, CIDR Subnets & Zero-Lockout Tests (24 checks)
+# 1. Adaptive Subnet Rate Limiting & Bandwidth Throttling (23 checks)
+npx ts-node tests/subnet-rate-limiting.test.ts
+
+# 2. Geo-IP, Country Flags, Geo-Fencing & Threat Intelligence (36 checks)
+npx ts-node tests/geoip-and-threat-intel.test.ts
+
+# 3. Endpoint Scoping, Perimeter Lock & Multi-Tenant IP Isolation (17 checks)
+npx ts-node tests/endpoint-scoping-and-tenant-ip.test.ts
+
+# 4. Automated IP Jail, Brute-Force Shield & TTL Passes (19 checks)
+npx ts-node tests/ip-jail-and-ttl-passes.test.ts
+
+# 5. Core Network Access Control & Localhost Anti-Lockout (24 checks)
 npx ts-node tests/network-access-control.test.ts
 
-# 2. Dedicated IP Blocking, Subnet Ranges & Extender Control (20 checks)
+# 6. Dedicated IP Blocking, Subnet Ranges & Extender Control (20 checks)
 npx ts-node tests/ip-blocking-and-ranges.test.ts
 
-# 3. Two-Tier Envelope Encryption & Key Rotation
+# 7. Admin Perimeter Lock & Rate Toggle Persistence (10 checks)
+npx ts-node tests/admin-perimeter-and-rate-toggle.test.ts
+
+# 8. Two-Tier Envelope Encryption & Key Rotation
 npx ts-node tests/envelope-encryption.test.ts
 
-# 4. Row-Level Security Rules & Collection RBAC
+# 9. Row-Level Security Rules & Collection RBAC
 npx ts-node tests/security-rules.test.ts
 
-# 5. Refresh Token Family & Reuse Detection
+# 10. Refresh Token Family & Reuse Detection
 npx ts-node tests/token-family.test.ts
 ```
 
