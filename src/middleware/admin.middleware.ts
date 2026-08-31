@@ -4,7 +4,7 @@ import { AppError } from '../types/auth.types';
 import { networkAccessService } from '../services/network-access.service';
 
 export function requireSuperAdmin(req: Request, res: Response, next: NextFunction): void {
-  const userId = req.user?.sub;
+  const userId = req.user?.sub || (req.user as any)?.id || (req.user as any)?.userId;
   if (!userId) {
     return next(new AppError('Authentication required.', 401));
   }
@@ -33,5 +33,20 @@ export function requireSuperAdmin(req: Request, res: Response, next: NextFunctio
     }
   }
 
+  next();
+}
+
+/**
+ * Ephemeral Session Immutability Guard:
+ * One-Time Token (OTT) sessions are strictly read-and-operate emergency passes.
+ * They CANNOT modify network security rules, extend their own TTL/access duration,
+ * generate/revoke OTT passes, approve/reject device requests, or elevate permissions.
+ */
+export function disallowOttSessionMutation(req: Request, _res: Response, next: NextFunction): void {
+  if (req.user?.isOttLogin || (req.user as any)?.ottId) {
+    return next(new AppError('Forbidden: One-Time Access sessions cannot modify access permissions, extend duration, or grant privileges.', 403, {
+      code: 'OTT_IMMUTABLE_SESSION'
+    }));
+  }
   next();
 }

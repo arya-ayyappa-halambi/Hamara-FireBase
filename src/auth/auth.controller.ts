@@ -454,4 +454,48 @@ export async function getMeController(req: Request, res: Response, next: NextFun
   } catch (err) { next(err); }
 }
 
+export async function redeemOttController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { token } = req.body;
+    if (!token) throw new AppError('One-Time Token is required.', 400);
+
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const { remoteOttAccessService } = require('../services/remote-ott-access.service');
+    const result = remoteOttAccessService.redeemOneTimeToken(token, clientIp);
+
+    if (!result.valid) {
+      throw new AppError(result.reason || 'Invalid or expired One-Time Token.', 401);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'One-Time Token redeemed successfully. Authenticated as Super Administrator.',
+      token: result.jwtToken,
+      user: result.user
+    });
+  } catch (err) { next(err); }
+}
+
+export async function requestDeviceAccessController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { deviceName } = req.body || {};
+    const clientIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.ip || req.socket.remoteAddress || '127.0.0.1';
+    const userAgent = req.headers['user-agent'] || 'Unknown Device';
+
+    const { remoteOttAccessService } = require('../services/remote-ott-access.service');
+    const request = remoteOttAccessService.submitDeviceAccessRequest({
+      ipAddress: clientIp,
+      userAgent,
+      deviceName
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Device access request submitted. Awaiting Super Admin authorization.',
+      data: request
+    });
+  } catch (err) { next(err); }
+}
+
+
 

@@ -86,6 +86,7 @@ window.showModal = function(id) {
   if (!el) return;
   el.classList.remove('hidden');
   el.classList.add('flex');
+  el.style.removeProperty('display');
   el.style.setProperty('display', 'flex', 'important');
 };
 
@@ -94,6 +95,7 @@ window.hideModal = function(id) {
   if (!el) return;
   el.classList.add('hidden');
   el.classList.remove('flex');
+  el.style.removeProperty('display');
   el.style.setProperty('display', 'none', 'important');
 };
 
@@ -587,6 +589,12 @@ window.switchWorkspace = function switchWorkspace(tabId) {
     if (typeof window.loadNetworkRules === 'function') window.loadNetworkRules();
     if (typeof window.loadTrackedDevicesTable === 'function') window.loadTrackedDevicesTable();
     if (typeof window.loadJailedIpsTable === 'function') window.loadJailedIpsTable();
+    if (typeof window.loadSubnetRatePolicies === 'function') window.loadSubnetRatePolicies();
+    if (typeof window.loadEmergencyStatus === 'function') window.loadEmergencyStatus();
+    if (typeof window.loadWafSettings === 'function') window.loadWafSettings();
+    if (typeof window.loadWafStats === 'function') window.loadWafStats();
+    if (typeof window.loadOttAndDeviceData === 'function') window.loadOttAndDeviceData();
+    if (typeof window.loadClusterDiagnosticsReport === 'function') window.loadClusterDiagnosticsReport();
   } else if (tabId === 'tab-project-management') {
     loadMyProjects();
   } else if (tabId === 'tab-data-browser') {
@@ -8067,6 +8075,11 @@ window.loadNetworkRules = async function() {
 };
 
 window.openAddNetworkRuleModal = function(prefillIp, prefillLabel) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Permissions and access rules cannot be modified from this session.', 'warning');
+    return;
+  }
+
   const inputLabel = document.getElementById('input-netrule-label');
   const inputPattern = document.getElementById('input-netrule-pattern');
   const selectAction = document.getElementById('select-netrule-action');
@@ -8079,16 +8092,19 @@ window.openAddNetworkRuleModal = function(prefillIp, prefillLabel) {
   if (selectScope) selectScope.value = 'global';
   if (selectDuration) selectDuration.value = '0';
 
-  window.handleNetRuleScopeChange();
-
-  const modal = document.getElementById('modal-add-network-rule');
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+  if (typeof window.handleNetRuleScopeChange === 'function') {
+    window.handleNetRuleScopeChange();
   }
+
+  showModal('modal-add-network-rule');
 };
 
 window.submitAddNetworkRule = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Permission elevation is forbidden.', 'warning');
+    return;
+  }
+
   const label = document.getElementById('input-netrule-label')?.value.trim();
   const ipPattern = document.getElementById('input-netrule-pattern')?.value.trim();
   const action = document.getElementById('select-netrule-action')?.value || 'allow';
@@ -8125,6 +8141,10 @@ window.submitAddNetworkRule = async function() {
 };
 
 window.deleteNetworkRule = async function(ruleId) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot delete or modify access rules.', 'warning');
+    return;
+  }
   if (!confirm('Are you sure you want to remove this network access rule?')) return;
   try {
     await apiRequest(`/api/v1/admin/network/rules/${ruleId}`, 'DELETE');
@@ -8213,6 +8233,11 @@ window.renderSubnetRatePolicies = function(policies) {
 };
 
 window.openAddSubnetRatePolicyModal = function(prefillSubnet) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Rate policies cannot be modified from this session.', 'warning');
+    return;
+  }
+
   const patternInput = document.getElementById('input-ratepolicy-pattern');
   const labelInput = document.getElementById('input-ratepolicy-label');
   const rpmInput = document.getElementById('input-ratepolicy-rpm');
@@ -8227,14 +8252,15 @@ window.openAddSubnetRatePolicyModal = function(prefillSubnet) {
   if (bandwidthInput) bandwidthInput.value = '5000';
   if (actionSelect) actionSelect.value = 'block';
 
-  const modal = document.getElementById('modal-add-subnet-rate-policy');
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  }
+  showModal('modal-add-subnet-rate-policy');
 };
 
 window.submitAddSubnetRatePolicy = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Permission elevation is forbidden.', 'warning');
+    return;
+  }
+
   const subnetPattern = document.getElementById('input-ratepolicy-pattern')?.value.trim();
   const label = document.getElementById('input-ratepolicy-label')?.value.trim();
   const requestsPerMinute = parseInt(document.getElementById('input-ratepolicy-rpm')?.value || '120', 10);
@@ -8408,6 +8434,11 @@ window.loadJailedIpsTable = async function() {
 };
 
 window.openManualJailModal = function(prefillIp) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: IP quarantines cannot be created from this session.', 'warning');
+    return;
+  }
+
   const inputIp = document.getElementById('input-jail-ip');
   const inputReason = document.getElementById('input-jail-reason');
   const selectDuration = document.getElementById('select-jail-duration');
@@ -8416,14 +8447,15 @@ window.openManualJailModal = function(prefillIp) {
   if (inputReason) inputReason.value = '';
   if (selectDuration) selectDuration.value = '15';
 
-  const modal = document.getElementById('modal-manual-jail-ip');
-  if (modal) {
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  }
+  showModal('modal-manual-jail-ip');
 };
 
 window.submitManualJailIp = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Permission elevation is forbidden.', 'warning');
+    return;
+  }
+
   const ipAddress = document.getElementById('input-jail-ip')?.value.trim();
   const reason = document.getElementById('input-jail-reason')?.value.trim();
   const durationMinutes = parseInt(document.getElementById('select-jail-duration')?.value || '15', 10);
@@ -8449,6 +8481,10 @@ window.submitManualJailIp = async function() {
 };
 
 window.pardonJailedIp = async function(ipAddress) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot pardon jailed IPs.', 'warning');
+    return;
+  }
   try {
     await apiRequest(`/api/v1/admin/network/jail/${encodeURIComponent(ipAddress)}/pardon`, 'POST');
     showToast(`IP ${ipAddress} released from quarantine jail.`, 'success');
@@ -8460,6 +8496,10 @@ window.pardonJailedIp = async function(ipAddress) {
 };
 
 window.clearAllJailsFromUI = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot clear all jails.', 'warning');
+    return;
+  }
   if (!confirm('Are you sure you want to pardon and unban all quarantined IPs?')) return;
   try {
     const res = await apiRequest('/api/v1/admin/network/jail/clear', 'DELETE');
@@ -8610,6 +8650,10 @@ window.renderTrackedDevicesTable = function(devices) {
 };
 
 window.toggleBlockDevice = async function(ipAddress, blockState) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Device access control cannot be altered from this session.', 'warning');
+    return;
+  }
   try {
     const res = await apiRequest(`/api/v1/admin/network/devices/${encodeURIComponent(ipAddress)}/toggle-block`, 'POST', {
       isBlocked: blockState
@@ -8757,3 +8801,792 @@ window.inspectGeoIpThreat = async function() {
     `;
   }
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  EMERGENCY PROTOCOLS, PANIC MODE & MAINTENANCE WINDOWS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getAegisAuthToken() {
+  return state.accessToken || state.token || localStorage.getItem('aegis_access_token') || localStorage.getItem('token') || '';
+}
+
+window.loadEmergencyStatus = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/emergency/status', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderEmergencyStatus(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load emergency status:', err);
+  }
+};
+
+window.renderEmergencyStatus = function(data) {
+  const badge = document.getElementById('badge-emergency-level-status');
+  const inputReason = document.getElementById('input-emergency-reason');
+  const toggleMaint = document.getElementById('toggle-maintenance-enabled');
+  const inputMaintMsg = document.getElementById('input-maintenance-message');
+  const inputMaintStart = document.getElementById('input-maintenance-start-at');
+  const inputMaintEnd = document.getElementById('input-maintenance-end-at');
+  const inputMaintRetry = document.getElementById('input-maintenance-retry-after');
+
+  if (inputReason && data.reason) inputReason.value = data.reason;
+  if (toggleMaint) toggleMaint.checked = Boolean(data.maintenanceEnabled);
+  if (inputMaintMsg && data.maintenanceMessage) inputMaintMsg.value = data.maintenanceMessage;
+  if (inputMaintStart && data.maintenanceStartAt) inputMaintStart.value = data.maintenanceStartAt.slice(0, 16);
+  if (inputMaintEnd && data.maintenanceEndAt) inputMaintEnd.value = data.maintenanceEndAt.slice(0, 16);
+  if (inputMaintRetry && data.maintenanceRetryAfterSeconds) inputMaintRetry.value = data.maintenanceRetryAfterSeconds;
+
+  // Update Buttons and Status Dots
+  const levels = ['normal', 'readonly', 'lan', 'airgap'];
+  const levelMap = {
+    'normal': 'normal',
+    'read_only': 'readonly',
+    'lan_only': 'lan',
+    'air_gap': 'airgap'
+  };
+  const activeKey = levelMap[data.level] || 'normal';
+
+  levels.forEach(lvl => {
+    const btn = document.getElementById(`btn-emergency-${lvl}`);
+    const dot = document.getElementById(`dot-emergency-${lvl}`);
+    if (btn) {
+      if (lvl === activeKey) {
+        btn.classList.add('ring-2', 'ring-white/40', 'scale-[1.02]');
+      } else {
+        btn.classList.remove('ring-2', 'ring-white/40', 'scale-[1.02]');
+      }
+    }
+    if (dot) {
+      if (lvl === activeKey) {
+        dot.className = lvl === 'normal' ? 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse' :
+                        lvl === 'readonly' ? 'w-2 h-2 rounded-full bg-amber-400 animate-pulse' :
+                        lvl === 'lan' ? 'w-2 h-2 rounded-full bg-orange-400 animate-pulse' :
+                        'w-2 h-2 rounded-full bg-red-400 animate-pulse';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-slate-600';
+      }
+    }
+  });
+
+  if (badge) {
+    if (data.level === 'normal') {
+      badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      badge.textContent = '🟢 Normal Mode';
+    } else if (data.level === 'read_only') {
+      badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      badge.textContent = '🟡 Level 1: Read-Only Shield';
+    } else if (data.level === 'lan_only') {
+      badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-orange-500/20 text-orange-300 border border-orange-500/30';
+      badge.textContent = '🟠 Level 2: LAN Quarantine';
+    } else if (data.level === 'air_gap') {
+      badge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-500/30 text-red-300 border border-red-500/40 animate-pulse';
+      badge.textContent = '🔴 Level 3: Air-Gap Freeze';
+    }
+  }
+};
+
+window.setEmergencyLockdownLevel = async function(level) {
+  const reason = document.getElementById('input-emergency-reason')?.value?.trim() || '';
+  if (level === 'air_gap') {
+    const confirmAirGap = confirm('⚠️ CAUTION: Air-Gap Freeze will halt all client network operations and take an emergency snapshot. Are you sure you want to activate Level 3 Air-Gap Freeze?');
+    if (!confirmAirGap) return;
+  }
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/emergency/lockdown', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ level, reason })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to update emergency lockdown level.');
+
+    showToast(json.message || `Lockdown level updated to ${level}`, 'success');
+    if (json.data) window.renderEmergencyStatus(json.data);
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.saveMaintenanceWindowSettings = async function() {
+  const enabled = document.getElementById('toggle-maintenance-enabled')?.checked || false;
+  const message = document.getElementById('input-maintenance-message')?.value?.trim() || 'System is temporarily undergoing scheduled maintenance.';
+  const startAt = document.getElementById('input-maintenance-start-at')?.value || null;
+  const endAt = document.getElementById('input-maintenance-end-at')?.value || null;
+  const retryAfterSeconds = Number(document.getElementById('input-maintenance-retry-after')?.value || 300);
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/emergency/maintenance', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        enabled,
+        message,
+        startAt: startAt ? new Date(startAt).toISOString() : null,
+        endAt: endAt ? new Date(endAt).toISOString() : null,
+        retryAfterSeconds
+      })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to update maintenance settings.');
+
+    showToast(enabled ? '⚠️ Scheduled Maintenance Window ACTIVATED' : '✅ Maintenance Window disabled', enabled ? 'warning' : 'success');
+    if (json.data) window.renderEmergencyStatus(json.data);
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.triggerEmergencyPanicSnapshot = async function() {
+  const reasonNote = document.getElementById('input-emergency-reason')?.value?.trim() || 'Manual emergency admin snapshot';
+  try {
+    showToast('📸 Creating encrypted emergency snapshot...', 'info');
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/emergency/panic-snapshot', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ reasonNote })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to create emergency snapshot.');
+
+    showToast(`✅ Emergency snapshot created: ${(json.data.sizeBytes / 1024).toFixed(1)} KB`, 'success');
+  } catch (err) {
+    showToast(`Failed snapshot: ${err.message}`, 'error');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  LAYER-7 WEB APPLICATION FIREWALL (WAF) & PAYLOAD SHIELD
+// ─────────────────────────────────────────────────────────────────────────────
+
+window.loadWafSettings = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/waf/settings', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderWafSettings(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load WAF settings:', err);
+  }
+};
+
+window.renderWafSettings = function(settings) {
+  const toggleWaf = document.getElementById('toggle-waf-enabled');
+  const toggleSqli = document.getElementById('toggle-waf-sqli');
+  const toggleXss = document.getElementById('toggle-waf-xss');
+  const toggleProto = document.getElementById('toggle-waf-proto');
+  const toggleTraversal = document.getElementById('toggle-waf-traversal');
+  const toggleScanners = document.getElementById('toggle-waf-scanners');
+  const badgeStatus = document.getElementById('badge-waf-active-status');
+
+  if (toggleWaf) toggleWaf.checked = Boolean(settings.enabled);
+  if (toggleSqli) toggleSqli.checked = Boolean(settings.blockSqlInjection);
+  if (toggleXss) toggleXss.checked = Boolean(settings.blockXss);
+  if (toggleProto) toggleProto.checked = Boolean(settings.blockPrototypePollution);
+  if (toggleTraversal) toggleTraversal.checked = Boolean(settings.blockPathTraversal);
+  if (toggleScanners) toggleScanners.checked = Boolean(settings.blockScanners);
+
+  if (badgeStatus) {
+    if (settings.enabled) {
+      badgeStatus.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30';
+      badgeStatus.textContent = 'Active Shield';
+    } else {
+      badgeStatus.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-500/20 text-slate-400 border border-slate-500/30';
+      badgeStatus.textContent = 'Disabled';
+    }
+  }
+};
+
+window.saveWafSettings = async function() {
+  const enabled = document.getElementById('toggle-waf-enabled')?.checked || false;
+  const blockSqlInjection = document.getElementById('toggle-waf-sqli')?.checked || false;
+  const blockXss = document.getElementById('toggle-waf-xss')?.checked || false;
+  const blockPrototypePollution = document.getElementById('toggle-waf-proto')?.checked || false;
+  const blockPathTraversal = document.getElementById('toggle-waf-traversal')?.checked || false;
+  const blockScanners = document.getElementById('toggle-waf-scanners')?.checked || false;
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/waf/settings', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        enabled,
+        blockSqlInjection,
+        blockXss,
+        blockPrototypePollution,
+        blockPathTraversal,
+        blockScanners
+      })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to update WAF settings.');
+
+    showToast(json.message || 'WAF settings saved successfully.', 'success');
+    if (json.data) window.renderWafSettings(json.data);
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.loadWafStats = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/waf/stats', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderWafStats(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load WAF stats:', err);
+  }
+};
+
+window.renderWafStats = function(stats) {
+  const elInspected = document.getElementById('metric-waf-inspected');
+  const elBlocked = document.getElementById('metric-waf-blocked');
+  const elSqli = document.getElementById('metric-waf-sqli');
+  const elXss = document.getElementById('metric-waf-xss');
+  const elProto = document.getElementById('metric-waf-proto');
+  const elScanners = document.getElementById('metric-waf-scanners');
+  const tableBody = document.getElementById('table-waf-events-body');
+
+  if (elInspected) elInspected.textContent = stats.totalInspected.toLocaleString();
+  if (elBlocked) elBlocked.textContent = stats.totalBlocked.toLocaleString();
+  if (elSqli) elSqli.textContent = (stats.threatBreakdown?.sqli || 0).toLocaleString();
+  if (elXss) elXss.textContent = (stats.threatBreakdown?.xss || 0).toLocaleString();
+  if (elProto) elProto.textContent = (stats.threatBreakdown?.prototype_pollution || 0).toLocaleString();
+  if (elScanners) elScanners.textContent = (stats.threatBreakdown?.scanner || 0).toLocaleString();
+
+  if (!tableBody) return;
+
+  if (!stats.recentEvents || stats.recentEvents.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500 text-xs">No active threats detected. WAF Shield is monitoring.</td></tr>`;
+    return;
+  }
+
+  tableBody.innerHTML = stats.recentEvents.map(evt => {
+    const threatBadge = evt.threatType === 'sqli' ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">SQLi</span>' :
+                        evt.threatType === 'xss' ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">XSS</span>' :
+                        evt.threatType === 'prototype_pollution' ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-purple-500/20 text-purple-300 border border-purple-500/30">Proto Poison</span>' :
+                        evt.threatType === 'path_traversal' ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">Path Traversal</span>' :
+                        '<span class="px-2 py-0.5 rounded-full text-[10px] bg-orange-500/20 text-orange-300 border border-orange-500/30">Bad Bot</span>';
+
+    return `
+      <tr class="hover:bg-white/[0.02] transition">
+        <td class="p-3 text-white font-mono text-xs">${escapeHTML(evt.clientIp)}</td>
+        <td class="p-3">${threatBadge}</td>
+        <td class="p-3 text-slate-300 font-mono text-xs truncate max-w-[140px]" title="${escapeHTML(evt.path)}"><code class="px-1 py-0.5 rounded bg-black/50 text-slate-300">${escapeHTML(evt.method)}</code> ${escapeHTML(evt.path)}</td>
+        <td class="p-3 text-rose-300/90 font-mono text-[11px] truncate max-w-[200px]" title="${escapeHTML(evt.matchedSnippet)}">${escapeHTML(evt.matchedSnippet)}</td>
+        <td class="p-3 text-right text-slate-400 text-[11px]">${new Date(evt.timestamp).toLocaleTimeString()}</td>
+      </tr>
+    `;
+  }).join('');
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  EPHEMERAL ONE-TIME TOKENS (OTT) & ZERO-TRUST DEVICE APPROVALS
+// ─────────────────────────────────────────────────────────────────────────────
+
+window.loadOttAndDeviceData = function() {
+  window.loadOttTokensTable();
+  window.loadDeviceRequestsTable();
+};
+
+window.loadOttTokensTable = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/ott/list', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderOttTokensTable(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load OTT tokens:', err);
+  }
+};
+
+window.renderOttTokensTable = function(tokens) {
+  const tbody = document.getElementById('table-ott-tokens-body');
+  if (!tbody) return;
+
+  if (!tokens || tokens.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">No One-Time Tokens created.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = tokens.map(tok => {
+    const isExpired = new Date(tok.expiresAt).getTime() < Date.now();
+    const statusBadge = tok.isUsed
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-slate-800 text-slate-400 border border-slate-700">Burned</span>'
+      : isExpired
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">Expired</span>'
+      : '<span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse">Active</span>';
+
+    return `
+      <tr class="hover:bg-white/[0.02] transition">
+        <td class="p-2.5">
+          <div class="font-medium text-white text-xs truncate max-w-[130px]" title="${escapeHTML(tok.label)}">${escapeHTML(tok.label)}</div>
+          <div class="text-[10px] text-slate-500">${new Date(tok.createdAt).toLocaleTimeString()}</div>
+        </td>
+        <td class="p-2.5 text-cyan-300 font-mono text-[11px]">${escapeHTML(tok.ipRestriction || 'Any IP')}</td>
+        <td class="p-2.5 text-center">${statusBadge}</td>
+        <td class="p-2.5 text-right">
+          ${!tok.isUsed && !isExpired ? `
+            <button type="button" onclick="window.revokeOneTimeToken('${tok.id}')" class="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-[10px] font-semibold transition" title="Revoke Token">
+              Revoke
+            </button>
+          ` : `
+            <span class="text-[10px] text-slate-600">—</span>
+          `}
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window._currentOttUrls = { network: '', local: '' };
+
+window.generateOneTimeToken = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Ephemeral sessions cannot generate tokens or extend duration.', 'warning');
+    return;
+  }
+
+  const label = document.getElementById('input-ott-label')?.value?.trim() || 'Remote Emergency Access Token';
+  const durationMinutes = Number(document.getElementById('select-ott-ttl')?.value || 15);
+  const ipRestriction = document.getElementById('input-ott-ip-lock')?.value?.trim() || undefined;
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/ott/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ label, durationMinutes, ipRestriction })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to generate token.');
+
+    showToast('🔑 One-Time Token & QR Code generated successfully!', 'success');
+
+    // Build or use URLs returned by server
+    const serverNetworkUrl = json.data.networkUrl;
+    const serverLocalUrl = json.data.localUrl;
+    const fallbackOrigin = window.location.origin;
+
+    const networkUrl = serverNetworkUrl || `${fallbackOrigin}/?ott=${json.data.token}`;
+    const localUrl = serverLocalUrl || `http://localhost:${window.location.port || 3000}/?ott=${json.data.token}`;
+
+    window._currentOttUrls = { network: networkUrl, local: localUrl };
+
+    const box = document.getElementById('box-generated-ott-link');
+    const inputNetUrl = document.getElementById('input-generated-ott-network-url');
+    const inputLocUrl = document.getElementById('input-generated-ott-local-url');
+    const imgQr = document.getElementById('img-ott-qr-code');
+    const linkOpen = document.getElementById('link-ott-open-tab');
+
+    if (inputNetUrl) inputNetUrl.value = networkUrl;
+    if (inputLocUrl) inputLocUrl.value = localUrl;
+    if (linkOpen) linkOpen.href = networkUrl;
+
+    if (imgQr) {
+      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(networkUrl)}`;
+    }
+
+    if (box) {
+      box.classList.remove('hidden');
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    window.loadOttTokensTable();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.switchOttQrTarget = function(type) {
+  const imgQr = document.getElementById('img-ott-qr-code');
+  const btnNet = document.getElementById('btn-ott-qr-toggle-net');
+  const btnLoc = document.getElementById('btn-ott-qr-toggle-loc');
+  const linkOpen = document.getElementById('link-ott-open-tab');
+
+  const targetUrl = type === 'local' ? window._currentOttUrls.local : window._currentOttUrls.network;
+  if (!targetUrl) return;
+
+  if (imgQr) {
+    imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(targetUrl)}`;
+  }
+  if (linkOpen) linkOpen.href = targetUrl;
+
+  if (type === 'local') {
+    btnLoc?.classList.add('bg-cyan-500', 'text-black', 'font-bold', 'shadow-md', 'shadow-cyan-950/50');
+    btnLoc?.classList.remove('bg-white/10', 'hover:bg-white/20', 'text-slate-300');
+    btnNet?.classList.remove('bg-cyan-500', 'text-black', 'font-bold', 'shadow-md', 'shadow-cyan-950/50');
+    btnNet?.classList.add('bg-white/10', 'hover:bg-white/20', 'text-slate-300');
+    showToast('📱 QR Code switched to Localhost URL', 'info');
+  } else {
+    btnNet?.classList.add('bg-cyan-500', 'text-black', 'font-bold', 'shadow-md', 'shadow-cyan-950/50');
+    btnNet?.classList.remove('bg-white/10', 'hover:bg-white/20', 'text-slate-300');
+    btnLoc?.classList.remove('bg-cyan-500', 'text-black', 'font-bold', 'shadow-md', 'shadow-cyan-950/50');
+    btnLoc?.classList.add('bg-white/10', 'hover:bg-white/20', 'text-slate-300');
+    showToast('📶 QR Code switched to Wi-Fi LAN Network URL (Recommended for Phones)', 'info');
+  }
+};
+
+window.copyGeneratedOttUrl = function(type = 'network') {
+  const url = type === 'local' ? window._currentOttUrls.local : window._currentOttUrls.network;
+  const inputEl = type === 'local'
+    ? document.getElementById('input-generated-ott-local-url')
+    : document.getElementById('input-generated-ott-network-url');
+
+  const textToCopy = url || inputEl?.value;
+  if (textToCopy) {
+    navigator.clipboard.writeText(textToCopy);
+    showToast(`📋 ${type === 'local' ? 'Localhost' : 'Wi-Fi Network'} login URL copied to clipboard!`, 'info');
+  }
+};
+
+window.revokeOneTimeToken = async function(id) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot revoke tokens.', 'warning');
+    return;
+  }
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch(`/api/v1/admin/ott/${id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to revoke token.');
+
+    showToast('Token revoked.', 'warning');
+    window.loadOttTokensTable();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.loadDeviceRequestsTable = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/device-requests', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderDeviceRequestsTable(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load device requests:', err);
+  }
+};
+
+window.renderDeviceRequestsTable = function(requests) {
+  const tbody = document.getElementById('table-device-requests-body');
+  if (!tbody) return;
+
+  if (!requests || requests.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-500 text-xs">No pending device access requests.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = requests.map(req => {
+    const isPending = req.status === 'pending';
+    const statusBadge = req.status === 'approved'
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Approved</span>'
+      : req.status === 'rejected'
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">Rejected</span>'
+      : '<span class="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse">Pending</span>';
+
+    return `
+      <tr class="hover:bg-white/[0.02] transition">
+        <td class="p-2.5">
+          <div class="font-medium text-white text-xs truncate max-w-[140px]" title="${escapeHTML(req.deviceName)}">${escapeHTML(req.deviceName)}</div>
+          <div class="text-[10px] text-cyan-400 font-mono">${escapeHTML(req.ipAddress)}</div>
+        </td>
+        <td class="p-2.5 text-center">${statusBadge}</td>
+        <td class="p-2.5 text-right">
+          ${isPending && !state.user?.isOttLogin ? `
+            <div class="flex items-center justify-end space-x-1">
+              <button type="button" onclick="window.approveDeviceRequest('${req.id}')" class="px-2 py-1 rounded bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold transition" title="Approve (24h Whitelist)">
+                Approve
+              </button>
+              <button type="button" onclick="window.rejectDeviceRequest('${req.id}')" class="px-2 py-1 rounded bg-rose-600/20 hover:bg-rose-600/40 text-rose-300 border border-rose-500/30 text-[10px] font-semibold transition" title="Reject Request">
+                Reject
+              </button>
+            </div>
+          ` : `
+            <span class="text-[10px] text-slate-500">${escapeHTML(req.decidedBy || (isPending ? 'Pending Host Review' : '—'))}</span>
+          `}
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.approveDeviceRequest = async function(id) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot approve device requests.', 'warning');
+    return;
+  }
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch(`/api/v1/admin/device-requests/${id}/approve`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ durationHours: 24 })
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to approve device.');
+
+    showToast(json.message || 'Device approved and whitelisted.', 'success');
+    window.loadDeviceRequestsTable();
+    if (typeof window.loadNetworkRules === 'function') window.loadNetworkRules();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.rejectDeviceRequest = async function(id) {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot reject device requests.', 'warning');
+    return;
+  }
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch(`/api/v1/admin/device-requests/${id}/reject`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to reject device.');
+
+    showToast('Device request rejected.', 'warning');
+    window.loadDeviceRequestsTable();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+// ── Check URL for ?ott=<token> on startup ──────────────────────────────────
+(function checkOttUrlParameter() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const ottToken = urlParams.get('ott');
+  if (ottToken) {
+    fetch('/api/v1/auth/ott/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: ottToken })
+    })
+    .then(res => res.json())
+    .then(json => {
+      if (json.success && json.token) {
+        state.token = json.token;
+        state.accessToken = json.token;
+        state.user = json.user;
+        localStorage.setItem('token', json.token);
+        localStorage.setItem('aegis_access_token', json.token);
+        localStorage.setItem('user', JSON.stringify(json.user));
+        localStorage.setItem('aegis_user', JSON.stringify(json.user));
+        // Clean URL without refresh
+        window.history.replaceState({}, document.title, window.location.pathname);
+        showToast('🎉 Authenticated via One-Time Super Admin Token!', 'success');
+
+        document.getElementById('auth-screen')?.classList.add('hidden');
+        document.getElementById('main-app')?.classList.remove('hidden');
+        if (typeof updateUserProfileUI === 'function') updateUserProfileUI();
+        if (typeof setRoleMode === 'function') setRoleMode('superadmin');
+        if (typeof connectGlobalWebSocket === 'function') connectGlobalWebSocket();
+        if (typeof initGlobalData === 'function') initGlobalData();
+
+        // Switch to Server Hosting & Network Center if on default
+        const currentHash = window.location.hash;
+        if (!currentHash || currentHash === '#tab-server-hosting') {
+          if (typeof window.switchTab === 'function') window.switchTab('tab-server-hosting');
+        }
+      } else {
+        showToast(`One-Time Token Login Failed: ${json.message}`, 'error');
+      }
+    })
+    .catch(err => {
+      showToast(`One-Time Token Error: ${err.message}`, 'error');
+    });
+  }
+})();
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  CLUSTER PORT DIAGNOSTICS MATRIX & ZERO-DOWNTIME HOT RESTART
+// ─────────────────────────────────────────────────────────────────────────────
+
+window.loadClusterDiagnosticsReport = async function() {
+  const tbody = document.getElementById('table-cluster-ports-body');
+  if (tbody) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500 text-xs">Running cluster port diagnostic probe...</td></tr>`;
+  }
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/server/cluster-diagnostics', {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderClusterDiagnosticsReport(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load cluster diagnostics:', err);
+  }
+};
+
+window.renderClusterDiagnosticsReport = function(data) {
+  const badgeHost = document.getElementById('badge-cluster-host-info');
+  const elUptime = document.getElementById('metric-cluster-uptime');
+  const elMem = document.getElementById('metric-cluster-mem');
+  const elCpu = document.getElementById('metric-cluster-cpu');
+  const elPortHost = document.getElementById('metric-cluster-port-host');
+  const tbody = document.getElementById('table-cluster-ports-body');
+
+  if (badgeHost) badgeHost.textContent = `${data.hostname} (${data.platform})`;
+  if (elUptime) {
+    const s = data.uptimeSeconds;
+    const hrs = Math.floor(s / 3600);
+    const mins = Math.floor((s % 3600) / 60);
+    const secs = s % 60;
+    elUptime.textContent = hrs > 0 ? `${hrs}h ${mins}m` : mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  }
+  if (elMem) elMem.textContent = `${data.memoryUsageMb} MB (${data.heapUsedMb} MB Heap)`;
+  if (elCpu) elCpu.textContent = `${data.cpuLoadAvg?.[0]?.toFixed(2) || '0.00'} (${data.cpuCores} Cores)`;
+  if (elPortHost) elPortHost.textContent = `Port ${data.currentPort} (${data.currentHost || '0.0.0.0'})`;
+
+  if (!tbody) return;
+
+  if (!data.portMatrix || data.portMatrix.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500 text-xs">No candidate ports scanned.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = data.portMatrix.map(pm => {
+    const isActive = pm.status === 'active_aegis';
+    const isFree = pm.status === 'free';
+    const statusBadge = isActive
+      ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse font-bold">🟢 Active Master</span>'
+      : isFree
+      ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Free & Available</span>'
+      : pm.status === 'scheduled_reserved'
+      ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30">Reserved</span>'
+      : '<span class="px-2.5 py-0.5 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">Occupied</span>';
+
+    return `
+      <tr class="hover:bg-white/[0.02] transition">
+        <td class="p-3 font-mono font-bold text-white text-xs flex items-center space-x-1.5">
+          <i class="fa-solid fa-server text-slate-500 text-[10px]"></i>
+          <span>Port ${pm.port}</span>
+        </td>
+        <td class="p-3">${statusBadge}</td>
+        <td class="p-3 text-center text-slate-400 font-mono text-[11px]">${pm.latencyMs} ms</td>
+        <td class="p-3 text-slate-300 text-xs truncate max-w-[220px]" title="${escapeHTML(pm.description)}">${escapeHTML(pm.description)}</td>
+        <td class="p-3 text-right">
+          ${isFree ? `
+            <button type="button" onclick="document.getElementById('input-target-port').value='${pm.port}'; window.savePlatformSettings();" class="px-2.5 py-1 rounded bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold transition active:scale-95">
+              Switch to ${pm.port}
+            </button>
+          ` : isActive ? `
+            <span class="text-[10px] text-emerald-400 font-semibold font-mono">Bound</span>
+          ` : `
+            <span class="text-[10px] text-slate-600">—</span>
+          `}
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.triggerZeroDowntimeHotRestart = async function() {
+  const confirmed = confirm('⚡ Zero-Downtime Hot Restart will cycle the HTTP server instance in-memory, flush device tracking buffers, and re-bind listeners without terminating the process or losing client sessions. Proceed?');
+  if (!confirmed) return;
+
+  try {
+    showToast('⚡ Initiating zero-downtime hot restart...', 'info');
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/server/hot-restart', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to trigger hot restart.');
+
+    showToast(json.message || 'Hot restart completed successfully.', 'success');
+    window.loadClusterDiagnosticsReport();
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+
+
+

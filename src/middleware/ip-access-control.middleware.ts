@@ -31,7 +31,109 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
     userEmail
   });
 
-  // 2. Evaluate access permissions with perimeter and project scoping
+  // 2. Evaluate Emergency Lockdown & Scheduled Maintenance
+  const { emergencyControlService } = require('../services/emergency-control.service');
+  const emergencyCheck = emergencyControlService.evaluateRequest({
+    method: req.method,
+    path: req.path,
+    clientIp,
+    isSuperAdmin: user?.isSuperAdmin === true || Number(user?.isSuperAdmin) === 1
+  });
+
+  if (!emergencyCheck.allowed) {
+    const isApi = req.path.startsWith('/api/') || req.headers.accept?.includes('application/json');
+    if (emergencyCheck.retryAfter) {
+      res.setHeader('Retry-After', String(emergencyCheck.retryAfter));
+    }
+    const statusCode = emergencyCheck.statusCode || 503;
+    if (isApi) {
+      res.status(statusCode).json({
+        success: false,
+        code: emergencyCheck.code || 'EMERGENCY_LOCKDOWN',
+        message: emergencyCheck.message || 'Service temporarily unavailable.',
+        clientIp,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    res.status(statusCode).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>AegisDB — ${emergencyCheck.code || 'Service Notice'}</title>
+        <style>
+          body { background: #030712; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+          .card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 24px; padding: 40px; max-width: 520px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+          h2 { color: #f87171; margin-top: 0; font-size: 22px; }
+          p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+          .badge { display: inline-block; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; font-family: monospace; font-size: 12px; padding: 4px 12px; border-radius: 9999px; margin-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>🛡️ ${emergencyCheck.code || 'Service Status Notice'}</h2>
+          <p>${emergencyCheck.message || 'System is currently in emergency maintenance or locked state.'}</p>
+          <div class="badge">IP: ${clientIp}</div>
+        </div>
+      </body>
+      </html>
+    `);
+    return;
+  }
+
+  // 2b. Layer-7 Web Application Firewall (WAF) Deep Packet Inspection
+  const { wafShieldService } = require('../services/waf-shield.service');
+  const wafCheck = wafShieldService.inspectRequest({
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    body: req.body,
+    headers: req.headers,
+    clientIp
+  });
+
+  if (wafCheck.blocked) {
+    const isApi = req.path.startsWith('/api/') || req.headers.accept?.includes('application/json');
+    if (isApi) {
+      res.status(400).json({
+        success: false,
+        code: 'WAF_PAYLOAD_BLOCKED',
+        threatType: wafCheck.threatType,
+        message: `WAF Security Shield: ${wafCheck.description}`,
+        matchedPattern: wafCheck.matchedPattern,
+        clientIp,
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+    res.status(403).send(`
+      <!DOCTYPE html>
+      <html lang="en">
+      <head>
+        <meta charset="UTF-8">
+        <title>AegisDB WAF — Threat Blocked</title>
+        <style>
+          body { background: #030712; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+          .card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 24px; padding: 40px; max-width: 520px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+          h2 { color: #fb7185; margin-top: 0; font-size: 22px; }
+          p { color: #94a3b8; font-size: 14px; line-height: 1.6; }
+          .badge { display: inline-block; background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.3); color: #fda4af; font-family: monospace; font-size: 12px; padding: 4px 12px; border-radius: 9999px; margin-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          <h2>🛡️ WAF Security Shield Blocked Request</h2>
+          <p>${wafCheck.description || 'Malicious payload injection attempt detected and dropped.'}</p>
+          <div class="badge">Threat: ${wafCheck.threatType?.toUpperCase() || 'UNKNOWN'} | IP: ${clientIp}</div>
+        </div>
+      </body>
+      </html>
+    `);
+    return;
+  }
+
+  // 3. Evaluate access permissions with perimeter and project scoping
   const projectId = (req.headers['x-aegis-project-id'] as string) || (req.headers['x-project-id'] as string) || (req.query?.projectId as string) || null;
   const { allowed, reason, code } = networkAccessService.isEndpointAccessAllowed({
     clientIp,

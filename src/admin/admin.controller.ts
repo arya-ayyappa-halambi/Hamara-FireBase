@@ -22,6 +22,9 @@ import { networkDiagnosticsService } from '../services/network-diagnostics.servi
 import { networkAccessService } from '../services/network-access.service';
 import { geoipThreatIntelService } from '../services/geoip-threat-intel.service';
 import { subnetRateLimiterService } from '../services/subnet-rate-limiter.service';
+import { emergencyControlService } from '../services/emergency-control.service';
+import { wafShieldService } from '../services/waf-shield.service';
+import { remoteOttAccessService } from '../services/remote-ott-access.service';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -1082,5 +1085,280 @@ export async function getSubnetLiveMetricsHandler(_req: Request, res: Response, 
     next(err);
   }
 }
+
+export async function getEmergencyStatusHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const status = emergencyControlService.getStatus();
+    res.status(200).json({
+      success: true,
+      message: 'Emergency and maintenance status retrieved.',
+      data: status
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function setEmergencyLevelHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { level, reason } = req.body;
+    if (!['normal', 'read_only', 'lan_only', 'air_gap'].includes(level)) {
+      throw new AppError("Invalid emergency level. Must be 'normal', 'read_only', 'lan_only', or 'air_gap'.", 400);
+    }
+
+    const updated = emergencyControlService.setEmergencyLevel(level, reason);
+    res.status(200).json({
+      success: true,
+      message: `Emergency lockdown level updated to '${level}'.`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function setMaintenanceWindowHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { enabled, message, startAt, endAt, retryAfterSeconds } = req.body;
+    const updated = emergencyControlService.setMaintenanceWindow({
+      enabled: Boolean(enabled),
+      message,
+      startAt,
+      endAt,
+      retryAfterSeconds: retryAfterSeconds ? Number(retryAfterSeconds) : undefined
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Maintenance window configuration updated (Enabled: ${Boolean(enabled)}).`,
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createEmergencySnapshotHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { reasonNote } = req.body || {};
+    const result = emergencyControlService.createPanicSnapshot(reasonNote);
+    if (!result.success) {
+      throw new AppError('Failed to generate emergency backup snapshot.', 500);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Emergency snapshot created successfully.',
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getWafSettingsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const settings = wafShieldService.getSettings();
+    res.status(200).json({
+      success: true,
+      message: 'WAF settings retrieved.',
+      data: settings
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateWafSettingsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const updated = wafShieldService.updateSettings(req.body);
+    res.status(200).json({
+      success: true,
+      message: 'WAF shield settings updated successfully.',
+      data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getWafStatsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const stats = wafShieldService.getStats();
+    res.status(200).json({
+      success: true,
+      message: 'WAF live statistics retrieved.',
+      data: stats
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function generateOttHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { label, durationMinutes, ipRestriction } = req.body || {};
+    const user = (req as any).user;
+    const ott = remoteOttAccessService.generateOneTimeToken({
+      label: label || 'Remote Emergency Access Token',
+      createdByUserId: user?.id || user?.sub || 'admin',
+      durationMinutes: durationMinutes ? Number(durationMinutes) : 15,
+      ipRestriction
+    });
+
+    const db = getDb();
+    const settings = db.prepare("SELECT serverPort, serverHost FROM platform_settings WHERE id = 'default'").get() as any;
+    const port = Number(process.env.PORT || settings?.serverPort || 3000);
+    const networkIp = endpointMigrationScheduler.getNetworkIp() || '127.0.0.1';
+
+    const networkUrl = `http://${networkIp}:${port}/?ott=${ott.token}`;
+    const localUrl = `http://localhost:${port}/?ott=${ott.token}`;
+
+    res.status(201).json({
+      success: true,
+      message: 'One-time admin access token generated successfully.',
+      data: {
+        ...ott,
+        networkUrl,
+        localUrl,
+        networkIp,
+        port
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listOttTokensHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const tokens = remoteOttAccessService.listOneTimeTokens();
+    res.status(200).json({
+      success: true,
+      data: tokens
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function revokeOttTokenHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const revoked = remoteOttAccessService.revokeOneTimeToken(id);
+    res.status(200).json({
+      success: revoked,
+      message: revoked ? 'Token revoked successfully.' : 'Token not found or already revoked.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function listDeviceRequestsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const requests = remoteOttAccessService.listDeviceAccessRequests();
+    res.status(200).json({
+      success: true,
+      data: requests
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function approveDeviceRequestHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { durationHours } = req.body || {};
+    const user = (req as any).user;
+    const approved = remoteOttAccessService.approveDeviceRequest(
+      id,
+      user?.email || 'Super Admin',
+      durationHours ? Number(durationHours) : 24
+    );
+
+    if (!approved) {
+      throw new AppError('Device request not found.', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Device ${approved.deviceName} (${approved.ipAddress}) approved for ${durationHours || 24} hours.`,
+      data: approved
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function rejectDeviceRequestHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const user = (req as any).user;
+    const rejected = remoteOttAccessService.rejectDeviceRequest(id, user?.email || 'Super Admin');
+
+    if (!rejected) {
+      throw new AppError('Device request not found.', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Device request from ${rejected.ipAddress} rejected.`,
+      data: rejected
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getClusterDiagnosticsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const db = getDb();
+    const settings = db.prepare("SELECT serverPort, serverHost FROM platform_settings WHERE id = 'default'").get() as any;
+    const currentPort = Number(process.env.PORT || settings?.serverPort || 3000);
+    const currentHost = process.env.HOST || settings?.serverHost || '0.0.0.0';
+
+    const report = await networkDiagnosticsService.getClusterDiagnosticsReport(currentPort, currentHost);
+    res.status(200).json({
+      success: true,
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function hotRestartServerHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const db = getDb();
+    const settings = db.prepare("SELECT serverPort, serverHost FROM platform_settings WHERE id = 'default'").get() as any;
+    const port = Number(process.env.PORT || settings?.serverPort || 3000);
+    const host = process.env.HOST || settings?.serverHost || '0.0.0.0';
+
+    // Flush dirty device metrics to database
+    networkAccessService.flushDevicesToDb();
+
+    // Broadcast hot restart countdown event
+    wsService.broadcast('SERVER_HOT_RESTARTING', {
+      countdownSeconds: 2,
+      port,
+      host,
+      message: 'Zero-Downtime Server Hot Restart initiated by Super Administrator.'
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Zero-Downtime Hot Restart initiated on port ${port}. State preserved.`,
+      data: { port, host, timestamp: new Date().toISOString() }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+
+
+
 
 

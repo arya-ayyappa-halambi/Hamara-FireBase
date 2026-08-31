@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticateJwt } from '../middleware/auth.middleware';
-import { requireSuperAdmin } from '../middleware/admin.middleware';
+import { requireSuperAdmin, disallowOttSessionMutation } from '../middleware/admin.middleware';
 import {
   getStats,
   getUsers,
@@ -47,7 +47,22 @@ import {
   addSubnetRatePolicyHandler,
   updateSubnetRatePolicyHandler,
   deleteSubnetRatePolicyHandler,
-  getSubnetLiveMetricsHandler
+  getSubnetLiveMetricsHandler,
+  getEmergencyStatusHandler,
+  setEmergencyLevelHandler,
+  setMaintenanceWindowHandler,
+  createEmergencySnapshotHandler,
+  getWafSettingsHandler,
+  updateWafSettingsHandler,
+  getWafStatsHandler,
+  generateOttHandler,
+  listOttTokensHandler,
+  revokeOttTokenHandler,
+  listDeviceRequestsHandler,
+  approveDeviceRequestHandler,
+  rejectDeviceRequestHandler,
+  getClusterDiagnosticsHandler,
+  hotRestartServerHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -59,43 +74,66 @@ router.use(apiLimiter);
 
 // ── Network Access Control & Device Tracking ─────────────────────────────────
 router.get('/network/rules', getNetworkRulesHandler);
-router.post('/network/rules', addNetworkRuleHandler);
-router.delete('/network/rules/:id', deleteNetworkRuleHandler);
+router.post('/network/rules', disallowOttSessionMutation, addNetworkRuleHandler);
+router.delete('/network/rules/:id', disallowOttSessionMutation, deleteNetworkRuleHandler);
 router.get('/network/devices', getTrackedDevicesHandler);
-router.post('/network/devices/:ip/toggle-block', toggleBlockDeviceHandler);
+router.post('/network/devices/:ip/toggle-block', disallowOttSessionMutation, toggleBlockDeviceHandler);
 router.get('/network/settings', getNetworkSettingsHandler);
-router.patch('/network/settings', updateNetworkSettingsHandler);
+router.patch('/network/settings', disallowOttSessionMutation, updateNetworkSettingsHandler);
 router.get('/network/geoip/:ip', lookupGeoIpHandler);
 
 // ── Adaptive Subnet Rate Limiting & Bandwidth Throttling ─────────────────────
 router.get('/network/rate-limits', getSubnetRatePoliciesHandler);
-router.post('/network/rate-limits', addSubnetRatePolicyHandler);
-router.patch('/network/rate-limits/:id', updateSubnetRatePolicyHandler);
-router.delete('/network/rate-limits/:id', deleteSubnetRatePolicyHandler);
+router.post('/network/rate-limits', disallowOttSessionMutation, addSubnetRatePolicyHandler);
+router.patch('/network/rate-limits/:id', disallowOttSessionMutation, updateSubnetRatePolicyHandler);
+router.delete('/network/rate-limits/:id', disallowOttSessionMutation, deleteSubnetRatePolicyHandler);
 router.get('/network/rate-limits/metrics', getSubnetLiveMetricsHandler);
 
 // ── Automated & Manual IP Quarantine / Jail ─────────────────────────────────
 router.get('/network/jail', getJailedIpsHandler);
-router.post('/network/jail', jailIpHandler);
-router.post('/network/jail/:ip/pardon', pardonJailedIpHandler);
-router.delete('/network/jail/clear', clearAllJailsHandler);
+router.post('/network/jail', disallowOttSessionMutation, jailIpHandler);
+router.post('/network/jail/:ip/pardon', disallowOttSessionMutation, pardonJailedIpHandler);
+router.delete('/network/jail/clear', disallowOttSessionMutation, clearAllJailsHandler);
 
-router.post('/server/shutdown', shutdownServerHandler);
+// ── Emergency Protocols, Panic Mode & Maintenance Windows ───────────────────
+router.get('/emergency/status', getEmergencyStatusHandler);
+router.post('/emergency/lockdown', disallowOttSessionMutation, setEmergencyLevelHandler);
+router.post('/emergency/maintenance', disallowOttSessionMutation, setMaintenanceWindowHandler);
+router.post('/emergency/panic-snapshot', createEmergencySnapshotHandler);
+
+// ── Layer-7 Web Application Firewall (WAF) & Threat Shield ──────────────────
+router.get('/waf/settings', getWafSettingsHandler);
+router.patch('/waf/settings', disallowOttSessionMutation, updateWafSettingsHandler);
+router.get('/waf/stats', getWafStatsHandler);
+
+// ── Ephemeral One-Time Tokens (OTT) & Zero-Trust Device Approvals ───────────
+router.post('/ott/generate', disallowOttSessionMutation, generateOttHandler);
+router.get('/ott/list', listOttTokensHandler);
+router.delete('/ott/:id', disallowOttSessionMutation, revokeOttTokenHandler);
+router.get('/device-requests', listDeviceRequestsHandler);
+router.post('/device-requests/:id/approve', disallowOttSessionMutation, approveDeviceRequestHandler);
+router.post('/device-requests/:id/reject', disallowOttSessionMutation, rejectDeviceRequestHandler);
+
+// ── Zero-Downtime Hot Restart & Cluster Port Diagnostics Matrix ──────────────
+router.get('/server/cluster-diagnostics', getClusterDiagnosticsHandler);
+router.post('/server/hot-restart', disallowOttSessionMutation, hotRestartServerHandler);
+
+router.post('/server/shutdown', disallowOttSessionMutation, shutdownServerHandler);
 router.get('/terminal-logs', getTerminalLogs);
 router.get('/platform-settings', getPlatformSettings);
-router.patch('/platform-settings', updatePlatformSettings);
+router.patch('/platform-settings', disallowOttSessionMutation, updatePlatformSettings);
 router.get('/platform-settings/port-diagnostics', getPortDiagnostics);
 router.post('/platform-settings/check-port', checkSinglePort);
 router.get('/platform-settings/migration', getScheduledMigrationHandler);
-router.post('/platform-settings/migration/schedule', scheduleMigrationHandler);
-router.post('/platform-settings/migration/cancel', cancelScheduledMigrationHandler);
-router.post('/platform-settings/migration/execute-now', executeScheduledMigrationNowHandler);
-router.post('/platform-settings/broadcast-notice', broadcastEndpointNoticeHandler);
+router.post('/platform-settings/migration/schedule', disallowOttSessionMutation, scheduleMigrationHandler);
+router.post('/platform-settings/migration/cancel', disallowOttSessionMutation, cancelScheduledMigrationHandler);
+router.post('/platform-settings/migration/execute-now', disallowOttSessionMutation, executeScheduledMigrationNowHandler);
+router.post('/platform-settings/broadcast-notice', disallowOttSessionMutation, broadcastEndpointNoticeHandler);
 
 router.get('/stats', getStats);
 router.get('/users', getUsers);
-router.patch('/users/:id/limits', updateUserLimits);
-router.post('/users/:id/reset-mfa', resetUserMfa);
+router.patch('/users/:id/limits', disallowOttSessionMutation, updateUserLimits);
+router.post('/users/:id/reset-mfa', disallowOttSessionMutation, resetUserMfa);
 
 // ── Trust & Safety / Threat Intelligence & Moderation ─────────────────────────
 router.get('/security/alerts', getSecurityAlerts);

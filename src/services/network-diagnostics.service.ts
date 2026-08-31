@@ -236,6 +236,97 @@ export class NetworkDiagnosticsService {
       pendingMigrations
     };
   }
+
+  /**
+   * Generates a comprehensive Cluster Port Diagnostics Matrix with latency probing and resource telemetry.
+   */
+  public async getClusterDiagnosticsReport(currentPort: number, currentHost: string) {
+    const startUptime = process.uptime();
+    const mem = process.memoryUsage();
+    const cpus = os.cpus();
+    const portsToProbe = [3000, 3001, 3002, 4000, 5000, 8000, 8080, 8443, 9000];
+
+    if (!portsToProbe.includes(currentPort)) {
+      portsToProbe.unshift(currentPort);
+    }
+    portsToProbe.sort((a, b) => a - b);
+
+    const portMatrix = await Promise.all(
+      portsToProbe.map(async (port) => {
+        const start = performance.now();
+        if (port === currentPort) {
+          const latencyMs = Math.round((performance.now() - start) * 100) / 100;
+          return {
+            port,
+            status: 'active_aegis' as const,
+            latencyMs,
+            description: 'Active AegisDB Master Instance',
+            recommended: false
+          };
+        }
+
+        const res = await this.checkPortAvailability(port, '0.0.0.0');
+        const latencyMs = Math.round((performance.now() - start) * 100) / 100;
+
+        return {
+          port,
+          status: res.status,
+          latencyMs,
+          description: res.reason || (res.available ? 'Ready for hot-swap / cluster node' : 'Occupied'),
+          recommended: res.available
+        };
+      })
+    );
+
+    const interfaces: NetworkInterfaceInfo[] = [];
+    let detectedNetworkIp = '127.0.0.1';
+    const netIfaces = os.networkInterfaces();
+
+    interfaces.push({
+      name: 'All Interfaces (0.0.0.0)',
+      address: '0.0.0.0',
+      family: 'IPv4',
+      type: 'all'
+    });
+
+    for (const [name, ifaceList] of Object.entries(netIfaces)) {
+      if (!ifaceList) continue;
+      for (const iface of ifaceList) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          const isWifi = name.toLowerCase().includes('en0') || name.toLowerCase().includes('wlan') || name.toLowerCase().includes('wi-fi');
+          if (detectedNetworkIp === '127.0.0.1' || isWifi) {
+            detectedNetworkIp = iface.address;
+          }
+          interfaces.push({
+            name: `${name} (${isWifi ? 'Wi-Fi' : 'Ethernet'})`,
+            address: iface.address,
+            family: 'IPv4',
+            type: isWifi ? 'wifi' : 'ethernet'
+          });
+        }
+      }
+    }
+
+    return {
+      hostname: os.hostname(),
+      platform: `${os.type()} ${os.release()} (${os.arch()})`,
+      nodeVersion: process.version,
+      uptimeSeconds: Math.floor(startUptime),
+      memoryUsageMb: Math.round(mem.rss / (1024 * 1024) * 10) / 10,
+      heapUsedMb: Math.round(mem.heapUsed / (1024 * 1024) * 10) / 10,
+      totalMemoryMb: Math.round(os.totalmem() / (1024 * 1024)),
+      freeMemoryMb: Math.round(os.freemem() / (1024 * 1024)),
+      cpuCores: cpus.length,
+      cpuModel: cpus[0]?.model || 'Standard CPU',
+      cpuLoadAvg: os.loadavg(),
+      currentPort,
+      currentHost,
+      detectedNetworkIp,
+      interfaces,
+      portMatrix
+    };
+  }
 }
 
 export const networkDiagnosticsService = new NetworkDiagnosticsService();
+

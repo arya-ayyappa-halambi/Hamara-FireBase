@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword, exportDataController, deleteAccountController, cancelDeletionController, acceptPolicyController, getActiveNoticeController, submitAppealController, getMeController } from './auth.controller';
+import { register, login, refresh, logout, setupMfaController, verifyMfaController, disableMfaController, changePasswordController, updateProfileController, googleLogin, getConfig, setInitialPasswordController, forgotPassword, resetPassword, exportDataController, deleteAccountController, cancelDeletionController, acceptPolicyController, getActiveNoticeController, submitAppealController, getMeController, redeemOttController, requestDeviceAccessController } from './auth.controller';
 import { validateBody, registerSchema, loginSchema, refreshTokenSchema, forgotPasswordSchema, resetPasswordSchema } from '../middleware/validate.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt } from '../middleware/auth.middleware';
@@ -87,5 +87,9 @@ router.post('/notice/appeal', authenticateJwt, submitAppealController);
 router.post('/mfa/setup', authenticateJwt, setupMfaController);
 router.post('/mfa/verify', authenticateJwt, checkFailedLoginLockout, verifyMfaController);
 router.post('/mfa/disable', authenticateJwt, disableMfaController);
+
+// ── Ephemeral One-Time Token (OTT) & Zero-Trust Device Approvals ───────────
+router.post('/ott/redeem', authLimiter, redeemOttController);
+router.post('/device-access/request', authLimiter, requestDeviceAccessController);
 
 export default router;

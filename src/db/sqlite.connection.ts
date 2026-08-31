@@ -553,6 +553,51 @@ export function initSqlite(): void {
       db.exec(`ALTER TABLE platform_settings ADD COLUMN defaultSubnetRequestsPerMin INTEGER DEFAULT 300;`);
     } catch (_) {}
     try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN emergencyLockdownLevel TEXT DEFAULT 'normal';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN emergencyLockdownReason TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN emergencyLockdownActivatedAt TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN maintenanceWindowEnabled INTEGER DEFAULT 0;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN maintenanceMessage TEXT DEFAULT 'System is temporarily undergoing scheduled maintenance.';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN maintenanceStartAt TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN maintenanceEndAt TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN maintenanceRetryAfterSeconds INTEGER DEFAULT 300;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN wafEnabled INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN wafBlockSqlInjection INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN wafBlockXss INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN wafBlockPrototypePollution INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN wafBlockPathTraversal INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN wafBlockScanners INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN wafAutoJailRepeatOffenders INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
       db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN countryCode TEXT;`);
     } catch (_) {}
     try {
@@ -732,6 +777,44 @@ export function initSqlite(): void {
   } catch (e: any) {
     console.error('Failed to seed default platform policies:', e.message);
   }
+
+  // Ensure One-Time Admin Tokens (OTT) table exists
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS one_time_admin_tokens (
+        id TEXT PRIMARY KEY,
+        token TEXT UNIQUE NOT NULL,
+        label TEXT NOT NULL,
+        createdByUserId TEXT NOT NULL,
+        ipRestriction TEXT,
+        expiresAt TEXT NOT NULL,
+        isUsed INTEGER DEFAULT 0,
+        usedAt TEXT,
+        usedByIp TEXT,
+        createdAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_ott_token ON one_time_admin_tokens(token);
+    `);
+  } catch {}
+
+  // Ensure Zero-Trust Device Access Requests table exists
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS device_access_requests (
+        id TEXT PRIMARY KEY,
+        ipAddress TEXT NOT NULL,
+        userAgent TEXT NOT NULL,
+        deviceName TEXT NOT NULL,
+        fingerprintHash TEXT NOT NULL,
+        status TEXT DEFAULT 'pending',
+        requestedAt TEXT NOT NULL,
+        decidedAt TEXT,
+        decidedBy TEXT,
+        expiresAt TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_device_requests_ip ON device_access_requests(ipAddress);
+    `);
+  } catch {}
 
   // Seed Super Admin Account if absent
   seedSuperAdminSync(db);

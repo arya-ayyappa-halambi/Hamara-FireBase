@@ -152,6 +152,7 @@ async function runTests() {
   if (failedTests > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runTests().catch(err => {

@@ -140,6 +140,8 @@ export interface JwtPayload {
   sub: string;   // Subject — the user's UUID
   email: string;
   isSuperAdmin?: boolean;
+  isOttLogin?: boolean;
+  ottId?: string;
   iat?: number;  // Issued-at (added automatically by jsonwebtoken)
   exp?: number;  // Expiry  (added automatically by jsonwebtoken)
 }

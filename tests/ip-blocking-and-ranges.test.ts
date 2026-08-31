@@ -144,6 +144,7 @@ function runIpBlockingAndRangeTests(): void {
   if (failedCount > 0) {
     process.exit(1);
   }
+  process.exit(0);
 }
 
 runIpBlockingAndRangeTests();

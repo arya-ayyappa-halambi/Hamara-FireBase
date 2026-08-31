@@ -2252,6 +2252,587 @@
                 </div>
               </div>
             </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 6. EMERGENCY PROTOCOLS, PANIC MODE & GLOBAL KILLSWITCHES          -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-red-950/30 via-slate-900/60 to-black/80 border border-red-500/30 shadow-xl shadow-red-950/20 space-y-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-red-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400">
+                    <i class="fa-solid fa-triangle-exclamation text-base"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Emergency Protocols, Panic Mode & Global Killswitches</span>
+                      <span id="badge-emergency-level-status" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        🟢 Normal Mode
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Instant multi-tier incident containment, maintenance scheduling, and emergency snapshot creation.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <button type="button" onclick="window.triggerEmergencyPanicSnapshot()" class="px-3.5 py-2 rounded-xl bg-red-600/30 hover:bg-red-600/50 text-red-200 border border-red-500/40 text-xs font-bold transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-red-950/40">
+                    <i class="fa-solid fa-camera-retro"></i>
+                    <span>Emergency Snapshot</span>
+                  </button>
+                  <button type="button" onclick="window.loadEmergencyStatus()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition" title="Refresh Emergency Status">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 4-State Emergency Level Grid -->
+              <div class="space-y-2">
+                <label class="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-power-off text-red-400 text-[11px]"></i>
+                  <span>Global System Lockdown Level:</span>
+                </label>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <!-- Option 1: Normal -->
+                  <button type="button" id="btn-emergency-normal" onclick="window.setEmergencyLockdownLevel('normal')" class="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-950/20 hover:bg-emerald-900/30 text-left transition flex flex-col justify-between space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-emerald-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-circle-check"></i>
+                        <span>Normal Mode</span>
+                      </span>
+                      <span id="dot-emergency-normal" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">All database reads, mutations, and client connections operate normally.</p>
+                  </button>
+
+                  <!-- Option 2: Read-Only Shield -->
+                  <button type="button" id="btn-emergency-readonly" onclick="window.setEmergencyLockdownLevel('read_only')" class="p-3.5 rounded-xl border border-amber-500/30 bg-amber-950/20 hover:bg-amber-900/30 text-left transition flex flex-col justify-between space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-amber-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-lock"></i>
+                        <span>Level 1: Read-Only</span>
+                      </span>
+                      <span id="dot-emergency-readonly" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Freezes all writes & mutations (POST/PATCH/DELETE) while allowing queries.</p>
+                  </button>
+
+                  <!-- Option 3: LAN Quarantine -->
+                  <button type="button" id="btn-emergency-lan" onclick="window.setEmergencyLockdownLevel('lan_only')" class="p-3.5 rounded-xl border border-orange-500/30 bg-orange-950/20 hover:bg-orange-900/30 text-left transition flex flex-col justify-between space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-orange-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-house-laptop"></i>
+                        <span>Level 2: LAN Only</span>
+                      </span>
+                      <span id="dot-emergency-lan" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Blocks external/public WAN traffic, restricting access to private Wi-Fi LAN.</p>
+                  </button>
+
+                  <!-- Option 4: Full Air-Gap Freeze -->
+                  <button type="button" id="btn-emergency-airgap" onclick="window.setEmergencyLockdownLevel('air_gap')" class="p-3.5 rounded-xl border border-red-500/40 bg-red-950/30 hover:bg-red-900/40 text-left transition flex flex-col justify-between space-y-2">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-bold text-red-300 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-snowflake"></i>
+                        <span>Level 3: Air-Gap Freeze</span>
+                      </span>
+                      <span id="dot-emergency-airgap" class="w-2 h-2 rounded-full bg-slate-600"></span>
+                    </div>
+                    <p class="text-[10px] text-slate-400">Halts all network processing & triggers immediate encrypted backup.</p>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Lockdown Reason Note Input -->
+              <div class="p-3.5 rounded-xl bg-black/40 border border-white/5 space-y-2">
+                <label class="text-[11px] font-semibold text-slate-300 flex items-center space-x-1.5">
+                  <i class="fa-solid fa-clipboard-question text-slate-400"></i>
+                  <span>Incident Reason / Public Status Note:</span>
+                </label>
+                <input type="text" id="input-emergency-reason" placeholder="e.g. Scheduled emergency patch / mitigating suspicious activity..." class="w-full px-3 py-2 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10">
+              </div>
+
+              <!-- Scheduled Maintenance Window Panel -->
+              <div class="p-4 rounded-xl bg-slate-900/60 border border-white/10 space-y-4">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-clock-rotate-left text-amber-400 text-sm"></i>
+                    <span class="text-xs font-bold text-white">Scheduled Maintenance Window (HTTP 503 & Retry-After)</span>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-maintenance-enabled" onchange="window.saveMaintenanceWindowSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                  </label>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">Maintenance Start Time (Optional)</label>
+                    <input type="datetime-local" id="input-maintenance-start-at" onchange="window.saveMaintenanceWindowSettings()" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">Maintenance End Time (Optional)</label>
+                    <input type="datetime-local" id="input-maintenance-end-at" onchange="window.saveMaintenanceWindowSettings()" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div class="md:col-span-2 space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">Client Notice Message</label>
+                    <input type="text" id="input-maintenance-message" value="System is temporarily undergoing scheduled maintenance." onchange="window.saveMaintenanceWindowSettings()" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10">
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">Retry-After (Seconds)</label>
+                    <input type="number" id="input-maintenance-retry-after" value="300" min="10" max="86400" onchange="window.saveMaintenanceWindowSettings()" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 7. LAYER-7 WEB APPLICATION FIREWALL (WAF) & PAYLOAD SHIELD       -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-violet-950/30 via-slate-900/60 to-black/80 border border-violet-500/30 shadow-xl shadow-violet-950/20 space-y-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-violet-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center text-violet-400">
+                    <i class="fa-solid fa-virus-slash text-base"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Layer-7 Web Application Firewall (WAF) & Payload Shield</span>
+                      <span id="badge-waf-active-status" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                        Active Shield
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Deep packet inspection for SQLi, XSS, prototype pollution, path traversal, and malicious bots.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <button type="button" onclick="window.loadWafStats()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition" title="Refresh WAF Stats">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Live WAF Metrics Counters -->
+              <div class="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center font-mono">
+                <div class="p-2.5 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Inspected</div>
+                  <div id="metric-waf-inspected" class="text-sm font-bold text-white">0</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-rose-950/30 border border-rose-500/20 space-y-1">
+                  <div class="text-[10px] text-rose-400 uppercase font-semibold">Blocked</div>
+                  <div id="metric-waf-blocked" class="text-sm font-bold text-rose-300">0</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">SQLi</div>
+                  <div id="metric-waf-sqli" class="text-sm font-bold text-amber-300">0</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">XSS</div>
+                  <div id="metric-waf-xss" class="text-sm font-bold text-cyan-300">0</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Proto Poison</div>
+                  <div id="metric-waf-proto" class="text-sm font-bold text-purple-300">0</div>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Bad Bots</div>
+                  <div id="metric-waf-scanners" class="text-sm font-bold text-orange-300">0</div>
+                </div>
+              </div>
+
+              <!-- Granular Defense Rule Toggles -->
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <!-- Master Toggle -->
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Master WAF Shield</div>
+                    <div class="text-[10px] text-slate-400">Deep packet inspection on all requests.</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-waf-enabled" checked onchange="window.saveWafSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                </div>
+
+                <!-- SQLi Toggle -->
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">SQL Injection Filter</div>
+                    <div class="text-[10px] text-slate-400">Drop UNION, tautology, comment injection.</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-waf-sqli" checked onchange="window.saveWafSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                </div>
+
+                <!-- XSS Toggle -->
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">XSS & Script Sanitizer</div>
+                    <div class="text-[10px] text-slate-400">Filter script tags, onerror, and executable HTML.</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-waf-xss" checked onchange="window.saveWafSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                </div>
+
+                <!-- Prototype Pollution Toggle -->
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Prototype Pollution Guard</div>
+                    <div class="text-[10px] text-slate-400">Block __proto__ and object constructor tampering.</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-waf-proto" checked onchange="window.saveWafSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                </div>
+
+                <!-- Path Traversal Toggle -->
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Path Traversal Shield</div>
+                    <div class="text-[10px] text-slate-400">Drop ../ and directory escape vectors.</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-waf-traversal" checked onchange="window.saveWafSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                </div>
+
+                <!-- Bot Scanner Toggle -->
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Scanner & Exploit Bot Defense</div>
+                    <div class="text-[10px] text-slate-400">Auto-block sqlmap, nikto, masscan signatures.</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-waf-scanners" checked onchange="window.saveWafSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Recent WAF Block Events Table -->
+              <div class="space-y-2 pt-1">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                  <span class="font-bold text-white flex items-center space-x-1.5">
+                    <i class="fa-solid fa-shield-cat text-violet-400 text-[11px]"></i>
+                    <span>Recent Blocked Threat Payloads (Live Feed)</span>
+                  </span>
+                  <button type="button" onclick="window.loadWafStats()" class="text-[10px] text-violet-400 hover:underline">Refresh Events</button>
+                </div>
+                <div class="rounded-xl bg-slate-900/60 border border-white/10 overflow-hidden">
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                      <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                        <tr>
+                          <th class="p-3">Client IP</th>
+                          <th class="p-3">Threat Category</th>
+                          <th class="p-3">HTTP Path</th>
+                          <th class="p-3">Detected Pattern</th>
+                          <th class="p-3 text-right">Timestamp</th>
+                        </tr>
+                      </thead>
+                      <tbody id="table-waf-events-body" class="divide-y divide-white/5 font-mono text-xs">
+                        <tr><td colspan="5" class="p-4 text-center text-slate-500 text-xs">No active threats detected. WAF Shield is monitoring.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 8. REMOTE MANAGEMENT, OTT TOKENS & ZERO-TRUST DEVICE APPROVALS   -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-cyan-950/30 via-slate-900/60 to-black/80 border border-cyan-500/30 shadow-xl shadow-cyan-950/20 space-y-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cyan-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <i class="fa-solid fa-key text-base"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Remote Management & Ephemeral One-Time Tokens (OTT)</span>
+                      <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                        Zero-Trust Perimeter
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Generate self-destructing single-use access links and manage incoming zero-trust device requests.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <button type="button" onclick="window.loadOttAndDeviceData()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition" title="Refresh Remote Access Data">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Top Section: Generate One-Time Token Form -->
+              <div class="p-4 rounded-xl bg-slate-900/60 border border-white/10 space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-white flex items-center space-x-1.5">
+                    <i class="fa-solid fa-ticket-simple text-cyan-400 text-sm"></i>
+                    <span>Generate Emergency Single-Use Super Admin Token (OTT)</span>
+                  </span>
+                  <span class="text-[10px] text-slate-400 font-mono">Self-Destructs Upon First Use</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                  <div class="sm:col-span-2 space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">Access Purpose / Label</label>
+                    <input type="text" id="input-ott-label" placeholder="e.g. Remote iPad Admin Session / On-call triage" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10">
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">Token TTL (Lifespan)</label>
+                    <select id="select-ott-ttl" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10">
+                      <option value="5">5 Minutes</option>
+                      <option value="15" selected>15 Minutes</option>
+                      <option value="60">1 Hour</option>
+                      <option value="1440">24 Hours</option>
+                    </select>
+                  </div>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">IP Restriction (Optional)</label>
+                    <input type="text" id="input-ott-ip-lock" placeholder="e.g. 192.168.31.50" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                  </div>
+                </div>
+
+                <div class="flex items-center justify-end pt-1">
+                  <button type="button" onclick="window.generateOneTimeToken()" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-black font-bold text-xs transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-cyan-950/40">
+                    <i class="fa-solid fa-plus-circle text-[11px]"></i>
+                    <span>Generate 1-Time Access Link</span>
+                  </button>
+                </div>
+
+                <!-- Newly Generated OTT Display Banner (Hidden by default) -->
+                <div id="box-generated-ott-link" class="p-5 rounded-2xl bg-gradient-to-br from-cyan-950/40 via-slate-900/80 to-black border border-cyan-500/50 shadow-2xl space-y-4 hidden">
+                  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-cyan-500/20 pb-3">
+                    <div class="flex items-center space-x-2.5">
+                      <div class="w-8 h-8 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                        <i class="fa-solid fa-key text-xs"></i>
+                      </div>
+                      <div>
+                        <h5 class="text-xs font-bold text-white flex items-center space-x-2">
+                          <span>Single-Use Super Admin Pass Generated</span>
+                          <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse font-mono font-bold">
+                            Live & Ready
+                          </span>
+                        </h5>
+                        <p class="text-[10px] text-slate-400">Scan QR with your phone or open link on remote devices. Burns automatically on first login.</p>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center space-x-2">
+                      <button type="button" id="btn-ott-qr-toggle-net" onclick="window.switchOttQrTarget('network')" class="px-2.5 py-1 rounded-lg bg-cyan-500 text-black font-bold text-[10px] transition shadow-md shadow-cyan-950/50">
+                        Wi-Fi LAN QR
+                      </button>
+                      <button type="button" id="btn-ott-qr-toggle-loc" onclick="window.switchOttQrTarget('local')" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 font-semibold text-[10px] transition">
+                        Localhost QR
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="flex flex-col md:flex-row items-center gap-5">
+                    <!-- Left: Live QR Code -->
+                    <div class="flex flex-col items-center space-y-2 shrink-0">
+                      <div class="p-2.5 bg-white rounded-2xl shadow-xl shadow-cyan-950/50 border-2 border-cyan-400">
+                        <img id="img-ott-qr-code" src="" alt="OTT QR Code" class="w-36 h-36 object-contain rounded-lg">
+                      </div>
+                      <span class="text-[10px] text-cyan-300 font-mono flex items-center space-x-1">
+                        <i class="fa-solid fa-camera text-[9px]"></i>
+                        <span>Scan with Mobile Camera</span>
+                      </span>
+                    </div>
+
+                    <!-- Right: Links & Quick Action Buttons -->
+                    <div class="w-full space-y-3">
+                      <!-- Wi-Fi / Remote Mobile Link (PRIMARY) -->
+                      <div class="space-y-1">
+                        <div class="flex items-center justify-between text-[11px]">
+                          <label class="font-bold text-cyan-300 flex items-center space-x-1">
+                            <i class="fa-solid fa-wifi text-[10px]"></i>
+                            <span>Wi-Fi Network URL (Phones, Tablets & Remote PCs):</span>
+                          </label>
+                          <button type="button" onclick="window.copyGeneratedOttUrl('network')" class="px-2 py-0.5 rounded bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-[10px] transition flex items-center space-x-1">
+                            <i class="fa-solid fa-copy text-[9px]"></i>
+                            <span>Copy Wi-Fi URL</span>
+                          </button>
+                        </div>
+                        <input type="text" id="input-generated-ott-network-url" readonly class="w-full px-3 py-2 rounded-xl bg-black/70 border border-cyan-500/40 text-xs font-mono text-cyan-200 select-all shadow-inner">
+                      </div>
+
+                      <!-- Localhost Link (SECONDARY) -->
+                      <div class="space-y-1">
+                        <div class="flex items-center justify-between text-[11px]">
+                          <label class="text-slate-400 flex items-center space-x-1">
+                            <i class="fa-solid fa-laptop text-[10px]"></i>
+                            <span>Localhost URL (This Mac / Machine Only):</span>
+                          </label>
+                          <button type="button" onclick="window.copyGeneratedOttUrl('local')" class="px-2 py-0.5 rounded bg-white/10 hover:bg-white/20 text-slate-300 text-[10px] transition flex items-center space-x-1">
+                            <i class="fa-solid fa-copy text-[9px]"></i>
+                            <span>Copy Local</span>
+                          </button>
+                        </div>
+                        <input type="text" id="input-generated-ott-local-url" readonly class="w-full px-3 py-1.5 rounded-lg bg-black/40 border border-white/10 text-[11px] font-mono text-slate-400 select-all">
+                      </div>
+
+                      <div class="flex items-center justify-between pt-1">
+                        <span class="text-[10px] text-amber-400/90 flex items-center space-x-1">
+                          <i class="fa-solid fa-shield-halved text-[9px]"></i>
+                          <span>One-time burn upon successful verification.</span>
+                        </span>
+                        <a id="link-ott-open-tab" href="#" target="_blank" class="px-3 py-1.5 rounded-xl bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/40 text-xs font-semibold transition flex items-center space-x-1.5">
+                          <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                          <span>Open in New Tab</span>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Two Column Grid: OTT Tokens List & Device Access Requests -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Column A: One-Time Tokens History -->
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between text-xs text-slate-300">
+                    <span class="font-bold text-white flex items-center space-x-1.5">
+                      <i class="fa-solid fa-clock-rotate-left text-cyan-400 text-[11px]"></i>
+                      <span>Active & Burned OTT Tokens</span>
+                    </span>
+                    <button type="button" onclick="window.loadOttTokensTable()" class="text-[10px] text-cyan-400 hover:underline">Refresh</button>
+                  </div>
+                  <div class="rounded-xl bg-slate-900/60 border border-white/10 overflow-hidden max-h-[300px] overflow-y-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                      <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10 sticky top-0">
+                        <tr>
+                          <th class="p-2.5">Label</th>
+                          <th class="p-2.5">IP Lock</th>
+                          <th class="p-2.5 text-center">Status</th>
+                          <th class="p-2.5 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody id="table-ott-tokens-body" class="divide-y divide-white/5 font-mono text-xs">
+                        <tr><td colspan="4" class="p-4 text-center text-slate-500 text-xs">No One-Time Tokens created.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Column B: Zero-Trust Device Access Requests -->
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between text-xs text-slate-300">
+                    <span class="font-bold text-white flex items-center space-x-1.5">
+                      <i class="fa-solid fa-user-shield text-indigo-400 text-[11px]"></i>
+                      <span>Zero-Trust Device Authorization Requests</span>
+                    </span>
+                    <button type="button" onclick="window.loadDeviceRequestsTable()" class="text-[10px] text-indigo-400 hover:underline">Refresh</button>
+                  </div>
+                  <div class="rounded-xl bg-slate-900/60 border border-white/10 overflow-hidden max-h-[300px] overflow-y-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                      <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10 sticky top-0">
+                        <tr>
+                          <th class="p-2.5">Device / IP</th>
+                          <th class="p-2.5 text-center">Status</th>
+                          <th class="p-2.5 text-right">Approval</th>
+                        </tr>
+                      </thead>
+                      <tbody id="table-device-requests-body" class="divide-y divide-white/5 font-mono text-xs">
+                        <tr><td colspan="3" class="p-4 text-center text-slate-500 text-xs">No pending device access requests.</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 9. CLUSTER PORT DIAGNOSTICS & ZERO-DOWNTIME HOT RESTART          -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-amber-950/30 via-slate-900/60 to-black/80 border border-amber-500/30 shadow-xl shadow-amber-950/20 space-y-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <i class="fa-solid fa-bolt-lightning text-base"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Cluster Port Diagnostics & Zero-Downtime Hot Restart</span>
+                      <span id="badge-cluster-host-info" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Node Instance
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Live multi-port socket inspection, system resource metrics, and seamless zero-downtime hot restart.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <button type="button" onclick="window.triggerZeroDowntimeHotRestart()" class="px-3.5 py-2 rounded-xl bg-amber-600/30 hover:bg-amber-600/50 text-amber-200 border border-amber-500/40 text-xs font-bold transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-amber-950/40">
+                    <i class="fa-solid fa-arrows-rotate text-[11px]"></i>
+                    <span>Hot Restart Server</span>
+                  </button>
+                  <button type="button" onclick="window.loadClusterDiagnosticsReport()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition" title="Refresh Diagnostics">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Telemetry Metrics Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-center">
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Process Uptime</div>
+                  <div id="metric-cluster-uptime" class="text-sm font-bold text-emerald-400">0s</div>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Memory RSS</div>
+                  <div id="metric-cluster-mem" class="text-sm font-bold text-cyan-400">0 MB</div>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">CPU Load Avg (1m)</div>
+                  <div id="metric-cluster-cpu" class="text-sm font-bold text-amber-400">0.00</div>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Active Port & Host</div>
+                  <div id="metric-cluster-port-host" class="text-sm font-bold text-purple-300 truncate">3000 (0.0.0.0)</div>
+                </div>
+              </div>
+
+              <!-- Multi-Port Availability & Probe Matrix Table -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-300">
+                  <span class="font-bold text-white flex items-center space-x-1.5">
+                    <i class="fa-solid fa-network-wired text-amber-400 text-[11px]"></i>
+                    <span>Cluster Candidate Ports & Latency Matrix</span>
+                  </span>
+                  <span class="text-[10px] text-slate-500 font-mono">Multi-Host Dual-Stage Socket Probe</span>
+                </div>
+                <div class="rounded-xl bg-slate-900/60 border border-white/10 overflow-hidden">
+                  <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-300">
+                      <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                        <tr>
+                          <th class="p-3">Port</th>
+                          <th class="p-3">Socket Status</th>
+                          <th class="p-3 text-center">Probe Latency</th>
+                          <th class="p-3">Analysis / Details</th>
+                          <th class="p-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody id="table-cluster-ports-body" class="divide-y divide-white/5 font-mono text-xs">
+                        <tr><td colspan="5" class="p-4 text-center text-slate-500 text-xs">Running cluster port diagnostic probe...</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

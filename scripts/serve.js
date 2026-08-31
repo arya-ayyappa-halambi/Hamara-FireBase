@@ -14,6 +14,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const http = require('http');
 
+const ROOT_DIR = path.resolve(__dirname, '..');
+
 // ── Colors & Styles ──────────────────────────────────────────────────────────
 const C = {
   reset: '\x1b[0m',

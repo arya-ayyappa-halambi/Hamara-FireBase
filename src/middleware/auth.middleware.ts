@@ -57,14 +57,23 @@ export function authenticateJwt(req: Request, _res: Response, next: NextFunction
   }
 
   try {
-    const decoded = jwt.verify(token, secret) as JwtPayload;
+    const decoded = jwt.verify(token, secret) as any;
+    const userId = decoded.sub || decoded.id || decoded.userId;
     
+    if (!userId) {
+      return next(new AppError('Invalid token payload. Please log in again.', 401));
+    }
+
     // Verify user actually exists in DB (protects against ghost tokens after DB resets)
     const db = getDb();
-    const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get(decoded.sub)
-      || db.prepare('SELECT id FROM project_users WHERE id = ?').get(decoded.sub);
+    const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get(userId)
+      || db.prepare('SELECT id FROM project_users WHERE id = ?').get(userId);
     if (!userExists) {
-      return next(new AppError('User not found. Please log in again.', 401));
+      return next(new AppError('User not found or session expired. Please log in again.', 401));
+    }
+
+    if (!decoded.sub) {
+      decoded.sub = userId;
     }
 
     req.user = decoded;
