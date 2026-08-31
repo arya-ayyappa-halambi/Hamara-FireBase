@@ -528,7 +528,7 @@ window.setRoleMode = function setRoleMode(mode) {
 
 // ── Workspace Panel Navigation ─────────────────────────────────────────────────
 
-window.switchWorkspace = function switchWorkspace(tabId) {
+window.switchTab = window.switchWorkspace = function switchTab(tabId) {
   document.querySelectorAll('.workspace-panel').forEach((panel) => {
     panel.classList.add('hidden');
   });
@@ -10675,47 +10675,8 @@ window.switchWorkspace = async function(target) {
 
   // Case A: Sidebar Tab Navigation
   if (typeof target === 'string' && (target.startsWith('tab-') || document.getElementById(target)?.classList.contains('workspace-panel'))) {
-    document.querySelectorAll('.workspace-panel').forEach(p => p.classList.add('hidden'));
-    document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
-      item.classList.remove('active-nav', 'bg-indigo-600/30', 'border-indigo-500/30', 'text-white');
-      item.classList.add('text-slate-300');
-    });
-
-    const activePanel = document.getElementById(target);
-    if (activePanel) activePanel.classList.remove('hidden');
-
-    const activeNavBtn = document.querySelector(`.nav-item[data-tab="${target}"]`);
-    if (activeNavBtn) {
-      activeNavBtn.classList.add('active-nav', 'bg-indigo-600/30', 'border-indigo-500/30', 'text-white');
-      activeNavBtn.classList.remove('text-slate-300');
-    }
-
-    if (state.telemetryTimer) {
-      clearInterval(state.telemetryTimer);
-      state.telemetryTimer = null;
-    }
-
-    if (target === 'tab-telemetry') {
-      initTelemetryCharts();
-      loadTelemetryData();
-      state.telemetryTimer = setInterval(loadTelemetryData, 3000);
-    } else if (target === 'tab-developer-metrics') {
-      initDeveloperMetricsCharts();
-      loadDeveloperMetrics();
-      state.telemetryTimer = setInterval(loadDeveloperMetrics, 3000);
-    } else if (target === 'tab-webhook-inspector') {
-      loadWebhookLogs();
-      state.telemetryTimer = setInterval(loadWebhookLogs, 3000);
-    } else if (target === 'tab-auth-config') {
-      loadAuthConfig();
-    } else if (target === 'tab-ws-debugger') {
-      initWsDebugger();
-    } else if (target === 'tab-project-management') {
-      loadMyProjects();
-    } else if (target === 'tab-organizations') {
-      window.loadActiveWorkspaceConsole();
-    } else if (target === 'tab-user-management') {
-      loadUserManagement();
+    if (typeof window.switchTab === 'function') {
+      window.switchTab(target);
     }
     return;
   }
