@@ -87,9 +87,9 @@ function runNetworkAccessTests(): void {
   try {
     networkAccessService.toggleBlockDevice('127.0.0.1', true);
   } catch (err: any) {
-    blockedLocalhostCaught = err.message.includes('Localhost');
+    blockedLocalhostCaught = err.message.includes('Host machine') || err.message.includes('cannot be blocked');
   }
-  assert(blockedLocalhostCaught === true, 'Prevent blocking localhost device');
+  assert(blockedLocalhostCaught === true, 'Prevent blocking localhost / host machine interface');
 
   // Restore open LAN
   networkAccessService.updateNetworkSettings({ ipFilteringEnabled: false, ipFilterDefaultPolicy: 'allow' });

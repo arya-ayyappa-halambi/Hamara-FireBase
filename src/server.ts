@@ -141,13 +141,21 @@ function createApp(): Application {
   // ── Public Well-Known & Metrics Endpoints ─────────────────────────────────
   app.use('/', metricsRouter);
 
-  // ── Health Check ─────────────────────────────────────────────────────────
+  // ── Health Check (Permissive CORS for Cross-Port & Remote Device Probes) ──
   app.get('/health', (_req: Request, res: Response) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', '*');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
     res.status(200).json({
       success: true,
       message: 'AegisDB is running.',
       data: {
         status: 'ok',
+        port: activePort,
+        host: activeHost,
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV ?? 'development',
       },

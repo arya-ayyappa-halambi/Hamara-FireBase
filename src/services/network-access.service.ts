@@ -6,6 +6,7 @@
 import { getDb, getReaderDb } from '../db/sqlite.connection';
 import { v4 as uuidv4 } from 'uuid';
 import { wsService } from '../realtime/websocket.service';
+import os from 'os';
 
 export interface NetworkAccessRule {
   id: string;
@@ -75,9 +76,32 @@ export class NetworkAccessService {
     return clean;
   }
 
-  public isLocalhost(ip: string): boolean {
+  public getHostMachineIps(): Set<string> {
+    const hostIps = new Set<string>(['127.0.0.1', '::1', 'localhost']);
+    try {
+      const ifaces = os.networkInterfaces();
+      for (const name of Object.keys(ifaces)) {
+        const netList = ifaces[name];
+        if (netList) {
+          for (const net of netList) {
+            if (net.address) {
+              hostIps.add(this.normalizeIp(net.address));
+            }
+          }
+        }
+      }
+    } catch {}
+    return hostIps;
+  }
+
+  public isHostMachineIp(ip: string): boolean {
     const clean = this.normalizeIp(ip);
-    return clean === '127.0.0.1' || clean === 'localhost' || clean === '::1';
+    const hostIps = this.getHostMachineIps();
+    return hostIps.has(clean);
+  }
+
+  public isLocalhost(ip: string): boolean {
+    return this.isHostMachineIp(ip);
   }
 
   private ipToLong(ip: string): number {
@@ -432,8 +456,8 @@ export class NetworkAccessService {
 
   public toggleBlockDevice(ipAddress: string, blockState?: boolean): { success: boolean; isBlocked: boolean } {
     const ip = this.normalizeIp(ipAddress);
-    if (this.isLocalhost(ip)) {
-      throw new Error('Localhost (127.0.0.1) cannot be blocked.');
+    if (this.isHostMachineIp(ip)) {
+      throw new Error(`Host machine interface (${ip}) cannot be blocked to prevent administrator lockout.`);
     }
 
     const device = this.memoryTracker.get(ip);

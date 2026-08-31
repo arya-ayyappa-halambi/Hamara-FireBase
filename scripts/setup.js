@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawn } = require('child_process');
+const { execSync, spawn, exec } = require('child_process');
 const crypto = require('crypto');
 const net = require('net');
 const os = require('os');
@@ -249,30 +249,36 @@ function freePort(port) {
 }
 
 function openBrowser(url) {
+  const platform = process.platform;
   try {
-    if (process.platform === 'darwin') {
-      spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
-    } else if (process.platform === 'win32') {
-      // Use PowerShell Start-Process to properly handle URLs with # anchor fragments on Windows
-      spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', `Start-Process '${url}'`], { detached: true, stdio: 'ignore' }).unref();
+    if (platform === 'darwin') {
+      exec(`open "${url}"`, (err) => {
+        if (err) {
+          spawn('open', [url], { detached: true, stdio: 'ignore' }).unref();
+        }
+      });
+    } else if (platform === 'win32') {
+      exec(`powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process '${url}'"`, (err) => {
+        if (err) exec(`start "" "${url}"`);
+      });
     } else {
-      spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
+      exec(`xdg-open "${url}"`, (err) => {
+        if (err) spawn('xdg-open', [url], { detached: true, stdio: 'ignore' }).unref();
+      });
     }
   } catch (_) {
     try {
-      if (process.platform === 'win32') {
-        spawn('cmd.exe', ['/c', 'start', '""', url], { detached: true, stdio: 'ignore' }).unref();
-      }
+      if (platform === 'win32') exec(`start "" "${url}"`);
     } catch (_) {}
   }
 }
 
-function waitUntilServerReady(port = 3000, maxAttempts = 160, intervalMs = 250) {
+function waitUntilServerReady(port = 3000, maxAttempts = 120, intervalMs = 250) {
   return new Promise((resolve) => {
     let attempts = 0;
     const probe = () => {
       attempts++;
-      const req = http.get(`http://127.0.0.1:${port}/api/v1/system/status`, { timeout: 400 }, (res) => {
+      const req = http.get(`http://127.0.0.1:${port}/health`, { timeout: 800 }, (res) => {
         if (res.statusCode >= 200 && res.statusCode < 500) {
           return resolve(true);
         }
@@ -281,8 +287,23 @@ function waitUntilServerReady(port = 3000, maxAttempts = 160, intervalMs = 250) 
       });
 
       req.on('error', () => {
-        if (attempts >= maxAttempts) return resolve(false);
-        setTimeout(probe, intervalMs);
+        // Dual fallback probe on localhost (handles IPv6 binding)
+        const req2 = http.get(`http://localhost:${port}/health`, { timeout: 800 }, (res2) => {
+          if (res2.statusCode >= 200 && res2.statusCode < 500) {
+            return resolve(true);
+          }
+          if (attempts >= maxAttempts) return resolve(false);
+          setTimeout(probe, intervalMs);
+        });
+        req2.on('error', () => {
+          if (attempts >= maxAttempts) return resolve(false);
+          setTimeout(probe, intervalMs);
+        });
+        req2.on('timeout', () => {
+          req2.destroy();
+          if (attempts >= maxAttempts) return resolve(false);
+          setTimeout(probe, intervalMs);
+        });
       });
 
       req.on('timeout', () => {
@@ -356,7 +377,8 @@ async function main() {
   (async () => {
     const isReady = await waitUntilServerReady(targetPort);
     if (isReady) {
-      console.log(`\n${C.emerald}🌐 AegisDB is live! Opening browser to Server Hosting & Network Center...${C.reset}\n`);
+      console.log(`\n${C.emerald}🌐 AegisDB is live! Opening browser to Server Hosting & Network Center...${C.reset}`);
+      console.log(`${C.cyan}👉 Access URL:${C.reset} ${C.bold}${hostingCenterUrl}${C.reset}\n`);
       openBrowser(hostingCenterUrl);
     }
   })();

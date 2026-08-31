@@ -3716,7 +3716,9 @@ function computeClientRedirectUrl(newBaseUrl, explicitMode) {
 
     // 2. If target mode is explicitly Network Wi-Fi Only
     if (explicitMode === 'network') {
-      const netIp = promptEndpointConfig.networkIp || (targetHost !== '0.0.0.0' ? targetHost : '127.0.0.1');
+      const netIp = (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1' && currentHost !== '0.0.0.0')
+        ? currentHost
+        : (promptEndpointConfig.networkIp || (targetHost !== '0.0.0.0' ? targetHost : '127.0.0.1'));
       return `${currentProtocol}//${netIp}:${targetPort}`;
     }
 
@@ -3774,7 +3776,7 @@ function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
     const startTime = Date.now();
     let isRedirecting = false;
     let attempts = 0;
-    const maxAttempts = 50; // 50 x 350ms = ~17.5s max window
+    const maxAttempts = 60; // 60 x 300ms = ~18s max window
 
     const logCmd = (text, type = 'info') => {
       if (!termContainer) return;
@@ -3791,8 +3793,8 @@ function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
 
     if (termContainer) {
       termContainer.innerHTML = '';
-      logCmd(`Terminating existing listener on active socket...`, 'sys');
-      logCmd(`Rebinding TCP listener to target ${cleanTargetUrl}...`, 'sys');
+      logCmd(`Initiating server port switch to ${cleanTargetUrl}...`, 'sys');
+      logCmd(`Rebinding TCP sockets across all network interfaces...`, 'sys');
       logCmd(`Securing zero-login admin session handover ticket...`, 'info');
     }
 
@@ -3859,12 +3861,12 @@ function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
 
       logCmd(`Probing TCP socket health on ${cleanTargetUrl} (Attempt ${attempts})...`, 'info');
 
-      // Strict network fetch probe with cache-busting
+      // Strict network fetch probe with cache-busting on /health
       try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 1200);
 
-        const probeRes = await fetch(`${cleanTargetUrl}/api/v1/system/status?_t=${Date.now()}`, {
+        const probeRes = await fetch(`${cleanTargetUrl}/health?_t=${Date.now()}`, {
           method: 'GET',
           signal: controller.signal,
           cache: 'no-store',
@@ -3877,40 +3879,46 @@ function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
           return;
         }
       } catch (_) {
-        // If primary target is localhost and failed, or vice versa, probe localhost:port as dual fallback
-        try {
-          const parsed = new URL(cleanTargetUrl);
-          const port = parsed.port || '3000';
-          const fallbackProbeUrl = `http://localhost:${port}`;
-          if (cleanTargetUrl !== fallbackProbeUrl) {
-            const ctrl2 = new AbortController();
-            const to2 = setTimeout(() => ctrl2.abort(), 800);
-            const fbRes = await fetch(`${fallbackProbeUrl}/api/v1/system/status?_t=${Date.now()}`, {
-              method: 'GET',
-              signal: ctrl2.signal,
-              cache: 'no-store'
-            });
-            clearTimeout(to2);
-            if (fbRes.ok || fbRes.status === 200 || fbRes.status === 304 || fbRes.status === 401) {
-              logCmd(`Dual probe matched on localhost:${port}!`, 'success');
-              targetUrlWithHash = targetUrlWithHash.replace(cleanTargetUrl, fallbackProbeUrl);
-              performRedirect();
-              return;
+        // Only if client is on the host computer (localhost/127.0.0.1), try dual localhost probe fallback
+        const currentHost = window.location.hostname;
+        const isClientOnLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+
+        if (isClientOnLocalhost) {
+          try {
+            const parsed = new URL(cleanTargetUrl);
+            const port = parsed.port || '3000';
+            const fallbackProbeUrl = `http://localhost:${port}`;
+            if (cleanTargetUrl !== fallbackProbeUrl) {
+              const ctrl2 = new AbortController();
+              const to2 = setTimeout(() => ctrl2.abort(), 800);
+              const fbRes = await fetch(`${fallbackProbeUrl}/health?_t=${Date.now()}`, {
+                method: 'GET',
+                signal: ctrl2.signal,
+                cache: 'no-store',
+                mode: 'cors'
+              });
+              clearTimeout(to2);
+              if (fbRes.ok || fbRes.status === 200 || fbRes.status === 304 || fbRes.status === 401) {
+                logCmd(`Dual probe matched on localhost:${port}!`, 'success');
+                targetUrlWithHash = targetUrlWithHash.replace(cleanTargetUrl, fallbackProbeUrl);
+                performRedirect();
+                return;
+              }
             }
-          }
-        } catch (_) {}
+          } catch (_) {}
+        }
       }
 
       if (attempts < maxAttempts && !isRedirecting) {
-        setTimeout(probePort, 350);
+        setTimeout(probePort, 300);
       } else if (!isRedirecting) {
-        logCmd(`Attempt limit reached. Proceeding to target endpoint...`, 'warn');
-        performRedirect();
+        logCmd(`Rebinding in progress. Continuing live socket verification...`, 'warn');
+        setTimeout(probePort, 400);
       }
     };
 
-    // Give server 250ms to initiate socket rebind before first probe
-    setTimeout(probePort, 250);
+    // Give server 200ms to initiate socket rebind before first probe
+    setTimeout(probePort, 200);
   } else {
     window.location.replace(targetUrlWithHash);
   }
