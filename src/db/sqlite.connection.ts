@@ -470,7 +470,10 @@ export function initSqlite(): void {
         action TEXT NOT NULL DEFAULT 'allow',
         createdAt TEXT NOT NULL,
         updatedAt TEXT NOT NULL,
-        createdBy TEXT
+        createdBy TEXT,
+        expiresAt TEXT,
+        isTemporary INTEGER DEFAULT 0,
+        durationLabel TEXT DEFAULT 'Permanent'
       );
       CREATE INDEX IF NOT EXISTS idx_net_rules_pattern ON network_access_rules(ipPattern);
 
@@ -488,7 +491,85 @@ export function initSqlite(): void {
         isBlocked INTEGER DEFAULT 0
       );
       CREATE INDEX IF NOT EXISTS idx_tracked_dev_lastSeen ON tracked_client_devices(lastSeenAt);
+
+      CREATE TABLE IF NOT EXISTS jailed_ip_records (
+        id TEXT PRIMARY KEY,
+        ipAddress TEXT NOT NULL,
+        reason TEXT NOT NULL DEFAULT 'brute_force',
+        failedAttempts INTEGER DEFAULT 1,
+        jailedAt TEXT NOT NULL,
+        expiresAt TEXT,
+        durationMinutes INTEGER DEFAULT 15,
+        status TEXT DEFAULT 'active',
+        unjailedAt TEXT,
+        unjailedBy TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_jailed_ip_lookup ON jailed_ip_records(ipAddress, status);
+
+      CREATE TABLE IF NOT EXISTS subnet_rate_limit_policies (
+        id TEXT PRIMARY KEY,
+        subnetPattern TEXT NOT NULL,
+        label TEXT NOT NULL,
+        requestsPerMinute INTEGER DEFAULT 300,
+        burstLimit INTEGER DEFAULT 50,
+        bandwidthLimitKbps INTEGER DEFAULT 10000,
+        actionOnExceed TEXT DEFAULT 'block',
+        isActive INTEGER DEFAULT 1,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_subnet_rate_pattern ON subnet_rate_limit_policies(subnetPattern);
     `);
+
+    // Safe column migrations for existing databases
+    try {
+      db.exec(`ALTER TABLE network_access_rules ADD COLUMN expiresAt TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE network_access_rules ADD COLUMN isTemporary INTEGER DEFAULT 0;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE network_access_rules ADD COLUMN durationLabel TEXT DEFAULT 'Permanent';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE network_access_rules ADD COLUMN scope TEXT DEFAULT 'global';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE network_access_rules ADD COLUMN projectId TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN adminEndpointIpLockEnabled INTEGER DEFAULT 0;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN adminAllowedSubnet TEXT DEFAULT '127.0.0.1';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN requireWriteIpWhitelist INTEGER DEFAULT 0;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN enableSubnetRateLimiting INTEGER DEFAULT 0;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN defaultSubnetRequestsPerMin INTEGER DEFAULT 300;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN countryCode TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN countryName TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN city TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN isp TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN threatType TEXT DEFAULT 'normal';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN threatScore INTEGER DEFAULT 0;`);
+    } catch (_) {}
   } catch {}
 
   // Ensure scheduled_endpoint_migrations table exists

@@ -37,7 +37,17 @@ import {
   getTrackedDevicesHandler,
   toggleBlockDeviceHandler,
   getNetworkSettingsHandler,
-  updateNetworkSettingsHandler
+  updateNetworkSettingsHandler,
+  getJailedIpsHandler,
+  pardonJailedIpHandler,
+  jailIpHandler,
+  clearAllJailsHandler,
+  lookupGeoIpHandler,
+  getSubnetRatePoliciesHandler,
+  addSubnetRatePolicyHandler,
+  updateSubnetRatePolicyHandler,
+  deleteSubnetRatePolicyHandler,
+  getSubnetLiveMetricsHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -55,6 +65,20 @@ router.get('/network/devices', getTrackedDevicesHandler);
 router.post('/network/devices/:ip/toggle-block', toggleBlockDeviceHandler);
 router.get('/network/settings', getNetworkSettingsHandler);
 router.patch('/network/settings', updateNetworkSettingsHandler);
+router.get('/network/geoip/:ip', lookupGeoIpHandler);
+
+// ── Adaptive Subnet Rate Limiting & Bandwidth Throttling ─────────────────────
+router.get('/network/rate-limits', getSubnetRatePoliciesHandler);
+router.post('/network/rate-limits', addSubnetRatePolicyHandler);
+router.patch('/network/rate-limits/:id', updateSubnetRatePolicyHandler);
+router.delete('/network/rate-limits/:id', deleteSubnetRatePolicyHandler);
+router.get('/network/rate-limits/metrics', getSubnetLiveMetricsHandler);
+
+// ── Automated & Manual IP Quarantine / Jail ─────────────────────────────────
+router.get('/network/jail', getJailedIpsHandler);
+router.post('/network/jail', jailIpHandler);
+router.post('/network/jail/:ip/pardon', pardonJailedIpHandler);
+router.delete('/network/jail/clear', clearAllJailsHandler);
 
 router.post('/server/shutdown', shutdownServerHandler);
 router.get('/terminal-logs', getTerminalLogs);

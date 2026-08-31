@@ -31,20 +31,62 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
     userEmail
   });
 
-  // 2. Evaluate access permissions
-  const { allowed, reason } = networkAccessService.isAccessAllowed(clientIp);
+  // 2. Evaluate access permissions with perimeter and project scoping
+  const projectId = (req.headers['x-aegis-project-id'] as string) || (req.headers['x-project-id'] as string) || (req.query?.projectId as string) || null;
+  const { allowed, reason, code } = networkAccessService.isEndpointAccessAllowed({
+    clientIp,
+    path: req.path,
+    method: req.method,
+    projectId
+  });
 
   if (allowed) {
+    // 2b. Evaluate Adaptive Subnet Rate Limiting & Bandwidth Throttling
+    const { subnetRateLimiterService } = require('../services/subnet-rate-limiter.service');
+    const approxByteSize = Number(req.headers['content-length'] || 512);
+    const rateCheck = subnetRateLimiterService.checkRateLimit(clientIp, approxByteSize);
+
+    res.setHeader('X-RateLimit-Limit', String(rateCheck.limit));
+    res.setHeader('X-RateLimit-Remaining', String(rateCheck.remaining));
+    res.setHeader('X-RateLimit-Reset', String(rateCheck.resetSeconds));
+
+    if (!rateCheck.allowed) {
+      const isApi = req.path.startsWith('/api/') || req.headers.accept?.includes('application/json');
+      res.setHeader('Retry-After', String(rateCheck.resetSeconds));
+      if (isApi) {
+        res.status(429).json({
+          success: false,
+          code: 'RATE_LIMIT_EXCEEDED',
+          message: rateCheck.reason || '429 Too Many Requests: Subnet rate limit exceeded.',
+          clientIp,
+          resetSeconds: rateCheck.resetSeconds,
+          timestamp: new Date().toISOString()
+        });
+        return;
+      }
+      res.status(429).send(`429 Too Many Requests: Subnet rate quota exceeded. Retry in ${rateCheck.resetSeconds}s.`);
+      return;
+    }
+
+    if (rateCheck.throttled && rateCheck.delayMs) {
+      res.setHeader('X-Aegis-Throttled', 'true');
+      setTimeout(() => {
+        next();
+      }, rateCheck.delayMs);
+      return;
+    }
+
     return next();
   }
 
-  // 3. Reject unauthorized device with HTTP 403
+  // 3. Reject unauthorized device with HTTP 403 / 429
+  const statusCode = code === 'IP_JAILED' ? 429 : 403;
   const isApiRequest = req.path.startsWith('/api/') || req.headers.accept?.includes('application/json');
 
   if (isApiRequest) {
-    res.status(403).json({
+    res.status(statusCode).json({
       success: false,
-      code: 'NETWORK_ACCESS_DENIED',
+      code: code || 'NETWORK_ACCESS_DENIED',
       message: '403 Forbidden: Device Access Denied by AegisDB Network Security Policy.',
       clientIp,
       reason,

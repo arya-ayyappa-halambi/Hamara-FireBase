@@ -20,6 +20,8 @@ import { endpointMigrationScheduler } from '../services/endpoint-migration-sched
 import { wsService } from '../realtime/websocket.service';
 import { networkDiagnosticsService } from '../services/network-diagnostics.service';
 import { networkAccessService } from '../services/network-access.service';
+import { geoipThreatIntelService } from '../services/geoip-threat-intel.service';
+import { subnetRateLimiterService } from '../services/subnet-rate-limiter.service';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -767,9 +769,10 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
 
 // ── Network Access Control & Device Tracking Handlers ───────────────────────
 
-export async function getNetworkRulesHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+export async function getNetworkRulesHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const rules = networkAccessService.getRules();
+    const { scope, projectId } = req.query;
+    const rules = networkAccessService.getRules(scope as string, projectId as string);
     res.status(200).json({
       success: true,
       message: 'Network access rules retrieved.',
@@ -782,7 +785,7 @@ export async function getNetworkRulesHandler(_req: Request, res: Response, next:
 
 export async function addNetworkRuleHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { ipPattern, label, ruleType, action } = req.body;
+    const { ipPattern, label, ruleType, action, scope, projectId, durationMinutes, durationLabel, expiresAt } = req.body;
     if (!ipPattern) {
       res.status(400).json({ success: false, message: 'ipPattern is required (e.g. 192.168.1.50 or 192.168.1.0/24).' });
       return;
@@ -794,13 +797,88 @@ export async function addNetworkRuleHandler(req: Request, res: Response, next: N
       label: label || `Rule for ${ipPattern}`,
       ruleType,
       action: action || 'allow',
-      createdBy: user?.email || 'Super Admin'
+      scope,
+      projectId,
+      createdBy: user?.email || 'Super Admin',
+      durationMinutes: durationMinutes !== undefined ? parseInt(durationMinutes, 10) : undefined,
+      durationLabel,
+      expiresAt
     });
 
     res.status(201).json({
       success: true,
       message: 'Network access rule created successfully.',
       data: rule
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getJailedIpsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const jails = networkAccessService.getJailedIps();
+    res.status(200).json({
+      success: true,
+      message: 'Jailed IPs retrieved.',
+      data: jails
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function pardonJailedIpHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { ip } = req.params;
+    const user = (req as any).user;
+    const unjailedBy = user?.email || 'Super Admin';
+    const pardoned = networkAccessService.pardonJailedIp(decodeURIComponent(ip), unjailedBy);
+
+    res.status(200).json({
+      success: true,
+      message: `IP ${ip} has been pardoned and released from quarantine jail.`,
+      data: { pardoned }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function jailIpHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { ipAddress, reason, durationMinutes } = req.body;
+    if (!ipAddress) {
+      res.status(400).json({ success: false, message: 'ipAddress is required.' });
+      return;
+    }
+
+    const user = (req as any).user;
+    const jail = networkAccessService.jailIpManually({
+      ipAddress,
+      reason: reason || 'Manual Administrator Quarantine',
+      durationMinutes: durationMinutes !== undefined ? parseInt(durationMinutes, 10) : 15,
+      jailedBy: user?.email || 'Super Admin'
+    });
+
+    res.status(201).json({
+      success: true,
+      message: `IP ${ipAddress} quarantined in jail for ${jail.durationMinutes} minutes.`,
+      data: jail
+    });
+  } catch (err: any) {
+    res.status(400).json({ success: false, message: err.message || 'Failed to jail IP' });
+  }
+}
+
+export async function clearAllJailsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const user = (req as any).user;
+    const count = networkAccessService.clearAllJails(user?.email || 'Super Admin');
+    res.status(200).json({
+      success: true,
+      message: `All active IP jails pardoned (${count} records updated).`,
+      data: { clearedCount: count }
     });
   } catch (err) {
     next(err);
@@ -873,16 +951,132 @@ export async function getNetworkSettingsHandler(_req: Request, res: Response, ne
 
 export async function updateNetworkSettingsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { ipFilteringEnabled, ipFilterDefaultPolicy } = req.body;
+    const {
+      ipFilteringEnabled,
+      ipFilterDefaultPolicy,
+      adminEndpointIpLockEnabled,
+      adminAllowedSubnet,
+      requireWriteIpWhitelist,
+      enableSubnetRateLimiting,
+      defaultSubnetRequestsPerMin
+    } = req.body;
+
     const updated = networkAccessService.updateNetworkSettings({
       ipFilteringEnabled,
-      ipFilterDefaultPolicy
+      ipFilterDefaultPolicy,
+      adminEndpointIpLockEnabled,
+      adminAllowedSubnet,
+      requireWriteIpWhitelist,
+      enableSubnetRateLimiting,
+      defaultSubnetRequestsPerMin
     });
 
     res.status(200).json({
       success: true,
       message: 'Network access settings updated.',
       data: updated
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function lookupGeoIpHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { ip } = req.params;
+    const geo = await geoipThreatIntelService.lookupIp(decodeURIComponent(ip));
+    res.status(200).json({
+      success: true,
+      message: 'Geo-IP and threat intelligence retrieved.',
+      data: geo
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSubnetRatePoliciesHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const policies = subnetRateLimiterService.getPolicies();
+    res.status(200).json({
+      success: true,
+      message: 'Subnet rate limit policies retrieved.',
+      data: policies
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function addSubnetRatePolicyHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { subnetPattern, label, requestsPerMinute, burstLimit, bandwidthLimitKbps, actionOnExceed, isActive } = req.body;
+    if (!subnetPattern) {
+      throw new AppError('Subnet pattern (CIDR, IP, or *) is required.', 400);
+    }
+
+    const policy = subnetRateLimiterService.addPolicy({
+      subnetPattern,
+      label: label || `Rate limit for ${subnetPattern}`,
+      requestsPerMinute,
+      burstLimit,
+      bandwidthLimitKbps,
+      actionOnExceed,
+      isActive
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Subnet rate limit policy created.',
+      data: policy
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateSubnetRatePolicyHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const policy = subnetRateLimiterService.updatePolicy(id, req.body);
+    if (!policy) {
+      throw new AppError('Subnet rate policy not found.', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Subnet rate limit policy updated.',
+      data: policy
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteSubnetRatePolicyHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const success = subnetRateLimiterService.deletePolicy(id);
+    if (!success) {
+      throw new AppError('Subnet rate policy not found.', 404);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Subnet rate limit policy deleted.'
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function getSubnetLiveMetricsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const metrics = subnetRateLimiterService.getLiveSubnetMetrics();
+    res.status(200).json({
+      success: true,
+      message: 'Subnet real-time rate metrics retrieved.',
+      data: metrics
     });
   } catch (err) {
     next(err);

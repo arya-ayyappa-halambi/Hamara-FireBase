@@ -28,6 +28,7 @@ import { policyService } from '../services/policy.service';
 import { threatDetectionService } from '../services/threat-detection.service';
 import { accountModerationService } from '../services/account-moderation.service';
 import { envelopeEncryptionService } from '../services/envelope-encryption.service';
+import { networkAccessService } from '../services/network-access.service';
 
 // ── Argon2id Configuration ────────────────────────────────────────────────────
 
@@ -120,7 +121,7 @@ function toPublicUser(user: User): PublicUser {
 
 // ── Auth Business Logic ───────────────────────────────────────────────────────
 
-export async function googleLoginUser(email: string, name: string): Promise<AuthResponseData> {
+export async function googleLoginUser(email: string, name: string, clientIp?: string, userAgent?: string): Promise<AuthResponseData> {
   const normalizedEmail = email.toLowerCase().trim();
   let user = await userStore.findByEmail(normalizedEmail);
   let isNewUser = false;
@@ -147,6 +148,35 @@ export async function googleLoginUser(email: string, name: string): Promise<Auth
     try {
       projectService.createProject(user.id, 'Default Project');
     } catch (e) { /* Ignore if project creation fails */ }
+  }
+
+  // Super Admin Perimeter Check at Authentication
+  const isSuperAdminUser = Boolean(user.isSuperAdmin);
+  if (isSuperAdminUser && clientIp) {
+    const normIp = networkAccessService.normalizeIp(clientIp);
+    const netSettings = networkAccessService.getNetworkSettings();
+    if (netSettings.adminEndpointIpLockEnabled) {
+      const allowedSubnets = (netSettings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
+      const isAllowedSubnet = allowedSubnets.some(sub => networkAccessService.matchIpPattern(normIp, sub));
+      const allRules = networkAccessService.getRules().filter(r => !r.isExpired);
+      const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && networkAccessService.matchIpPattern(normIp, r.ipPattern, r.ruleType));
+
+      if (!isAllowedSubnet && !hasAdminAllowRule) {
+        throw new AppError('Access restricted: Super Administrator account can only be accessed from authorized management devices.', 403, {
+          code: 'ADMIN_PERIMETER_RESTRICTED',
+          clientIp: normIp
+        });
+      }
+    }
+  }
+
+  if (clientIp) {
+    networkAccessService.recordDeviceActivity({
+      ipAddress: clientIp,
+      userAgent,
+      userId: user.id,
+      userEmail: user.email
+    });
   }
 
   const token = generateToken(user);
@@ -233,6 +263,9 @@ export async function loginUser(dto: LoginDto & { totpCode?: string; clientIp?: 
   }
 
   if (!user || !passwordValid) {
+    if (clientIp) {
+      networkAccessService.recordFailedAuthAttempt(clientIp, user?.email || email);
+    }
     if (user) {
       // Evaluate failed login threat signals
       threatDetectionService.evaluateThreat({
@@ -247,6 +280,37 @@ export async function loginUser(dto: LoginDto & { totpCode?: string; clientIp?: 
     throw new AppError('Invalid email or password.', 401);
   }
 
+  // Super Admin Perimeter Check at Authentication
+  const isSuperAdminUser = Boolean(user.isSuperAdmin);
+  if (isSuperAdminUser && clientIp) {
+    const normIp = networkAccessService.normalizeIp(clientIp);
+    const netSettings = networkAccessService.getNetworkSettings();
+    if (netSettings.adminEndpointIpLockEnabled) {
+      const allowedSubnets = (netSettings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
+      const isAllowedSubnet = allowedSubnets.some(sub => networkAccessService.matchIpPattern(normIp, sub));
+      const allRules = networkAccessService.getRules().filter(r => !r.isExpired);
+      const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && networkAccessService.matchIpPattern(normIp, r.ipPattern, r.ruleType));
+
+      if (!isAllowedSubnet && !hasAdminAllowRule) {
+        throw new AppError('Access restricted: Super Administrator account can only be accessed from authorized management devices.', 403, {
+          code: 'ADMIN_PERIMETER_RESTRICTED',
+          clientIp: normIp
+        });
+      }
+    }
+  }
+
+  // Record successful login for IP threat shield reset & device tracker hydration
+  if (clientIp) {
+    networkAccessService.recordSuccessfulAuth(clientIp);
+    networkAccessService.recordDeviceActivity({
+      ipAddress: clientIp,
+      userAgent,
+      userId: user.id,
+      userEmail: user.email
+    });
+  }
+
   // TOTP Multi-Factor Authentication Check
   if (user.mfaEnabled === 1) {
     if (!totpCode || !user.mfaSecret) {
@@ -255,6 +319,9 @@ export async function loginUser(dto: LoginDto & { totpCode?: string; clientIp?: 
     const { totpService } = await import('../services/totp.service');
     const isValidTotp = totpService.verifyCode(user.mfaSecret, totpCode);
     if (!isValidTotp) {
+      if (clientIp) {
+        networkAccessService.recordFailedAuthAttempt(clientIp, user.email);
+      }
       throw new AppError('Invalid TOTP verification code.', 401, { mfaRequired: true });
     }
   }

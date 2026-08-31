@@ -586,6 +586,7 @@ window.switchWorkspace = function switchWorkspace(tabId) {
     if (typeof window.loadNetworkAccessSettings === 'function') window.loadNetworkAccessSettings();
     if (typeof window.loadNetworkRules === 'function') window.loadNetworkRules();
     if (typeof window.loadTrackedDevicesTable === 'function') window.loadTrackedDevicesTable();
+    if (typeof window.loadJailedIpsTable === 'function') window.loadJailedIpsTable();
   } else if (tabId === 'tab-project-management') {
     loadMyProjects();
   } else if (tabId === 'tab-data-browser') {
@@ -2702,6 +2703,15 @@ function connectGlobalWebSocket() {
           if (state.user?.isSuperAdmin && typeof window.loadNetworkAccessSettings === 'function') {
             window.loadNetworkAccessSettings();
           }
+        } else if (data.type === 'IP_JAILED') {
+          showToast(`🚨 Threat Quarantined: IP ${data.data?.jail?.ipAddress || ''} put in quarantine jail.`, 'error');
+          if (state.user?.isSuperAdmin && typeof window.loadJailedIpsTable === 'function') {
+            window.loadJailedIpsTable();
+          }
+        } else if (data.type === 'IP_UNJAILED' || data.type === 'JAIL_RECORDS_UPDATED') {
+          if (state.user?.isSuperAdmin && typeof window.loadJailedIpsTable === 'function') {
+            window.loadJailedIpsTable();
+          }
         } else if (data.type === 'TERMINAL_LOG_STREAM') {
           if (data.data?.entry) {
             handleIncomingTerminalLog(data.data.entry);
@@ -4783,6 +4793,12 @@ async function loadPlatformSettings() {
         s3UrlEl.textContent = data.lastBackupS3Url || '';
         s3UrlEl.title = data.lastBackupS3Url || '';
       }
+
+      if (typeof window.loadNetworkRules === 'function') window.loadNetworkRules();
+      if (typeof window.loadTrackedDevicesTable === 'function') window.loadTrackedDevicesTable();
+      if (typeof window.loadJailedIpsTable === 'function') window.loadJailedIpsTable();
+      if (typeof window.loadSubnetRatePolicies === 'function') window.loadSubnetRatePolicies();
+      if (typeof window.loadSubnetLiveMetrics === 'function') window.loadSubnetLiveMetrics();
     }
   } catch (err) {
     console.warn('[PlatformSettings] Notice loading platform settings:', err?.message || err);
@@ -7857,7 +7873,10 @@ window.loadNetworkAccessSettings = async function() {
   const toggleEl = document.getElementById('toggle-enforce-ip-whitelist');
   const badgeEl = document.getElementById('badge-ip-filter-status');
   const labelEl = document.getElementById('label-whitelist-toggle');
-  if (!badgeEl) return;
+
+  const adminLockToggle = document.getElementById('toggle-admin-endpoint-lock');
+  const adminSubnetsInput = document.getElementById('input-admin-allowed-subnets');
+  const writeShieldToggle = document.getElementById('toggle-write-ip-shield');
 
   try {
     const res = await apiRequest('/api/v1/admin/network/settings', 'GET');
@@ -7876,6 +7895,15 @@ window.loadNetworkAccessSettings = async function() {
         badgeEl.textContent = '🌐 Open LAN (All Allowed)';
       }
     }
+
+    if (adminLockToggle) adminLockToggle.checked = !!settings.adminEndpointIpLockEnabled;
+    if (adminSubnetsInput) adminSubnetsInput.value = settings.adminAllowedSubnet || '127.0.0.1';
+    if (writeShieldToggle) writeShieldToggle.checked = !!settings.requireWriteIpWhitelist;
+
+    const subnetLimitToggle = document.getElementById('toggle-enable-subnet-rate-limiting');
+    const defaultRpmInput = document.getElementById('input-default-subnet-rpm');
+    if (subnetLimitToggle) subnetLimitToggle.checked = !!settings.enableSubnetRateLimiting;
+    if (defaultRpmInput && settings.defaultSubnetRequestsPerMin) defaultRpmInput.value = settings.defaultSubnetRequestsPerMin;
   } catch (err) {
     console.warn('Failed to load network access settings:', err);
   }
@@ -7893,6 +7921,53 @@ window.handleToggleIpFiltering = async function(enabled) {
   } catch (err) {
     showToast(err.message || 'Failed to update access control policy', 'error');
     window.loadNetworkAccessSettings();
+  }
+};
+
+window.savePerimeterSettings = async function() {
+  const adminEndpointIpLockEnabled = document.getElementById('toggle-admin-endpoint-lock')?.checked || false;
+  const adminAllowedSubnet = document.getElementById('input-admin-allowed-subnets')?.value.trim() || '127.0.0.1';
+  const requireWriteIpWhitelist = document.getElementById('toggle-write-ip-shield')?.checked || false;
+
+  try {
+    await apiRequest('/api/v1/admin/network/settings', 'PATCH', {
+      adminEndpointIpLockEnabled,
+      adminAllowedSubnet,
+      requireWriteIpWhitelist
+    });
+    showToast('Perimeter isolation & mutation shield settings saved.', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to save perimeter settings', 'error');
+  }
+};
+
+window.saveSubnetRateSettings = async function() {
+  const enableSubnetRateLimiting = document.getElementById('toggle-enable-subnet-rate-limiting')?.checked || false;
+  const defaultSubnetRequestsPerMin = parseInt(document.getElementById('input-default-subnet-rpm')?.value || '300', 10);
+
+  try {
+    await apiRequest('/api/v1/admin/network/settings', 'PATCH', {
+      enableSubnetRateLimiting,
+      defaultSubnetRequestsPerMin
+    });
+    showToast(enableSubnetRateLimiting ? '⚡ Subnet Rate Limiting enabled.' : 'Subnet Rate Limiting disabled.', 'info');
+  } catch (err) {
+    showToast(err.message || 'Failed to save rate limit settings', 'error');
+  }
+};
+
+window.handleNetRuleScopeChange = function() {
+  const scope = document.getElementById('select-netrule-scope')?.value || 'global';
+  const projectBox = document.getElementById('box-netrule-project');
+  const projectSelect = document.getElementById('select-netrule-project');
+
+  if (scope === 'project') {
+    if (projectBox) projectBox.classList.remove('hidden');
+    if (projectSelect && state.projects && state.projects.length > 0) {
+      projectSelect.innerHTML = '<option value="">Select a project...</option>' + state.projects.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id})</option>`).join('');
+    }
+  } else {
+    if (projectBox) projectBox.classList.add('hidden');
   }
 };
 
@@ -7921,16 +7996,48 @@ window.loadNetworkRules = async function() {
 
     container.innerHTML = cachedNetworkRules.map(rule => {
       const isAllow = rule.action === 'allow';
+      let ttlBadge = '';
+      if (rule.isTemporary) {
+        if (rule.isExpired) {
+          ttlBadge = '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">Expired</span>';
+        } else {
+          const remain = rule.remainingSeconds || 0;
+          const remainStr = remain >= 3600
+            ? `${Math.floor(remain / 3600)}h ${Math.floor((remain % 3600) / 60)}m`
+            : remain >= 60
+              ? `${Math.floor(remain / 60)}m ${remain % 60}s`
+              : `${remain}s`;
+          ttlBadge = `<span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20 flex items-center space-x-1" title="Expires in ${remainStr}"><i class="fa-solid fa-stopwatch text-[8px]"></i><span>${remainStr}</span></span>`;
+        }
+      } else {
+        ttlBadge = '<span class="px-2 py-0.5 rounded-full text-[9px] font-medium bg-white/5 text-slate-400">Permanent</span>';
+      }
+
+      let scopeBadge = '';
+      if (rule.scope === 'admin_only') {
+        scopeBadge = '<span class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/20">👑 Admin APIs</span>';
+      } else if (rule.scope === 'db_write_only') {
+        scopeBadge = '<span class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">✍️ DB Writes</span>';
+      } else if (rule.scope === 'project') {
+        scopeBadge = `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono text-purple-300 bg-purple-500/10 border border-purple-500/20" title="Project: ${escapeHTML(rule.projectId || '')}">📦 Proj</span>`;
+      } else {
+        scopeBadge = '<span class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-800 text-slate-400">🌐 Global</span>';
+      }
+
       return `
         <div class="p-4 rounded-2xl bg-slate-900/70 border border-white/10 hover:border-white/20 transition space-y-3 relative group">
           <div class="flex items-center justify-between">
-            <span class="text-xs font-bold text-white flex items-center space-x-1.5 truncate max-w-[180px]" title="${escapeHTML(rule.label)}">
+            <span class="text-xs font-bold text-white flex items-center space-x-1.5 truncate max-w-[160px]" title="${escapeHTML(rule.label)}">
               <i class="fa-solid ${isAllow ? 'fa-circle-check text-emerald-400' : 'fa-circle-xmark text-rose-400'} text-xs"></i>
               <span>${escapeHTML(rule.label)}</span>
             </span>
-            <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${isAllow ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-300 border border-rose-500/20'}">
-              ${isAllow ? 'ALLOW' : 'DENY'}
-            </span>
+            <div class="flex items-center space-x-1.5">
+              ${scopeBadge}
+              ${ttlBadge}
+              <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${isAllow ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-300 border border-rose-500/20'}">
+                ${isAllow ? 'ALLOW' : 'DENY'}
+              </span>
+            </div>
           </div>
 
           <div class="p-2.5 rounded-xl bg-black/50 border border-white/5 space-y-1">
@@ -7939,8 +8046,8 @@ window.loadNetworkRules = async function() {
               <span class="font-bold text-indigo-300">${escapeHTML(rule.ipPattern)}</span>
             </div>
             <div class="flex items-center justify-between text-[10px] text-slate-500">
-              <span>Type: ${escapeHTML(rule.ruleType.toUpperCase())}</span>
-              <span>Added: ${new Date(rule.createdAt).toLocaleDateString()}</span>
+              <span>Type: ${escapeHTML((rule.ruleType || 'ip').toUpperCase())}</span>
+              <span>${rule.durationLabel ? escapeHTML(rule.durationLabel) : (rule.isTemporary ? 'Temp Pass' : 'Permanent')}</span>
             </div>
           </div>
 
@@ -7963,10 +8070,16 @@ window.openAddNetworkRuleModal = function(prefillIp, prefillLabel) {
   const inputLabel = document.getElementById('input-netrule-label');
   const inputPattern = document.getElementById('input-netrule-pattern');
   const selectAction = document.getElementById('select-netrule-action');
+  const selectScope = document.getElementById('select-netrule-scope');
+  const selectDuration = document.getElementById('select-netrule-duration');
 
   if (inputLabel) inputLabel.value = prefillLabel || '';
   if (inputPattern) inputPattern.value = prefillIp || '';
   if (selectAction) selectAction.value = 'allow';
+  if (selectScope) selectScope.value = 'global';
+  if (selectDuration) selectDuration.value = '0';
+
+  window.handleNetRuleScopeChange();
 
   const modal = document.getElementById('modal-add-network-rule');
   if (modal) {
@@ -7979,9 +8092,17 @@ window.submitAddNetworkRule = async function() {
   const label = document.getElementById('input-netrule-label')?.value.trim();
   const ipPattern = document.getElementById('input-netrule-pattern')?.value.trim();
   const action = document.getElementById('select-netrule-action')?.value || 'allow';
+  const scope = document.getElementById('select-netrule-scope')?.value || 'global';
+  const projectId = scope === 'project' ? document.getElementById('select-netrule-project')?.value : undefined;
+  const durationMinutes = parseInt(document.getElementById('select-netrule-duration')?.value || '0', 10);
 
   if (!ipPattern) {
     showToast('Please enter an IP address, CIDR subnet, or range.', 'error');
+    return;
+  }
+
+  if (scope === 'project' && !projectId) {
+    showToast('Please select a target tenant project.', 'error');
     return;
   }
 
@@ -7989,7 +8110,10 @@ window.submitAddNetworkRule = async function() {
     await apiRequest('/api/v1/admin/network/rules', 'POST', {
       label: label || `Rule for ${ipPattern}`,
       ipPattern,
-      action
+      action,
+      scope,
+      projectId: projectId || undefined,
+      durationMinutes: durationMinutes > 0 ? durationMinutes : undefined
     });
     hideModal('modal-add-network-rule');
     showToast(`Network rule for "${ipPattern}" saved successfully!`, 'success');
@@ -8009,6 +8133,341 @@ window.deleteNetworkRule = async function(ruleId) {
     window.loadTrackedDevicesTable();
   } catch (err) {
     showToast(err.message || 'Failed to delete rule', 'error');
+  }
+};
+
+// ── Adaptive Subnet Rate Limiting & Bandwidth Throttling UI ────────────────
+
+let cachedSubnetRatePolicies = [];
+
+window.loadSubnetRatePolicies = async function() {
+  const tbody = document.getElementById('table-subnet-rate-policies-body');
+  if (!tbody) return;
+
+  try {
+    const res = await apiRequest('/api/v1/admin/network/rate-limits', 'GET');
+    cachedSubnetRatePolicies = Array.isArray(res) ? res : (res.data || []);
+    window.renderSubnetRatePolicies(cachedSubnetRatePolicies);
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-4 text-center text-rose-400 text-xs">Failed to load subnet policies: ${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+window.renderSubnetRatePolicies = function(policies) {
+  const tbody = document.getElementById('table-subnet-rate-policies-body');
+  if (!tbody) return;
+
+  if (!policies || policies.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="p-5 text-center text-slate-500 text-xs">No subnet rate policies defined. Global default cap applies.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = policies.map(p => {
+    const isBlock = p.actionOnExceed === 'block';
+    const actionBadge = isBlock
+      ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">🛑 Block (429)</span>'
+      : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">⏳ Throttle</span>';
+
+    const statusToggle = `
+      <label class="relative inline-flex items-center cursor-pointer">
+        <input type="checkbox" onchange="window.toggleSubnetRatePolicy('${p.id}', this.checked)" ${p.isActive ? 'checked' : ''} class="sr-only peer">
+        <div class="w-7 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-600"></div>
+      </label>
+    `;
+
+    return `
+      <tr class="hover:bg-white/5 transition">
+        <td class="p-3 font-mono font-bold text-amber-300">
+          <div class="flex items-center space-x-1.5">
+            <i class="fa-solid fa-network-wired text-amber-400 text-[10px]"></i>
+            <span>${escapeHTML(p.subnetPattern)}</span>
+          </div>
+        </td>
+        <td class="p-3 text-slate-300 text-xs truncate max-w-xs" title="${escapeHTML(p.label)}">
+          ${escapeHTML(p.label)}
+        </td>
+        <td class="p-3 text-center font-mono font-bold text-white">
+          ${p.requestsPerMinute} <span class="text-[10px] text-slate-500">RPM</span>
+        </td>
+        <td class="p-3 text-center font-mono text-slate-300">
+          ${p.burstLimit} <span class="text-[10px] text-slate-500">reqs</span>
+        </td>
+        <td class="p-3 text-center font-mono text-slate-300">
+          ${p.bandwidthLimitKbps >= 1000 ? `${(p.bandwidthLimitKbps / 1000).toFixed(1)} Mbps` : `${p.bandwidthLimitKbps} Kbps`}
+        </td>
+        <td class="p-3 text-center">
+          ${actionBadge}
+        </td>
+        <td class="p-3 text-center">
+          ${statusToggle}
+        </td>
+        <td class="p-3 text-right">
+          <button type="button" onclick="window.deleteSubnetRatePolicy('${p.id}')" class="px-2 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-semibold transition active:scale-95 flex items-center space-x-1 inline-flex" title="Delete Policy">
+            <i class="fa-solid fa-trash text-[9px]"></i>
+            <span>Delete</span>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.openAddSubnetRatePolicyModal = function(prefillSubnet) {
+  const patternInput = document.getElementById('input-ratepolicy-pattern');
+  const labelInput = document.getElementById('input-ratepolicy-label');
+  const rpmInput = document.getElementById('input-ratepolicy-rpm');
+  const burstInput = document.getElementById('input-ratepolicy-burst');
+  const bandwidthInput = document.getElementById('input-ratepolicy-bandwidth');
+  const actionSelect = document.getElementById('select-ratepolicy-action');
+
+  if (patternInput) patternInput.value = prefillSubnet || '192.168.31.0/24';
+  if (labelInput) labelInput.value = '';
+  if (rpmInput) rpmInput.value = '120';
+  if (burstInput) burstInput.value = '25';
+  if (bandwidthInput) bandwidthInput.value = '5000';
+  if (actionSelect) actionSelect.value = 'block';
+
+  const modal = document.getElementById('modal-add-subnet-rate-policy');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+};
+
+window.submitAddSubnetRatePolicy = async function() {
+  const subnetPattern = document.getElementById('input-ratepolicy-pattern')?.value.trim();
+  const label = document.getElementById('input-ratepolicy-label')?.value.trim();
+  const requestsPerMinute = parseInt(document.getElementById('input-ratepolicy-rpm')?.value || '120', 10);
+  const burstLimit = parseInt(document.getElementById('input-ratepolicy-burst')?.value || '25', 10);
+  const bandwidthLimitKbps = parseInt(document.getElementById('input-ratepolicy-bandwidth')?.value || '5000', 10);
+  const actionOnExceed = document.getElementById('select-ratepolicy-action')?.value || 'block';
+
+  if (!subnetPattern) {
+    showToast('Please enter a target subnet or CIDR pattern.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest('/api/v1/admin/network/rate-limits', 'POST', {
+      subnetPattern,
+      label: label || `Rate limit for ${subnetPattern}`,
+      requestsPerMinute,
+      burstLimit,
+      bandwidthLimitKbps,
+      actionOnExceed
+    });
+    hideModal('modal-add-subnet-rate-policy');
+    showToast(`Subnet rate policy for "${subnetPattern}" created!`, 'success');
+    window.loadSubnetRatePolicies();
+  } catch (err) {
+    showToast(err.message || 'Failed to create subnet policy', 'error');
+  }
+};
+
+window.toggleSubnetRatePolicy = async function(id, isActive) {
+  try {
+    await apiRequest(`/api/v1/admin/network/rate-limits/${id}`, 'PATCH', { isActive });
+    showToast(isActive ? 'Policy activated.' : 'Policy deactivated.', 'info');
+  } catch (err) {
+    showToast(err.message || 'Failed to update policy status', 'error');
+    window.loadSubnetRatePolicies();
+  }
+};
+
+window.deleteSubnetRatePolicy = async function(id) {
+  if (!confirm('Are you sure you want to delete this subnet rate policy?')) return;
+  try {
+    await apiRequest(`/api/v1/admin/network/rate-limits/${id}`, 'DELETE');
+    showToast('Subnet rate policy deleted.', 'info');
+    window.loadSubnetRatePolicies();
+  } catch (err) {
+    showToast(err.message || 'Failed to delete policy', 'error');
+  }
+};
+
+window.loadSubnetLiveMetrics = async function() {
+  const container = document.getElementById('container-subnet-live-metrics');
+  if (!container) return;
+
+  try {
+    const res = await apiRequest('/api/v1/admin/network/rate-limits/metrics', 'GET');
+    const metrics = Array.isArray(res) ? res : (res.data || []);
+    window.renderSubnetLiveMetrics(metrics);
+  } catch (err) {
+    container.innerHTML = `<div class="p-3 text-center text-rose-400 text-xs col-span-full">Failed to load live metrics: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.renderSubnetLiveMetrics = function(metrics) {
+  const container = document.getElementById('container-subnet-live-metrics');
+  if (!container) return;
+
+  if (!metrics || metrics.length === 0) {
+    container.innerHTML = `<div class="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-center text-slate-500 text-[11px] col-span-full">No active client traffic recorded in past 60 seconds.</div>`;
+    return;
+  }
+
+  container.innerHTML = metrics.slice(0, 6).map(m => `
+    <div class="p-3 rounded-xl bg-slate-900/70 border border-white/10 space-y-1">
+      <div class="flex items-center justify-between text-xs">
+        <span class="font-bold text-white font-mono truncate max-w-[130px]">${escapeHTML(m.ipAddress)}</span>
+        <span class="text-[10px] text-amber-400 font-bold font-mono">${m.currentRps} req/s</span>
+      </div>
+      <div class="flex items-center justify-between text-[10px] text-slate-400">
+        <span>60s Total: <strong class="text-white">${m.requestsLast60s} reqs</strong></span>
+        <span>Bandwidth: <strong class="text-cyan-300">${m.bandwidthKbps} Kbps</strong></span>
+      </div>
+    </div>
+  `).join('');
+};
+
+// ── IP Quarantine & Jail UI Management ─────────────────────────────────────
+
+let cachedJailedIps = [];
+
+window.loadJailedIpsTable = async function() {
+  const tbody = document.getElementById('table-jailed-ips-body');
+  const countBadge = document.getElementById('badge-jailed-ips-count');
+  if (!tbody) return;
+
+  try {
+    const res = await apiRequest('/api/v1/admin/network/jail', 'GET');
+    cachedJailedIps = Array.isArray(res) ? res : (res.data || []);
+    const activeCount = cachedJailedIps.filter(j => j.status === 'active').length;
+    if (countBadge) {
+      countBadge.textContent = `${activeCount} Jailed`;
+      if (activeCount > 0) {
+        countBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse';
+      } else {
+        countBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700';
+      }
+    }
+
+    if (cachedJailedIps.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="p-5 text-center text-slate-500 text-xs">No IPs currently quarantined in jail. Threat shield is clear.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = cachedJailedIps.map(j => {
+      const isActive = j.status === 'active';
+      let statusBadge = '';
+      if (isActive) {
+        statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center justify-center space-x-1"><span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping mr-1"></span>ACTIVE JAIL</span>';
+      } else if (j.status === 'pardoned') {
+        statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Pardoned</span>';
+      } else {
+        statusBadge = '<span class="px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-800 text-slate-400 border border-slate-700">Expired</span>';
+      }
+
+      let remainStr = '—';
+      if (isActive && j.remainingSeconds !== undefined) {
+        const rem = j.remainingSeconds;
+        remainStr = rem >= 3600
+          ? `${Math.floor(rem / 3600)}h ${Math.floor((rem % 3600) / 60)}m`
+          : rem >= 60
+            ? `${Math.floor(rem / 60)}m ${rem % 60}s`
+            : `${rem}s`;
+      } else if (isActive && !j.expiresAt) {
+        remainStr = 'Permanent';
+      }
+
+      return `
+        <tr class="hover:bg-white/5 transition">
+          <td class="p-3 font-mono font-bold text-rose-300">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-lock text-rose-400 text-xs"></i>
+              <span>${escapeHTML(j.ipAddress)}</span>
+            </div>
+          </td>
+          <td class="p-3 text-slate-300 text-xs max-w-xs truncate" title="${escapeHTML(j.reason)}">
+            ${escapeHTML(j.reason)}
+          </td>
+          <td class="p-3 text-[11px] text-slate-400 font-mono">
+            ${new Date(j.jailedAt).toLocaleTimeString()}
+          </td>
+          <td class="p-3 text-center font-mono font-bold ${isActive ? 'text-amber-300' : 'text-slate-500'}">
+            ${remainStr}
+          </td>
+          <td class="p-3 text-center">
+            ${statusBadge}
+          </td>
+          <td class="p-3 text-right">
+            ${isActive ? `
+              <button type="button" onclick="window.pardonJailedIp('${j.ipAddress}')" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold transition active:scale-95 flex items-center space-x-1 inline-flex" title="Pardon and remove from Jail">
+                <i class="fa-solid fa-unlock text-[9px]"></i>
+                <span>Pardon</span>
+              </button>
+            ` : `<span class="text-slate-600 text-[10px]">—</span>`}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400 text-xs">Failed to load jail logs: ${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+window.openManualJailModal = function(prefillIp) {
+  const inputIp = document.getElementById('input-jail-ip');
+  const inputReason = document.getElementById('input-jail-reason');
+  const selectDuration = document.getElementById('select-jail-duration');
+
+  if (inputIp) inputIp.value = prefillIp || '';
+  if (inputReason) inputReason.value = '';
+  if (selectDuration) selectDuration.value = '15';
+
+  const modal = document.getElementById('modal-manual-jail-ip');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+};
+
+window.submitManualJailIp = async function() {
+  const ipAddress = document.getElementById('input-jail-ip')?.value.trim();
+  const reason = document.getElementById('input-jail-reason')?.value.trim();
+  const durationMinutes = parseInt(document.getElementById('select-jail-duration')?.value || '15', 10);
+
+  if (!ipAddress) {
+    showToast('Please enter a valid IP address to quarantine.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest('/api/v1/admin/network/jail', 'POST', {
+      ipAddress,
+      reason: reason || 'Manual Administrator Quarantine',
+      durationMinutes
+    });
+    hideModal('modal-manual-jail-ip');
+    showToast(`IP ${ipAddress} has been quarantined in Jail!`, 'warning');
+    window.loadJailedIpsTable();
+    window.loadTrackedDevicesTable();
+  } catch (err) {
+    showToast(err.message || 'Failed to quarantine IP', 'error');
+  }
+};
+
+window.pardonJailedIp = async function(ipAddress) {
+  try {
+    await apiRequest(`/api/v1/admin/network/jail/${encodeURIComponent(ipAddress)}/pardon`, 'POST');
+    showToast(`IP ${ipAddress} released from quarantine jail.`, 'success');
+    window.loadJailedIpsTable();
+    window.loadTrackedDevicesTable();
+  } catch (err) {
+    showToast(err.message || 'Failed to pardon IP', 'error');
+  }
+};
+
+window.clearAllJailsFromUI = async function() {
+  if (!confirm('Are you sure you want to pardon and unban all quarantined IPs?')) return;
+  try {
+    const res = await apiRequest('/api/v1/admin/network/jail/clear', 'DELETE');
+    showToast(res.message || 'All quarantined IP jails pardoned.', 'success');
+    window.loadJailedIpsTable();
+    window.loadTrackedDevicesTable();
+  } catch (err) {
+    showToast(err.message || 'Failed to clear jails', 'error');
   }
 };
 
@@ -8106,6 +8565,22 @@ window.renderTrackedDevicesTable = function(devices) {
             </button>
           </span>
         </td>
+        <td class="p-3.5">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-1.5 text-xs text-white">
+              <span class="text-sm">${d.countryFlag || '🌐'}</span>
+              <span class="font-semibold">${escapeHTML(d.city || 'Local')}</span>
+              <span class="text-slate-500 text-[10px]">(${escapeHTML(d.countryCode || 'LAN')})</span>
+            </div>
+            <div class="flex items-center space-x-1.5">
+              ${d.threatType === 'tor_node' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">🧅 Tor Exit</span>' :
+                d.threatType === 'vpn_proxy' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">🕵️ VPN/Proxy</span>' :
+                d.threatType === 'datacenter' ? '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">🏢 Cloud VPS</span>' :
+                '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">🛡️ Clean</span>'}
+              <span class="text-[10px] text-slate-400 truncate max-w-[100px]" title="${escapeHTML(d.isp || '')}">${escapeHTML(d.isp || 'Internal')}</span>
+            </div>
+          </div>
+        </td>
         <td class="p-3.5">${ifaceBadge}</td>
         <td class="p-3.5">
           ${d.lastUserEmail ? `<span class="text-slate-200 text-xs font-semibold font-mono">${escapeHTML(d.lastUserEmail)}</span>` : `<span class="text-slate-500 italic text-[11px]">Unauthenticated / API</span>`}
@@ -8161,5 +8636,124 @@ window.handleDeviceTrackerWsEvent = function(data) {
       found.isBlocked = !!data.isBlocked;
       window.renderTrackedDevicesTable(cachedTrackedDevices);
     }
+  }
+};
+
+window.inspectGeoIpThreat = async function() {
+  const input = document.getElementById('input-geoip-probe-ip');
+  const resultBox = document.getElementById('box-geoip-inspector-result');
+  if (!input || !resultBox) return;
+
+  const ip = input.value.trim();
+  if (!ip) {
+    showToast('Please enter an IP address or select a preset to inspect.', 'info');
+    return;
+  }
+
+  resultBox.classList.remove('hidden');
+  resultBox.innerHTML = `
+    <div class="p-6 text-center text-cyan-400 text-xs space-y-2">
+      <i class="fa-solid fa-spinner fa-spin text-lg"></i>
+      <div>Querying global ASN threat databases & Geo-IP resolvers for <span class="font-mono font-bold">${escapeHTML(ip)}</span>...</div>
+    </div>
+  `;
+
+  try {
+    const res = await apiRequest(`/api/v1/admin/network/geoip/${encodeURIComponent(ip)}`, 'GET');
+    const geo = (res && res.threatType !== undefined) ? res : (res?.data || res || {});
+
+    const threatType = geo.threatType || 'normal';
+    const threatScore = geo.threatScore !== undefined ? geo.threatScore : 0;
+
+    let threatBadge = '';
+    let threatColor = 'emerald';
+    if (threatType === 'tor_node') {
+      threatBadge = '<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 inline-flex items-center"><span class="w-2 h-2 rounded-full bg-rose-500 mr-1.5 animate-pulse"></span>🧅 Tor Exit Node (Critical Risk)</span>';
+      threatColor = 'rose';
+    } else if (threatType === 'vpn_proxy') {
+      threatBadge = '<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 inline-flex items-center">🕵️ Anonymous VPN / Proxy Service</span>';
+      threatColor = 'purple';
+    } else if (threatType === 'datacenter') {
+      threatBadge = '<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 inline-flex items-center">🏢 Cloud / Datacenter VPS</span>';
+      threatColor = 'amber';
+    } else {
+      threatBadge = '<span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 inline-flex items-center">🛡️ Clean Residential / LAN Interface</span>';
+      threatColor = 'emerald';
+    }
+
+    resultBox.innerHTML = `
+      <div class="space-y-4">
+        <!-- Top Summary Bar -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-white/10">
+          <div class="flex items-center space-x-3">
+            <div class="text-3xl">${geo.countryFlag || '🌐'}</div>
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="font-mono text-base font-bold text-white">${escapeHTML(geo.ipAddress)}</span>
+                <span class="text-xs text-slate-400 font-semibold">(${escapeHTML(geo.countryName || 'Unknown')})</span>
+              </div>
+              <div class="text-xs text-cyan-300 font-medium">
+                ${escapeHTML(geo.city || 'Unknown')}${geo.region ? `, ${escapeHTML(geo.region)}` : ''} • ISO: <span class="font-mono uppercase font-bold">${escapeHTML(geo.countryCode)}</span>
+              </div>
+            </div>
+          </div>
+          <div>${threatBadge}</div>
+        </div>
+
+        <!-- Metric Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
+            <div class="text-[10px] text-slate-400 uppercase font-semibold">Network & ISP</div>
+            <div class="text-white font-medium truncate" title="${escapeHTML(geo.isp || '—')}">${escapeHTML(geo.isp || 'Private')}</div>
+            <div class="text-[10px] text-slate-500 truncate" title="${escapeHTML(geo.asn || geo.org || '—')}">${escapeHTML(geo.asn || geo.org || 'Local Subnet')}</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
+            <div class="text-[10px] text-slate-400 uppercase font-semibold">Threat Score & Classification</div>
+            <div class="flex items-center space-x-2">
+              <div class="text-sm font-bold text-${threatColor}-400 font-mono">${threatScore}/100</div>
+              <div class="flex-1 bg-slate-800 rounded-full h-2 overflow-hidden">
+                <div class="bg-${threatColor}-500 h-full rounded-full" style="width: ${threatScore}%"></div>
+              </div>
+            </div>
+            <div class="text-[10px] text-slate-400 capitalize">${threatType.replace('_', ' ')} Node</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-white/5 space-y-1">
+            <div class="text-[10px] text-slate-400 uppercase font-semibold">Subnet & Geo-Coordinates</div>
+            <div class="text-white font-mono text-[11px]">${geo.latitude && geo.longitude ? `${geo.latitude.toFixed(4)}, ${geo.longitude.toFixed(4)}` : 'Private LAN RFC1918'}</div>
+            ${geo.latitude && geo.longitude ? `
+              <a href="https://www.google.com/maps/search/?api=1&query=${geo.latitude},${geo.longitude}" target="_blank" class="text-[10px] text-cyan-400 hover:underline flex items-center space-x-1">
+                <i class="fa-solid fa-arrow-up-right-from-square text-[8px]"></i>
+                <span>Open in Maps</span>
+              </a>
+            ` : '<div class="text-[10px] text-slate-500">Zero Internet Exposure</div>'}
+          </div>
+        </div>
+
+        <!-- Quick 1-Click Policy Actions -->
+        <div class="flex flex-wrap gap-2 pt-1 border-t border-white/5">
+          <button type="button" onclick="window.openAddNetworkRuleModal('${escapeHTML(geo.ipAddress)}', '${escapeHTML(geo.countryName || 'Custom IP')}')" class="px-3 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold transition active:scale-95 flex items-center space-x-1.5">
+            <i class="fa-solid fa-shield-check text-[10px]"></i>
+            <span>+ Whitelist IP</span>
+          </button>
+          <button type="button" onclick="window.openManualJailModal('${escapeHTML(geo.ipAddress)}')" class="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition active:scale-95 flex items-center space-x-1.5">
+            <i class="fa-solid fa-lock text-[10px]"></i>
+            <span>Quarantine in Jail</span>
+          </button>
+          ${geo.countryCode && geo.countryCode !== 'LAN' && geo.countryCode !== 'WAN' ? `
+            <button type="button" onclick="document.getElementById('input-netrule-pattern').value='${geo.countryCode}'; document.getElementById('input-netrule-label').value='${geo.countryName} Geo-Fence'; window.openAddNetworkRuleModal();" class="px-3 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition active:scale-95 flex items-center space-x-1.5">
+              <i class="fa-solid fa-earth-americas text-[10px]"></i>
+              <span>Create ${geo.countryFlag} (${geo.countryCode}) Geo-Fence Rule</span>
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    resultBox.innerHTML = `
+      <div class="p-4 text-center text-rose-400 text-xs space-y-1">
+        <i class="fa-solid fa-triangle-exclamation text-base"></i>
+        <div>Failed to inspect IP: ${escapeHTML(err.message)}</div>
+      </div>
+    `;
   }
 };

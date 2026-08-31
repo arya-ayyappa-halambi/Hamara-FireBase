@@ -1991,9 +1991,10 @@
                       <tr>
                         <th class="p-3.5">Device & Client</th>
                         <th class="p-3.5">IP Address</th>
+                        <th class="p-3.5">Geo-Location & Intel</th>
                         <th class="p-3.5">Network Interface</th>
                         <th class="p-3.5">User Account</th>
-                        <th class="p-3.5 text-center">Requests (24h)</th>
+                        <th class="p-3.5 text-center">Requests</th>
                         <th class="p-3.5">Last Seen</th>
                         <th class="p-3.5 text-center">Access Status</th>
                         <th class="p-3.5 text-right">Quick Actions</th>
@@ -2001,7 +2002,250 @@
                     </thead>
                     <tbody id="table-tracked-devices-body" class="divide-y divide-white/5 font-mono">
                       <tr>
-                        <td colspan="8" class="p-6 text-center text-slate-500 text-xs">Scanning for connected devices...</td>
+                        <td colspan="9" class="p-6 text-center text-slate-500 text-xs">Scanning for connected devices...</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 4b. GRANULAR PERIMETER ISOLATION & MUTATION SHIELDS              -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-indigo-950/20 border border-indigo-500/30 space-y-4">
+              <div class="flex items-center space-x-3 border-b border-indigo-500/20 pb-3">
+                <div class="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                  <i class="fa-solid fa-shield-halved text-sm"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                    <span>Granular Perimeter Isolation & Mutation Shields</span>
+                  </h4>
+                  <p class="text-[11px] text-slate-400">Endpoint-level IP perimeter control and database mutation shields.</p>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- 1. Admin Endpoint Perimeter Lock -->
+                <div class="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                      <i class="fa-solid fa-crown text-amber-400 text-xs"></i>
+                      <span class="text-xs font-bold text-white">Super Admin Perimeter Lock</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="toggle-admin-endpoint-lock" onchange="window.savePerimeterSettings()" class="sr-only peer">
+                      <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                    </label>
+                  </div>
+                  <p class="text-[11px] text-slate-400">Restricts <code class="px-1 py-0.5 rounded bg-black/60 font-mono text-amber-300">/api/v1/admin/*</code> strictly to the host machine and designated management subnets.</p>
+                  <div class="space-y-1">
+                    <label class="text-[10px] font-semibold text-slate-400">Allowed Management Subnets (comma-separated)</label>
+                    <input type="text" id="input-admin-allowed-subnets" placeholder="127.0.0.1, 192.168.31.0/24" onchange="window.savePerimeterSettings()" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                  </div>
+                </div>
+
+                <!-- 2. Write Mutation IP Whitelist Shield -->
+                <div class="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                      <i class="fa-solid fa-pen-nib text-indigo-400 text-xs"></i>
+                      <span class="text-xs font-bold text-white">DB Write Mutation Shield</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="toggle-write-ip-shield" onchange="window.savePerimeterSettings()" class="sr-only peer">
+                      <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                  </div>
+                  <p class="text-[11px] text-slate-400">Requires a trusted IP for write mutations (<code class="px-1 py-0.5 rounded bg-black/60 font-mono text-indigo-300">POST</code>, <code class="px-1 py-0.5 rounded bg-black/60 font-mono text-indigo-300">PATCH</code>, <code class="px-1 py-0.5 rounded bg-black/60 font-mono text-indigo-300">DELETE</code>). Read queries remain open across LAN.</p>
+                  <div class="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-circle-info"></i>
+                    <span>Allows public client reads while shielding data mutations.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 4c. LIVE GEO-IP & THREAT INTELLIGENCE INSPECTOR                   -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-cyan-950/20 border border-cyan-500/30 space-y-4">
+              <div class="flex items-center space-x-3 border-b border-cyan-500/20 pb-3">
+                <div class="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                  <i class="fa-solid fa-earth-americas text-sm"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                    <span>Live Geo-IP & Threat Intelligence Inspector</span>
+                  </h4>
+                  <p class="text-[11px] text-slate-400">Inspect any public WAN IP, Wi-Fi LAN IP, or country code for real-time location, ASN, ISP, and Tor / VPN / Datacenter threat ratings.</p>
+                </div>
+              </div>
+
+              <!-- Search / Probe Bar -->
+              <div class="flex flex-col sm:flex-row gap-2">
+                <div class="relative flex-1">
+                  <i class="fa-solid fa-crosshairs absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                  <input type="text" id="input-geoip-probe-ip" placeholder="Enter any IP address to inspect (e.g. 8.8.8.8, 49.204.0.1, 185.220.101.5, 192.168.31.18)..." class="w-full pl-9 pr-4 py-2.5 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10" onkeydown="if(event.key==='Enter') window.inspectGeoIpThreat()">
+                </div>
+                <button type="button" onclick="window.inspectGeoIpThreat()" class="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition active:scale-95 flex items-center justify-center space-x-2">
+                  <i class="fa-solid fa-satellite-dish text-xs"></i>
+                  <span>Inspect IP Threat</span>
+                </button>
+              </div>
+
+              <!-- Quick Test Chips -->
+              <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-400">
+                <span class="text-[10px] text-slate-500 uppercase font-semibold">Test Presets:</span>
+                <button type="button" onclick="document.getElementById('input-geoip-probe-ip').value='49.204.0.1'; window.inspectGeoIpThreat();" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition text-[10px] font-mono">🇮🇳 India (Airtel WAN)</button>
+                <button type="button" onclick="document.getElementById('input-geoip-probe-ip').value='8.8.8.8'; window.inspectGeoIpThreat();" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition text-[10px] font-mono">🇺🇸 US (Google DNS)</button>
+                <button type="button" onclick="document.getElementById('input-geoip-probe-ip').value='104.244.42.1'; window.inspectGeoIpThreat();" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition text-[10px] font-mono">🏢 Datacenter (Cloud VPS)</button>
+                <button type="button" onclick="document.getElementById('input-geoip-probe-ip').value='185.220.101.5'; window.inspectGeoIpThreat();" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition text-[10px] font-mono">🧅 Tor Exit Node</button>
+                <button type="button" onclick="document.getElementById('input-geoip-probe-ip').value='192.168.31.18'; window.inspectGeoIpThreat();" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition text-[10px] font-mono">🏠 Windows Client (Local LAN)</button>
+              </div>
+
+              <!-- Live Inspector Results Box -->
+              <div id="box-geoip-inspector-result" class="hidden p-4 rounded-xl bg-black/40 border border-white/10 space-y-3 font-sans">
+                <!-- Populated dynamically via app.js -->
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 4d. ADAPTIVE SUBNET RATE LIMITING & BANDWIDTH THROTTLING          -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                    <i class="fa-solid fa-gauge-high text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Adaptive Subnet Rate Limiting & Bandwidth Throttling</span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Enforce sliding-window request limits (RPM), burst caps, and bandwidth throttling per CIDR subnet.</p>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <button type="button" onclick="window.openAddSubnetRatePolicyModal()" class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition active:scale-95 flex items-center space-x-1.5 shadow-lg shadow-amber-900/30">
+                    <i class="fa-solid fa-plus text-[10px]"></i>
+                    <span>+ Add Subnet Policy</span>
+                  </button>
+                  <button type="button" onclick="window.loadSubnetRatePolicies()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition" title="Refresh Rate Policies">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Master Global Settings Controls -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 rounded-xl bg-black/40 border border-white/5 text-xs">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Enable Subnet Rate Limiting</div>
+                    <div class="text-[10px] text-slate-400">Globally enforce sliding-window rate quotas across all client subnets.</div>
+                  </div>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="toggle-enable-subnet-rate-limiting" onchange="window.saveSubnetRateSettings()" class="sr-only peer">
+                    <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+                  </label>
+                </div>
+                <div class="flex items-center justify-between">
+                  <div>
+                    <div class="font-bold text-white">Default Subnet Cap (RPM)</div>
+                    <div class="text-[10px] text-slate-400">Fallback limit for unconfigured subnets (req/min).</div>
+                  </div>
+                  <input type="number" id="input-default-subnet-rpm" value="300" min="10" max="10000" onchange="window.saveSubnetRateSettings()" class="w-24 px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-right text-white bg-slate-900 border border-white/10">
+                </div>
+              </div>
+
+              <!-- Policies Table -->
+              <div class="rounded-xl bg-slate-900/60 border border-white/10 overflow-hidden">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                      <tr>
+                        <th class="p-3">Subnet / CIDR Pattern</th>
+                        <th class="p-3">Policy Label</th>
+                        <th class="p-3 text-center">Req / Min</th>
+                        <th class="p-3 text-center">Burst (5s)</th>
+                        <th class="p-3 text-center">Bandwidth</th>
+                        <th class="p-3 text-center">Action on Exceed</th>
+                        <th class="p-3 text-center">Status</th>
+                        <th class="p-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="table-subnet-rate-policies-body" class="divide-y divide-white/5 font-mono text-xs">
+                      <tr><td colspan="8" class="p-5 text-center text-slate-500 text-xs">Loading subnet rate policies...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Real-Time Traffic & Bandwidth Telemetry Grid -->
+              <div class="space-y-2 pt-1">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                  <span class="font-bold text-white flex items-center space-x-1.5">
+                    <i class="fa-solid fa-chart-line text-amber-400 text-[11px]"></i>
+                    <span>Live Subnet Traffic & Bandwidth Telemetry (60s Window)</span>
+                  </span>
+                  <button type="button" onclick="window.loadSubnetLiveMetrics()" class="text-[10px] text-amber-400 hover:underline">Refresh Metrics</button>
+                </div>
+                <div id="container-subnet-live-metrics" class="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-xs">
+                  <div class="p-3 rounded-xl bg-slate-900/60 border border-white/5 text-center text-slate-500 text-[11px]">No active traffic in current sliding window.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 5. AUTOMATED BRUTE-FORCE THREAT QUARANTINE & IP JAIL             -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-rose-950/20 border border-rose-500/30 space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-rose-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                    <i class="fa-solid fa-handcuffs text-sm"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Automated Threat Quarantine & IP Jail</span>
+                      <span id="badge-jailed-ips-count" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                        0 Jailed
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Automatically quarantines IPs that exceed 5 failed login attempts in 60s.</p>
+                  </div>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                  <button type="button" onclick="window.openManualJailModal()" class="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-semibold transition flex items-center space-x-1.5 active:scale-95">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Quarantine IP Manually</span>
+                  </button>
+                  <button type="button" onclick="window.clearAllJailsFromUI()" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition flex items-center space-x-1.5 active:scale-95" title="Pardon all active jails">
+                    <i class="fa-solid fa-unlock-keyhole"></i>
+                    <span>Pardon All</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Jailed IPs Table -->
+              <div class="rounded-xl bg-black/40 border border-white/5 overflow-hidden">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                      <tr>
+                        <th class="p-3">Quarantined IP</th>
+                        <th class="p-3">Reason / Trigger</th>
+                        <th class="p-3">Jailed At</th>
+                        <th class="p-3 text-center">Remaining Cooldown</th>
+                        <th class="p-3 text-center">Status</th>
+                        <th class="p-3 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody id="table-jailed-ips-body" class="divide-y divide-white/5 font-mono">
+                      <tr>
+                        <td colspan="6" class="p-4 text-center text-slate-500 text-xs">No IPs currently quarantined in jail. Threat shield is clear.</td>
                       </tr>
                     </tbody>
                   </table>
@@ -5029,6 +5273,9 @@ const activeUsers = await aegis.db.queryDocuments('users', {
             <button type="button" onclick="document.getElementById('input-netrule-pattern').value='192.168.31.0/24'" class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">192.168.31.0/24</button>
             <button type="button" onclick="document.getElementById('input-netrule-pattern').value='192.168.1.0/24'" class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">192.168.1.0/24</button>
             <button type="button" onclick="document.getElementById('input-netrule-pattern').value='192.168.31.100-192.168.31.200'" class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">100-200 Range</button>
+            <button type="button" onclick="document.getElementById('input-netrule-pattern').value='IN'; document.getElementById('input-netrule-label').value='India Geo-Fence';" class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20">🇮🇳 IN</button>
+            <button type="button" onclick="document.getElementById('input-netrule-pattern').value='US'; document.getElementById('input-netrule-label').value='US Geo-Fence';" class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20">🇺🇸 US</button>
+            <button type="button" onclick="document.getElementById('input-netrule-pattern').value='GB'; document.getElementById('input-netrule-label').value='UK Geo-Fence';" class="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20">🇬🇧 GB</button>
           </div>
         </div>
 
@@ -5040,6 +5287,47 @@ const activeUsers = await aegis.db.queryDocuments('users', {
             <option value="deny">🛑 DENY (Explicitly Block Range/Device)</option>
           </select>
         </div>
+
+        <!-- Rule Scope -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+            <i class="fa-solid fa-bullseye text-indigo-400"></i>
+            <span>Rule Scope & Perimeter Target</span>
+          </label>
+          <select id="select-netrule-scope" onchange="window.handleNetRuleScopeChange()" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-white bg-slate-900 border border-white/10">
+            <option value="global">🌐 Global (All Endpoints & Projects)</option>
+            <option value="admin_only">👑 Super Admin APIs Only (/api/v1/admin/*)</option>
+            <option value="db_write_only">✍️ DB Write Mutations Only (POST, PATCH, DELETE)</option>
+            <option value="project">📦 Specific Tenant Project Only</option>
+          </select>
+        </div>
+
+        <!-- Project Selector (when scope is project) -->
+        <div id="box-netrule-project" class="space-y-1.5 hidden">
+          <label class="text-xs font-semibold text-slate-300">Target Tenant Project <span class="text-indigo-400">*</span></label>
+          <select id="select-netrule-project" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-white bg-slate-900 border border-white/10">
+            <option value="">Select a project...</option>
+          </select>
+        </div>
+
+        <!-- Temporary Pass / Expiry Duration -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <label class="text-xs font-semibold text-slate-300 flex items-center space-x-1.5">
+              <i class="fa-solid fa-stopwatch text-amber-400"></i>
+              <span>Access Duration (Temporary Pass)</span>
+            </label>
+            <span class="text-[10px] text-slate-400">Auto-expires cleanly</span>
+          </div>
+          <select id="select-netrule-duration" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-white bg-slate-900 border border-white/10">
+            <option value="0">🟢 Permanent (No Expiration)</option>
+            <option value="60">⏱️ 1 Hour (Quick Guest Pass)</option>
+            <option value="480">⏱️ 8 Hours (Workday Pass)</option>
+            <option value="1440">⏱️ 24 Hours (1 Day Pass)</option>
+            <option value="10080">⏱️ 7 Days (Weekly Pass)</option>
+            <option value="43200">⏱️ 30 Days (Monthly Pass)</option>
+          </select>
+        </div>
       </div>
 
       <div class="flex items-center space-x-3 pt-2">
@@ -5049,6 +5337,138 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         <button type="button" onclick="window.submitAddNetworkRule()" class="flex-1 py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 transition active:scale-98 flex items-center justify-center space-x-1.5">
           <i class="fa-solid fa-plus"></i>
           <span>Save Rule</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8a2. Add Subnet Rate Limit Policy Modal -->
+  <div id="modal-add-subnet-rate-policy" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="max-w-md w-full glass-panel p-6 sm:p-7 rounded-3xl border border-amber-500/30 shadow-2xl shadow-amber-950/50 space-y-5 animate-scale-in text-left">
+      <div class="flex items-center justify-between pb-2 border-b border-white/10">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+            <i class="fa-solid fa-gauge-high text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white tracking-tight">Add Subnet Rate Policy</h3>
+            <p class="text-xs text-slate-400">Configure sliding-window quotas & bandwidth limits.</p>
+          </div>
+        </div>
+        <button type="button" onclick="window.hideModal('modal-add-subnet-rate-policy')" class="text-slate-400 hover:text-white transition text-xs">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Subnet Pattern -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Target Subnet / CIDR Pattern <span class="text-amber-400">*</span></label>
+          <input type="text" id="input-ratepolicy-pattern" placeholder="e.g. 192.168.31.0/24 or *" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+          <div class="flex flex-wrap gap-1.5 pt-1">
+            <button type="button" onclick="document.getElementById('input-ratepolicy-pattern').value='192.168.31.0/24'; document.getElementById('input-ratepolicy-label').value='Wi-Fi LAN Quota';" class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">192.168.31.0/24</button>
+            <button type="button" onclick="document.getElementById('input-ratepolicy-pattern').value='10.0.0.0/8'; document.getElementById('input-ratepolicy-label').value='Corporate VPN Subnet';" class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">10.0.0.0/8</button>
+            <button type="button" onclick="document.getElementById('input-ratepolicy-pattern').value='*'; document.getElementById('input-ratepolicy-label').value='Global Fallback Policy';" class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10">* (All Subnets)</button>
+          </div>
+        </div>
+
+        <!-- Policy Label -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Policy Label / Name <span class="text-amber-400">*</span></label>
+          <input type="text" id="input-ratepolicy-label" placeholder="e.g. Guest Wi-Fi Throttling, High-Traffic API Subnet" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-white bg-slate-900 border border-white/10">
+        </div>
+
+        <!-- Limits Grid -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-slate-300">Requests / Min (RPM)</label>
+            <input type="number" id="input-ratepolicy-rpm" value="120" min="1" max="50000" class="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-slate-300">Burst Limit (in 5s)</label>
+            <input type="number" id="input-ratepolicy-burst" value="25" min="1" max="1000" class="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+          </div>
+        </div>
+
+        <!-- Bandwidth Cap & Action -->
+        <div class="grid grid-cols-2 gap-3">
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-slate-300">Bandwidth Cap (Kbps)</label>
+            <input type="number" id="input-ratepolicy-bandwidth" value="5000" min="100" max="1000000" class="w-full px-3 py-2 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+          </div>
+          <div class="space-y-1.5">
+            <label class="text-[11px] font-semibold text-slate-300">Action on Exceed</label>
+            <select id="select-ratepolicy-action" class="w-full px-3 py-2 rounded-xl glass-input text-xs text-white bg-slate-900 border border-white/10">
+              <option value="block">🛑 Block (HTTP 429)</option>
+              <option value="throttle">⏳ Throttle (Delay)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 pt-2">
+        <button type="button" onclick="window.hideModal('modal-add-subnet-rate-policy')" class="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition active:scale-98">
+          Cancel
+        </button>
+        <button type="button" onclick="window.submitAddSubnetRatePolicy()" class="flex-1 py-2.5 px-4 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs shadow-lg shadow-amber-600/30 transition active:scale-98 flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Save Subnet Policy</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8b. Manual IP Quarantine / Jail Modal -->
+  <div id="modal-manual-jail-ip" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="max-w-md w-full glass-panel p-6 sm:p-7 rounded-3xl border border-rose-500/30 shadow-2xl shadow-rose-950/50 space-y-5 animate-scale-in text-left">
+      <div class="flex items-center justify-between pb-2 border-b border-white/10">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+            <i class="fa-solid fa-handcuffs text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white tracking-tight">Manual IP Quarantine / Jail</h3>
+            <p class="text-xs text-slate-400">Temporarily or permanently quarantine an abusive IP.</p>
+          </div>
+        </div>
+        <button type="button" onclick="window.hideModal('modal-manual-jail-ip')" class="text-slate-400 hover:text-white transition text-xs">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Target IP Address -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Target IP Address <span class="text-rose-400">*</span></label>
+          <input type="text" id="input-jail-ip" placeholder="e.g. 192.168.1.155" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+        </div>
+
+        <!-- Reason -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Quarantine Reason</label>
+          <input type="text" id="input-jail-reason" placeholder="e.g. Malicious flood traffic, repeated failed logins" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-white bg-slate-900 border border-white/10">
+        </div>
+
+        <!-- Duration -->
+        <div class="space-y-1.5">
+          <label class="text-xs font-semibold text-slate-300">Quarantine Duration (Cooldown)</label>
+          <select id="select-jail-duration" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-white bg-slate-900 border border-white/10">
+            <option value="15">⏱️ 15 Minutes (Default Cooldown)</option>
+            <option value="60">⏱️ 1 Hour</option>
+            <option value="480">⏱️ 8 Hours</option>
+            <option value="1440">⏱️ 24 Hours (1 Day)</option>
+            <option value="0">🛑 Permanent Jail (Indefinite)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3 pt-2">
+        <button type="button" onclick="window.hideModal('modal-manual-jail-ip')" class="flex-1 py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition active:scale-98">
+          Cancel
+        </button>
+        <button type="button" onclick="window.submitManualJailIp()" class="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg shadow-rose-600/30 transition active:scale-98 flex items-center justify-center space-x-1.5">
+          <i class="fa-solid fa-handcuffs"></i>
+          <span>Quarantine IP</span>
         </button>
       </div>
     </div>

@@ -42,8 +42,9 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
     if (!token) throw new AppError('Google token is required.', 400);
 
     const { email, name } = await verifyGoogleToken(token);
+    const userAgent = req.headers['user-agent'] as string | undefined;
     
-    const data = await googleLoginUser(email, name);
+    const data = await googleLoginUser(email, name, ip, userAgent);
     failedLoginService.recordSuccessfulLogin(ip, email);
 
     const response: ApiResponse<AuthResponseData> = {
