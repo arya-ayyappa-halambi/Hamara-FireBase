@@ -169,6 +169,46 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
     throw new Error('System is under maintenance');
   }
 
+  if (res.status === 401) {
+    // If refreshToken exists and not already trying to auth, attempt silent token refresh
+    if (state.refreshToken && !endpoint.includes('/auth/refresh') && !endpoint.includes('/auth/login')) {
+      try {
+        const refreshRes = await fetch(`${state.baseUrl}/api/v1/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: state.refreshToken })
+        });
+        const refreshData = await refreshRes.json();
+        if (refreshData?.accessToken) {
+          state.accessToken = refreshData.accessToken;
+          localStorage.setItem('aegis_access_token', refreshData.accessToken);
+          if (refreshData.refreshToken) {
+            state.refreshToken = refreshData.refreshToken;
+            localStorage.setItem('aegis_refresh_token', refreshData.refreshToken);
+          }
+          headers['Authorization'] = `Bearer ${state.accessToken}`;
+          res = await fetch(`${state.baseUrl}${endpoint}`, config);
+          const retriedJson = await res.json().catch(() => ({}));
+          if (res.ok && retriedJson.success !== false) {
+            return retriedJson.data !== undefined ? retriedJson.data : retriedJson;
+          }
+        }
+      } catch (_) {}
+    }
+
+    // If still 401 or refresh failed, purge stale session
+    if (state.accessToken || state.user) {
+      console.warn('[Auth] Expired or invalid token detected. Purging stale credentials.');
+      state.accessToken = null;
+      state.refreshToken = null;
+      state.user = null;
+      localStorage.removeItem('aegis_access_token');
+      localStorage.removeItem('aegis_refresh_token');
+      localStorage.removeItem('aegis_user');
+      updateWsBadge('offline');
+    }
+  }
+
   if (!res.ok || json.success === false) {
     throw new Error(json.message || `API Error (${res.status})`);
   }
@@ -5024,7 +5064,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             window.updateUserNotificationsHeader();
           }
         }
-      } catch (_) {}
+      } catch (authErr) {
+        console.warn('[Session] Session verification failed on startup. Auto-restoring fresh demo credentials...', authErr.message);
+        if (typeof window.executeDemoAdminLogin === 'function') {
+          await window.executeDemoAdminLogin();
+        }
+      }
     })();
 
     if (state.user.isSuperAdmin) {
