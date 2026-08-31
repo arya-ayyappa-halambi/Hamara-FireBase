@@ -35,30 +35,23 @@ if (portArgIndex !== -1) {
   }
 }
 
+let windowsNetstatCache = null;
+
 function getListeningPidsOnPort(port) {
   try {
     if (process.platform === 'win32') {
       const pids = new Set();
-      // Method 1: PowerShell Get-NetTCPConnection (built-in on Windows 10/11)
-      try {
-        const psOut = execSync(
-          `powershell -NoProfile -ExecutionPolicy Bypass -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"`,
-          { stdio: ['pipe', 'pipe', 'ignore'] }
-        ).toString().trim();
-        if (psOut) {
-          psOut.split(/\r?\n/).forEach(p => {
-            const trimmed = p.trim();
-            if (trimmed && trimmed !== '0' && trimmed !== process.pid.toString()) {
-              pids.add(trimmed);
-            }
-          });
+      // Fast single-pass netstat cache across candidate ports
+      if (!windowsNetstatCache) {
+        try {
+          windowsNetstatCache = execSync('netstat -ano', { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+        } catch (_) {
+          windowsNetstatCache = '';
         }
-      } catch (_) {}
+      }
 
-      // Method 2: netstat fallback
-      if (pids.size === 0) {
-        const output = execSync('netstat -ano', { stdio: ['pipe', 'pipe', 'ignore'] }).toString();
-        output.split(/\r?\n/).forEach(l => {
+      if (windowsNetstatCache) {
+        windowsNetstatCache.split(/\r?\n/).forEach(l => {
           if (l.includes('LISTENING') && (l.includes(`:${port} `) || l.includes(`:${port}\t`))) {
             const parts = l.trim().split(/\s+/);
             const pid = parts[parts.length - 1];
@@ -66,6 +59,25 @@ function getListeningPidsOnPort(port) {
           }
         });
       }
+
+      // Method 2: PowerShell Get-NetTCPConnection fallback if netstat didn't catch it
+      if (pids.size === 0) {
+        try {
+          const psOut = execSync(
+            `powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "(Get-NetTCPConnection -LocalPort ${port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"`,
+            { stdio: ['pipe', 'pipe', 'ignore'] }
+          ).toString().trim();
+          if (psOut) {
+            psOut.split(/\r?\n/).forEach(p => {
+              const trimmed = p.trim();
+              if (trimmed && trimmed !== '0' && trimmed !== process.pid.toString()) {
+                pids.add(trimmed);
+              }
+            });
+          }
+        } catch (_) {}
+      }
+
       return Array.from(pids);
     } else {
       const output = execSync(`lsof -n -iTCP:${port} -sTCP:LISTEN -t`, { stdio: ['pipe', 'pipe', 'ignore'] }).toString().trim();
@@ -94,9 +106,12 @@ function killLingeringNodeProcesses() {
     // Terminate any node / nodemon processes executing server.ts or serve.js
     try {
       execSync(
-        `powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe') -and ($_.CommandLine -match 'server.ts' -or $_.CommandLine -match 'serve.js' -or $_.CommandLine -match 'nodemon') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
+        `powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe') -and ($_.CommandLine -match 'server.ts' -or $_.CommandLine -match 'serve.js' -or $_.CommandLine -match 'nodemon') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
         { stdio: ['ignore', 'ignore', 'ignore'] }
       );
+    } catch (_) {}
+    try {
+      execSync('taskkill /F /FI "WINDOWTITLE eq AegisDB Server Launcher*"', { stdio: 'ignore' });
     } catch (_) {}
   } else {
     try {
@@ -184,6 +199,10 @@ async function main() {
           end if
         end repeat
       end tell'`, { stdio: 'ignore' });
+    } catch (_) {}
+  } else if (process.platform === 'win32') {
+    try {
+      execSync('taskkill /F /FI "WINDOWTITLE eq AegisDB Server Launcher*"', { stdio: 'ignore' });
     } catch (_) {}
   }
 

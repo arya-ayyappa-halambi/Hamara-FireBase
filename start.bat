@@ -31,7 +31,5 @@ if not defined NODE_BIN (
     exit /b 1
 )
 
-"%NODE_BIN%" scripts\serve.js %*
-if !errorlevel! neq 0 (
-    pause
-)
+"%NODE_BIN%" scripts\serve.js %* <nul
+exit /b 0

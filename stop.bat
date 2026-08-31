@@ -19,12 +19,14 @@ if not defined NODE_BIN (
 )
 
 if defined NODE_BIN (
-    "%NODE_BIN%" scripts\stop.js %*
+    "%NODE_BIN%" scripts\stop.js %* <nul
 ) else (
     echo [INFO] Stopping AegisDB background services via Windows PowerShell...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort 3000,3001,3002,4000,5000,8000,8080,9000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe') -and ($_.CommandLine -match 'server.ts' -or $_.CommandLine -match 'serve.js') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+    powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Get-NetTCPConnection -LocalPort 3000,3001,3002,4000,5000,8000,8080,9000 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+    powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe') -and ($_.CommandLine -match 'server.ts' -or $_.CommandLine -match 'serve.js') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+    taskkill /F /FI "WINDOWTITLE eq AegisDB Server Launcher*" >nul 2>nul
     echo [DONE] AegisDB ports released.
 )
 
-timeout /t 2 /nobreak >nul
+timeout /t 1 /nobreak >nul
+exit /b 0
