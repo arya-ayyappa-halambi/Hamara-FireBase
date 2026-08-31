@@ -450,7 +450,15 @@ window.setRoleMode = function setRoleMode(mode) {
     if (btnDev) btnDev.className = 'px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center space-x-1.5';
     if (secSuper) secSuper.classList.remove('hidden');
     if (secDev) secDev.classList.add('hidden');
-    switchWorkspace('tab-telemetry');
+    
+    const targetHashTab = (window.location.hash && window.location.hash.startsWith('#tab-'))
+      ? window.location.hash.substring(1).split('&')[0].split('?')[0]
+      : null;
+    if (targetHashTab && document.getElementById(targetHashTab)) {
+      switchWorkspace(targetHashTab);
+    } else {
+      switchWorkspace('tab-telemetry');
+    }
   } else {
     if (btnDev) btnDev.className = 'px-3 py-1.5 rounded-lg transition-all bg-indigo-600 text-white shadow flex items-center space-x-1.5';
     if (btnSuper) {
@@ -465,7 +473,14 @@ window.setRoleMode = function setRoleMode(mode) {
     if (cardPlatform) cardPlatform.classList.add('hidden');
     if (cardHosting) cardHosting.classList.add('hidden');
 
-    switchWorkspace('tab-developer-metrics');
+    const targetHashTab = (window.location.hash && window.location.hash.startsWith('#tab-'))
+      ? window.location.hash.substring(1).split('&')[0].split('?')[0]
+      : null;
+    if (targetHashTab && document.getElementById(targetHashTab)) {
+      switchWorkspace(targetHashTab);
+    } else {
+      switchWorkspace('tab-developer-metrics');
+    }
   }
 };
 
@@ -4588,17 +4603,36 @@ async function loadPlatformSettings() {
   try {
     const data = await apiRequest('/api/v1/admin/platform-settings');
     if (data) {
-      document.getElementById('setting-google-client-id').value = data.googleClientId || '';
-      document.getElementById('toggle-google-auth').checked = data.googleAuthEnabled || false;
+      const gClient = document.getElementById('setting-google-client-id');
+      if (gClient) gClient.value = data.googleClientId || '';
+      
+      const gToggle = document.getElementById('toggle-google-auth');
+      if (gToggle) gToggle.checked = data.googleAuthEnabled || false;
+      
       const demoToggle = document.getElementById('toggle-demo-login');
       if (demoToggle) demoToggle.checked = data.demoLoginEnabled !== false;
-      document.getElementById('setting-backup-mode').value = data.backupMode || 'none';
-      document.getElementById('setting-backup-interval').value = data.backupIntervalMinutes || '';
-      document.getElementById('setting-backup-retention-days').value = data.backupRetentionDays || '7';
-      document.getElementById('setting-s3-bucket').value = data.s3BucketName || '';
-      document.getElementById('setting-s3-region').value = data.s3Region || '';
-      document.getElementById('setting-s3-access').value = data.s3AccessKey || '';
-      document.getElementById('setting-s3-secret').value = data.s3SecretKey || '';
+      
+      const bMode = document.getElementById('setting-backup-mode');
+      if (bMode) bMode.value = data.backupMode || 'none';
+      
+      const bInterval = document.getElementById('setting-backup-interval');
+      if (bInterval) bInterval.value = data.backupIntervalMinutes || '';
+      
+      const bRetention = document.getElementById('setting-backup-retention-days');
+      if (bRetention) bRetention.value = data.backupRetentionDays || '7';
+      
+      const s3B = document.getElementById('setting-s3-bucket');
+      if (s3B) s3B.value = data.s3BucketName || '';
+      
+      const s3R = document.getElementById('setting-s3-region');
+      if (s3R) s3R.value = data.s3Region || '';
+      
+      const s3A = document.getElementById('setting-s3-access');
+      if (s3A) s3A.value = data.s3AccessKey || '';
+      
+      const s3S = document.getElementById('setting-s3-secret');
+      if (s3S) s3S.value = data.s3SecretKey || '';
+      
       const maintToggle = document.getElementById('toggle-maintenance-mode');
       if (maintToggle) maintToggle.checked = data.maintenanceMode || false;
 
@@ -4626,6 +4660,7 @@ async function loadPlatformSettings() {
 
       const portEl = document.getElementById('setting-server-port');
       if (portEl) portEl.value = data.serverPort || 3000;
+      
       const domainEl = document.getElementById('setting-custom-domain');
       if (domainEl) domainEl.value = data.customDomain || '';
       
@@ -4648,41 +4683,47 @@ async function loadPlatformSettings() {
       }
 
       // Render Backup Statuses
+      const lastBkpTimeEl = document.getElementById('label-global-last-backup-time');
+      const nextBkpTimeEl = document.getElementById('label-global-next-backup-time');
       if (data.lastBackupAt) {
-        document.getElementById('label-global-last-backup-time').textContent = new Date(data.lastBackupAt).toLocaleString();
+        if (lastBkpTimeEl) lastBkpTimeEl.textContent = new Date(data.lastBackupAt).toLocaleString();
         if (data.backupIntervalMinutes && data.backupMode !== 'none') {
           const nextTime = new Date(new Date(data.lastBackupAt).getTime() + data.backupIntervalMinutes * 60000);
-          document.getElementById('label-global-next-backup-time').textContent = nextTime.toLocaleString();
+          if (nextBkpTimeEl) nextBkpTimeEl.textContent = nextTime.toLocaleString();
         } else {
-          document.getElementById('label-global-next-backup-time').textContent = 'Not Scheduled';
+          if (nextBkpTimeEl) nextBkpTimeEl.textContent = 'Not Scheduled';
         }
       } else {
-        document.getElementById('label-global-last-backup-time').textContent = 'Never';
-        document.getElementById('label-global-next-backup-time').textContent = 'N/A';
+        if (lastBkpTimeEl) lastBkpTimeEl.textContent = 'Never';
+        if (nextBkpTimeEl) nextBkpTimeEl.textContent = 'N/A';
       }
 
       const lBadge = document.getElementById('badge-global-local-status');
-      if (data.lastBackupStatus === 'success') {
-        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
-        lBadge.textContent = 'Completed';
-      } else if (data.lastBackupStatus === 'failed') {
-        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
-        lBadge.textContent = 'Failed';
-      } else {
-        lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
-        lBadge.textContent = 'None';
+      if (lBadge) {
+        if (data.lastBackupStatus === 'success') {
+          lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
+          lBadge.textContent = 'Completed';
+        } else if (data.lastBackupStatus === 'failed') {
+          lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
+          lBadge.textContent = 'Failed';
+        } else {
+          lBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
+          lBadge.textContent = 'None';
+        }
       }
 
       const s3Badge = document.getElementById('badge-global-s3-status');
-      if (data.lastBackupS3Status === 'success') {
-        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
-        s3Badge.textContent = 'Completed';
-      } else if (data.lastBackupS3Status === 'failed') {
-        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
-        s3Badge.textContent = 'Failed';
-      } else {
-        s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
-        s3Badge.textContent = 'None';
+      if (s3Badge) {
+        if (data.lastBackupS3Status === 'success') {
+          s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400';
+          s3Badge.textContent = 'Completed';
+        } else if (data.lastBackupS3Status === 'failed') {
+          s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400';
+          s3Badge.textContent = 'Failed';
+        } else {
+          s3Badge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-500/10 text-slate-400';
+          s3Badge.textContent = 'None';
+        }
       }
 
       // Populate locations
@@ -4698,7 +4739,7 @@ async function loadPlatformSettings() {
       }
     }
   } catch (err) {
-    showToast('Failed to load platform settings', 'error');
+    console.warn('[PlatformSettings] Notice loading platform settings:', err?.message || err);
   }
 }
 
