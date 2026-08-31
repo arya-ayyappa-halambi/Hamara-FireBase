@@ -604,7 +604,11 @@ window.switchWorkspace = function switchWorkspace(tabId) {
   } else if (tabId === 'tab-asset-vault') {
     loadAssetsList();
   } else if (tabId === 'tab-platform-policies') {
-    if (typeof loadPlatformPolicies === 'function') loadPlatformPolicies();
+    if (typeof window.loadPlatformPolicies === 'function') {
+      window.loadPlatformPolicies();
+    } else if (typeof loadPlatformPolicies === 'function') {
+      loadPlatformPolicies();
+    }
   } else if (tabId === 'tab-settings') {
     loadPlatformSettings();
   } else if (tabId === 'tab-about') {
@@ -7937,19 +7941,33 @@ window.executeReviewDecision = async function(noticeId, decision) {
 window.loadPlatformPolicies = async function() {
   try {
     const policy = await apiRequest('/api/v1/policies/current', 'GET');
+    if (!policy) return;
+
     const verLabel = document.getElementById('label-active-policy-version');
-    if (verLabel) verLabel.textContent = policy.version;
+    if (verLabel) verLabel.textContent = policy.version || 'v1.0.0';
+
     const dateInput = document.getElementById('input-policy-effective-date');
-    if (dateInput) dateInput.value = policy.effectiveDate ? new Date(policy.effectiveDate).toLocaleDateString() : 'Active';
+    if (dateInput) {
+      if (policy.effectiveDate) {
+        const d = new Date(policy.effectiveDate);
+        dateInput.value = isNaN(d.getTime()) ? policy.effectiveDate : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      } else {
+        dateInput.value = 'Active (v1.0.0)';
+      }
+    }
+
     const termsArea = document.getElementById('textarea-policy-terms');
     if (termsArea) termsArea.value = policy.termsAndConditions || '';
+
     const secArea = document.getElementById('textarea-policy-security');
     if (secArea) secArea.value = policy.securityPolicy || '';
+
     const backArea = document.getElementById('textarea-policy-backup');
     if (backArea) backArea.value = policy.backupPolicy || '';
 
     // Suggest next minor version
-    const match = policy.version.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
+    const currentVer = policy.version || 'v1.0.0';
+    const match = currentVer.match(/^v?(\d+)\.(\d+)\.(\d+)$/);
     const verInput = document.getElementById('input-policy-version');
     if (verInput) {
       if (match) {
@@ -7960,7 +7978,12 @@ window.loadPlatformPolicies = async function() {
         verInput.value = 'v1.1.0';
       }
     }
+
+    if (typeof window.switchPolicyEditorTab === 'function') {
+      window.switchPolicyEditorTab('terms');
+    }
   } catch (err) {
+    console.error('Failed to load platform policies:', err);
     showToast(err.message || 'Failed to load platform policies', 'error');
   }
 };

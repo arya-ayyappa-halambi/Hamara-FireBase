@@ -77,12 +77,24 @@ export class ProjectService {
   /**
    * List all projects for a user filtered by active workspace (Personal vs Organization).
    */
-  listProjects(userId: string, orgId?: string | null): ProjectStats[] {
+  listProjects(userId: string, orgId?: string | null, isSuperAdmin: boolean = false): ProjectStats[] {
     const db = getDb();
     let sql: string;
     let params: any[];
 
-    if (orgId === null) {
+    if (isSuperAdmin && orgId === undefined) {
+      // Super Admin sees ALL projects platform-wide
+      sql = `
+        SELECT p.*,
+          (SELECT COUNT(*) FROM collections c WHERE (c.projectId = p.id)) as collectionCount,
+          (SELECT COUNT(*) FROM documents d WHERE (d.projectId = p.id)) as documentCount,
+          (SELECT COUNT(*) FROM assets a WHERE (a.projectId = p.id)) as assetCount,
+          (SELECT COUNT(*) FROM deployments dep WHERE (dep.projectId = p.id)) as deploymentCount
+        FROM projects p
+        ORDER BY p.createdAt DESC
+      `;
+      params = [];
+    } else if (orgId === null) {
       // Personal Workspace projects only
       sql = `
         SELECT p.*,
@@ -133,7 +145,7 @@ export class ProjectService {
     const rows = db.prepare(sql).all(...params) as any[];
 
     return rows.map((r) => {
-      const myProjectRole = organizationService.getEffectiveProjectRole(userId, r.id) || 'viewer';
+      const myProjectRole = isSuperAdmin ? 'admin' : (organizationService.getEffectiveProjectRole(userId, r.id) || 'viewer');
       return {
         id: r.id,
         ownerId: r.ownerId,

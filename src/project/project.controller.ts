@@ -36,9 +36,10 @@ export async function createProject(req: Request, res: Response, next: NextFunct
 export async function listProjects(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
+    const isSuperAdmin = !!req.user?.isSuperAdmin;
     const orgIdQuery = req.query.orgId as string | undefined;
     const orgId = orgIdQuery === 'null' ? null : orgIdQuery;
-    const projects = projectService.listProjects(ownerId, orgId);
+    const projects = projectService.listProjects(ownerId, orgId, isSuperAdmin);
     res.status(200).json({
       success: true,
       message: 'Projects retrieved successfully.',

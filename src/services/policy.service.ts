@@ -21,19 +21,30 @@ export class PolicyService {
    */
   public getActivePolicy(): PlatformPolicy {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM platform_policies WHERE id = ?').get('default') as any;
+    let row = db.prepare('SELECT * FROM platform_policies WHERE id = ?').get('default') as any;
     if (!row) {
-      throw new AppError('Platform policies have not been initialized.', 500);
+      const now = new Date().toISOString();
+      const defaultTerms = `# AegisDB Platform Terms & Conditions (v1.0.0)\n\n### 1. Acceptance of Terms\nBy creating an account, connecting client applications, or utilizing AegisDB APIs, SDKs, and storage services, you agree to comply with these terms. You agree not to engage in malicious scraping, DDoS, credential harvesting, unlawful payload transmission, or unauthorized multi-tenant tampering.\n\n### 2. Trust, Safety & Automated Moderation\nAegisDB continuously monitors incoming requests for abusive, bot, or malicious activity. Accounts exhibiting high-risk behavioral anomalies may be flagged, issued formal compliance violation notices, or subjected to permanent automated erasure.\n\n### 3. Data Ownership & Portability\nYou retain ownership of all data stored within your projects. Under GDPR Article 20, you may export your data bundle at any time.`;
+      const defaultSecurity = `# AegisDB Security & Cryptographic Policy (v1.0.0)\n\n### 1. Zero-Trust Architecture\nAll data at rest is protected with two-tier envelope encryption (AES-256-GCM) with hardware-isolated HKDF Master Key Derivation. All traffic requires TLS 1.3 / HTTPS.\n\n### 2. Credential Protection\nDevelopers and users are responsible for safeguarding API keys, JWT access tokens, and RFC 6238 TOTP authenticator devices. Compromised credentials or accounts with excessive lockout velocity will be flagged for investigation.`;
+      const defaultBackup = `# AegisDB Backup & Disaster Recovery Policy (v1.0.0)\n\n### 1. Automated Snapshotting\nAegisDB provides localized snapshotting and automated S3-compatible remote backup mechanisms.\n\n### 2. Right to Erasure & Grace Period\nIn accordance with GDPR Article 17, account deletion enforces a 7-day cooling-off grace period before permanent, irreversible cascading erasure.`;
+
+      try {
+        db.prepare(`
+          INSERT OR REPLACE INTO platform_policies (id, version, termsAndConditions, securityPolicy, backupPolicy, effectiveDate, updatedAt, updatedBy)
+          VALUES ('default', 'v1.0.0', ?, ?, ?, ?, ?, 'system')
+        `).run(defaultTerms, defaultSecurity, defaultBackup, now, now);
+        row = db.prepare('SELECT * FROM platform_policies WHERE id = ?').get('default') as any;
+      } catch (_) {}
     }
     return {
-      id: row.id,
-      version: row.version,
-      termsAndConditions: row.termsAndConditions,
-      securityPolicy: row.securityPolicy,
-      backupPolicy: row.backupPolicy,
-      effectiveDate: row.effectiveDate,
-      updatedAt: row.updatedAt,
-      updatedBy: row.updatedBy,
+      id: row?.id || 'default',
+      version: row?.version || 'v1.0.0',
+      termsAndConditions: row?.termsAndConditions || '',
+      securityPolicy: row?.securityPolicy || '',
+      backupPolicy: row?.backupPolicy || '',
+      effectiveDate: row?.effectiveDate || new Date().toISOString(),
+      updatedAt: row?.updatedAt || new Date().toISOString(),
+      updatedBy: row?.updatedBy || 'system',
     };
   }
 
