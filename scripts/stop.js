@@ -103,10 +103,11 @@ function killPid(pid) {
 
 function killLingeringNodeProcesses() {
   if (process.platform === 'win32') {
-    // Terminate any node / nodemon processes executing server.ts or serve.js
+    // Terminate any node / nodemon / ts-node processes executing server.ts, serve.js or inside project folder
     try {
+      const rootEscaped = path.resolve(__dirname, '..').replace(/\\/g, '\\\\');
       execSync(
-        `powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe') -and ($_.CommandLine -match 'server.ts' -or $_.CommandLine -match 'serve.js' -or $_.CommandLine -match 'nodemon') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
+        `powershell -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe') -and ($_.CommandLine -match 'server.ts' -or $_.CommandLine -match 'serve.js' -or $_.CommandLine -match 'nodemon' -or $_.CommandLine -match 'ts-node' -or $_.CommandLine -match '${rootEscaped}') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"`,
         { stdio: ['ignore', 'ignore', 'ignore'] }
       );
     } catch (_) {}
