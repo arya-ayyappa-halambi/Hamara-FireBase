@@ -9,6 +9,7 @@ import { generateToken, toPublicUser } from './auth.service';
 import { tokenFamilyService } from '../services/token-family.service';
 import { userSessionService } from '../services/user-session.service';
 import { networkAccessService } from '../services/network-access.service';
+import { userStore } from '../store/user.store';
 import { getDb } from '../db/sqlite.connection';
 import { AppError } from '../types/auth.types';
 
@@ -95,8 +96,7 @@ export async function verifyLoginAssertionHandler(req: Request, res: Response, n
       counter
     });
 
-    const db = getDb();
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+    const user = await userStore.findById(userId);
     if (!user) throw new AppError('User not found.', 404);
 
     const token = generateToken(user);

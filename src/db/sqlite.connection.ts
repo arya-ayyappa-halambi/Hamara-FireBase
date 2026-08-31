@@ -1095,15 +1095,14 @@ function seedSuperAdminSync(db: Database.Database): void {
   ];
 
   for (const acc of seedAccounts) {
-    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(acc.email);
+    const pepper = process.env.EMAIL_HASH_PEPPER || 'default_pepper';
+    const emailHash = crypto.createHmac('sha256', pepper).update(acc.email).digest('hex');
+    const existing = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash);
     if (!existing) {
       const adminId = uuidv4();
       const now = new Date().toISOString();
       // Synchronously hash admin password
       argon2.hash(acc.pass).then((hash) => {
-        const pepper = process.env.EMAIL_HASH_PEPPER || 'default_pepper';
-        const emailHash = crypto.createHmac('sha256', pepper).update(acc.email).digest('hex');
-
         db.prepare(`
           INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
           VALUES (?, ?, ?, ?, ?, 1, ?, ?)

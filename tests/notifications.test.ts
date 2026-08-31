@@ -3,6 +3,7 @@
 //  Test Suite for User Real-Time In-App Notifications
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dotenv/config';
 import { initSqlite, getDb } from '../src/db/sqlite.connection';
 import { notificationService } from '../src/services/notification.service';
 

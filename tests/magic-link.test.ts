@@ -3,6 +3,7 @@
 //  Test Suite for Passwordless Magic Links & 6-Digit Email OTP Login
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dotenv/config';
 import { initSqlite, getDb } from '../src/db/sqlite.connection';
 import { magicLinkService } from '../src/services/magic-link.service';
 

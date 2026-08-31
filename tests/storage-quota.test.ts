@@ -3,6 +3,7 @@
 //  Test Suite for User Storage Quota Computation and Enforcement
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dotenv/config';
 import { initSqlite, getDb } from '../src/db/sqlite.connection';
 import { getUserStorageQuota } from '../src/storage/storage.service';
 

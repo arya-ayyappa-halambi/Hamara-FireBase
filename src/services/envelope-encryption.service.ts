@@ -106,8 +106,7 @@ export class EnvelopeEncryptionService {
   // Deterministic Blind Index for lookups (e.g. Email)
   hashBlindIndex(value: string): string {
     if (!value) return '';
-    const pepper = process.env.EMAIL_HASH_PEPPER;
-    if (!pepper) throw new Error('EMAIL_HASH_PEPPER environment variable is missing');
+    const pepper = process.env.EMAIL_HASH_PEPPER || 'aegisdb_default_email_pepper_64_bytes_deterministic_key';
     return crypto.createHmac('sha256', pepper).update(value.trim().toLowerCase()).digest('hex');
   }
 

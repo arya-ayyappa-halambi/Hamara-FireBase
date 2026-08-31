@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.connection';
+import { envelopeEncryptionService } from './envelope-encryption.service';
 import { AppError } from '../types/auth.types';
 
 export interface PasskeyRecord {
@@ -167,7 +168,8 @@ class PasskeyService {
 
     if (email) {
       const db = getDb();
-      const user = db.prepare('SELECT id FROM users WHERE email = ?').get(email) as { id: string } | undefined;
+      const emailHash = envelopeEncryptionService.hashBlindIndex(email.trim().toLowerCase());
+      const user = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash) as { id: string } | undefined;
       if (user) {
         targetUserId = user.id;
         const passkeys = db.prepare('SELECT credentialId, transports FROM user_passkeys WHERE userId = ?').all(user.id) as any[];

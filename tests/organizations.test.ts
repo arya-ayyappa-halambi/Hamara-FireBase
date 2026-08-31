@@ -3,6 +3,7 @@
 //  Comprehensive Test Suite for GitHub-Grade Organizations, Teams, RBAC & Isolation
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dotenv/config';
 import { initSqlite, getDb } from '../src/db/sqlite.connection';
 import { organizationService } from '../src/services/organization.service';
 import { projectService } from '../src/project/project.service';

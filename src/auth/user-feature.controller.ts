@@ -10,6 +10,7 @@ import { patService, PatScope } from '../services/pat.service';
 import { generateToken, toPublicUser } from './auth.service';
 import { tokenFamilyService } from '../services/token-family.service';
 import { networkAccessService } from '../services/network-access.service';
+import { userStore } from '../store/user.store';
 import { getDb } from '../db/sqlite.connection';
 import { AppError } from '../types/auth.types';
 
@@ -43,8 +44,7 @@ export async function verifyMagicAuthHandler(req: Request, res: Response, next: 
     const { token, otpCode, email } = req.body;
     const { userId } = magicLinkService.verifyMagicAuth({ token, otpCode, email });
 
-    const db = getDb();
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(userId) as any;
+    const user = await userStore.findById(userId);
     if (!user) throw new AppError('User not found.', 404);
 
     const authToken = generateToken(user);

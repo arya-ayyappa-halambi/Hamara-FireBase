@@ -8,6 +8,7 @@ import { authenticateJwt } from '../middleware/auth.middleware';
 import { organizationService, OrgRole, ProjectRole } from '../services/organization.service';
 import { notificationService } from '../services/notification.service';
 import { networkAccessService } from '../services/network-access.service';
+import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 import { AppError } from '../types/auth.types';
 import { getDb } from '../db/sqlite.connection';
 
@@ -235,7 +236,8 @@ router.post('/:id/invites', async (req: Request, res: Response, next: NextFuncti
 
     // Notify invited user if account already exists
     const db = getDb();
-    const invitedUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email.toLowerCase()) as any;
+    const emailHash = envelopeEncryptionService.hashBlindIndex(email.trim().toLowerCase());
+    const invitedUser = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash) as any;
     if (invitedUser) {
       notificationService.sendNotification({
         userId: invitedUser.id,

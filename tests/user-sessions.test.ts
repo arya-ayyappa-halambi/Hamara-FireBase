@@ -3,6 +3,7 @@
 //  Test Suite for User Active Sessions, Remote Logout & Security Logs
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dotenv/config';
 import { initSqlite, getDb } from '../src/db/sqlite.connection';
 import { userSessionService } from '../src/services/user-session.service';
 

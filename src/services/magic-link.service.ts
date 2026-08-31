@@ -6,6 +6,7 @@
 import crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/sqlite.connection';
+import { envelopeEncryptionService } from './envelope-encryption.service';
 import { AppError } from '../types/auth.types';
 
 export interface MagicLinkRecord {
@@ -37,23 +38,24 @@ class MagicLinkService {
   public generateMagicAuth(email: string, ttlMinutes = 15): { magicToken: string; otpCode: string; expiresAt: string; userId: string } {
     const db = getDb();
     const cleanEmail = email.trim().toLowerCase();
+    const emailHash = envelopeEncryptionService.hashBlindIndex(cleanEmail);
 
-    // Verify user exists or create unverified record
-    let user = db.prepare('SELECT id, email, name FROM users WHERE email = ?').get(cleanEmail) as any;
+    // Verify user exists by emailHash blind index or create unverified record
+    let user = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash) as any;
     let userId: string;
 
     if (!user) {
-      // Auto-provision user on first magic-link request if desired, or require registered account
+      // Auto-provision user on first magic-link request
       userId = uuidv4();
       const now = new Date().toISOString();
-      const pepper = process.env.EMAIL_HASH_PEPPER || 'default_pepper';
-      const emailHash = crypto.createHmac('sha256', pepper).update(cleanEmail).digest('hex');
+      const encryptedEmail = JSON.stringify(envelopeEncryptionService.encryptField(cleanEmail, 'SYSTEM'));
+      const encryptedName = JSON.stringify(envelopeEncryptionService.encryptField(cleanEmail.split('@')[0], 'SYSTEM'));
       const randomPass = crypto.randomBytes(32).toString('hex');
 
       db.prepare(`
         INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
         VALUES (?, ?, ?, ?, ?, 0, ?, ?)
-      `).run(userId, cleanEmail, emailHash, cleanEmail.split('@')[0], `magic_init_${randomPass}`, now, now);
+      `).run(userId, encryptedEmail, emailHash, encryptedName, `magic_init_${randomPass}`, now, now);
     } else {
       userId = user.id;
     }

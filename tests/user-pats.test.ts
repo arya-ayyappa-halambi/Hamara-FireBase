@@ -3,6 +3,7 @@
 //  Test Suite for Scoped Personal Access Tokens (PATs)
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dotenv/config';
 import { initSqlite, getDb } from '../src/db/sqlite.connection';
 import { patService } from '../src/services/pat.service';
 

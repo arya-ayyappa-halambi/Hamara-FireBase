@@ -3,8 +3,10 @@
 //  Test Suite for WebAuthn / Passkeys (FIDO2) Biometric Authentication
 // ─────────────────────────────────────────────────────────────────────────────
 
+import 'dotenv/config';
 import { initSqlite, getDb } from '../src/db/sqlite.connection';
 import { passkeyService } from '../src/services/passkey.service';
+import { userStore } from '../src/store/user.store';
 import crypto from 'crypto';
 
 let passed = 0;
@@ -28,7 +30,9 @@ async function runPasskeyTests(): Promise<void> {
   initSqlite();
 
   const db = getDb();
-  const testUser = db.prepare('SELECT id, email, name FROM users LIMIT 1').get() as any;
+  const rawUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  const testUser = await userStore.findById(rawUser.id);
+  if (!testUser) throw new Error('Test user not found');
   const userId = testUser.id;
   const email = testUser.email;
   const name = testUser.name;
