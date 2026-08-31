@@ -204,3 +204,19 @@ export async function uploadSignedAsset(req: Request, res: Response, next: NextF
     next(err);
   }
 }
+
+export async function getStorageQuotaHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const { getUserStorageQuota } = require('./storage.service');
+    const quota = getUserStorageQuota(ownerId);
+
+    res.status(200).json({
+      success: true,
+      message: 'User storage quota retrieved.',
+      data: quota
+    });
+  } catch (err) {
+    next(err);
+  }
+}

@@ -18,7 +18,7 @@
     "kill": "node scripts/stop.js",
     "build": "tsc --project tsconfig.json",
     "clean": "rm -rf dist",
-    "test": "ts-node tests/remote-ott-access.test.ts && ts-node tests/tunnel-manager.test.ts && ts-node tests/traffic-topology.test.ts && ts-node tests/global-perimeter-lock.test.ts",
+    "test": "ts-node tests/remote-ott-access.test.ts && ts-node tests/tunnel-manager.test.ts && ts-node tests/traffic-topology.test.ts && ts-node tests/global-perimeter-lock.test.ts && ts-node tests/passkeys.test.ts && ts-node tests/magic-link.test.ts && ts-node tests/user-sessions.test.ts && ts-node tests/user-pats.test.ts && ts-node tests/organizations.test.ts && ts-node tests/notifications.test.ts && ts-node tests/storage-quota.test.ts",
     "reset-admin": "ts-node src/scripts/reset-admin.ts"
   },
   "keywords": [

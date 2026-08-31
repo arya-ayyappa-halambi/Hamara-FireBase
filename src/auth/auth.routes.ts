@@ -92,4 +92,50 @@ router.post('/mfa/disable', authenticateJwt, disableMfaController);
 router.post('/ott/redeem', authLimiter, redeemOttController);
 router.post('/device-access/request', authLimiter, requestDeviceAccessController);
 
+// ── Passkeys / WebAuthn (FIDO2) ───────────────────────────────────────────────
+import {
+  getRegistrationOptionsHandler,
+  verifyRegistrationHandler,
+  getLoginOptionsHandler,
+  verifyLoginAssertionHandler,
+  listPasskeysHandler,
+  deletePasskeyHandler
+} from './passkey.controller';
+
+router.post('/passkeys/register-options', authenticateJwt, getRegistrationOptionsHandler);
+router.post('/passkeys/register-verify', authenticateJwt, verifyRegistrationHandler);
+router.get('/passkeys/login-options', getLoginOptionsHandler);
+router.post('/passkeys/login-verify', authLimiter, verifyLoginAssertionHandler);
+router.get('/passkeys', authenticateJwt, listPasskeysHandler);
+router.delete('/passkeys/:id', authenticateJwt, deletePasskeyHandler);
+
+// ── Passwordless Magic Link & Email OTP ───────────────────────────────────────
+import {
+  requestMagicLinkHandler,
+  verifyMagicAuthHandler,
+  listUserSessionsHandler,
+  revokeUserSessionHandler,
+  revokeAllOtherSessionsHandler,
+  listUserSecurityLogsHandler,
+  listPatsHandler,
+  createPatHandler,
+  revokePatHandler
+} from './user-feature.controller';
+
+router.post('/magic-link/request', authLimiter, requestMagicLinkHandler);
+router.post('/magic-link/verify', authLimiter, verifyMagicAuthHandler);
+
+// ── User Active Sessions (1-Click Remote Logout) ──────────────────────────────
+router.get('/sessions', authenticateJwt, listUserSessionsHandler);
+router.delete('/sessions/other', authenticateJwt, revokeAllOtherSessionsHandler);
+router.delete('/sessions/:sessionId', authenticateJwt, revokeUserSessionHandler);
+
+// ── User Security & Activity Logs ─────────────────────────────────────────────
+router.get('/security-logs', authenticateJwt, listUserSecurityLogsHandler);
+
+// ── Personal Access Tokens (PATs) ─────────────────────────────────────────────
+router.get('/pats', authenticateJwt, listPatsHandler);
+router.post('/pats', authenticateJwt, createPatHandler);
+router.delete('/pats/:id', authenticateJwt, revokePatHandler);
+
 export default router;

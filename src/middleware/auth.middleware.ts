@@ -50,6 +50,33 @@ export function authenticateJwt(req: Request, _res: Response, next: NextFunction
     return next(new AppError('Authentication required. Provide a valid Bearer token.', 401));
   }
 
+  // Handle Personal Access Token (PAT) authentication
+  if (token.startsWith('pat_')) {
+    try {
+      const { patService } = require('../services/pat.service');
+      const { userId, scopes, patId } = patService.validatePat(token);
+      const db = getDb();
+      const user = db.prepare('SELECT id, email, name, isSuperAdmin, customClaims FROM users WHERE id = ?').get(userId) as any;
+      if (!user) {
+        return next(new AppError('User associated with Personal Access Token not found.', 401));
+      }
+      req.user = {
+        sub: user.id,
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        isSuperAdmin: user.isSuperAdmin === 1,
+        isPat: true,
+        patId,
+        patScopes: scopes,
+        claims: user.customClaims ? JSON.parse(user.customClaims) : {}
+      } as any;
+      return next();
+    } catch (err) {
+      return next(err);
+    }
+  }
+
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     // This should never happen if server.ts validateEnv() ran first

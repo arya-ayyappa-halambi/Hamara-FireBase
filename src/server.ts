@@ -29,6 +29,8 @@ import projectRouter     from './project/project.routes';
 import adminRouter       from './admin/admin.routes';
 import systemRouter      from './system/system.routes';
 import policyRouter      from './routes/policy.routes';
+import orgRouter         from './routes/organization.routes';
+import notificationRouter from './routes/notification.routes';
 import { globalErrorHandler, notFoundHandler } from './middleware/error.middleware';
 import { authLimiter, apiLimiter } from './middleware/rateLimit.middleware';
 import { ensureUploadDir }   from './storage/storage.service';
@@ -219,6 +221,8 @@ function createApp(): Application {
   app.use('/api/v1/admin',    adminRouter);
   app.use('/api/v1/system',   systemRouter);
   app.use('/api/v1/policies', policyRouter);
+  app.use('/api/v1/orgs',     orgRouter);
+  app.use('/api/v1/notifications', notificationRouter);
 
   // ── Multi-Region Logical Sync Replication Route ──────────────────────────────────
   app.post('/api/v1/replication/sync', (req, res, next) => {

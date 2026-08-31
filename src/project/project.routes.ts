@@ -16,7 +16,10 @@ import {
   getWebhookLogs,
   getBackupConfig,
   updateBackupConfig,
-  triggerBackup
+  triggerBackup,
+  listProjectCollaborators,
+  addProjectCollaborator,
+  removeProjectCollaborator
 } from './project.controller';
 
 const router = Router();
@@ -37,6 +40,11 @@ router.patch('/:id/auth-config', updateAuthConfig);
 router.get('/:id/backup-config', getBackupConfig);
 router.patch('/:id/backup-config', updateBackupConfig);
 router.post('/:id/backup', triggerBackup);
+
+// Collaborator endpoints
+router.get('/:id/collaborators', listProjectCollaborators);
+router.post('/:id/collaborators', addProjectCollaborator);
+router.delete('/:id/collaborators/:userId', removeProjectCollaborator);
 
 // Webhook endpoints
 router.get('/:id/webhooks', listWebhooks);

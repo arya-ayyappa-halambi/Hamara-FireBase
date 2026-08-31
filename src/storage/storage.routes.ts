@@ -22,6 +22,7 @@ import {
   removeAsset,
   getSignedUrl,
   uploadSignedAsset,
+  getStorageQuotaHandler,
 } from './storage.controller';
 
 const router = Router();
@@ -37,6 +38,7 @@ router.use(authenticateApiKeyOrJwt);
 // Upload: authenticateJwt (via router.use) → multer → controller
 router.post('/upload', uploadMiddleware, uploadAsset);
 router.post('/signed-url', apiLimiter, getSignedUrl);
+router.get('/quota', getStorageQuotaHandler);
 
 // Asset metadata
 router.get('/assets',         listUserAssets);

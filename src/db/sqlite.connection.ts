@@ -840,6 +840,248 @@ export function initSqlite(): void {
     `);
   } catch {}
 
+  // ── User Suite Extensions ──────────────────────────────────────────────────
+  try {
+    // 1. Passkeys / WebAuthn (FIDO2)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_passkeys (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        credentialId TEXT UNIQUE NOT NULL,
+        publicKey TEXT NOT NULL,
+        counter INTEGER NOT NULL DEFAULT 0,
+        deviceName TEXT NOT NULL,
+        transports TEXT,
+        createdAt TEXT NOT NULL,
+        lastUsedAt TEXT,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_passkeys_user ON user_passkeys(userId);
+      CREATE INDEX IF NOT EXISTS idx_user_passkeys_cred ON user_passkeys(credentialId);
+    `);
+
+    // 2. Passwordless Magic Link & OTP Tokens
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS magic_link_tokens (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        email TEXT NOT NULL,
+        tokenHash TEXT UNIQUE NOT NULL,
+        otpCode TEXT NOT NULL,
+        expiresAt TEXT NOT NULL,
+        isUsed INTEGER DEFAULT 0,
+        usedAt TEXT,
+        createdAt TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_magic_tokens_hash ON magic_link_tokens(tokenHash);
+      CREATE INDEX IF NOT EXISTS idx_magic_tokens_email ON magic_link_tokens(email);
+    `);
+
+    // 3. User Active Sessions
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_sessions (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        refreshTokenHash TEXT,
+        ipAddress TEXT NOT NULL,
+        userAgent TEXT,
+        deviceType TEXT DEFAULT 'desktop',
+        osName TEXT DEFAULT 'Unknown OS',
+        browserName TEXT DEFAULT 'Unknown Browser',
+        countryCode TEXT,
+        lastActiveAt TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        isRevoked INTEGER DEFAULT 0,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_user ON user_sessions(userId);
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(refreshTokenHash);
+    `);
+
+    // 4. User Security & Activity Logs
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_security_logs (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        actionType TEXT NOT NULL,
+        ipAddress TEXT,
+        userAgent TEXT,
+        countryCode TEXT,
+        details TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_sec_logs_user ON user_security_logs(userId);
+    `);
+
+    // 5. Organizations, Workspaces & Team Members
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS organizations (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        slug TEXT UNIQUE NOT NULL,
+        ownerId TEXT NOT NULL,
+        avatarUrl TEXT,
+        description TEXT,
+        defaultMemberRole TEXT DEFAULT 'member',
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (ownerId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_orgs_owner ON organizations(ownerId);
+      CREATE INDEX IF NOT EXISTS idx_orgs_slug ON organizations(slug);
+
+      CREATE TABLE IF NOT EXISTS organization_members (
+        id TEXT PRIMARY KEY,
+        orgId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'member', -- 'owner' | 'admin' | 'member' | 'billing_manager' | 'auditor'
+        joinedAt TEXT NOT NULL,
+        FOREIGN KEY (orgId) REFERENCES organizations(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(orgId, userId)
+      );
+      CREATE INDEX IF NOT EXISTS idx_org_members_user ON organization_members(userId);
+
+      CREATE TABLE IF NOT EXISTS organization_invites (
+        id TEXT PRIMARY KEY,
+        orgId TEXT NOT NULL,
+        invitedEmail TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'member',
+        token TEXT UNIQUE NOT NULL,
+        status TEXT DEFAULT 'pending', -- 'pending' | 'accepted' | 'revoked'
+        expiresAt TEXT NOT NULL,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (orgId) REFERENCES organizations(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_org_invites_token ON organization_invites(token);
+
+      -- 5b. Organization Teams (e.g. @acme/backend, @acme/frontend)
+      CREATE TABLE IF NOT EXISTS organization_teams (
+        id TEXT PRIMARY KEY,
+        orgId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        description TEXT,
+        createdAt TEXT NOT NULL,
+        updatedAt TEXT NOT NULL,
+        FOREIGN KEY (orgId) REFERENCES organizations(id) ON DELETE CASCADE,
+        UNIQUE(orgId, slug)
+      );
+      CREATE INDEX IF NOT EXISTS idx_org_teams_org ON organization_teams(orgId);
+
+      CREATE TABLE IF NOT EXISTS organization_team_members (
+        id TEXT PRIMARY KEY,
+        teamId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'member', -- 'maintainer' | 'member'
+        addedAt TEXT NOT NULL,
+        FOREIGN KEY (teamId) REFERENCES organization_teams(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(teamId, userId)
+      );
+      CREATE INDEX IF NOT EXISTS idx_org_team_members_team ON organization_team_members(teamId);
+      CREATE INDEX IF NOT EXISTS idx_org_team_members_user ON organization_team_members(userId);
+
+      -- 5c. Direct Project Collaborators (Individual Project Role)
+      CREATE TABLE IF NOT EXISTS project_members (
+        id TEXT PRIMARY KEY,
+        projectId TEXT NOT NULL,
+        userId TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'developer', -- 'admin' | 'maintainer' | 'developer' | 'viewer'
+        addedAt TEXT NOT NULL,
+        FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+        UNIQUE(projectId, userId)
+      );
+      CREATE INDEX IF NOT EXISTS idx_project_members_proj ON project_members(projectId);
+      CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(userId);
+
+      -- 5d. Project Team Grants (Assigning a Team access to a Project with specific Role)
+      CREATE TABLE IF NOT EXISTS project_team_grants (
+        id TEXT PRIMARY KEY,
+        projectId TEXT NOT NULL,
+        teamId TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'developer', -- 'admin' | 'maintainer' | 'developer' | 'viewer'
+        grantedAt TEXT NOT NULL,
+        FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE,
+        FOREIGN KEY (teamId) REFERENCES organization_teams(id) ON DELETE CASCADE,
+        UNIQUE(projectId, teamId)
+      );
+      CREATE INDEX IF NOT EXISTS idx_project_team_grants_proj ON project_team_grants(projectId);
+      CREATE INDEX IF NOT EXISTS idx_project_team_grants_team ON project_team_grants(teamId);
+
+      -- 5e. Organization Audit Logs
+      CREATE TABLE IF NOT EXISTS organization_audit_logs (
+        id TEXT PRIMARY KEY,
+        orgId TEXT NOT NULL,
+        actorId TEXT NOT NULL,
+        action TEXT NOT NULL,
+        targetType TEXT NOT NULL, -- 'member' | 'project' | 'team' | 'org'
+        targetId TEXT,
+        details TEXT,
+        ipAddress TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (orgId) REFERENCES organizations(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_org_audit_org ON organization_audit_logs(orgId, createdAt);
+    `);
+
+    // Add orgId column migration to projects table
+    try {
+      db.exec(`ALTER TABLE projects ADD COLUMN orgId TEXT;`);
+      db.exec(`CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(orgId);`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE organizations ADD COLUMN description TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE organizations ADD COLUMN defaultMemberRole TEXT DEFAULT 'member';`);
+    } catch (_) {}
+
+    // 6. Personal Access Tokens (PATs)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_pats (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        tokenHash TEXT UNIQUE NOT NULL,
+        tokenPrefix TEXT NOT NULL,
+        scopes TEXT NOT NULL, -- JSON array of strings: e.g. ["db:read", "storage:upload"]
+        expiresAt TEXT,
+        lastUsedAt TEXT,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_pats_user ON user_pats(userId);
+      CREATE INDEX IF NOT EXISTS idx_user_pats_hash ON user_pats(tokenHash);
+    `);
+
+    // 7. User In-App Notification Center
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS user_notifications (
+        id TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        title TEXT NOT NULL,
+        message TEXT NOT NULL,
+        type TEXT DEFAULT 'info', -- 'info' | 'success' | 'warning' | 'invite'
+        data TEXT, -- JSON payload
+        isRead INTEGER DEFAULT 0,
+        createdAt TEXT NOT NULL,
+        FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      );
+      CREATE INDEX IF NOT EXISTS idx_user_notif_user ON user_notifications(userId);
+    `);
+
+    // 8. Custom Claims for Users table
+    try {
+      db.exec(`ALTER TABLE users ADD COLUMN customClaims TEXT;`);
+    } catch (_) {}
+
+  } catch (e: any) {
+    console.error('Failed to initialize user suite schema:', e.message);
+  }
+
   // Seed Super Admin Account if absent
   seedSuperAdminSync(db);
 

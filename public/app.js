@@ -1129,6 +1129,8 @@ function updateProjectSelectorDropdown(projects) {
   const dropdown = document.getElementById('select-active-project');
   if (!dropdown) return;
 
+  const previousProjectId = state.activeProject?.id;
+
   if (projects && projects.length > 0) {
     if (!state.activeProject || !projects.some(p => p.id === state.activeProject.id)) {
       state.activeProject = projects[0];
@@ -1137,12 +1139,25 @@ function updateProjectSelectorDropdown(projects) {
     state.activeProject = null;
   }
 
-  dropdown.innerHTML = (projects || [])
-    .map((p) => `<option value="${p.id}" ${state.activeProject?.id === p.id ? 'selected' : ''}>${escapeHTML(p.name)}</option>`)
-    .join('');
+  if (!projects || projects.length === 0) {
+    dropdown.innerHTML = '<option value="">No projects in workspace</option>';
+  } else {
+    dropdown.innerHTML = (projects || [])
+      .map((p) => `<option value="${p.id}" ${state.activeProject?.id === p.id ? 'selected' : ''}>${escapeHTML(p.name)}</option>`)
+      .join('');
+  }
 
   if (state.activeProject) {
     dropdown.value = state.activeProject.id;
+  }
+
+  if (previousProjectId !== state.activeProject?.id) {
+    const currentTab = state.activeTab || document.querySelector('.nav-item.active-nav')?.getAttribute('data-tab');
+    if (currentTab === 'tab-data-browser') {
+      loadCollections();
+    } else if (currentTab === 'tab-auth-config') {
+      loadAuthConfig();
+    }
   }
 }
 
@@ -1150,12 +1165,16 @@ function updateProjectSelectorDropdown(projects) {
 
 async function initGlobalData() {
   try {
-    const projects = await apiRequest('/api/v1/projects');
-    state.projects = projects;
-    updateProjectSelectorDropdown(projects);
+    await fetchUserOrganizations();
+    await loadMyProjects();
     
     // Refresh prompt endpoint configurator and pending migration status
     initPromptEndpointManager();
+
+    // Initialize user feature suite (Passkeys, Sessions, PATs, Teams, Storage Quota)
+    if (typeof window.initUserFeaturesDashboard === 'function') {
+      window.initUserFeaturesDashboard();
+    }
 
     // Once projects are loaded and activeProject is set, refresh the current view
     const activeTab = document.querySelector('.active-nav')?.getAttribute('data-tab');
@@ -1873,7 +1892,10 @@ async function loadMyProjects() {
   if (!tableBody) return;
 
   try {
-    const projects = await apiRequest('/api/v1/projects');
+    const orgParam = state.activeWorkspace === 'personal' ? 'null' : (state.activeOrgId || '');
+    const url = orgParam ? `/api/v1/projects?orgId=${encodeURIComponent(orgParam)}` : '/api/v1/projects';
+    const res = await apiRequest(url);
+    const projects = Array.isArray(res) ? res : (res?.data || []);
     state.projects = projects;
     if (badgeCount) badgeCount.textContent = `${projects.length} projects`;
     renderMyProjectsTable(projects);
@@ -1888,7 +1910,7 @@ function renderMyProjectsTable(projects) {
   if (!tableBody) return;
 
   if (!projects || projects.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">No projects found. Create one to get started.</td></tr>`;
+    tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-slate-500">No projects found in this workspace. Create one to get started.</td></tr>`;
     return;
   }
 
@@ -1900,31 +1922,50 @@ function renderMyProjectsTable(projects) {
         ).join(' ') || '<span class="text-slate-500 text-[10px]">None</span>'
       : '<span class="text-slate-500 text-[10px]">Not configured</span>';
 
+    const roleColors = {
+      admin: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
+      maintainer: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+      developer: 'bg-indigo-500/10 text-indigo-300 border-indigo-500/20',
+      viewer: 'bg-slate-500/10 text-slate-300 border-slate-500/20'
+    };
+    const roleBadgeClass = roleColors[p.myProjectRole] || roleColors.developer;
+
+    const wsLabel = p.orgId ? `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20"><i class="fa-solid fa-building mr-1"></i>Org Project</span>` : `<span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20"><i class="fa-solid fa-user mr-1"></i>Personal</span>`;
+
     return `
     <tr class="hover:bg-white/5 transition">
-      <td class="p-4 font-semibold text-white">${escapeHTML(p.name)}</td>
-      <td class="p-4 text-slate-400 font-mono text-[10px]">${p.id.substring(0, 8)}...</td>
       <td class="p-4">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${p.collectionCount || 0}</span>
+        <div class="font-semibold text-white">${escapeHTML(p.name)}</div>
+        <div class="text-[10px] text-slate-500 font-mono">${p.id}</div>
+      </td>
+      <td class="p-4">${wsLabel}</td>
+      <td class="p-4">
+        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${roleBadgeClass}">${p.myProjectRole || 'admin'}</span>
       </td>
       <td class="p-4">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">${p.documentCount || 0}</span>
+        <div class="text-[11px] text-slate-300">${p.collectionCount || 0} cols • ${p.documentCount || 0} docs</div>
+        <div class="text-[10px] text-slate-500">${p.assetCount || 0} assets</div>
       </td>
       <td class="p-4 space-x-1">${authBadges}</td>
-      <td class="p-4 text-slate-400">${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'N/A'}</td>
-      <td class="p-4 text-right space-x-2">
-        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); selectProjectForBrowsing('${p.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition">
+      <td class="p-4 text-slate-400 text-[11px]">${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : 'N/A'}</td>
+      <td class="p-4 text-right space-x-1.5 whitespace-nowrap">
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); selectProjectForBrowsing('${p.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[10px] font-semibold transition" title="Browse Collections">
           <i class="fa-solid fa-arrow-right"></i> Browse
         </button>
-        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openProjectBackupModal('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] font-semibold transition">
-          <i class="fa-solid fa-cloud-arrow-up"></i> Backup
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.openProjectCollaboratorsModal && window.openProjectCollaboratorsModal('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 hover:bg-cyan-500/20 text-[10px] font-semibold transition" title="Manage Project Access & Collaborators">
+          <i class="fa-solid fa-users-gear"></i> Access
         </button>
-        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); rotateProjectKeys('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
-          <i class="fa-solid fa-key"></i> Rotate
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); openProjectBackupModal('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] font-semibold transition" title="Backup Project">
+          <i class="fa-solid fa-cloud-arrow-up"></i>
         </button>
-        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); deleteProjectById('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition">
-          <i class="fa-solid fa-trash"></i> Delete
+        <button type="button" onclick="event.preventDefault(); event.stopPropagation(); rotateProjectKeys('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition" title="Rotate API Keys">
+          <i class="fa-solid fa-key"></i>
         </button>
+        ${p.myProjectRole === 'admin' ? `
+          <button type="button" onclick="event.preventDefault(); event.stopPropagation(); deleteProjectById('${p.id}', '${escapeHTML(p.name)}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 text-rose-300 border border-rose-500/20 hover:bg-rose-500/20 text-[10px] font-semibold transition" title="Delete Project">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        ` : ''}
       </td>
     </tr>
   `;
@@ -1940,14 +1981,20 @@ window.selectProjectForBrowsing = function selectProjectForBrowsing(projectId) {
     switchWorkspace('tab-data-browser');
     loadCollections();
   }
-}
+};
 
 async function createNewProject() {
   const name = document.getElementById('input-new-project-name')?.value?.trim();
+  const wsSelect = document.getElementById('select-new-project-workspace')?.value;
   if (!name) return showToast('Please enter a project name.', 'error');
 
+  const orgId = wsSelect && wsSelect !== 'personal' ? wsSelect : (state.activeWorkspace !== 'personal' && state.activeOrgId ? state.activeOrgId : undefined);
+
   try {
-    const data = await apiRequest('/api/v1/projects', 'POST', { name });
+    const payload = { name };
+    if (orgId) payload.orgId = orgId;
+    const res = await apiRequest('/api/v1/projects', 'POST', payload);
+    const data = res?.data || res;
     document.getElementById('modal-create-project')?.classList.add('hidden');
     document.getElementById('input-new-project-name').value = '';
     showToast(`Project "${name}" created successfully!`, 'success');
@@ -1955,12 +2002,12 @@ async function createNewProject() {
 
     // Set the newly created project as active project immediately
     if (state.projects && state.projects.length > 0) {
-      const newProj = state.projects.find(p => p.id === data.id);
+      const createdProj = data.project || data;
+      const newProj = state.projects.find(p => p.id === createdProj.id) || createdProj;
       if (newProj) {
         state.activeProject = newProj;
         const dropdown = document.getElementById('select-active-project');
         if (dropdown) dropdown.value = newProj.id;
-        // If we are currently on a project-specific tab, refresh its data
         const currentTab = state.activeTab || document.querySelector('.nav-item.active-nav')?.getAttribute('data-tab');
         if (currentTab) switchWorkspace(currentTab);
       }
@@ -2625,6 +2672,13 @@ function connectGlobalWebSocket() {
             showToast(`User ${data.data?.userEmail || ''} submitted an explanation for their compliance hearing.`, 'info');
             if (typeof window.loadComplianceNoticesTable === 'function') window.loadComplianceNoticesTable();
             if (typeof loadUserManagement === 'function') loadUserManagement();
+          }
+        } else if (data.type === 'USER_NOTIFICATION') {
+          if (state.user && data.data?.userId === state.user.id) {
+            showToast(`🔔 ${data.data.title}: ${data.data.message}`, 'info');
+            if (typeof window.fetchUserNotifications === 'function') {
+              window.fetchUserNotifications();
+            }
           }
         } else if (data.type === 'SERVER_HOST_CONFIG_UPDATED') {
           const oldMode = promptEndpointConfig.mode;
@@ -6525,6 +6579,83 @@ const featureDetails = {
       "Unified project KEKs and verified DEK integrity.",
       "Implemented HMAC-SHA256 blind indexing for PII."
     ]
+  },
+  passkeys: {
+    title: "FIDO2 Biometric Passkeys",
+    icon: "fa-fingerprint",
+    desc: "Authenticate seamlessly without passwords using FIDO2 WebAuthn Level 3 standards, Apple Touch ID, Face ID, Windows Hello, and hardware security keys.",
+    details: [
+      "FIDO2 & WebAuthn Level 3 compliant hardware authentication.",
+      "Cryptographic asymmetric keypairs stored in device Secure Enclaves.",
+      "Phishing-resistant authentication without reusable passwords.",
+      "Supports Touch ID, Face ID, Windows Hello, and YubiKeys."
+    ]
+  },
+  magic_links: {
+    title: "Passwordless Magic Links & Email OTP",
+    icon: "fa-wand-magic-sparkles",
+    desc: "Single-use, auto-burning authentication links and time-sensitive 6-digit numeric verification codes delivered securely to your inbox.",
+    details: [
+      "Frictionless zero-password onboarding and authentication.",
+      "Single-use auto-burning tokens with 15-minute TTL.",
+      "Automatic brute-force prevention and rate-limited code generation.",
+      "One-click instant login directly from your email client."
+    ]
+  },
+  user_sessions: {
+    title: "Active Sessions & Remote Logout",
+    icon: "fa-laptop-code",
+    desc: "Comprehensive visibility into all active device sessions, operating systems, browser agents, IP geolocations, and instant remote revocation.",
+    details: [
+      "User-Agent parsing for real-time OS and browser detection.",
+      "Session token family tracking with last active timestamps.",
+      "One-click instant remote revocation of suspicious devices.",
+      "'Revoke All Other Sessions' command to secure compromised accounts."
+    ]
+  },
+  pats: {
+    title: "Personal Access Tokens (PATs)",
+    icon: "fa-id-badge",
+    desc: "Generate fine-grained personal access tokens for CI/CD pipelines, CLI automation, and custom scripts with granular scope isolation.",
+    details: [
+      "Cryptographically hashed tokens with customizable expiration dates.",
+      "Granular permission scopes (db:read, db:write, storage:read, full_access).",
+      "Masked token prefixes for clean, auditable security logging.",
+      "Instant one-click revocation with zero impact on user passwords."
+    ]
+  },
+  organizations: {
+    title: "Organizations & Functional Teams",
+    icon: "fa-building-user",
+    desc: "GitHub-style multi-tenant workspace isolation, functional teams (@org/team), project access grants, and audit trails.",
+    details: [
+      "Independent organization workspaces with custom slug handles.",
+      "Role-Based Access Control (Owner, Admin, Member, Billing Manager).",
+      "Functional teams with bulk project permission inheritance.",
+      "Comprehensive organization-wide security and audit trails."
+    ]
+  },
+  notifications: {
+    title: "In-App Real-Time Notification Center",
+    icon: "fa-bell",
+    desc: "Live WebSocket alerts for security events, team invitations, and quota warnings with interactive unread badge counters.",
+    details: [
+      "Instant delivery via dedicated user WebSocket event channels.",
+      "Interactive unread counter badge in the top navigation header.",
+      "Categorized alert feeds (Security, Invites, Platform, System).",
+      "One-click 'Mark all as read' and instant dismiss actions."
+    ]
+  },
+  storage_quotas: {
+    title: "User Storage Quotas & Metering",
+    icon: "fa-hard-drive",
+    desc: "Transparent 500 MB storage quota tracking, real-time byte aggregation, and live progress visualization across media assets and databases.",
+    details: [
+      "Real-time byte-level storage aggregation for every account.",
+      "Visual percentage meters with color-coded warning states.",
+      "Asset file counts and storage tier breakdown.",
+      "Automatic quota limit enforcement on file and media uploads."
+    ]
   }
 };
 
@@ -9948,6 +10079,1750 @@ window.renderTrafficTopologyUI = function(snapshot) {
   }
 };
 
+// ─────────────────────────────────────────────────────────────────────────────
+//  AEGISDB USER FEATURE SUITE (Passkeys, Magic Links, Sessions, PATs, Teams, Quota)
+// ─────────────────────────────────────────────────────────────────────────────
 
+// ── WebAuthn Base64URL Helpers ───────────────────────────────────────────────
+function bufferFromBase64Url(base64url) {
+  const base64 = base64url.replace(/-/g, '+').replace(/_/g, '/');
+  const pad = base64.length % 4;
+  const padded = pad ? base64 + '='.repeat(4 - pad) : base64;
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes.buffer;
+}
 
+function bufferToBase64Url(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
 
+// ── 1. Passkeys / WebAuthn (FIDO2) Handlers ───────────────────────────────────
+
+window.executePasskeyLogin = async function() {
+  if (!window.PublicKeyCredential) {
+    showToast('Biometric Passkeys (WebAuthn) are not supported on this browser/device.', 'error');
+    return;
+  }
+
+  try {
+    showToast('Initiating Passkey authentication...', 'info');
+    const emailInput = document.getElementById('input-email')?.value?.trim();
+    const url = emailInput ? `/api/v1/auth/passkeys/login-options?email=${encodeURIComponent(emailInput)}` : '/api/v1/auth/passkeys/login-options';
+    const optionsRes = await apiRequest(url, 'GET');
+    const options = (optionsRes && optionsRes.challenge) ? optionsRes : (optionsRes?.data || optionsRes || {});
+
+    if (!options.challenge) {
+      showToast('No registered biometric passkey found. Please sign in with password/Google first and register your device.', 'error');
+      return;
+    }
+
+    const challengeBuffer = bufferFromBase64Url(options.challenge);
+    const allowCredentials = (options.allowCredentials || []).map(c => ({
+      id: bufferFromBase64Url(c.id),
+      type: c.type || 'public-key',
+      transports: c.transports
+    }));
+
+    let assertion;
+    try {
+      assertion = await navigator.credentials.get({
+        publicKey: {
+          challenge: challengeBuffer,
+          rpId: options.rpId || window.location.hostname,
+          allowCredentials: allowCredentials.length > 0 ? allowCredentials : undefined,
+          userVerification: 'preferred',
+          timeout: 60000
+        }
+      });
+    } catch (ceremonyErr) {
+      console.warn('WebAuthn ceremony aborted or rejected:', ceremonyErr);
+      showToast('Biometric verification cancelled or timed out.', 'info');
+      return;
+    }
+
+    if (!assertion) {
+      showToast('Biometric verification cancelled.', 'info');
+      return;
+    }
+
+    const assertionData = {
+      challenge: options.challenge,
+      credentialId: bufferToBase64Url(assertion.rawId),
+      authenticatorData: bufferToBase64Url(assertion.response.authenticatorData),
+      clientDataJSON: bufferToBase64Url(assertion.response.clientDataJSON),
+      signature: bufferToBase64Url(assertion.response.signature)
+    };
+
+    const verifyRes = await apiRequest('/api/v1/auth/passkeys/login-verify', 'POST', assertionData);
+    const authData = (verifyRes && verifyRes.token) ? verifyRes : (verifyRes?.data || {});
+
+    if (authData.token) {
+      state.accessToken = authData.token;
+      state.refreshToken = authData.refreshToken;
+      state.user = authData.user;
+      localStorage.setItem('aegis_access_token', state.accessToken);
+      localStorage.setItem('aegis_token', state.accessToken);
+      localStorage.setItem('aegis_refresh_token', state.refreshToken);
+      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+
+      showToast(`Welcome back, ${state.user.name || state.user.email}!`, 'success');
+      document.getElementById('auth-screen')?.classList.add('hidden');
+      document.getElementById('main-app')?.classList.remove('hidden');
+      updateUserProfileUI();
+      setRoleMode(state.user.isSuperAdmin ? 'superadmin' : 'developer');
+      connectGlobalWebSocket();
+      initGlobalData();
+    }
+  } catch (err) {
+    showToast(err.message || 'Passkey verification failed', 'error');
+  }
+};
+
+window.registerNewPasskey = async function() {
+  if (!window.PublicKeyCredential) {
+    showToast('Biometrics / Passkeys are not supported on this device.', 'error');
+    return;
+  }
+
+  const deviceName = prompt('Enter a friendly name for this Passkey (e.g. MacBook Touch ID, Work Laptop, YubiKey 5):', 'My Hardware Passkey');
+  if (!deviceName) return;
+
+  try {
+    showToast('Preparing Passkey registration...', 'info');
+    const optionsRes = await apiRequest('/api/v1/auth/passkeys/register-options', 'POST');
+    const options = (optionsRes && optionsRes.challenge) ? optionsRes : (optionsRes?.data || optionsRes || {});
+
+    if (!options.challenge) {
+      showToast('Failed to obtain registration challenge from server.', 'error');
+      return;
+    }
+
+    const challengeBuffer = bufferFromBase64Url(options.challenge);
+    const userIdBuffer = new TextEncoder().encode(options.user.id);
+
+    let credential;
+    try {
+      credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: challengeBuffer,
+          rp: options.rp,
+          user: {
+            id: userIdBuffer,
+            name: options.user.name,
+            displayName: options.user.displayName
+          },
+          pubKeyCredParams: options.pubKeyCredParams,
+          authenticatorSelection: options.authenticatorSelection || {
+            residentKey: 'preferred',
+            userVerification: 'preferred'
+          },
+          timeout: 60000,
+          attestation: 'none'
+        }
+      });
+    } catch (ceremonyErr) {
+      console.warn('WebAuthn registration ceremony cancelled:', ceremonyErr);
+      showToast('Passkey registration cancelled.', 'info');
+      return;
+    }
+
+    if (!credential) {
+      showToast('Passkey registration cancelled.', 'info');
+      return;
+    }
+
+    const verifyData = {
+      challenge: options.challenge,
+      credentialId: bufferToBase64Url(credential.rawId),
+      publicKey: bufferToBase64Url(credential.response.getPublicKey ? credential.response.getPublicKey() : credential.rawId),
+      deviceName,
+      transports: credential.response.getTransports ? credential.response.getTransports() : ['internal']
+    };
+
+    await apiRequest('/api/v1/auth/passkeys/register-verify', 'POST', verifyData);
+    showToast('🎉 Biometric Passkey registered successfully!', 'success');
+    window.fetchUserPasskeys();
+  } catch (err) {
+    showToast(err.message || 'Failed to register passkey', 'error');
+  }
+};
+
+window.fetchUserPasskeys = async function() {
+  const container = document.getElementById('user-passkeys-list');
+  if (!container || !state.accessToken) return;
+
+  try {
+    const res = await apiRequest('/api/v1/auth/passkeys', 'GET');
+    const passkeys = Array.isArray(res) ? res : (res?.data || []);
+
+    if (passkeys.length === 0) {
+      container.innerHTML = '<div class="text-xs text-slate-500 py-2">No passkeys registered. Click "+ Register New Passkey" above.</div>';
+      return;
+    }
+
+    container.innerHTML = passkeys.map(p => `
+      <div class="p-3 bg-slate-900/80 rounded-xl border border-white/10 flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-lg bg-violet-500/10 text-violet-400 flex items-center justify-center">
+            <i class="fa-solid fa-fingerprint"></i>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-white">${escapeHTML(p.deviceName)}</div>
+            <div class="text-[10px] text-slate-400 font-mono">Added: ${new Date(p.createdAt).toLocaleDateString()} • Counter: ${p.counter}</div>
+          </div>
+        </div>
+        <button type="button" onclick="window.deleteUserPasskey('${p.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs border border-rose-500/20 transition cursor-pointer">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-xs text-rose-400">Failed to load passkeys: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.deleteUserPasskey = async function(id) {
+  if (!confirm('Are you sure you want to remove this biometric passkey?')) return;
+  try {
+    await apiRequest(`/api/v1/auth/passkeys/${id}`, 'DELETE');
+    showToast('Passkey removed.', 'info');
+    window.fetchUserPasskeys();
+  } catch (err) {
+    showToast(err.message || 'Failed to remove passkey', 'error');
+  }
+};
+
+// ── 2. Passwordless Magic Link & 6-Digit Email OTP Handlers ──────────────────
+
+window.openMagicLinkModal = function() {
+  document.getElementById('magic-auth-step-1')?.classList.remove('hidden');
+  document.getElementById('magic-auth-step-2')?.classList.add('hidden');
+  const inputEmail = document.getElementById('input-magic-email');
+  if (inputEmail) {
+    const mainEmail = document.getElementById('input-email');
+    if (mainEmail?.value) inputEmail.value = mainEmail.value;
+  }
+  window.showModal('modal-magic-link');
+};
+
+window.requestMagicAuth = async function() {
+  const email = document.getElementById('input-magic-email')?.value?.trim();
+  if (!email) {
+    showToast('Please enter your email address.', 'error');
+    return;
+  }
+
+  try {
+    showToast('Generating Magic Link & OTP...', 'info');
+    const res = await apiRequest('/api/v1/auth/magic-link/request', 'POST', { email });
+    showToast('Magic code generated!', 'success');
+
+    document.getElementById('magic-auth-step-1')?.classList.add('hidden');
+    document.getElementById('magic-auth-step-2')?.classList.remove('hidden');
+    const otpDisplay = document.getElementById('magic-demo-otp-display');
+    const otpCode = res?.otpCode || res?.data?.otpCode;
+    if (otpDisplay && otpCode) {
+      otpDisplay.textContent = `Demo Verification Code: ${otpCode}`;
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to request magic auth', 'error');
+  }
+};
+
+window.verifyMagicAuthOtp = async function() {
+  const email = document.getElementById('input-magic-email')?.value?.trim();
+  const otpCode = document.getElementById('input-magic-otp')?.value?.trim();
+
+  if (!otpCode || otpCode.length !== 6) {
+    showToast('Please enter the 6-digit numeric verification code.', 'error');
+    return;
+  }
+
+  try {
+    const res = await apiRequest('/api/v1/auth/magic-link/verify', 'POST', { email, otpCode });
+    const authData = (res && res.token) ? res : (res?.data || {});
+
+    if (authData.token) {
+      state.accessToken = authData.token;
+      state.refreshToken = authData.refreshToken;
+      state.user = authData.user;
+      localStorage.setItem('aegis_access_token', state.accessToken);
+      localStorage.setItem('aegis_token', state.accessToken);
+      localStorage.setItem('aegis_refresh_token', state.refreshToken);
+      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+
+      window.hideModal('modal-magic-link');
+      showToast(`Welcome back, ${state.user.name || state.user.email}!`, 'success');
+      document.getElementById('auth-screen')?.classList.add('hidden');
+      document.getElementById('main-app')?.classList.remove('hidden');
+      updateUserProfileUI();
+      setRoleMode(state.user.isSuperAdmin ? 'superadmin' : 'developer');
+      connectGlobalWebSocket();
+      initGlobalData();
+    }
+  } catch (err) {
+    showToast(err.message || 'Invalid or expired OTP code', 'error');
+  }
+};
+
+// Auto-login if ?magicToken=... in URL
+(async function checkMagicTokenUrl() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const magicToken = urlParams.get('magicToken');
+  if (magicToken && magicToken.startsWith('magic_')) {
+    try {
+      showToast('Authenticating via Magic Link...', 'info');
+      const res = await apiRequest('/api/v1/auth/magic-link/verify', 'POST', { token: magicToken });
+      const authData = (res && res.token) ? res : (res?.data || {});
+
+      if (authData.token) {
+        state.accessToken = authData.token;
+        state.refreshToken = authData.refreshToken;
+        state.user = authData.user;
+        localStorage.setItem('aegis_access_token', state.accessToken);
+        localStorage.setItem('aegis_token', state.accessToken);
+        localStorage.setItem('aegis_refresh_token', state.refreshToken);
+        localStorage.setItem('aegis_user', JSON.stringify(state.user));
+        window.history.replaceState(null, '', window.location.pathname);
+
+        showToast('Logged in via Magic Link!', 'success');
+        document.getElementById('auth-screen')?.classList.add('hidden');
+        document.getElementById('main-app')?.classList.remove('hidden');
+        updateUserProfileUI();
+        setRoleMode(state.user.isSuperAdmin ? 'superadmin' : 'developer');
+        connectGlobalWebSocket();
+        initGlobalData();
+      }
+    } catch (err) {
+      showToast(err.message || 'Magic link expired or already used', 'error');
+    }
+  }
+})();
+
+// ── 3. Active Logged-In Sessions & Remote Killswitch Handlers ──────────────────
+
+window.fetchUserSessions = async function() {
+  const container = document.getElementById('user-active-sessions-list');
+  if (!container || !state.accessToken) return;
+
+  try {
+    const refreshToken = localStorage.getItem('aegis_refresh_token') || state.refreshToken || '';
+    const res = await fetch('/api/v1/auth/sessions', {
+      headers: {
+        'Authorization': `Bearer ${state.accessToken}`,
+        'x-refresh-token': refreshToken
+      }
+    }).then(r => r.json());
+
+    const sessions = Array.isArray(res) ? res : (res?.data || []);
+    if (sessions.length === 0) {
+      container.innerHTML = '<div class="text-xs text-slate-500 py-2">No active sessions found.</div>';
+      return;
+    }
+
+    container.innerHTML = sessions.map(s => {
+      const deviceIcon = s.deviceType === 'mobile' ? 'fa-mobile-screen-button text-emerald-400' :
+                         s.deviceType === 'tablet' ? 'fa-tablet-screen-button text-cyan-400' :
+                         'fa-desktop text-indigo-400';
+      const isCurrentBadge = s.isCurrent
+        ? '<span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">Current Device</span>'
+        : `<button type="button" onclick="window.revokeUserSession('${s.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs border border-rose-500/20 transition cursor-pointer">Revoke</button>`;
+
+      return `
+        <div class="p-3 bg-slate-900/80 rounded-xl border border-white/10 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+              <i class="fa-solid ${deviceIcon}"></i>
+            </div>
+            <div>
+              <div class="text-xs font-semibold text-white flex items-center space-x-2">
+                <span>${escapeHTML(s.browserName || 'Unknown Browser')} on ${escapeHTML(s.osName || 'Unknown OS')}</span>
+                <span>${s.countryCode ? `(${escapeHTML(s.countryCode)})` : ''}</span>
+              </div>
+              <div class="text-[10px] text-slate-400 font-mono">
+                IP: ${escapeHTML(s.ipAddress)} • Active: ${new Date(s.lastActiveAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </div>
+            </div>
+          </div>
+          <div>${isCurrentBadge}</div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-xs text-rose-400">Failed to load sessions: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.revokeUserSession = async function(sessionId) {
+  if (!confirm('Log out this remote device immediately?')) return;
+  try {
+    await apiRequest(`/api/v1/auth/sessions/${sessionId}`, 'DELETE');
+    showToast('Remote session revoked.', 'info');
+    window.fetchUserSessions();
+  } catch (err) {
+    showToast(err.message || 'Failed to revoke session', 'error');
+  }
+};
+
+window.logoutAllOtherSessions = async function() {
+  if (!confirm('Are you sure you want to log out of all other devices except this one?')) return;
+  try {
+    const refreshToken = localStorage.getItem('aegis_refresh_token') || state.refreshToken || '';
+    const res = await fetch('/api/v1/auth/sessions/other', {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${state.accessToken}`,
+        'x-refresh-token': refreshToken
+      }
+    }).then(r => r.json());
+
+    showToast(res?.message || 'Logged out of other devices', 'success');
+    window.fetchUserSessions();
+  } catch (err) {
+    showToast(err.message || 'Failed to revoke other sessions', 'error');
+  }
+};
+
+// ── 4. Developer Personal Access Tokens (PATs) Handlers ───────────────────────
+
+window.fetchUserPats = async function() {
+  const container = document.getElementById('user-pats-list');
+  if (!container || !state.accessToken) return;
+
+  try {
+    const res = await apiRequest('/api/v1/auth/pats', 'GET');
+    const pats = Array.isArray(res) ? res : (res?.data || []);
+
+    if (pats.length === 0) {
+      container.innerHTML = '<div class="text-xs text-slate-500 py-2">No active Personal Access Tokens. Click "+ Generate New PAT" above.</div>';
+      return;
+    }
+
+    container.innerHTML = pats.map(p => `
+      <div class="p-3 bg-slate-900/80 rounded-xl border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+        <div>
+          <div class="text-xs font-semibold text-white flex items-center space-x-2">
+            <span>${escapeHTML(p.name)}</span>
+            <span class="font-mono text-[10px] text-amber-300 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">${escapeHTML(p.tokenPrefix)}</span>
+          </div>
+          <div class="flex flex-wrap gap-1 pt-1.5">
+            ${p.scopes.map(s => `<span class="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-300 border border-white/5 font-mono">${escapeHTML(s)}</span>`).join('')}
+          </div>
+        </div>
+        <div class="flex items-center space-x-2 self-end sm:self-center">
+          <span class="text-[10px] text-slate-400 font-mono">Expires: ${p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : 'Never'}</span>
+          <button type="button" onclick="window.revokeUserPat('${p.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 text-xs border border-rose-500/20 transition cursor-pointer">Revoke</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-xs text-rose-400">Failed to load PATs: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.openCreatePatModal = function() {
+  document.getElementById('input-pat-name').value = '';
+  window.showModal('modal-create-pat');
+};
+
+window.submitCreatePat = async function() {
+  const name = document.getElementById('input-pat-name')?.value?.trim();
+  const expirationDays = document.getElementById('select-pat-expiry')?.value;
+  const scopeCheckboxes = document.querySelectorAll('input[name="pat-scope"]:checked');
+  const scopes = Array.from(scopeCheckboxes).map(c => c.value);
+
+  if (!name) {
+    showToast('Please provide a name for this token.', 'error');
+    return;
+  }
+  if (scopes.length === 0) {
+    showToast('Please select at least one permission scope.', 'error');
+    return;
+  }
+
+  try {
+    const res = await apiRequest('/api/v1/auth/pats', 'POST', { name, scopes, expirationDays });
+    window.hideModal('modal-create-pat');
+
+    const rawToken = res?.rawToken || res?.data?.rawToken;
+    if (rawToken) {
+      document.getElementById('label-pat-raw-token').textContent = rawToken;
+      window.showModal('modal-pat-created');
+    }
+
+    showToast('Personal Access Token created!', 'success');
+    window.fetchUserPats();
+  } catch (err) {
+    showToast(err.message || 'Failed to create token', 'error');
+  }
+};
+
+window.copyPatToken = function() {
+  const text = document.getElementById('label-pat-raw-token')?.textContent;
+  if (text) {
+    navigator.clipboard.writeText(text).then(() => showToast('Token copied to clipboard!', 'success'));
+  }
+};
+
+window.revokeUserPat = async function(id) {
+  if (!confirm('Are you sure you want to revoke this Personal Access Token? Any CI/CD pipelines using it will lose access.')) return;
+  try {
+    await apiRequest(`/api/v1/auth/pats/${id}`, 'DELETE');
+    showToast('Personal Access Token revoked.', 'info');
+    window.fetchUserPats();
+  } catch (err) {
+    showToast(err.message || 'Failed to revoke token', 'error');
+  }
+};
+
+// ── 5. GitHub-Style Multi-Tenant Organizations & Teams Handlers ───────────────
+
+state.activeWorkspace = 'personal';
+state.activeOrgId = null;
+state.organizations = [];
+
+window.toggleWorkspaceDropdown = function() {
+  const dropdown = document.getElementById('dropdown-workspace-menu');
+  if (dropdown) dropdown.classList.toggle('hidden');
+};
+
+// Unified Switcher: Handles both tab navigation ('tab-...') and tenant workspaces ('personal' | 'org_...')
+window.switchWorkspace = async function(target) {
+  if (!target) return;
+
+  // Case A: Sidebar Tab Navigation
+  if (typeof target === 'string' && (target.startsWith('tab-') || document.getElementById(target)?.classList.contains('workspace-panel'))) {
+    document.querySelectorAll('.workspace-panel').forEach(p => p.classList.add('hidden'));
+    document.querySelectorAll('.nav-item[data-tab]').forEach(item => {
+      item.classList.remove('active-nav', 'bg-indigo-600/30', 'border-indigo-500/30', 'text-white');
+      item.classList.add('text-slate-300');
+    });
+
+    const activePanel = document.getElementById(target);
+    if (activePanel) activePanel.classList.remove('hidden');
+
+    const activeNavBtn = document.querySelector(`.nav-item[data-tab="${target}"]`);
+    if (activeNavBtn) {
+      activeNavBtn.classList.add('active-nav', 'bg-indigo-600/30', 'border-indigo-500/30', 'text-white');
+      activeNavBtn.classList.remove('text-slate-300');
+    }
+
+    if (state.telemetryTimer) {
+      clearInterval(state.telemetryTimer);
+      state.telemetryTimer = null;
+    }
+
+    if (target === 'tab-telemetry') {
+      initTelemetryCharts();
+      loadTelemetryData();
+      state.telemetryTimer = setInterval(loadTelemetryData, 3000);
+    } else if (target === 'tab-developer-metrics') {
+      initDeveloperMetricsCharts();
+      loadDeveloperMetrics();
+      state.telemetryTimer = setInterval(loadDeveloperMetrics, 3000);
+    } else if (target === 'tab-webhook-inspector') {
+      loadWebhookLogs();
+      state.telemetryTimer = setInterval(loadWebhookLogs, 3000);
+    } else if (target === 'tab-auth-config') {
+      loadAuthConfig();
+    } else if (target === 'tab-ws-debugger') {
+      initWsDebugger();
+    } else if (target === 'tab-project-management') {
+      loadMyProjects();
+    } else if (target === 'tab-organizations') {
+      window.loadActiveWorkspaceConsole();
+    } else if (target === 'tab-user-management') {
+      loadUserManagement();
+    }
+    return;
+  }
+
+  // Case B: Workspace Tenant Context Switching (Personal vs Organization)
+  const dropdown = document.getElementById('dropdown-workspace-menu');
+  if (dropdown) dropdown.classList.add('hidden');
+
+  if (target === 'personal') {
+    state.activeWorkspace = 'personal';
+    state.activeOrgId = null;
+
+    const label = document.getElementById('label-active-workspace');
+    if (label) label.textContent = 'Personal';
+    const icon = document.getElementById('workspace-icon');
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-user"></i>';
+
+    const personalBadge = document.getElementById('badge-ws-personal-active');
+    if (personalBadge) personalBadge.classList.remove('hidden');
+    document.querySelectorAll('.badge-ws-org-active').forEach(b => b.classList.add('hidden'));
+
+    const bannerSelect = document.getElementById('select-org-banner-switcher');
+    if (bannerSelect) bannerSelect.value = 'personal';
+
+    showToast('Switched to Personal Workspace', 'info');
+  } else if (typeof target === 'string' && target.startsWith('org_')) {
+    state.activeWorkspace = target;
+    state.activeOrgId = target;
+
+    const org = state.organizations.find(o => o.id === target);
+    const label = document.getElementById('label-active-workspace');
+    if (label) label.textContent = org?.name || 'Organization';
+    const icon = document.getElementById('workspace-icon');
+    if (icon) icon.innerHTML = '<i class="fa-solid fa-building text-cyan-400"></i>';
+
+    const personalBadge = document.getElementById('badge-ws-personal-active');
+    if (personalBadge) personalBadge.classList.add('hidden');
+    document.querySelectorAll('.badge-ws-org-active').forEach(b => {
+      if (b.getAttribute('data-org-id') === target) b.classList.remove('hidden');
+      else b.classList.add('hidden');
+    });
+
+    const bannerSelect = document.getElementById('select-org-banner-switcher');
+    if (bannerSelect) bannerSelect.value = target;
+
+    showToast(`Switched to workspace "${org?.name || target}"`, 'info');
+  }
+
+  // Refresh Projects scoped to newly active workspace
+  await loadMyProjects();
+
+  // If currently viewing Organizations & Teams console/directory, reload it
+  const currentTab = state.activeTab || document.querySelector('.nav-item.active-nav')?.getAttribute('data-tab');
+  if (currentTab === 'tab-organizations') {
+    window.loadActiveWorkspaceConsole();
+  } else if (currentTab && (currentTab === 'tab-data-browser' || currentTab === 'tab-auth-config' || currentTab === 'tab-rules-sandbox' || currentTab === 'tab-webhook-inspector' || currentTab === 'tab-ws-debugger')) {
+    window.switchWorkspace(currentTab);
+  }
+};
+
+window.fetchUserOrganizations = async function() {
+  if (!state.accessToken) return;
+
+  try {
+    const res = await apiRequest('/api/v1/orgs', 'GET');
+    const orgs = Array.isArray(res) ? res : (res?.data || []);
+    state.organizations = orgs;
+
+    // 1. Populate header workspace dropdown list
+    const wsList = document.getElementById('workspace-orgs-list');
+    if (wsList) {
+      if (orgs.length === 0) {
+        wsList.innerHTML = '<div class="text-[10px] text-slate-500 px-2 py-1">No organizations joined yet.</div>';
+      } else {
+        wsList.innerHTML = orgs.map(o => `
+          <button type="button" onclick="window.switchWorkspace('${o.id}')" class="w-full p-2 rounded-xl text-left text-xs font-semibold text-white hover:bg-white/10 transition flex items-center justify-between cursor-pointer">
+            <div class="flex items-center space-x-2.5 truncate">
+              <div class="w-6 h-6 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-xs shrink-0">
+                <i class="fa-solid fa-building"></i>
+              </div>
+              <div class="truncate">
+                <div class="text-xs font-medium text-white truncate">${escapeHTML(o.name)}</div>
+                <div class="text-[9px] text-slate-400 font-mono">@${escapeHTML(o.slug)} • <span class="text-cyan-300 uppercase">${escapeHTML(o.myRole)}</span></div>
+              </div>
+            </div>
+            <span data-org-id="${o.id}" class="badge-ws-org-active ${state.activeOrgId === o.id ? '' : 'hidden'} text-cyan-400 text-xs shrink-0"><i class="fa-solid fa-check"></i></span>
+          </button>
+        `).join('');
+      }
+    }
+
+    // 2. Populate create project workspace selector dropdown
+    const wsSelect = document.getElementById('select-new-project-workspace');
+    if (wsSelect) {
+      let opts = '<option value="personal">👤 Personal Workspace</option>';
+      orgs.forEach(o => {
+        const isSelected = state.activeOrgId === o.id ? 'selected' : '';
+        opts += `<option value="${o.id}" ${isSelected}>🏢 ${escapeHTML(o.name)} (@${escapeHTML(o.slug)})</option>`;
+      });
+      wsSelect.innerHTML = opts;
+    }
+
+    // 3. Populate banner switcher dropdown in Org Console
+    const bannerSelect = document.getElementById('select-org-banner-switcher');
+    if (bannerSelect) {
+      let bOpts = '<option value="personal">👤 Personal Account</option>';
+      orgs.forEach(o => {
+        const isSelected = state.activeOrgId === o.id ? 'selected' : '';
+        bOpts += `<option value="${o.id}" ${isSelected}>🏢 ${escapeHTML(o.name)} (@${escapeHTML(o.slug)})</option>`;
+      });
+      bannerSelect.innerHTML = bOpts;
+    }
+
+    // 4. Populate Settings > user-orgs-container if exists
+    const userOrgsContainer = document.getElementById('user-orgs-container');
+    if (userOrgsContainer) {
+      if (orgs.length === 0) {
+        userOrgsContainer.innerHTML = '<div class="text-xs text-slate-500 py-2">You are not a member of any organization yet. Click "+ Create Organization" above.</div>';
+      } else {
+        userOrgsContainer.innerHTML = orgs.map(o => `
+          <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-xs">
+                <i class="fa-solid fa-building"></i>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white">${escapeHTML(o.name)}</div>
+                <div class="text-[10px] text-slate-400">Role: <span class="text-cyan-300 font-semibold uppercase">${escapeHTML(o.myRole)}</span> • @${escapeHTML(o.slug)}</div>
+              </div>
+            </div>
+            <button type="button" onclick="window.switchWorkspace('${o.id}'); window.switchWorkspace('tab-organizations')" class="px-3 py-1.5 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 text-xs border border-cyan-500/30 font-semibold transition cursor-pointer">
+              Open Org Console
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+  } catch (err) {
+    console.error('Failed to fetch user organizations:', err);
+  }
+};
+
+window.renderOrgDirectory = function() {
+  const container = document.getElementById('container-org-directory-cards');
+  const countEl = document.getElementById('metric-directory-orgs-count');
+  const personalEl = document.getElementById('metric-directory-personal-count');
+  const activeWsEl = document.getElementById('metric-directory-active-ws');
+  
+  if (countEl) countEl.textContent = state.organizations.length;
+  if (personalEl) personalEl.textContent = state.projects?.filter(p => !p.orgId)?.length || 0;
+  if (activeWsEl) activeWsEl.textContent = state.activeWorkspace === 'personal' ? 'Personal Account' : (state.organizations.find(o => o.id === state.activeWorkspace)?.name || 'Personal');
+
+  if (!container) return;
+
+  if (state.organizations.length === 0) {
+    container.innerHTML = `
+      <div class="col-span-full p-8 text-center glass-panel rounded-2xl border border-white/10 space-y-3">
+        <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 text-cyan-400 mx-auto flex items-center justify-center text-xl">
+          <i class="fa-solid fa-building"></i>
+        </div>
+        <h3 class="text-base font-bold text-white">Create Your First Organization</h3>
+        <p class="text-xs text-slate-400 max-w-sm mx-auto">Organizations allow you to group repositories, invite teammates, and manage project permissions in bulk.</p>
+        <button type="button" onclick="window.openCreateOrgModal()" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 transition cursor-pointer">
+          <i class="fa-solid fa-plus mr-1.5"></i> Create Organization
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = state.organizations.map(org => {
+    const roleColors = {
+      owner: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+      admin: 'bg-rose-500/10 text-rose-300 border-rose-500/20',
+      member: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/20',
+      billing_manager: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
+    };
+    const roleClass = roleColors[org.myRole] || roleColors.member;
+
+    return `
+      <div class="glass-panel p-5 rounded-2xl border border-white/10 hover:border-cyan-500/40 transition flex flex-col justify-between space-y-4">
+        <div>
+          <div class="flex items-start justify-between">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-600 text-white font-bold flex items-center justify-center text-sm shadow">
+                <i class="fa-solid fa-building"></i>
+              </div>
+              <div>
+                <h4 class="text-sm font-bold text-white">${escapeHTML(org.name)}</h4>
+                <div class="text-[10px] font-mono text-cyan-400">@${escapeHTML(org.slug)}</div>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${roleClass}">${escapeHTML(org.myRole)}</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-3 line-clamp-2">${escapeHTML(org.description || 'Enterprise workspace and team collaboration.')}</p>
+        </div>
+
+        <div class="pt-3 border-t border-white/5 flex items-center space-x-2">
+          <button type="button" onclick="window.switchWorkspace('${org.id}'); window.switchWorkspace('tab-organizations')" class="flex-1 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow transition cursor-pointer flex items-center justify-center space-x-1.5">
+            <i class="fa-solid fa-gear text-[10px]"></i>
+            <span>Open Org Console</span>
+          </button>
+          <button type="button" onclick="window.switchWorkspace('${org.id}'); window.switchWorkspace('tab-project-management')" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 hover:text-white text-xs font-semibold transition cursor-pointer" title="View Organization Projects">
+            <i class="fa-solid fa-folder-open"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+window.loadActiveWorkspaceConsole = async function() {
+  const dirView = document.getElementById('org-view-directory');
+  const consoleView = document.getElementById('org-view-console');
+  if (!dirView || !consoleView) return;
+
+  await window.fetchUserOrganizations();
+
+  if (state.activeWorkspace && state.activeWorkspace.startsWith('org_')) {
+    dirView.classList.add('hidden');
+    consoleView.classList.remove('hidden');
+    const org = state.organizations.find(o => o.id === state.activeWorkspace);
+    const breadcrumb = document.getElementById('label-org-console-breadcrumb');
+    if (breadcrumb) breadcrumb.textContent = org ? `${org.name} Console` : 'Organization Console';
+    window.loadOrgConsole(state.activeWorkspace);
+  } else {
+    consoleView.classList.add('hidden');
+    dirView.classList.remove('hidden');
+    window.renderOrgDirectory();
+  }
+};
+
+window.switchOrgSubTab = function(subTabName) {
+  document.querySelectorAll('.org-subtab-btn').forEach(b => {
+    b.classList.remove('bg-cyan-600', 'text-white', 'font-semibold', 'shadow');
+    b.classList.add('text-slate-400', 'font-medium');
+  });
+
+  const activeBtn = document.getElementById(`btn-org-tab-${subTabName}`);
+  if (activeBtn) {
+    activeBtn.classList.add('bg-cyan-600', 'text-white', 'font-semibold', 'shadow');
+    activeBtn.classList.remove('text-slate-400', 'font-medium');
+  }
+
+  document.querySelectorAll('.org-subpanel').forEach(p => p.classList.add('hidden'));
+  const activePanel = document.getElementById(`org-panel-${subTabName}`);
+  if (activePanel) activePanel.classList.remove('hidden');
+
+  if (state.activeOrgId) {
+    if (subTabName === 'members') window.loadOrgMembers(state.activeOrgId);
+    else if (subTabName === 'teams') window.loadOrgTeams(state.activeOrgId);
+    else if (subTabName === 'invites') window.loadOrgInvites(state.activeOrgId);
+    else if (subTabName === 'audit') window.refreshOrgAuditLogs(state.activeOrgId);
+    else if (subTabName === 'projects') window.loadOrgProjects(state.activeOrgId);
+  }
+};
+
+window.loadOrgConsole = async function(orgId) {
+  if (!orgId) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${orgId}`, 'GET');
+    const org = res?.data || res;
+
+    // 1. Update Org Banner Info
+    const bannerName = document.getElementById('org-banner-name');
+    if (bannerName) bannerName.textContent = org.name;
+    const bannerSlug = document.getElementById('org-banner-slug');
+    if (bannerSlug) bannerSlug.textContent = `@${org.slug}`;
+    const bannerDesc = document.getElementById('org-banner-desc');
+    if (bannerDesc) bannerDesc.textContent = org.description || 'Enterprise Workspace & Team Collaboration';
+    const bannerRole = document.getElementById('org-banner-role-badge');
+    if (bannerRole) bannerRole.textContent = (org.myRole || 'MEMBER').toUpperCase();
+
+    // 2. Settings form prefill
+    const editName = document.getElementById('input-edit-org-name');
+    if (editName) editName.value = org.name;
+    const editSlug = document.getElementById('input-edit-org-slug');
+    if (editSlug) editSlug.value = org.slug;
+    const editDesc = document.getElementById('input-edit-org-desc');
+    if (editDesc) editDesc.value = org.description || '';
+    const editDefaultRole = document.getElementById('select-edit-org-default-role');
+    if (editDefaultRole) editDefaultRole.value = org.defaultMemberRole || 'member';
+
+    // 3. Load sub-panel content based on current active subtab
+    window.loadOrgProjects(orgId);
+    window.loadOrgMembers(orgId);
+    window.loadOrgTeams(orgId);
+    window.loadOrgInvites(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to load organization console', 'error');
+  }
+};
+
+// ── Org Subpanel: Projects ───────────────────────────────────────────────────
+window.loadOrgProjects = async function(orgId) {
+  const container = document.getElementById('container-org-projects-list');
+  const metric = document.getElementById('metric-org-projects');
+  if (!container) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/projects?orgId=${encodeURIComponent(orgId)}`, 'GET');
+    const projects = Array.isArray(res) ? res : (res?.data || []);
+    if (metric) metric.textContent = projects.length;
+
+    if (projects.length === 0) {
+      container.innerHTML = `
+        <div class="col-span-full p-8 text-center glass-panel rounded-2xl border border-white/10 space-y-2">
+          <i class="fa-solid fa-folder-open text-slate-500 text-2xl"></i>
+          <div class="text-xs font-semibold text-slate-300">No projects in this organization yet.</div>
+          <button type="button" onclick="window.openCreateProjectModalForOrg()" class="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition cursor-pointer">
+            <i class="fa-solid fa-plus mr-1"></i> Create First Org Project
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = projects.map(p => `
+      <div class="glass-panel p-5 rounded-2xl border border-white/10 hover:border-cyan-500/30 transition space-y-3">
+        <div class="flex items-start justify-between">
+          <div>
+            <h4 class="text-sm font-bold text-white">${escapeHTML(p.name)}</h4>
+            <span class="text-[10px] font-mono text-slate-400">${p.id.substring(0, 12)}...</span>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${escapeHTML(p.myProjectRole || 'viewer')}</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-400 py-1 border-y border-white/5">
+          <div><span class="text-slate-200 font-semibold">${p.collectionCount || 0}</span> Collections</div>
+          <div><span class="text-slate-200 font-semibold">${p.documentCount || 0}</span> Documents</div>
+        </div>
+        <div class="flex items-center space-x-2 pt-1">
+          <button type="button" onclick="selectProjectForBrowsing('${p.id}')" class="flex-1 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold shadow transition cursor-pointer flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-arrow-right"></i>
+            <span>Browse</span>
+          </button>
+          <button type="button" onclick="window.openProjectCollaboratorsModal('${p.id}', '${escapeHTML(p.name)}')" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-white/10 text-slate-300 text-xs font-semibold transition cursor-pointer" title="Manage Collaborators">
+            <i class="fa-solid fa-users-gear"></i>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="col-span-full text-xs text-rose-400">Failed to load projects: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.openCreateProjectModalForOrg = function() {
+  const wsSelect = document.getElementById('select-new-project-workspace');
+  if (wsSelect && state.activeOrgId) {
+    wsSelect.value = state.activeOrgId;
+  }
+  document.getElementById('input-new-project-name').value = '';
+  window.showModal('modal-create-project');
+};
+
+window.cleanUserLabel = function(val, fallback = 'Team Member') {
+  if (!val) return fallback;
+  if (typeof val === 'string' && val.includes('"_encrypted":true')) {
+    return fallback;
+  }
+  return String(val);
+};
+
+// ── Org Subpanel: Members & Roles ────────────────────────────────────────────
+window.loadOrgMembers = async function(orgId) {
+  const tableBody = document.getElementById('table-org-members-body');
+  const metric = document.getElementById('metric-org-members');
+  if (!tableBody) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${orgId}/members`, 'GET');
+    const members = Array.isArray(res) ? res : (res?.data || []);
+    if (metric) metric.textContent = members.length;
+
+    if (members.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="4" class="p-4 text-center text-slate-500">No members found.</td></tr>';
+      return;
+    }
+
+    const org = state.organizations.find(o => o.id === orgId);
+    const isOrgAdmin = org?.myRole === 'owner' || org?.myRole === 'admin';
+
+    tableBody.innerHTML = members.map(m => {
+      const displayName = window.cleanUserLabel(m.name || m.email, 'Team Member');
+      const displayEmail = window.cleanUserLabel(m.email, 'member@workspace');
+      return `
+        <tr class="border-b border-white/5 hover:bg-white/5 transition text-xs">
+          <td class="p-4">
+            <div class="font-semibold text-white">${escapeHTML(displayName)}</div>
+            <div class="text-[10px] text-slate-400 font-mono">${escapeHTML(displayEmail)}</div>
+          </td>
+          <td class="p-4">
+            ${isOrgAdmin && m.role !== 'owner' ? `
+              <select onchange="window.updateOrgMemberRole('${orgId}', '${m.userId}', this.value)" class="px-2.5 py-1 rounded-lg glass-input text-xs font-semibold bg-slate-900 border border-cyan-500/30 text-cyan-300 cursor-pointer">
+                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>Admin</option>
+                <option value="member" ${m.role === 'member' ? 'selected' : ''}>Member</option>
+                <option value="billing_manager" ${m.role === 'billing_manager' ? 'selected' : ''}>Billing Manager</option>
+                <option value="auditor" ${m.role === 'auditor' ? 'selected' : ''}>Auditor</option>
+              </select>
+            ` : `
+              <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${escapeHTML(m.role)}</span>
+            `}
+          </td>
+          <td class="p-4 text-slate-400 text-[11px]">${m.joinedAt ? new Date(m.joinedAt).toLocaleDateString() : 'N/A'}</td>
+          <td class="p-4 text-right">
+            ${isOrgAdmin && m.role !== 'owner' ? `
+              <button type="button" onclick="window.removeOrgMember('${orgId}', '${m.userId}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-semibold transition cursor-pointer">
+                <i class="fa-solid fa-user-xmark mr-1"></i> Remove
+              </button>
+            ` : ''}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+window.updateOrgMemberRole = async function(orgId, userId, role) {
+  try {
+    await apiRequest(`/api/v1/orgs/${orgId}/members/${userId}`, 'PATCH', { role });
+    showToast('Member role updated successfully!', 'success');
+    window.loadOrgMembers(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to update member role', 'error');
+    window.loadOrgMembers(orgId);
+  }
+};
+
+// ── Org Subpanel: Functional Teams & Project Grants ──────────────────────────
+window.loadOrgTeams = async function(orgId) {
+  const container = document.getElementById('container-org-teams-list');
+  const metric = document.getElementById('metric-org-teams');
+  if (!container) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${orgId}/teams`, 'GET');
+    const teams = Array.isArray(res) ? res : (res?.data || []);
+    if (metric) metric.textContent = teams.length;
+
+    if (teams.length === 0) {
+      container.innerHTML = `
+        <div class="col-span-full p-8 text-center glass-panel rounded-2xl border border-white/10 space-y-2">
+          <i class="fa-solid fa-people-group text-slate-500 text-2xl"></i>
+          <div class="text-xs font-semibold text-slate-300">No functional teams created yet.</div>
+          <p class="text-[11px] text-slate-400">Teams help you grant repository permissions to groups of engineers at once.</p>
+          <button type="button" onclick="window.openCreateTeamModal()" class="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer">
+            <i class="fa-solid fa-plus mr-1"></i> Create First Team
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = teams.map(t => `
+      <div class="glass-panel p-5 rounded-2xl border border-white/10 hover:border-indigo-500/30 transition space-y-4">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-sm">
+              <i class="fa-solid fa-people-group"></i>
+            </div>
+            <div>
+              <h4 class="text-sm font-bold text-white">${escapeHTML(t.name)}</h4>
+              <div class="text-[10px] font-mono text-indigo-300">@${escapeHTML(t.slug)}</div>
+            </div>
+          </div>
+          <button type="button" onclick="window.deleteTeam('${t.id}')" class="text-slate-500 hover:text-rose-400 text-xs transition" title="Delete Team">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-400 line-clamp-2">${escapeHTML(t.description || 'Functional team unit')}</p>
+
+        <div class="grid grid-cols-2 gap-2 text-center text-xs py-2 bg-slate-900/60 rounded-xl border border-white/5">
+          <div>
+            <div class="text-[10px] text-slate-400 uppercase font-semibold">Members</div>
+            <div class="text-sm font-bold text-white">${t.memberCount || 0}</div>
+          </div>
+          <div>
+            <div class="text-[10px] text-slate-400 uppercase font-semibold">Projects</div>
+            <div class="text-sm font-bold text-indigo-300">${t.projectGrantCount || 0}</div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-1">
+          <button type="button" onclick="window.openManageTeamMembersModal('${t.id}', '${escapeHTML(t.name)}', '${escapeHTML(t.slug)}')" class="flex-1 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold transition cursor-pointer flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-user-group"></i>
+            <span>Members</span>
+          </button>
+          <button type="button" onclick="window.openGrantTeamProjectModal('${t.id}', '${escapeHTML(t.name)}', '${escapeHTML(t.slug)}')" class="flex-1 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-xs font-semibold transition cursor-pointer flex items-center justify-center space-x-1">
+            <i class="fa-solid fa-folder-tree"></i>
+            <span>Projects</span>
+          </button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="col-span-full text-xs text-rose-400">Failed to load teams: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.openCreateTeamModal = function() {
+  document.getElementById('input-team-name').value = '';
+  document.getElementById('input-team-slug').value = '';
+  document.getElementById('input-team-desc').value = '';
+  window.showModal('modal-create-team');
+};
+
+window.submitCreateTeam = async function() {
+  const orgId = state.activeOrgId;
+  const name = document.getElementById('input-team-name')?.value?.trim();
+  const slug = document.getElementById('input-team-slug')?.value?.trim();
+  const description = document.getElementById('input-team-desc')?.value?.trim();
+
+  if (!name) {
+    showToast('Please enter a team name.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest(`/api/v1/orgs/${orgId}/teams`, 'POST', { name, slug, description });
+    window.hideModal('modal-create-team');
+    showToast(`Team "${name}" created!`, 'success');
+    window.loadOrgTeams(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to create team', 'error');
+  }
+};
+
+window.deleteTeam = async function(teamId) {
+  if (!confirm('Are you sure you want to delete this team? Members will lose group-granted project access.')) return;
+  try {
+    await apiRequest(`/api/v1/orgs/${state.activeOrgId}/teams/${teamId}`, 'DELETE');
+    showToast('Team deleted.', 'info');
+    window.loadOrgTeams(state.activeOrgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to delete team', 'error');
+  }
+};
+
+// ── Modal: Manage Team Members ───────────────────────────────────────────────
+window.openManageTeamMembersModal = async function(teamId, teamName, teamSlug) {
+  document.getElementById('input-manage-team-id').value = teamId;
+  document.getElementById('label-manage-team-title').textContent = teamName;
+  document.getElementById('label-manage-team-slug').textContent = `@${teamSlug}`;
+
+  window.showModal('modal-manage-team-members');
+
+  // Load Org Members into select dropdown
+  try {
+    const memRes = await apiRequest(`/api/v1/orgs/${state.activeOrgId}/members`, 'GET');
+    const orgMembers = Array.isArray(memRes) ? memRes : (memRes?.data || []);
+    const select = document.getElementById('select-team-add-member');
+    if (select) {
+      select.innerHTML = '<option value="">Select Member...</option>' + 
+        orgMembers.map(m => `<option value="${m.userId}">${escapeHTML(m.name || m.email)} (${escapeHTML(m.email)})</option>`).join('');
+    }
+  } catch (_) {}
+
+  window.loadTeamMembersList(teamId);
+};
+
+window.loadTeamMembersList = async function(teamId) {
+  const container = document.getElementById('container-team-members-list');
+  if (!container) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${state.activeOrgId}/teams/${teamId}`, 'GET');
+    const members = res?.data?.members || res?.members || [];
+
+    if (members.length === 0) {
+      container.innerHTML = '<div class="text-slate-500 text-center py-4">No members assigned to this team yet.</div>';
+      return;
+    }
+
+    container.innerHTML = members.map(m => {
+      const displayName = window.cleanUserLabel(m.name || m.email, 'Team Member');
+      const displayEmail = window.cleanUserLabel(m.email, 'member@workspace');
+      return `
+        <div class="py-2 flex items-center justify-between">
+          <div>
+            <span class="text-white font-medium">${escapeHTML(displayName)}</span>
+            <span class="text-slate-500 text-[10px] ml-1">(${escapeHTML(displayEmail)})</span>
+            <span class="ml-2 px-1.5 py-0.2 rounded text-[9px] uppercase font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${escapeHTML(m.role)}</span>
+          </div>
+          <button type="button" onclick="window.removeTeamMember('${teamId}', '${m.userId}')" class="text-rose-400 hover:text-rose-300 text-[10px] cursor-pointer">
+            Remove
+          </button>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-rose-400 text-center py-2">${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.submitAddTeamMember = async function() {
+  const teamId = document.getElementById('input-manage-team-id')?.value;
+  const targetUserId = document.getElementById('select-team-add-member')?.value;
+  const role = document.getElementById('select-team-add-role')?.value;
+
+  if (!targetUserId) {
+    showToast('Please select a member to add.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest(`/api/v1/orgs/${state.activeOrgId}/teams/${teamId}/members`, 'POST', { targetUserId, role });
+    showToast('Member added to team!', 'success');
+    window.loadTeamMembersList(teamId);
+    window.loadOrgTeams(state.activeOrgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to add member to team', 'error');
+  }
+};
+
+window.removeTeamMember = async function(teamId, memberUserId) {
+  try {
+    await apiRequest(`/api/v1/orgs/${state.activeOrgId}/teams/${teamId}/members/${memberUserId}`, 'DELETE');
+    showToast('Member removed from team.', 'info');
+    window.loadTeamMembersList(teamId);
+    window.loadOrgTeams(state.activeOrgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to remove member', 'error');
+  }
+};
+
+// ── Modal: Grant Team Project Access ─────────────────────────────────────────
+window.openGrantTeamProjectModal = async function(teamId, teamName, teamSlug) {
+  document.getElementById('input-grant-team-id').value = teamId;
+  document.getElementById('label-grant-project-team-title').textContent = teamName;
+  document.getElementById('label-grant-project-team-slug').textContent = `@${teamSlug}`;
+
+  window.showModal('modal-grant-team-project');
+
+  // Load Org Projects into dropdown
+  try {
+    const projRes = await apiRequest(`/api/v1/projects?orgId=${encodeURIComponent(state.activeOrgId)}`, 'GET');
+    const orgProjects = Array.isArray(projRes) ? projRes : (projRes?.data || []);
+    const select = document.getElementById('select-team-grant-project');
+    if (select) {
+      select.innerHTML = '<option value="">Select Project...</option>' +
+        orgProjects.map(p => `<option value="${p.id}">${escapeHTML(p.name)} (${p.id.substring(0, 8)}...)</option>`).join('');
+    }
+  } catch (_) {}
+
+  window.loadTeamProjectGrantsList(teamId);
+};
+
+window.loadTeamProjectGrantsList = async function(teamId) {
+  const container = document.getElementById('container-team-projects-list');
+  if (!container) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${state.activeOrgId}/teams/${teamId}`, 'GET');
+    const grants = res?.data?.projectGrants || res?.projectGrants || [];
+
+    if (grants.length === 0) {
+      container.innerHTML = '<div class="text-slate-500 text-center py-4">No projects granted to this team yet.</div>';
+      return;
+    }
+
+    container.innerHTML = grants.map(g => `
+      <div class="py-2 flex items-center justify-between">
+        <div>
+          <span class="text-white font-medium">${escapeHTML(g.projectName)}</span>
+          <span class="ml-2 px-1.5 py-0.2 rounded text-[9px] uppercase font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${escapeHTML(g.role)}</span>
+        </div>
+        <button type="button" onclick="window.revokeTeamProjectAccess('${teamId}', '${g.projectId}')" class="text-rose-400 hover:text-rose-300 text-[10px] cursor-pointer">
+          Revoke
+        </button>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-rose-400 text-center py-2">${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.submitGrantTeamProject = async function() {
+  const teamId = document.getElementById('input-grant-team-id')?.value;
+  const projectId = document.getElementById('select-team-grant-project')?.value;
+  const role = document.getElementById('select-team-grant-role')?.value;
+
+  if (!projectId) {
+    showToast('Please select a project to grant access.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest(`/api/v1/orgs/${state.activeOrgId}/teams/${teamId}/projects`, 'POST', { projectId, role });
+    showToast('Project access granted to team!', 'success');
+    window.loadTeamProjectGrantsList(teamId);
+    window.loadOrgTeams(state.activeOrgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to grant project access', 'error');
+  }
+};
+
+window.revokeTeamProjectAccess = async function(teamId, projectId) {
+  try {
+    await apiRequest(`/api/v1/orgs/${state.activeOrgId}/teams/${teamId}/projects/${projectId}`, 'DELETE');
+    showToast('Team project access revoked.', 'info');
+    window.loadTeamProjectGrantsList(teamId);
+    window.loadOrgTeams(state.activeOrgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to revoke project access', 'error');
+  }
+};
+
+// ── Modal: Direct Project Collaborators & Effective RBAC ──────────────────────
+window.openProjectCollaboratorsModal = async function(projectId, projectName) {
+  document.getElementById('input-collab-project-id').value = projectId;
+  document.getElementById('label-collab-project-title').textContent = projectName || 'Project Access';
+  document.getElementById('label-collab-project-id').textContent = projectId;
+
+  window.showModal('modal-project-collaborators');
+  window.loadProjectCollaboratorsList(projectId);
+};
+
+window.loadProjectCollaboratorsList = async function(projectId) {
+  const directContainer = document.getElementById('container-direct-collaborators-list');
+  const teamContainer = document.getElementById('container-project-team-grants-list');
+  if (!directContainer || !teamContainer) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/projects/${projectId}/collaborators`, 'GET');
+    const data = res?.data || res || { directMembers: [], teamGrants: [] };
+
+    const direct = data.directMembers || [];
+    const teams = data.teamGrants || [];
+
+    if (direct.length === 0) {
+      directContainer.innerHTML = '<div class="text-slate-500 text-center py-4 text-[11px]">No direct collaborators added.</div>';
+    } else {
+      directContainer.innerHTML = direct.map(d => {
+        const displayName = window.cleanUserLabel(d.name || d.email, 'Collaborator');
+        const displayEmail = window.cleanUserLabel(d.email, 'user@project');
+        return `
+          <div class="py-2 flex items-center justify-between text-xs">
+            <div>
+              <div class="font-medium text-white">${escapeHTML(displayName)}</div>
+              <div class="text-[10px] text-slate-400 font-mono">${escapeHTML(displayEmail)}</div>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">${escapeHTML(d.role)}</span>
+              <button type="button" onclick="window.removeProjectCollaborator('${projectId}', '${d.userId}')" class="text-rose-400 hover:text-rose-300 text-[10px] cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    if (teams.length === 0) {
+      teamContainer.innerHTML = '<div class="text-slate-500 text-center py-4 text-[11px]">No team grants assigned.</div>';
+    } else {
+      teamContainer.innerHTML = teams.map(t => `
+        <div class="py-2 flex items-center justify-between text-xs">
+          <div>
+            <div class="font-medium text-white">${escapeHTML(t.teamName)}</div>
+            <div class="text-[10px] text-indigo-400 font-mono">@${escapeHTML(t.teamSlug)}</div>
+          </div>
+          <span class="px-1.5 py-0.2 rounded text-[9px] uppercase font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${escapeHTML(t.role)}</span>
+        </div>
+      `).join('');
+    }
+  } catch (err) {
+    directContainer.innerHTML = `<div class="text-rose-400 text-center py-2 text-xs">${escapeHTML(err.message)}</div>`;
+  }
+};
+
+window.submitAddProjectCollaborator = async function() {
+  const projectId = document.getElementById('input-collab-project-id')?.value;
+  const userId = document.getElementById('input-collab-user-id')?.value?.trim();
+  const role = document.getElementById('select-collab-role')?.value;
+
+  if (!userId) {
+    showToast('Please enter user ID or email.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest(`/api/v1/projects/${projectId}/collaborators`, 'POST', { userId, role });
+    document.getElementById('input-collab-user-id').value = '';
+    showToast('Collaborator added successfully!', 'success');
+    window.loadProjectCollaboratorsList(projectId);
+  } catch (err) {
+    showToast(err.message || 'Failed to add collaborator', 'error');
+  }
+};
+
+window.removeProjectCollaborator = async function(projectId, userId) {
+  try {
+    await apiRequest(`/api/v1/projects/${projectId}/collaborators/${userId}`, 'DELETE');
+    showToast('Collaborator removed.', 'info');
+    window.loadProjectCollaboratorsList(projectId);
+  } catch (err) {
+    showToast(err.message || 'Failed to remove collaborator', 'error');
+  }
+};
+
+// ── Org Subpanel: Invitations ────────────────────────────────────────────────
+window.loadOrgInvites = async function(orgId) {
+  const tableBody = document.getElementById('table-org-invites-body');
+  const metric = document.getElementById('metric-org-invites');
+  if (!tableBody) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${orgId}/invites`, 'GET');
+    const invites = Array.isArray(res) ? res : (res?.data || []);
+    if (metric) metric.textContent = invites.length;
+
+    if (invites.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="5" class="p-4 text-center text-slate-500">No pending invitations.</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = invites.map(inv => `
+      <tr class="border-b border-white/5 hover:bg-white/5 transition text-xs">
+        <td class="p-4 font-mono font-medium text-white">${escapeHTML(inv.invitedEmail)}</td>
+        <td class="p-4">
+          <span class="px-2 py-0.5 rounded text-[10px] uppercase font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${escapeHTML(inv.role)}</span>
+        </td>
+        <td class="p-4 text-slate-400">${inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : 'N/A'}</td>
+        <td class="p-4 text-amber-300">${inv.expiresAt ? new Date(inv.expiresAt).toLocaleDateString() : '7 days'}</td>
+        <td class="p-4 text-right space-x-2">
+          <button type="button" onclick="window.copyOrgInviteLink('${inv.token}')" class="px-2.5 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/30 text-[10px] font-semibold transition cursor-pointer">
+            <i class="fa-solid fa-copy mr-1"></i> Copy Link
+          </button>
+          <button type="button" onclick="window.revokeOrgInvite('${orgId}', '${inv.id}')" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[10px] font-semibold transition cursor-pointer">
+            Revoke
+          </button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+window.openInviteMemberModal = function(orgId) {
+  document.getElementById('input-invite-org-id').value = orgId || state.activeOrgId;
+  document.getElementById('input-invite-email').value = '';
+  window.showModal('modal-invite-member');
+};
+
+window.submitInviteMember = async function() {
+  const orgId = document.getElementById('input-invite-org-id')?.value || state.activeOrgId;
+  const email = document.getElementById('input-invite-email')?.value?.trim();
+  const role = document.getElementById('select-invite-role')?.value;
+  const ttlDays = document.getElementById('select-invite-ttl')?.value;
+
+  if (!email) {
+    showToast('Please enter teammate email address.', 'error');
+    return;
+  }
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${orgId}/invites`, 'POST', { email, role, ttlDays });
+    window.hideModal('modal-invite-member');
+    showToast(`Invitation created for ${email}!`, 'success');
+    window.loadOrgInvites(orgId);
+    window.loadOrgConsole(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to create invitation', 'error');
+  }
+};
+
+window.revokeOrgInvite = async function(orgId, inviteId) {
+  if (!confirm('Revoke this invitation?')) return;
+  try {
+    await apiRequest(`/api/v1/orgs/${orgId}/invites/${inviteId}`, 'DELETE');
+    showToast('Invitation revoked.', 'info');
+    window.loadOrgInvites(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to revoke invitation', 'error');
+  }
+};
+
+window.copyOrgInviteLink = function(token) {
+  const url = `${window.location.origin}/#invite=${token}`;
+  navigator.clipboard.writeText(url).then(() => showToast('Invitation link copied to clipboard!', 'success'));
+};
+
+// ── Org Subpanel: Audit Log ──────────────────────────────────────────────────
+window.refreshOrgAuditLogs = async function(orgId) {
+  const tableBody = document.getElementById('table-org-audit-body');
+  if (!tableBody) return;
+  const targetOrgId = orgId || state.activeOrgId;
+  if (!targetOrgId) return;
+
+  try {
+    const res = await apiRequest(`/api/v1/orgs/${targetOrgId}/audit-logs`, 'GET');
+    const logs = Array.isArray(res) ? res : (res?.data || []);
+
+    if (logs.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="6" class="p-4 text-center text-slate-500">No activity recorded yet.</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = logs.map(l => {
+      const actorLabel = window.cleanUserLabel(l.actorName || l.actorEmail || l.actorId, 'User');
+      return `
+        <tr class="border-b border-white/5 hover:bg-white/5 transition text-xs">
+          <td class="p-4 text-slate-400 font-mono text-[10px] whitespace-nowrap">${new Date(l.createdAt).toLocaleString()}</td>
+          <td class="p-4 text-white font-medium">${escapeHTML(actorLabel)}</td>
+          <td class="p-4">
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">${escapeHTML(l.action)}</span>
+          </td>
+          <td class="p-4 text-slate-300 font-mono text-[10px]">${escapeHTML(l.targetType || 'org')}: ${escapeHTML(l.targetId || '')}</td>
+          <td class="p-4 text-slate-400 font-mono text-[10px]">${escapeHTML(l.ipAddress || '127.0.0.1')}</td>
+          <td class="p-4 text-right text-slate-400 font-mono text-[10px] truncate max-w-[140px]" title="${escapeHTML(JSON.stringify(l.details || {}))}">
+            ${escapeHTML(JSON.stringify(l.details || {}))}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
+  }
+};
+
+// ── Org Subpanel: Settings & Danger Zone ──────────────────────────────────────
+window.saveOrgSettings = async function() {
+  const orgId = state.activeOrgId;
+  const name = document.getElementById('input-edit-org-name')?.value?.trim();
+  const description = document.getElementById('input-edit-org-desc')?.value?.trim();
+  const defaultMemberRole = document.getElementById('select-edit-org-default-role')?.value;
+
+  if (!name) {
+    showToast('Organization name cannot be empty.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest(`/api/v1/orgs/${orgId}`, 'PATCH', { name, description, defaultMemberRole });
+    showToast('Organization settings saved!', 'success');
+    window.fetchUserOrganizations();
+    window.loadOrgConsole(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to save settings', 'error');
+  }
+};
+
+window.openTransferOwnershipModal = async function() {
+  const orgId = state.activeOrgId;
+  document.getElementById('label-transfer-org-name').textContent = `@${state.organizations.find(o => o.id === orgId)?.slug || orgId}`;
+  window.showModal('modal-transfer-org-ownership');
+
+  try {
+    const memRes = await apiRequest(`/api/v1/orgs/${orgId}/members`, 'GET');
+    const members = Array.isArray(memRes) ? memRes : (memRes?.data || []);
+    const select = document.getElementById('select-transfer-new-owner');
+    if (select) {
+      select.innerHTML = '<option value="">Select Member...</option>' +
+        members.filter(m => m.role !== 'owner').map(m => `<option value="${m.userId}">${escapeHTML(m.name || m.email)} (${escapeHTML(m.email)})</option>`).join('');
+    }
+  } catch (_) {}
+};
+
+window.submitTransferOrgOwnership = async function() {
+  const orgId = state.activeOrgId;
+  const newOwnerUserId = document.getElementById('select-transfer-new-owner')?.value;
+
+  if (!newOwnerUserId) {
+    showToast('Please select a member to transfer ownership to.', 'error');
+    return;
+  }
+
+  if (!confirm('Are you ABSOLUTELY SURE you want to transfer ownership of this organization?')) return;
+
+  try {
+    await apiRequest(`/api/v1/orgs/${orgId}/transfer-ownership`, 'POST', { newOwnerUserId });
+    window.hideModal('modal-transfer-org-ownership');
+    showToast('Organization ownership transferred.', 'success');
+    window.fetchUserOrganizations();
+    window.loadOrgConsole(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to transfer ownership', 'error');
+  }
+};
+
+window.confirmDeleteOrg = async function() {
+  const orgId = state.activeOrgId;
+  const org = state.organizations.find(o => o.id === orgId);
+  if (!confirm(`Are you SURE you want to permanently delete organization "${org?.name || orgId}" and ALL its repositories and teams? This action cannot be undone.`)) return;
+
+  try {
+    await apiRequest(`/api/v1/orgs/${orgId}`, 'DELETE');
+    showToast('Organization permanently deleted.', 'info');
+    state.activeOrgId = null;
+    state.activeWorkspace = 'personal';
+    await window.fetchUserOrganizations();
+    window.switchWorkspace('personal');
+  } catch (err) {
+    showToast(err.message || 'Failed to delete organization', 'error');
+  }
+};
+
+window.openCreateOrgModal = function() {
+  document.getElementById('input-org-name').value = '';
+  document.getElementById('input-org-slug').value = '';
+  document.getElementById('input-org-desc').value = '';
+  window.showModal('modal-create-org');
+};
+
+window.submitCreateOrg = async function() {
+  const name = document.getElementById('input-org-name')?.value?.trim();
+  const slug = document.getElementById('input-org-slug')?.value?.trim();
+  const description = document.getElementById('input-org-desc')?.value?.trim();
+
+  if (!name) {
+    showToast('Please enter an organization name.', 'error');
+    return;
+  }
+
+  try {
+    const res = await apiRequest('/api/v1/orgs', 'POST', { name, slug, description });
+    const org = res?.data || res;
+    window.hideModal('modal-create-org');
+    showToast('Organization created successfully!', 'success');
+    await window.fetchUserOrganizations();
+    if (org?.id) {
+      window.switchWorkspace(org.id);
+      window.switchWorkspace('tab-organizations');
+    }
+  } catch (err) {
+    showToast(err.message || 'Failed to create organization', 'error');
+  }
+};
+
+window.removeOrgMember = async function(orgId, userId) {
+  if (!confirm('Remove this member from the organization?')) return;
+  try {
+    await apiRequest(`/api/v1/orgs/${orgId}/members/${userId}`, 'DELETE');
+    showToast('Member removed.', 'info');
+    window.loadOrgMembers(orgId);
+    window.loadOrgConsole(orgId);
+  } catch (err) {
+    showToast(err.message || 'Failed to remove member', 'error');
+  }
+};
+
+// ── 6. Storage Quota Handlers ────────────────────────────────────────────────
+
+window.fetchUserStorageQuota = async function() {
+  if (!state.accessToken) return;
+  try {
+    const res = await apiRequest('/api/v1/storage/quota', 'GET');
+    const quota = (res && res.usedBytes !== undefined) ? res : (res?.data || {});
+    if (quota.usedBytes === undefined) return;
+
+    const usedMb = Math.round(quota.usedBytes / (1024 * 1024) * 10) / 10;
+    const maxMb = Math.round(quota.maxBytes / (1024 * 1024));
+    const percent = Math.min(100, Math.max(0, quota.percentage || 0));
+
+    const progressBar = document.getElementById('quota-progress-bar');
+    if (progressBar) progressBar.style.width = `${percent}%`;
+
+    const badgePercent = document.getElementById('quota-badge-percent');
+    if (badgePercent) badgePercent.textContent = `${percent}% Used`;
+
+    const labelUsed = document.getElementById('quota-label-used');
+    if (labelUsed) labelUsed.textContent = `${usedMb} MB of ${maxMb} MB`;
+
+    const labelFiles = document.getElementById('quota-label-files');
+    if (labelFiles) labelFiles.textContent = `${quota.fileCount} file${quota.fileCount === 1 ? '' : 's'}`;
+  } catch (_) {}
+};
+
+// ── 7. In-App Notification Center Handlers ───────────────────────────────────
+
+window.fetchUserNotifications = async function() {
+  if (!state.accessToken) return;
+  try {
+    const res = await apiRequest('/api/v1/notifications', 'GET');
+    const data = (res && res.notifications !== undefined) ? res : (res?.data || { unreadCount: 0, notifications: [] });
+
+    const badge = document.getElementById('badge-notif-unread-count');
+    if (badge) {
+      if (data.unreadCount > 0) {
+        badge.textContent = data.unreadCount > 99 ? '99+' : data.unreadCount;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    const container = document.getElementById('user-notifications-feed-list');
+    if (container) {
+      const notifs = data.notifications || [];
+      if (notifs.length === 0) {
+        container.innerHTML = '<div class="text-slate-400 text-center py-4">No notifications yet.</div>';
+        return;
+      }
+
+      container.innerHTML = notifs.map(n => {
+        const icon = n.type === 'security' ? 'fa-shield-halved text-rose-400' :
+                     n.type === 'invite' ? 'fa-user-plus text-cyan-400' :
+                     n.type === 'success' ? 'fa-circle-check text-emerald-400' :
+                     'fa-bell text-indigo-400';
+        return `
+          <div onclick="window.markNotificationRead('${n.id}')" class="p-2.5 rounded-xl border ${n.isRead ? 'bg-white/[0.02] border-white/5 text-slate-400' : 'bg-indigo-500/10 border-indigo-500/30 text-white'} transition cursor-pointer flex items-start space-x-2.5">
+            <i class="fa-solid ${icon} mt-0.5 text-xs"></i>
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold text-xs truncate">${escapeHTML(n.title)}</div>
+              <div class="text-[11px] text-slate-300 leading-snug mt-0.5">${escapeHTML(n.message)}</div>
+              <div class="text-[9px] text-slate-500 mt-1">${new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+            </div>
+            ${!n.isRead ? '<span class="h-2 w-2 rounded-full bg-indigo-400 shrink-0 mt-1"></span>' : ''}
+          </div>
+        `;
+      }).join('');
+    }
+  } catch (_) {}
+};
+
+window.toggleNotificationCenter = function() {
+  const dropdown = document.getElementById('dropdown-user-notifications');
+  if (!dropdown) return;
+  dropdown.classList.toggle('hidden');
+  if (!dropdown.classList.contains('hidden')) {
+    window.fetchUserNotifications();
+  }
+};
+
+window.markNotificationRead = async function(id) {
+  try {
+    await apiRequest(`/api/v1/notifications/${id}/read`, 'PATCH');
+    window.fetchUserNotifications();
+  } catch (_) {}
+};
+
+window.markAllNotificationsRead = async function() {
+  try {
+    await apiRequest('/api/v1/notifications/read-all', 'PATCH');
+    showToast('All notifications marked as read.', 'info');
+    window.fetchUserNotifications();
+  } catch (_) {}
+};
+
+// ── 8. User Security Activity Logs Handlers ───────────────────────────────────
+
+window.fetchUserSecurityLogs = async function() {
+  const container = document.getElementById('user-security-logs-feed');
+  if (!container || !state.accessToken) return;
+
+  try {
+    const res = await apiRequest('/api/v1/auth/security-logs', 'GET');
+    const logs = Array.isArray(res) ? res : (res?.data || []);
+
+    if (logs.length === 0) {
+      container.innerHTML = '<div class="text-slate-500 text-center py-4">No recent security events.</div>';
+      return;
+    }
+
+    container.innerHTML = logs.map(l => `
+      <div class="p-2 bg-slate-900/60 rounded-lg border border-white/5 flex items-center justify-between text-[11px]">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-shield text-indigo-400 text-[10px]"></i>
+          <span class="text-slate-200 font-semibold">${escapeHTML(l.actionType)}</span>
+          <span class="text-slate-400">${escapeHTML(l.details || '')}</span>
+        </div>
+        <div class="text-slate-500 font-mono text-[10px]">
+          ${new Date(l.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<div class="text-xs text-rose-400">Failed to load logs: ${escapeHTML(err.message)}</div>`;
+  }
+};
+
+// ── Master User Suite Initialization ─────────────────────────────────────────
+
+window.initUserFeaturesDashboard = function() {
+  if (!state.accessToken) return;
+  window.fetchUserPasskeys();
+  window.fetchUserSessions();
+  window.fetchUserPats();
+  window.fetchUserOrganizations();
+  window.fetchUserStorageQuota();
+  window.fetchUserNotifications();
+  window.fetchUserSecurityLogs();
+};

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/project/project.service.ts
-//  Multi-Tenant Project & API Key Management Service.
+//  Multi-Tenant Project & API Key Management Service with GitHub-Grade RBAC.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { v4 as uuidv4 } from 'uuid';
@@ -8,12 +8,13 @@ import crypto from 'crypto';
 import { getDb, generateProjectKeys } from '../db/sqlite.connection';
 import { AppError } from '../types/auth.types';
 import { Project, CreateProjectResult, ProjectStats } from '../types/project.types';
+import { organizationService, ProjectRole } from '../services/organization.service';
 
 export class ProjectService {
   /**
-   * Create a new project for an owner and generate a unique API Key.
+   * Create a new project for an owner or organization and generate a unique API Key.
    */
-  createProject(ownerId: string, name: string): CreateProjectResult {
+  createProject(ownerId: string, name: string, orgId?: string | null): CreateProjectResult {
     if (!name || name.trim().length === 0) {
       throw new AppError('Project name is required.', 400);
     }
@@ -23,14 +24,41 @@ export class ProjectService {
     const now = new Date().toISOString();
     const keys = generateProjectKeys();
 
+    if (orgId) {
+      // Validate user is a member of the organization
+      const { myRole } = organizationService.getOrganization(orgId, ownerId);
+      if (myRole !== 'owner' && myRole !== 'admin' && myRole !== 'member') {
+        throw new AppError('Forbidden: Insufficient privileges to create a project in this organization.', 403);
+      }
+    }
+
     db.prepare(`
-      INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(id, ownerId, name.trim(), keys.anonKeyHash, keys.serviceKeyHash, now, now);
+      INSERT INTO projects (id, ownerId, orgId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, ownerId, orgId || null, name.trim(), keys.anonKeyHash, keys.serviceKeyHash, now, now);
+
+    // Auto-add creator as Project Admin in project_members table
+    const pmemId = `pmem_${uuidv4()}`;
+    db.prepare(`
+      INSERT INTO project_members (id, projectId, userId, role, addedAt)
+      VALUES (?, ?, ?, 'admin', ?)
+    `).run(pmemId, id, ownerId, now);
+
+    if (orgId) {
+      organizationService.logOrgAction({
+        orgId,
+        actorId: ownerId,
+        action: 'project.created',
+        targetType: 'project',
+        targetId: id,
+        details: { name: name.trim() }
+      });
+    }
 
     const project: Project = {
       id,
       ownerId,
+      orgId: orgId || null,
       name: name.trim(),
       apiKeyHash: keys.anonKeyHash,
       serviceKeyHash: keys.serviceKeyHash,
@@ -40,45 +68,91 @@ export class ProjectService {
       maxStorageBytes: 1073741824,
       authConfig: null,
       backupConfig: null,
+      myProjectRole: 'admin'
     };
 
     return { project, rawApiKey: keys.anonKey, rawServiceKey: keys.serviceKey };
   }
 
   /**
-   * List all projects owned by a user along with resource metrics.
+   * List all projects for a user filtered by active workspace (Personal vs Organization).
    */
-  listProjects(ownerId: string): ProjectStats[] {
+  listProjects(userId: string, orgId?: string | null): ProjectStats[] {
     const db = getDb();
-    const sql = `
-      SELECT p.*,
-        (SELECT COUNT(*) FROM collections c WHERE c.ownerId = p.ownerId AND (c.projectId = p.id OR c.projectId IS NULL)) as collectionCount,
-        (SELECT COUNT(*) FROM documents d WHERE d.ownerId = p.ownerId AND (d.projectId = p.id OR d.projectId IS NULL)) as documentCount,
-        (SELECT COUNT(*) FROM assets a WHERE a.ownerId = p.ownerId AND (a.projectId = p.id OR a.projectId IS NULL)) as assetCount,
-        (SELECT COUNT(*) FROM deployments dep WHERE dep.ownerId = p.ownerId AND (dep.projectId = p.id OR dep.projectId IS NULL)) as deploymentCount
-      FROM projects p
-      WHERE p.ownerId = ?
-      ORDER BY p.createdAt DESC
-    `;
+    let sql: string;
+    let params: any[];
 
-    const rows = db.prepare(sql).all(ownerId) as any[];
+    if (orgId === null) {
+      // Personal Workspace projects only
+      sql = `
+        SELECT p.*,
+          (SELECT COUNT(*) FROM collections c WHERE (c.projectId = p.id)) as collectionCount,
+          (SELECT COUNT(*) FROM documents d WHERE (d.projectId = p.id)) as documentCount,
+          (SELECT COUNT(*) FROM assets a WHERE (a.projectId = p.id)) as assetCount,
+          (SELECT COUNT(*) FROM deployments dep WHERE (dep.projectId = p.id)) as deploymentCount
+        FROM projects p
+        WHERE p.ownerId = ? AND p.orgId IS NULL
+        ORDER BY p.createdAt DESC
+      `;
+      params = [userId];
+    } else if (orgId) {
+      // Specific Organization projects
+      sql = `
+        SELECT p.*,
+          (SELECT COUNT(*) FROM collections c WHERE (c.projectId = p.id)) as collectionCount,
+          (SELECT COUNT(*) FROM documents d WHERE (d.projectId = p.id)) as documentCount,
+          (SELECT COUNT(*) FROM assets a WHERE (a.projectId = p.id)) as assetCount,
+          (SELECT COUNT(*) FROM deployments dep WHERE (dep.projectId = p.id)) as deploymentCount
+        FROM projects p
+        WHERE p.orgId = ?
+        ORDER BY p.createdAt DESC
+      `;
+      params = [orgId];
+    } else {
+      // All accessible projects (Personal + joined Organizations)
+      sql = `
+        SELECT DISTINCT p.*,
+          (SELECT COUNT(*) FROM collections c WHERE (c.projectId = p.id)) as collectionCount,
+          (SELECT COUNT(*) FROM documents d WHERE (d.projectId = p.id)) as documentCount,
+          (SELECT COUNT(*) FROM assets a WHERE (a.projectId = p.id)) as assetCount,
+          (SELECT COUNT(*) FROM deployments dep WHERE (dep.projectId = p.id)) as deploymentCount
+        FROM projects p
+        LEFT JOIN project_members pm ON p.id = pm.projectId
+        LEFT JOIN organization_members om ON p.orgId = om.orgId
+        LEFT JOIN project_team_grants ptg ON p.id = ptg.projectId
+        LEFT JOIN organization_team_members otm ON ptg.teamId = otm.teamId
+        WHERE p.ownerId = ? 
+           OR pm.userId = ? 
+           OR (p.orgId IS NOT NULL AND om.userId = ?)
+           OR (p.orgId IS NOT NULL AND otm.userId = ?)
+        ORDER BY p.createdAt DESC
+      `;
+      params = [userId, userId, userId, userId];
+    }
 
-    return rows.map((r) => ({
-      id: r.id,
-      ownerId: r.ownerId,
-      name: r.name,
-      apiKeyHash: r.apiKeyHash,
-      createdAt: r.createdAt,
-      updatedAt: r.updatedAt,
-      maxAssetSizeBytes: r.maxAssetSizeBytes,
-      maxStorageBytes: r.maxStorageBytes,
-      authConfig: r.authConfig ? JSON.parse(r.authConfig) : null,
-      backupConfig: r.backupConfig ? JSON.parse(r.backupConfig) : null,
-      collectionCount: Number(r.collectionCount || 0),
-      documentCount: Number(r.documentCount || 0),
-      assetCount: Number(r.assetCount || 0),
-      deploymentCount: Number(r.deploymentCount || 0),
-    }));
+    const rows = db.prepare(sql).all(...params) as any[];
+
+    return rows.map((r) => {
+      const myProjectRole = organizationService.getEffectiveProjectRole(userId, r.id) || 'viewer';
+      return {
+        id: r.id,
+        ownerId: r.ownerId,
+        orgId: r.orgId || null,
+        name: r.name,
+        apiKeyHash: r.apiKeyHash,
+        createdAt: r.createdAt,
+        updatedAt: r.updatedAt,
+        maxAssetSizeBytes: r.maxAssetSizeBytes,
+        maxStorageBytes: r.maxStorageBytes,
+        authConfig: r.authConfig ? JSON.parse(r.authConfig) : null,
+        backupConfig: r.backupConfig ? JSON.parse(r.backupConfig) : null,
+        collectionCount: Number(r.collectionCount || 0),
+        documentCount: Number(r.documentCount || 0),
+        assetCount: Number(r.assetCount || 0),
+        deploymentCount: Number(r.deploymentCount || 0),
+        myProjectRole
+      };
+    });
   }
 
   /**
@@ -116,15 +190,21 @@ export class ProjectService {
   }
 
   /**
-   * Find project by ID and Owner ID (or SuperAdmin override).
+   * Find project by ID and check access.
    */
-  getProjectById(projectId: string, ownerId: string, isSuperAdmin: boolean = false): Project | undefined {
+  getProjectById(projectId: string, userId: string, isSuperAdmin: boolean = false): Project | undefined {
     const db = getDb();
-    const row = (isSuperAdmin
-      ? db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId)
-      : db.prepare('SELECT * FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId)) as any;
-
+    const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as any;
     if (!row) return undefined;
+
+    if (!isSuperAdmin) {
+      const effectiveRole = organizationService.getEffectiveProjectRole(userId, projectId);
+      if (!effectiveRole) return undefined;
+      row.myProjectRole = effectiveRole;
+    } else {
+      row.myProjectRole = 'admin';
+    }
+
     return {
       ...row,
       authConfig: row.authConfig ? JSON.parse(row.authConfig) : null,
@@ -135,36 +215,51 @@ export class ProjectService {
   /**
    * Delete a project and cascade all associated collections and documents.
    */
-  deleteProject(ownerId: string, projectId: string): void {
+  deleteProject(userId: string, projectId: string): void {
     const db = getDb();
+    this.validateOwnership(projectId, userId);
 
-    this.validateOwnership(projectId, ownerId);
+    const project = db.prepare('SELECT id, orgId, name FROM projects WHERE id = ?').get(projectId) as any;
 
     db.transaction(() => {
       // 1. Delete documents belonging to collections in this project
-      db.prepare(`
-        DELETE FROM documents 
-        WHERE projectId = ? AND ownerId = ?
-      `).run(projectId, ownerId);
+      db.prepare('DELETE FROM documents WHERE projectId = ?').run(projectId);
 
       // 2. Delete collections
-      db.prepare('DELETE FROM collections WHERE projectId = ? AND ownerId = ?').run(projectId, ownerId);
+      db.prepare('DELETE FROM collections WHERE projectId = ?').run(projectId);
 
-      // 3. Delete deployments and project
-      db.prepare('DELETE FROM deployments WHERE projectId = ? AND ownerId = ?').run(projectId, ownerId);
-      db.prepare('DELETE FROM projects WHERE id = ? AND ownerId = ?').run(projectId, ownerId);
+      // 3. Delete assets and deployments
+      db.prepare('DELETE FROM assets WHERE projectId = ?').run(projectId);
+      db.prepare('DELETE FROM deployments WHERE projectId = ?').run(projectId);
+
+      // 4. Delete collaborator and team grants
+      db.prepare('DELETE FROM project_members WHERE projectId = ?').run(projectId);
+      db.prepare('DELETE FROM project_team_grants WHERE projectId = ?').run(projectId);
+
+      // 5. Delete project
+      db.prepare('DELETE FROM projects WHERE id = ?').run(projectId);
     })();
+
+    if (project?.orgId) {
+      organizationService.logOrgAction({
+        orgId: project.orgId,
+        actorId: userId,
+        action: 'project.deleted',
+        targetType: 'project',
+        targetId: projectId,
+        details: { name: project.name }
+      });
+    }
   }
 
   /**
    * Update project auth configuration.
    */
-  updateAuthConfig(projectId: string, ownerId: string, authConfig: any, isSuperAdmin: boolean = false): void {
+  updateAuthConfig(projectId: string, userId: string, authConfig: any, isSuperAdmin: boolean = false): void {
     const db = getDb();
-    const proj = isSuperAdmin
-      ? db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId)
-      : db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
-    if (!proj) throw new AppError('Project not found.', 404);
+    if (!isSuperAdmin) {
+      this.validateOwnership(projectId, userId);
+    }
     
     db.prepare('UPDATE projects SET authConfig = ?, updatedAt = ? WHERE id = ?').run(
       JSON.stringify(authConfig),
@@ -176,10 +271,11 @@ export class ProjectService {
   /**
    * Update project limits or other settings.
    */
-  updateProject(ownerId: string, projectId: string, patch: Partial<Project>): Project {
+  updateProject(userId: string, projectId: string, patch: Partial<Project>): Project {
     const db = getDb();
-    
-    const proj = db.prepare('SELECT * FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId) as Project | undefined;
+    this.validateOwnership(projectId, userId);
+
+    const proj = db.prepare('SELECT * FROM projects WHERE id = ?').get(projectId) as Project | undefined;
     if (!proj) {
       throw new AppError(`Project "${projectId}" not found.`, 404);
     }
@@ -187,37 +283,34 @@ export class ProjectService {
     const maxAssetSizeBytes = patch.maxAssetSizeBytes ?? proj.maxAssetSizeBytes ?? 10485760; // 10MB default
     const maxStorageBytes = patch.maxStorageBytes ?? proj.maxStorageBytes ?? 1073741824; // 1GB default
     const backupConfig = patch.backupConfig ?? proj.backupConfig ?? null;
+    const name = patch.name ? patch.name.trim() : proj.name;
     const now = new Date().toISOString();
 
     db.prepare(`
       UPDATE projects 
-      SET maxAssetSizeBytes = ?, maxStorageBytes = ?, backupConfig = ?, updatedAt = ?
-      WHERE id = ? AND ownerId = ?
-    `).run(maxAssetSizeBytes, maxStorageBytes, backupConfig, now, projectId, ownerId);
+      SET name = ?, maxAssetSizeBytes = ?, maxStorageBytes = ?, backupConfig = ?, updatedAt = ?
+      WHERE id = ?
+    `).run(name, maxAssetSizeBytes, maxStorageBytes, backupConfig, now, projectId);
 
-    return { ...proj, maxAssetSizeBytes, maxStorageBytes, backupConfig, updatedAt: now };
+    return { ...proj, name, maxAssetSizeBytes, maxStorageBytes, backupConfig, updatedAt: now };
   }
 
   /**
-   * Throws an error if the specified project doesn't exist or doesn't belong to the owner.
+   * Throws an error if the user does not have Admin privileges on the project.
    */
-  validateOwnership(projectId: string, ownerId: string): void {
-    const db = getDb();
-    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
-    if (!proj) {
-      throw new AppError('Access denied: Project not found or you do not own this project.', 403);
+  validateOwnership(projectId: string, userId: string): void {
+    const effectiveRole = organizationService.getEffectiveProjectRole(userId, projectId);
+    if (effectiveRole !== 'admin') {
+      throw new AppError('Forbidden: Project Admin privileges required.', 403);
     }
   }
 
   /**
    * Rotate a project's API and Service Keys.
    */
-  rotateProjectKeys(ownerId: string, projectId: string): { rawApiKey: string, rawServiceKey: string } {
+  rotateProjectKeys(userId: string, projectId: string): { rawApiKey: string, rawServiceKey: string } {
     const db = getDb();
-    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
-    if (!proj) {
-      throw new AppError(`Project "${projectId}" not found.`, 404);
-    }
+    this.validateOwnership(projectId, userId);
 
     const keys = generateProjectKeys();
     const now = new Date().toISOString();
@@ -225,11 +318,12 @@ export class ProjectService {
     db.prepare(`
       UPDATE projects 
       SET apiKeyHash = ?, serviceKeyHash = ?, updatedAt = ?
-      WHERE id = ? AND ownerId = ?
-    `).run(keys.anonKeyHash, keys.serviceKeyHash, now, projectId, ownerId);
+      WHERE id = ?
+    `).run(keys.anonKeyHash, keys.serviceKeyHash, now, projectId);
 
     return { rawApiKey: keys.anonKey, rawServiceKey: keys.serviceKey };
   }
 }
 
 export const projectService = new ProjectService();
+

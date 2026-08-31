@@ -244,6 +244,15 @@ export async function saveAssetMetadata(
     }
   }
 
+  // Enforce User Storage Quota (500 MB default per user)
+  const quota = getUserStorageQuota(ownerId);
+  if (quota.usedBytes + finalSize > quota.maxBytes) {
+    if (fs.existsSync(file.path)) {
+      try { fs.unlinkSync(file.path); } catch (_) {}
+    }
+    throw new AppError(`User storage quota exceeded (${Math.round(quota.usedBytes / (1024*1024))} MB of ${Math.round(quota.maxBytes / (1024*1024))} MB used).`, 413);
+  }
+
   const meta: AssetMetadata = {
     id: uuidv4(),
     ownerId,
@@ -264,6 +273,25 @@ export async function saveAssetMetadata(
   }
 
   return pub;
+}
+
+/** Computes current storage quota consumption for a user */
+export function getUserStorageQuota(userId: string, limitBytes = 524288000): { usedBytes: number; maxBytes: number; fileCount: number; percentage: number } {
+  try {
+    const db = getDb();
+    const row = db.prepare('SELECT COUNT(*) as fileCount, SUM(sizeBytes) as usedBytes FROM assets WHERE ownerId = ?').get(userId) as any;
+    const usedBytes = Number(row?.usedBytes || 0);
+    const fileCount = Number(row?.fileCount || 0);
+    const percentage = Math.min(100, Math.round((usedBytes / limitBytes) * 100));
+    return {
+      usedBytes,
+      maxBytes: limitBytes,
+      fileCount,
+      percentage
+    };
+  } catch (_) {
+    return { usedBytes: 0, maxBytes: limitBytes, fileCount: 0, percentage: 0 };
+  }
 }
 
 /** Returns all assets owned by the requesting user. */

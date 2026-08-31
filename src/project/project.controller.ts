@@ -23,7 +23,8 @@ function getOwnerId(req: Request): string {
 export async function createProject(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
-    const result = projectService.createProject(ownerId, req.body.name);
+    const orgId = (req.body.orgId || req.query.orgId) as string | undefined;
+    const result = projectService.createProject(ownerId, req.body.name, orgId);
     res.status(201).json({
       success: true,
       message: 'Project created and API key generated.',
@@ -35,7 +36,9 @@ export async function createProject(req: Request, res: Response, next: NextFunct
 export async function listProjects(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
-    const projects = projectService.listProjects(ownerId);
+    const orgIdQuery = req.query.orgId as string | undefined;
+    const orgId = orgIdQuery === 'null' ? null : orgIdQuery;
+    const projects = projectService.listProjects(ownerId, orgId);
     res.status(200).json({
       success: true,
       message: 'Projects retrieved successfully.',
@@ -267,6 +270,61 @@ export async function triggerBackup(req: Request, res: Response, next: NextFunct
 
     // Provide the file as a download
     res.download(backupFilePath, path.basename(backupFilePath));
+  } catch (err) { next(err); }
+}
+
+export async function listProjectCollaborators(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const userId = getOwnerId(req);
+    const { id } = req.params;
+    const { organizationService } = await import('../services/organization.service');
+    const access = organizationService.listProjectAccess(id, userId);
+    res.status(200).json({
+      success: true,
+      message: 'Project access list retrieved.',
+      data: access
+    });
+  } catch (err) { next(err); }
+}
+
+export async function addProjectCollaborator(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const actorId = getOwnerId(req);
+    const { id } = req.params;
+    const { userId, role } = req.body;
+    if (!userId || !role) throw new AppError('userId and role are required', 400);
+
+    const { organizationService } = await import('../services/organization.service');
+    const ipAddress = networkAccessService.extractClientIp(req);
+    const collab = organizationService.addProjectCollaborator({
+      projectId: id,
+      userId,
+      role,
+      actorId,
+      ipAddress
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Project collaborator added successfully.',
+      data: collab
+    });
+  } catch (err) { next(err); }
+}
+
+export async function removeProjectCollaborator(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const actorId = getOwnerId(req);
+    const { id, userId } = req.params;
+    const { organizationService } = await import('../services/organization.service');
+    const ipAddress = networkAccessService.extractClientIp(req);
+    organizationService.removeProjectCollaborator(id, userId, actorId, ipAddress);
+
+    res.status(200).json({
+      success: true,
+      message: 'Collaborator removed from project.',
+      data: null
+    });
   } catch (err) { next(err); }
 }
 

@@ -29,6 +29,7 @@ import { threatDetectionService } from '../services/threat-detection.service';
 import { accountModerationService } from '../services/account-moderation.service';
 import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 import { networkAccessService } from '../services/network-access.service';
+import { userSessionService } from '../services/user-session.service';
 
 // ── Argon2id Configuration ────────────────────────────────────────────────────
 
@@ -70,8 +71,15 @@ export async function verifyPassword(hash: string, plaintext: string): Promise<b
 import { projectService } from '../project/project.service';
 
 /** Sign and return an access JWT for the given user. */
-export function generateToken(user: Pick<User, 'id' | 'email' | 'isSuperAdmin'>): string {
-  const payload: JwtPayload = {
+export function generateToken(user: Pick<User, 'id' | 'email' | 'isSuperAdmin'> & { customClaims?: string | Record<string, any> }): string {
+  let claims: any = {};
+  if (user.customClaims) {
+    try {
+      claims = typeof user.customClaims === 'string' ? JSON.parse(user.customClaims) : user.customClaims;
+    } catch (_) {}
+  }
+
+  const payload: JwtPayload & { claims?: any } = {
     sub: user.id,
     email: user.email,
     isSuperAdmin: user.isSuperAdmin ?? false,
@@ -114,7 +122,7 @@ export async function issueRefreshToken(userId: string): Promise<string> {
 
 // ── Public User Projection ────────────────────────────────────────────────────
 
-function toPublicUser(user: User): PublicUser {
+export function toPublicUser(user: User): PublicUser {
   const { passwordHash: _omit, ...publicUser } = user;
   return publicUser;
 }
@@ -182,6 +190,15 @@ export async function googleLoginUser(email: string, name: string, clientIp?: st
   const token = generateToken(user);
   const refreshToken = await issueRefreshToken(user.id);
 
+  if (clientIp) {
+    userSessionService.registerSession({
+      userId: user.id,
+      refreshToken,
+      ipAddress: clientIp,
+      userAgent
+    });
+  }
+
   return { user: toPublicUser(user), token, refreshToken, requiresPasswordSetup: isNewUser };
 }
 
@@ -236,6 +253,15 @@ export async function registerUser(dto: RegisterDto & { clientIp?: string; userA
 
   const token = generateToken(savedUser);
   const refreshToken = await issueRefreshToken(savedUser.id);
+
+  if (clientIp) {
+    userSessionService.registerSession({
+      userId: savedUser.id,
+      refreshToken,
+      ipAddress: clientIp,
+      userAgent
+    });
+  }
 
   return { user: toPublicUser(savedUser), token, refreshToken, requiresPolicyConsent: false, activePolicyVersion: activePolicy.version };
 }

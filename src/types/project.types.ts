@@ -6,6 +6,7 @@
 export interface Project {
   id: string;
   ownerId: string;
+  orgId?: string | null;
   name: string;
   apiKeyHash: string;
   serviceKeyHash?: string | null;
@@ -15,6 +16,7 @@ export interface Project {
   backupConfig: string | null;
   createdAt: string;
   updatedAt: string;
+  myProjectRole?: 'admin' | 'maintainer' | 'developer' | 'viewer';
 }
 
 export interface CreateProjectResult {
