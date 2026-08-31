@@ -31,23 +31,30 @@ async function run() {
     const sqlite = require('better-sqlite3');
     const db = new sqlite(dbPath);
 
-    // Verify user exists and is Super Admin
-    const emailHash = crypto.createHmac('sha256', pepper).update(email).digest('hex');
-    const user = db.prepare('SELECT id FROM users WHERE emailHash = ? AND isSuperAdmin = 1').get(emailHash);
+    // Verify user exists
+    const cleanEmail = email.trim().toLowerCase();
+    const emailHash = crypto.createHmac('sha256', pepper).update(cleanEmail).digest('hex');
+    const user = db.prepare('SELECT id, isSuperAdmin FROM users WHERE emailHash = ?').get(emailHash) as any;
 
     if (!user) {
-      console.error(`Error: No Super Admin account found with email ${email}`);
+      console.error(`Error: No account found with email ${cleanEmail}`);
       db.close();
       process.exit(1);
     }
 
-    const newPasswordHash = await argon2.hash(newPassword);
+    const ARGON2_OPTIONS = {
+      type: argon2.argon2id,
+      memoryCost: 65536,
+      timeCost: 3,
+      parallelism: 4,
+    };
+    const newPasswordHash = await argon2.hash(newPassword, ARGON2_OPTIONS as any);
 
-    const stmt = db.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?');
+    const stmt = db.prepare('UPDATE users SET passwordHash = ?, lockedUntil = NULL, status = \'active\', updatedAt = ? WHERE id = ?');
     stmt.run(newPasswordHash, new Date().toISOString(), user.id);
 
     db.close();
-    console.log(`✅ Success: Super Admin password for ${email} has been reset.`);
+    console.log(`✅ Success: Password for ${cleanEmail} (Super Admin: ${Boolean(user.isSuperAdmin)}) has been reset.`);
     process.exit(0);
   } catch (err) {
     console.error('❌ Failed to reset password:', err);
