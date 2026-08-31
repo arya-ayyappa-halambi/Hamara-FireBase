@@ -1,12 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/tunnel-manager.service.ts
-//  1-Click Global Public Tunneling Manager (Ngrok & Localtunnel Providers)
+//  1-Click Global Public Tunneling Manager (Cloudflare, Ngrok & Localtunnel)
 // ─────────────────────────────────────────────────────────────────────────────
 
+import axios from 'axios';
 import { getDb } from '../db/sqlite.connection';
 import { wsService } from '../realtime/websocket.service';
 
-export type TunnelProvider = 'localtunnel' | 'ngrok' | 'cloudflare';
+export type TunnelProvider = 'cloudflare' | 'ngrok' | 'localtunnel';
 export type TunnelStatusState = 'offline' | 'starting' | 'online' | 'error';
 
 export interface TunnelStatusReport {
@@ -17,6 +18,7 @@ export interface TunnelStatusReport {
   authTokenConfigured: boolean;
   maskedAuthToken: string;
   customDomain: string;
+  hostPublicIp: string | null;
   startedAt: string | null;
   expiresAt: string | null;
   autoCloseMinutes: number;
@@ -42,13 +44,41 @@ export class TunnelManagerService {
   private activeTunnel: any = null;
   private currentStatus: TunnelStatusState = 'offline';
   private currentPublicUrl: string | null = null;
-  private currentProvider: TunnelProvider = 'localtunnel';
+  private currentProvider: TunnelProvider = 'cloudflare';
+  private cachedHostPublicIp: string | null = null;
   private startedAtTime: Date | null = null;
   private expiresAtTime: Date | null = null;
   private autoCloseTimer: NodeJS.Timeout | null = null;
+  private watchdogTimer: NodeJS.Timeout | null = null;
   private lastErrorMessage: string | null = null;
   private totalRequestsCount: number = 0;
   private bytesTransferredCount: number = 0;
+
+  constructor() {
+    this.refreshHostPublicIp();
+  }
+
+  /**
+   * Resolve and cache the host machine's public IPv4 address.
+   */
+  public async refreshHostPublicIp(): Promise<string | null> {
+    try {
+      const res = await axios.get('https://api.ipify.org?format=json', { timeout: 4000 });
+      if (res.data && res.data.ip) {
+        this.cachedHostPublicIp = res.data.ip;
+        return this.cachedHostPublicIp;
+      }
+    } catch (_) {
+      try {
+        const res2 = await axios.get('https://icanhazip.com', { timeout: 4000 });
+        if (typeof res2.data === 'string' && res2.data.trim()) {
+          this.cachedHostPublicIp = res2.data.trim();
+          return this.cachedHostPublicIp;
+        }
+      } catch (_) {}
+    }
+    return this.cachedHostPublicIp;
+  }
 
   /**
    * Return the current live tunnel status report.
@@ -80,6 +110,7 @@ export class TunnelManagerService {
       authTokenConfigured: Boolean(authToken),
       maskedAuthToken,
       customDomain: settings?.tunnelCustomDomain || '',
+      hostPublicIp: this.cachedHostPublicIp,
       startedAt: this.startedAtTime ? this.startedAtTime.toISOString() : (settings?.tunnelStartedAt || null),
       expiresAt: this.expiresAtTime ? this.expiresAtTime.toISOString() : (settings?.tunnelExpiresAt || null),
       autoCloseMinutes: Number(settings?.tunnelAutoCloseMinutes ?? 60),
@@ -95,7 +126,7 @@ export class TunnelManagerService {
   }
 
   /**
-   * Start a global public HTTPS tunnel using the specified or configured provider.
+   * Start a global public HTTPS tunnel using Cloudflare Quick Tunnels, Ngrok, or Localtunnel.
    */
   public async startTunnel(options: StartTunnelOptions = {}): Promise<TunnelStatusReport> {
     if (this.currentStatus === 'online' && this.activeTunnel) {
@@ -105,7 +136,7 @@ export class TunnelManagerService {
     const db = getDb();
     const settings = db.prepare("SELECT * FROM platform_settings WHERE id = 'default'").get() as any;
 
-    const provider = options.provider || (settings?.tunnelProvider as TunnelProvider) || 'localtunnel';
+    const provider = options.provider || (settings?.tunnelProvider as TunnelProvider) || 'cloudflare';
     const authToken = options.authToken !== undefined ? options.authToken : (settings?.tunnelAuthToken || '');
     const customDomain = options.customDomain !== undefined ? options.customDomain : (settings?.tunnelCustomDomain || '');
     const autoCloseMinutes = options.autoCloseMinutes !== undefined ? options.autoCloseMinutes : Number(settings?.tunnelAutoCloseMinutes ?? 60);
@@ -116,10 +147,27 @@ export class TunnelManagerService {
     this.lastErrorMessage = null;
     this.broadcastStatus();
 
+    // Refresh public IP in background
+    this.refreshHostPublicIp().catch(() => {});
+
     try {
       let publicUrl: string = '';
 
-      if (provider === 'ngrok') {
+      if (provider === 'cloudflare') {
+        // ── Provider 1: Cloudflare Quick Tunnel (Rock-Solid, Zero-Config, trycloudflare.com) ──
+        const untun = await import('untun');
+        const tunnelInstance = await untun.startTunnel({
+          port: targetPort,
+          hostname: '127.0.0.1',
+          acceptCloudflareNotice: true
+        });
+        if (!tunnelInstance) {
+          throw new Error('Could not establish Cloudflare quick tunnel instance');
+        }
+        this.activeTunnel = tunnelInstance;
+        publicUrl = (await tunnelInstance.getURL()) || '';
+      } else if (provider === 'ngrok') {
+        // ── Provider 2: Ngrok (High Speed, Enterprise-grade) ──
         const ngrok = await import('@ngrok/ngrok');
         const connectOptions: any = {
           addr: targetPort
@@ -135,10 +183,14 @@ export class TunnelManagerService {
         this.activeTunnel = listener;
         publicUrl = listener.url() || '';
       } else {
-        // Default: localtunnel (zero-configuration, instant public URL)
+        // ── Provider 3: Localtunnel (Community Fallback) ──
         const localtunnelModule = await import('localtunnel');
         const localtunnel = (localtunnelModule as any).default || localtunnelModule;
-        const ltOptions: any = { port: targetPort };
+        const ltOptions: any = {
+          port: targetPort,
+          local_host: '127.0.0.1',
+          host: 'https://localtunnel.me'
+        };
         if (customDomain) {
           ltOptions.subdomain = customDomain.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
         }
@@ -170,6 +222,8 @@ export class TunnelManagerService {
       } else {
         this.expiresAtTime = null;
       }
+
+      this.startWatchdog(targetPort);
 
       // Persist to platform_settings
       db.prepare(`
@@ -211,6 +265,10 @@ export class TunnelManagerService {
     if (this.autoCloseTimer) {
       clearTimeout(this.autoCloseTimer);
       this.autoCloseTimer = null;
+    }
+    if (this.watchdogTimer) {
+      clearInterval(this.watchdogTimer);
+      this.watchdogTimer = null;
     }
 
     if (this.activeTunnel) {
@@ -257,7 +315,7 @@ export class TunnelManagerService {
     const db = getDb();
     const current = db.prepare("SELECT * FROM platform_settings WHERE id = 'default'").get() as any;
 
-    const provider = settings.provider || current?.tunnelProvider || 'localtunnel';
+    const provider = settings.provider || current?.tunnelProvider || 'cloudflare';
     const authToken = settings.authToken !== undefined ? settings.authToken : (current?.tunnelAuthToken || '');
     const customDomain = settings.customDomain !== undefined ? settings.customDomain : (current?.tunnelCustomDomain || '');
     const autoCloseMinutes = settings.autoCloseMinutes !== undefined ? settings.autoCloseMinutes : Number(current?.tunnelAutoCloseMinutes ?? 60);
@@ -291,6 +349,37 @@ export class TunnelManagerService {
       this.activeTunnel = null;
       this.broadcastStatus();
     }
+  }
+
+  private startWatchdog(targetPort: number): void {
+    if (this.watchdogTimer) clearInterval(this.watchdogTimer);
+
+    // Watchdog runs every 25 seconds to verify tunnel health and auto-heal if connection dropped
+    this.watchdogTimer = setInterval(async () => {
+      if (this.currentStatus !== 'online' || !this.currentPublicUrl) return;
+
+      try {
+        const pingRes = await axios.get(`${this.currentPublicUrl}/api/v1/system/health`, {
+          timeout: 8000,
+          headers: {
+            'bypass-tunnel-reminder': 'true',
+            'User-Agent': 'AegisDB-Watchdog/1.0'
+          },
+          validateStatus: () => true
+        });
+
+        if (pingRes.status >= 500 && (this.currentProvider === 'localtunnel' || this.currentProvider === 'cloudflare')) {
+          console.warn(`[Tunnel Watchdog] Public tunnel returned HTTP ${pingRes.status}. Auto-healing connection...`);
+          // Stop and restart
+          await this.stopTunnel();
+          await this.startTunnel({ provider: this.currentProvider, port: targetPort });
+        }
+      } catch (err: any) {
+        if (this.currentStatus === 'online') {
+          console.warn(`[Tunnel Watchdog] Health check error: ${err.message}`);
+        }
+      }
+    }, 25000);
   }
 
   private broadcastStatus(): void {

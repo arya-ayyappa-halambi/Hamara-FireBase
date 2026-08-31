@@ -2870,14 +2870,15 @@
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold text-slate-400">Tunnel Provider</label>
                   <select id="select-tunnel-provider" onchange="window.handleTunnelProviderChange()" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10">
-                    <option value="localtunnel">Localtunnel (Zero-Config, Instant)</option>
+                    <option value="cloudflare" selected>⚡ Cloudflare Quick Tunnel (Rock-Solid, Zero-Config)</option>
                     <option value="ngrok">Ngrok (High-Speed & Custom Domain)</option>
+                    <option value="localtunnel">Localtunnel (Community Fallback)</option>
                   </select>
                 </div>
 
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold text-slate-400">Ngrok Auth Token (Optional)</label>
-                  <input type="password" id="input-tunnel-authtoken" placeholder="Paste authtoken from ngrok.com" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                  <input type="password" id="input-tunnel-authtoken" placeholder="Required only for Ngrok" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
                 </div>
 
                 <div class="space-y-1">
@@ -2895,10 +2896,34 @@
                   </select>
                 </div>
 
-                <div class="col-span-full flex justify-end pt-1">
-                  <button type="button" onclick="window.saveTunnelSettings()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-semibold transition flex items-center space-x-1">
+                <div class="col-span-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-white/5">
+                  <div id="text-tunnel-provider-hint" class="text-[11px] text-cyan-300 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-cloud text-xs"></i>
+                    <span>Cloudflare Quick Tunnel: Instant global HTTPS URL powered by Cloudflare with zero 502 Bad Gateways.</span>
+                  </div>
+                  <button type="button" onclick="window.saveTunnelSettings()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-semibold transition flex items-center space-x-1 shrink-0">
                     <i class="fa-solid fa-floppy-disk text-[10px]"></i>
                     <span>Save Tunnel Preferences</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Localtunnel Password Bypass Helper (Shown only when Localtunnel is selected/active) -->
+              <div id="box-localtunnel-password" class="p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hidden">
+                <div class="flex items-center space-x-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+                    <i class="fa-solid fa-key text-xs"></i>
+                  </div>
+                  <div>
+                    <div class="text-xs font-bold text-amber-200">Localtunnel Password (Your Host IP):</div>
+                    <div class="text-[10px] text-slate-400">If Localtunnel prompts for a password to bypass its reminder screen, enter this IP:</div>
+                  </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                  <span id="text-localtunnel-ip" class="px-2.5 py-1 rounded bg-black/60 font-mono text-xs text-amber-300 font-bold border border-amber-500/30">Loading IP...</span>
+                  <button type="button" onclick="window.copyLocaltunnelIp()" class="px-2 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black font-bold text-[10px] transition flex items-center space-x-1">
+                    <i class="fa-solid fa-copy text-[9px]"></i>
+                    <span>Copy IP</span>
                   </button>
                 </div>
               </div>
@@ -2913,8 +2938,8 @@
                     <div>
                       <h5 class="text-xs font-bold text-white flex items-center space-x-2">
                         <span>Global HTTPS Tunnel Live & Active</span>
-                        <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse font-mono font-bold">
-                          Worldwide Accessible
+                        <span id="badge-tunnel-provider-pill" class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse font-mono font-bold">
+                          Cloudflare Edge
                         </span>
                       </h5>
                       <p class="text-[10px] text-slate-400">Your AegisDB backend is reachable globally from any mobile phone, web app, or client SDK.</p>

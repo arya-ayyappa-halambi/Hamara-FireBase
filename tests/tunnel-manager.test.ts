@@ -34,12 +34,21 @@ async function runTunnelManagerTests(): Promise<void> {
   const initial = tunnelManagerService.getTunnelStatus();
   assert(initial.status === 'offline' || initial.status === 'online', 'Initial status is valid');
   assert(typeof initial.autoCloseMinutes === 'number', 'autoCloseMinutes is a number');
-  assert(initial.provider === 'localtunnel' || initial.provider === 'ngrok', 'Provider is valid');
+  assert(initial.provider === 'localtunnel' || initial.provider === 'ngrok' || initial.provider === 'cloudflare', 'Provider is valid');
 
   // ─────────────────────────────────────────────────────────────────────────
   // TEST 2: Update Tunnel Preferences
   // ─────────────────────────────────────────────────────────────────────────
   console.log('\n--- 2. Update Preferences ---');
+  tunnelManagerService.updateSettings({
+    provider: 'cloudflare',
+    authToken: '',
+    customDomain: '',
+    autoCloseMinutes: 60
+  });
+  const cfReport = tunnelManagerService.getTunnelStatus();
+  assert(cfReport.provider === 'cloudflare', 'Provider updated to cloudflare');
+
   tunnelManagerService.updateSettings({
     provider: 'ngrok',
     authToken: 'test_ngrok_token_1234567890',
@@ -54,15 +63,15 @@ async function runTunnelManagerTests(): Promise<void> {
   assert(updated.authTokenConfigured === true, 'authTokenConfigured is true');
   assert(updated.maskedAuthToken.includes('••••'), 'Auth token is masked for security');
 
-  // Reset back to localtunnel
+  // Reset back to cloudflare (default)
   tunnelManagerService.updateSettings({
-    provider: 'localtunnel',
+    provider: 'cloudflare',
     authToken: '',
     customDomain: '',
     autoCloseMinutes: 60
   });
   const reset = tunnelManagerService.getTunnelStatus();
-  assert(reset.provider === 'localtunnel', 'Provider reset to localtunnel');
+  assert(reset.provider === 'cloudflare', 'Provider reset to cloudflare');
 
   // ─────────────────────────────────────────────────────────────────────────
   // TEST 3: Traffic Recording

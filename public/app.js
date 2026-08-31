@@ -9602,8 +9602,9 @@ window.triggerZeroDowntimeHotRestart = async function() {
 let currentTunnelState = {
   enabled: false,
   status: 'offline',
-  provider: 'localtunnel',
-  publicUrl: null
+  provider: 'cloudflare',
+  publicUrl: null,
+  hostPublicIp: null
 };
 
 window.loadTunnelStatus = async function() {
@@ -9627,6 +9628,7 @@ window.renderTunnelUI = function(data) {
   currentTunnelState = data;
 
   const pill = document.getElementById('badge-tunnel-status-pill');
+  const providerBadge = document.getElementById('badge-tunnel-provider-pill');
   const btnToggle = document.getElementById('btn-tunnel-master-toggle');
   const textBtn = document.getElementById('text-btn-tunnel-toggle');
   const cardDetails = document.getElementById('card-active-tunnel-details');
@@ -9640,6 +9642,9 @@ window.renderTunnelUI = function(data) {
   const inputDomain = document.getElementById('input-tunnel-domain');
   const selectTtl = document.getElementById('select-tunnel-ttl');
 
+  const boxLtPassword = document.getElementById('box-localtunnel-password');
+  const textLtIp = document.getElementById('text-localtunnel-ip');
+
   const metricReqs = document.getElementById('metric-tunnel-reqs');
   const metricBytes = document.getElementById('metric-tunnel-bytes');
   const metricUptime = document.getElementById('metric-tunnel-uptime');
@@ -9648,10 +9653,29 @@ window.renderTunnelUI = function(data) {
   if (inputDomain && data.customDomain !== undefined) inputDomain.value = data.customDomain;
   if (selectTtl && data.autoCloseMinutes !== undefined) selectTtl.value = data.autoCloseMinutes.toString();
 
+  // Host IP for Localtunnel Password
+  if (textLtIp && data.hostPublicIp) {
+    textLtIp.textContent = data.hostPublicIp;
+  }
+
+  // Toggle Localtunnel password box
+  const selectedProv = selectProvider?.value || data.provider;
+  if (boxLtPassword) {
+    if (selectedProv === 'localtunnel') {
+      boxLtPassword.classList.remove('hidden');
+    } else {
+      boxLtPassword.classList.add('hidden');
+    }
+  }
+
   if (data.status === 'online' && data.publicUrl) {
+    const provName = data.provider === 'cloudflare' ? 'Cloudflare Quick Tunnel' : data.provider === 'ngrok' ? 'Ngrok' : 'Localtunnel';
     if (pill) {
       pill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse';
-      pill.textContent = `🟢 Online (${data.provider})`;
+      pill.textContent = `🟢 Online (${provName})`;
+    }
+    if (providerBadge) {
+      providerBadge.textContent = provName;
     }
     if (btnToggle) {
       btnToggle.className = 'px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-rose-950/50';
@@ -9715,7 +9739,7 @@ window.toggleGlobalTunnel = async function() {
     showToast(isOnline ? '⏳ Stopping global tunnel...' : '🚀 Establishing global public HTTPS tunnel...', 'info');
     const token = getAegisAuthToken();
 
-    const provider = document.getElementById('select-tunnel-provider')?.value || 'localtunnel';
+    const provider = document.getElementById('select-tunnel-provider')?.value || 'cloudflare';
     const authToken = document.getElementById('input-tunnel-authtoken')?.value?.trim() || '';
     const customDomain = document.getElementById('input-tunnel-domain')?.value?.trim() || '';
     const autoCloseMinutes = parseInt(document.getElementById('select-tunnel-ttl')?.value || '60', 10);
@@ -9746,7 +9770,7 @@ window.saveTunnelSettings = async function() {
     return;
   }
 
-  const provider = document.getElementById('select-tunnel-provider')?.value || 'localtunnel';
+  const provider = document.getElementById('select-tunnel-provider')?.value || 'cloudflare';
   const authToken = document.getElementById('input-tunnel-authtoken')?.value?.trim() || '';
   const customDomain = document.getElementById('input-tunnel-domain')?.value?.trim() || '';
   const autoCloseMinutes = parseInt(document.getElementById('select-tunnel-ttl')?.value || '60', 10);
@@ -9780,13 +9804,32 @@ window.copyTunnelPublicUrl = function() {
   }
 };
 
+window.copyLocaltunnelIp = function() {
+  const textIp = document.getElementById('text-localtunnel-ip')?.textContent;
+  if (textIp && textIp !== 'Loading IP...') {
+    navigator.clipboard.writeText(textIp.trim());
+    showToast('📋 Localtunnel Password IP copied!', 'info');
+  }
+};
+
 window.handleTunnelProviderChange = function() {
   const provider = document.getElementById('select-tunnel-provider')?.value;
   const tokenInput = document.getElementById('input-tunnel-authtoken');
-  if (provider === 'localtunnel') {
-    if (tokenInput) tokenInput.placeholder = 'Not required for Localtunnel';
-  } else {
+  const hintEl = document.getElementById('text-tunnel-provider-hint');
+  const boxLtPassword = document.getElementById('box-localtunnel-password');
+
+  if (provider === 'cloudflare') {
+    if (tokenInput) tokenInput.placeholder = 'Not needed for Cloudflare Quick Tunnel';
+    if (hintEl) hintEl.innerHTML = '<i class="fa-solid fa-cloud text-xs"></i><span>Cloudflare Quick Tunnel: Instant global HTTPS URL powered by Cloudflare with zero 502 Bad Gateways.</span>';
+    if (boxLtPassword) boxLtPassword.classList.add('hidden');
+  } else if (provider === 'ngrok') {
     if (tokenInput) tokenInput.placeholder = 'Paste authtoken from ngrok.com';
+    if (hintEl) hintEl.innerHTML = '<i class="fa-solid fa-bolt text-xs"></i><span>Ngrok: High-speed enterprise tunneling. Requires free authtoken from ngrok.com.</span>';
+    if (boxLtPassword) boxLtPassword.classList.add('hidden');
+  } else {
+    if (tokenInput) tokenInput.placeholder = 'Not required for Localtunnel';
+    if (hintEl) hintEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-amber-400 text-xs"></i><span class="text-amber-300">Localtunnel: Free community tunnel. If visitors see an IP password prompt, enter the Host IP shown below.</span>';
+    if (boxLtPassword) boxLtPassword.classList.remove('hidden');
   }
 };
 
