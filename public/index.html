@@ -4938,9 +4938,9 @@ const activeUsers = await aegis.db.queryDocuments('users', {
             http://192.168.31.57:3000
           </div>
         </div>
-        <span class="px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 flex-shrink-0 ml-2">
-          <i class="fa-solid fa-bolt mr-1"></i>AUTO-SWITCH
-        </span>
+        <button id="btn-force-migration-switch" onclick="if(window.forceMigrationRedirect) window.forceMigrationRedirect();" type="button" class="px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold bg-emerald-500/10 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 flex-shrink-0 ml-2 cursor-pointer transition flex items-center space-x-1" title="Click to redirect immediately">
+          <i class="fa-solid fa-bolt mr-1"></i><span>SWITCH NOW</span>
+        </button>
       </div>
 
       <!-- Step Progress Pipeline -->

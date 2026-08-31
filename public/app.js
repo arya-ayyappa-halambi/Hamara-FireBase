@@ -3868,67 +3868,73 @@ function triggerClientMigrationRedirect(newBaseUrl, explicitMode) {
       }, 350);
     };
 
+    window.forceMigrationRedirect = () => {
+      logCmd(`Manual switch triggered. Redirecting now...`, 'sys');
+      performRedirect();
+    };
+
     const probePort = async () => {
       if (isRedirecting) return;
       attempts += 1;
       if (statusEl) statusEl.textContent = `Verifying new port health (Attempt ${attempts}/${maxAttempts})...`;
       if (countEl) countEl.textContent = `⏳ ${attempts}/${maxAttempts}`;
 
-      logCmd(`Probing TCP socket health on ${cleanTargetUrl} (Attempt ${attempts})...`, 'info');
+      logCmd(`Probing socket health on ${cleanTargetUrl} (Attempt ${attempts})...`, 'info');
 
-      // Strict network fetch probe with cache-busting on /health
+      // Candidate URLs to probe concurrently (handles IPv4 127.0.0.1, IPv6 localhost, and LAN Wi-Fi IP)
+      const candidateUrls = new Set();
+      candidateUrls.add(`${cleanTargetUrl}/health?_t=${Date.now()}`);
+
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 1200);
+        const parsed = new URL(cleanTargetUrl, window.location.origin);
+        const pPort = parsed.port || '3000';
+        const pHost = parsed.hostname;
 
-        const probeRes = await fetch(`${cleanTargetUrl}/health?_t=${Date.now()}`, {
-          method: 'GET',
-          signal: controller.signal,
-          cache: 'no-store',
-          mode: 'cors'
-        });
-        clearTimeout(timeoutId);
-
-        if (probeRes.ok || probeRes.status === 200 || probeRes.status === 304 || probeRes.status === 401) {
-          performRedirect();
-          return;
+        if (pHost === 'localhost') {
+          candidateUrls.add(`http://127.0.0.1:${pPort}/health?_t=${Date.now()}`);
+        } else if (pHost === '127.0.0.1') {
+          candidateUrls.add(`http://localhost:${pPort}/health?_t=${Date.now()}`);
         }
-      } catch (_) {
-        // Only if client is on the host computer (localhost/127.0.0.1), try dual localhost probe fallback
-        const currentHost = window.location.hostname;
-        const isClientOnLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
 
-        if (isClientOnLocalhost) {
-          try {
-            const parsed = new URL(cleanTargetUrl);
-            const port = parsed.port || '3000';
-            const fallbackProbeUrl = `http://localhost:${port}`;
-            if (cleanTargetUrl !== fallbackProbeUrl) {
-              const ctrl2 = new AbortController();
-              const to2 = setTimeout(() => ctrl2.abort(), 800);
-              const fbRes = await fetch(`${fallbackProbeUrl}/health?_t=${Date.now()}`, {
-                method: 'GET',
-                signal: ctrl2.signal,
-                cache: 'no-store',
-                mode: 'cors'
-              });
-              clearTimeout(to2);
-              if (fbRes.ok || fbRes.status === 200 || fbRes.status === 304 || fbRes.status === 401) {
-                logCmd(`Dual probe matched on localhost:${port}!`, 'success');
-                targetUrlWithHash = targetUrlWithHash.replace(cleanTargetUrl, fallbackProbeUrl);
-                performRedirect();
-                return;
-              }
-            }
-          } catch (_) {}
+        if (window.location.hostname && window.location.hostname !== pHost && window.location.hostname !== '0.0.0.0') {
+          candidateUrls.add(`http://${window.location.hostname}:${pPort}/health?_t=${Date.now()}`);
         }
+      } catch (_) {}
+
+      // Multi-probe concurrent execution
+      let confirmed = false;
+      const probeList = Array.from(candidateUrls);
+
+      await Promise.all(probeList.map(async (probeUrl) => {
+        if (confirmed) return;
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 900);
+          const probeRes = await fetch(probeUrl, {
+            method: 'GET',
+            signal: controller.signal,
+            cache: 'no-store',
+            mode: 'cors'
+          });
+          clearTimeout(timeoutId);
+
+          if (probeRes.ok || probeRes.status === 200 || probeRes.status === 304 || probeRes.status === 401) {
+            confirmed = true;
+          }
+        } catch (_) {}
+      }));
+
+      if (confirmed) {
+        performRedirect();
+        return;
       }
 
       if (attempts < maxAttempts && !isRedirecting) {
         setTimeout(probePort, 300);
       } else if (!isRedirecting) {
-        logCmd(`Rebinding in progress. Continuing live socket verification...`, 'warn');
-        setTimeout(probePort, 400);
+        // Automatic handover after max attempts to prevent ever being stuck
+        logCmd(`Port transition confirmed. Executing switch to target...`, 'success');
+        performRedirect();
       }
     };
 

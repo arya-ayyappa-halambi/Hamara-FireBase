@@ -31,6 +31,11 @@ class WebSocketService {
   private readonly subscriptions = new Map<string, Set<AuthenticatedSocket>>();
 
   init(server: HttpServer): void {
+    if (this.wss) {
+      try {
+        this.wss.close();
+      } catch (_) {}
+    }
     this.wss = new WebSocketServer({ server });
 
     this.wss.on('connection', (ws: AuthenticatedSocket, req) => {

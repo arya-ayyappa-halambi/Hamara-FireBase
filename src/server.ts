@@ -274,6 +274,9 @@ export function rebindServer(newPort: number, newHost: string = '0.0.0.0'): Prom
         // Gracefully close old server after new server is active
         if (oldServer && oldServer.listening && oldServer !== newServer) {
           try {
+            if (typeof (oldServer as any).closeIdleConnections === 'function') {
+              (oldServer as any).closeIdleConnections();
+            }
             oldServer.close((err) => {
               if (err) console.warn('[Server] Notice during old socket close:', err.message);
             });
