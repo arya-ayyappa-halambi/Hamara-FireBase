@@ -32,4 +32,4 @@ jobs:
 
       - name: NPM Audit (Production)
         # We only want to fail on high or critical vulnerabilities in production deps
-        run: npm audit --production --audit-level=high
+        run: npm audit --omit=dev --audit-level=high
