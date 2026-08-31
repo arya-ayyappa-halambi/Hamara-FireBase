@@ -22,7 +22,7 @@ import { networkAccessService } from '../services/network-access.service';
 export async function getConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const db = getDb();
-    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, demoLoginEnabled FROM platform_settings WHERE id = ?').get('default') as any;
+    const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, demoLoginEnabled, magicLinkAuthEnabled, passkeyAuthEnabled FROM platform_settings WHERE id = ?').get('default') as any;
     
     res.status(200).json({
       success: true,
@@ -30,7 +30,9 @@ export async function getConfig(req: Request, res: Response, next: NextFunction)
       data: {
         googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
         googleClientId: settings ? settings.googleClientId : '',
-        demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true
+        demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true,
+        magicLinkAuthEnabled: settings ? (settings.magicLinkAuthEnabled === 1 || settings.magicLinkAuthEnabled === true) : false,
+        passkeyAuthEnabled: settings ? (settings.passkeyAuthEnabled === 1 || settings.passkeyAuthEnabled === true) : false
       }
     });
   } catch (err) { next(err); }

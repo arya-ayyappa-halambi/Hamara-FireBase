@@ -192,6 +192,7 @@ AegisDB supports native passwordless biometric authentication following the W3C 
 - **Secure Enclave Backed**: Private keys never leave the user's hardware device; the server stores only the public key credential and credential ID.
 - **Dynamic Signature Verification & Counter Defense**: Cryptographically verifies authenticator signatures with dynamic challenge tokens and signature counter validation to eliminate replay attacks.
 - **Passkey Management in User Settings**: Register multiple devices, assign friendly names (e.g. "MacBook Pro Touch ID", "Work YubiKey"), and revoke lost keys with 1 click.
+- **Super Admin Platform Toggle**: Super Admins can enable or disable Passkey authentication from the Platform Settings console, automatically showing or removing the Passkey Login button from the public login screen.
 
 ---
 
@@ -202,7 +203,7 @@ Eliminate credential friction with auto-burning, passwordless access tokens:
 - **Instant Magic Link Delivery**: Sends single-use, cryptographically generated sign-in links valid for 15 minutes.
 - **6-Digit Numeric OTP Fallback**: Generates a synchronized 6-digit numeric verification code for users logging in from separate browser tabs or mobile devices.
 - **Single-Use Invariant (Auto-Burn)**: Tokens and OTPs are irrecoverably burned upon initial verification, preventing link interception or reuse.
-- **Clean Auth Integration**: Dedicated "Magic Link" tab directly on the login screen.
+- **Super Admin Platform Toggle & Button Removal**: Super Admins can disable Passwordless Magic Links from the Platform Settings console (e.g., until external email/SMTP senders are configured). When disabled, the Magic Link button is completely removed from the login screen and backend request endpoints return HTTP 403 Forbidden.
 
 ---
 

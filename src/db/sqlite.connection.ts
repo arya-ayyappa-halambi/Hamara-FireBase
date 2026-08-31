@@ -181,7 +181,9 @@ export function initSqlite(): void {
       serverHost TEXT DEFAULT '0.0.0.0',
       serverPort INTEGER DEFAULT 3000,
       serverHostingMode TEXT DEFAULT 'both',
-      customDomain TEXT DEFAULT ''
+      customDomain TEXT DEFAULT '',
+      magicLinkAuthEnabled INTEGER DEFAULT 0,
+      passkeyAuthEnabled INTEGER DEFAULT 0
     );
 
     -- Scheduled endpoint migrations table schema
@@ -451,7 +453,9 @@ export function initSqlite(): void {
     { name: 'serverHostingMode', def: "TEXT DEFAULT 'both'" },
     { name: 'customDomain', def: "TEXT DEFAULT ''" },
     { name: 'ipFilteringEnabled', def: 'INTEGER DEFAULT 0' },
-    { name: 'ipFilterDefaultPolicy', def: "TEXT DEFAULT 'allow'" }
+    { name: 'ipFilterDefaultPolicy', def: "TEXT DEFAULT 'allow'" },
+    { name: 'magicLinkAuthEnabled', def: 'INTEGER DEFAULT 0' },
+    { name: 'passkeyAuthEnabled', def: 'INTEGER DEFAULT 0' }
   ];
   for (const col of platformCols) {
     try {

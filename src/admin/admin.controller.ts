@@ -47,6 +47,8 @@ export async function getPlatformSettings(_req: Request, res: Response, next: Ne
         googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
         googleClientId: settings ? settings.googleClientId : '',
         demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true,
+        magicLinkAuthEnabled: settings ? (settings.magicLinkAuthEnabled === 1 || settings.magicLinkAuthEnabled === true) : false,
+        passkeyAuthEnabled: settings ? (settings.passkeyAuthEnabled === 1 || settings.passkeyAuthEnabled === true) : false,
         backupMode: settings ? settings.backupMode : 'none',
         backupIntervalMinutes: settings ? settings.backupIntervalMinutes : 1440,
         backupRetentionDays: settings ? settings.backupRetentionDays : 7,
@@ -81,6 +83,8 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     const googleAuthEnabled = req.body.googleAuthEnabled !== undefined ? req.body.googleAuthEnabled : current.googleAuthEnabled;
     const googleClientId = req.body.googleClientId !== undefined ? req.body.googleClientId : current.googleClientId;
     const demoLoginEnabled = req.body.demoLoginEnabled !== undefined ? req.body.demoLoginEnabled : (current.demoLoginEnabled !== undefined ? current.demoLoginEnabled : 1);
+    const magicLinkAuthEnabled = req.body.magicLinkAuthEnabled !== undefined ? req.body.magicLinkAuthEnabled : current.magicLinkAuthEnabled;
+    const passkeyAuthEnabled = req.body.passkeyAuthEnabled !== undefined ? req.body.passkeyAuthEnabled : current.passkeyAuthEnabled;
     const backupMode = req.body.backupMode !== undefined ? req.body.backupMode : current.backupMode;
     const backupIntervalMinutes = req.body.backupIntervalMinutes !== undefined ? req.body.backupIntervalMinutes : current.backupIntervalMinutes;
     const backupRetentionDays = req.body.backupRetentionDays !== undefined ? req.body.backupRetentionDays : current.backupRetentionDays;
@@ -104,12 +108,16 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
     // Convert boolean to 1/0 for sqlite
     const isGoogleAuthEnabled = googleAuthEnabled === true || googleAuthEnabled === 'true' || googleAuthEnabled === 1 ? 1 : 0;
     const isDemoLoginEnabled = demoLoginEnabled === true || demoLoginEnabled === 'true' || demoLoginEnabled === 1 ? 1 : 0;
+    const isMagicLinkAuthEnabled = magicLinkAuthEnabled === true || magicLinkAuthEnabled === 'true' || magicLinkAuthEnabled === 1 ? 1 : 0;
+    const isPasskeyAuthEnabled = passkeyAuthEnabled === true || passkeyAuthEnabled === 'true' || passkeyAuthEnabled === 1 ? 1 : 0;
     
     db.prepare(`
       UPDATE platform_settings 
       SET googleAuthEnabled = ?, 
           googleClientId = ?,
           demoLoginEnabled = ?,
+          magicLinkAuthEnabled = ?,
+          passkeyAuthEnabled = ?,
           backupMode = ?,
           backupIntervalMinutes = ?,
           backupRetentionDays = ?,
@@ -127,6 +135,8 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
       isGoogleAuthEnabled, 
       googleClientId || '', 
       isDemoLoginEnabled,
+      isMagicLinkAuthEnabled,
+      isPasskeyAuthEnabled,
       backupMode || 'none',
       backupIntervalMinutes || 1440,
       backupRetentionDays || 7,
@@ -202,6 +212,8 @@ export async function updatePlatformSettings(req: Request, res: Response, next: 
         googleAuthEnabled: isGoogleAuthEnabled === 1,
         googleClientId: googleClientId || '',
         demoLoginEnabled: isDemoLoginEnabled === 1,
+        magicLinkAuthEnabled: isMagicLinkAuthEnabled === 1,
+        passkeyAuthEnabled: isPasskeyAuthEnabled === 1,
         backupMode: backupMode || 'none',
         backupIntervalMinutes: backupIntervalMinutes || 1440,
         backupRetentionDays: backupRetentionDays || 7,

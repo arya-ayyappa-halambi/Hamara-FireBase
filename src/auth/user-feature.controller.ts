@@ -18,6 +18,12 @@ import { AppError } from '../types/auth.types';
 
 export async function requestMagicLinkHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const db = getDb();
+    const settings = db.prepare('SELECT magicLinkAuthEnabled FROM platform_settings WHERE id = ?').get('default') as any;
+    if (!settings || (settings.magicLinkAuthEnabled !== 1 && settings.magicLinkAuthEnabled !== true)) {
+      throw new AppError('Passwordless Magic Link & Email OTP authentication is disabled by the administrator.', 403);
+    }
+
     const { email } = req.body;
     if (!email) throw new AppError('Email is required.', 400);
 
@@ -41,6 +47,12 @@ export async function requestMagicLinkHandler(req: Request, res: Response, next:
 
 export async function verifyMagicAuthHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const db = getDb();
+    const settings = db.prepare('SELECT magicLinkAuthEnabled FROM platform_settings WHERE id = ?').get('default') as any;
+    if (!settings || (settings.magicLinkAuthEnabled !== 1 && settings.magicLinkAuthEnabled !== true)) {
+      throw new AppError('Passwordless Magic Link & Email OTP authentication is disabled by the administrator.', 403);
+    }
+
     const { token, otpCode, email } = req.body;
     const { userId } = magicLinkService.verifyMagicAuth({ token, otpCode, email });
 

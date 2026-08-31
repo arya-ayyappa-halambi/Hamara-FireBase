@@ -70,6 +70,12 @@ export async function verifyRegistrationHandler(req: Request, res: Response, nex
 
 export async function getLoginOptionsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const db = getDb();
+    const settings = db.prepare('SELECT passkeyAuthEnabled FROM platform_settings WHERE id = ?').get('default') as any;
+    if (!settings || (settings.passkeyAuthEnabled !== 1 && settings.passkeyAuthEnabled !== true)) {
+      throw new AppError('Passkey biometric authentication is disabled by the administrator.', 403);
+    }
+
     const email = req.query.email as string | undefined;
     const host = req.headers.host || 'localhost';
     const options = passkeyService.generateLoginOptions(host, email);
@@ -84,6 +90,12 @@ export async function getLoginOptionsHandler(req: Request, res: Response, next: 
 
 export async function verifyLoginAssertionHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const db = getDb();
+    const settings = db.prepare('SELECT passkeyAuthEnabled FROM platform_settings WHERE id = ?').get('default') as any;
+    if (!settings || (settings.passkeyAuthEnabled !== 1 && settings.passkeyAuthEnabled !== true)) {
+      throw new AppError('Passkey biometric authentication is disabled by the administrator.', 403);
+    }
+
     const { challenge, credentialId, signature, counter } = req.body;
     if (!challenge || !credentialId) {
       throw new AppError('challenge and credentialId are required.', 400);

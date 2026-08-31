@@ -2981,24 +2981,22 @@ async function initGoogleAuth() {
       }
     }
 
-    // Google Auth Button Visibility & Handler (Dynamic from Admin Platform Settings)
-    const container = document.getElementById('google-auth-container');
-    const btn = document.getElementById('btn-custom-google-login');
+    // 2. Google Auth Button Visibility & Handler (Dynamic from Admin Platform Settings)
+    const googleContainer = document.getElementById('google-auth-container');
+    const googleBtn = document.getElementById('btn-custom-google-login');
     const isGoogleEnabled = Boolean(data?.googleAuthEnabled && data?.googleClientId && data.googleClientId.trim().length > 0);
     const clientId = (data?.googleClientId || '').trim();
 
-    if (container) {
+    if (googleContainer) {
       if (isGoogleEnabled) {
-        container.classList.remove('hidden');
-        container.style.display = 'flex';
+        googleContainer.classList.remove('hidden');
       } else {
-        container.classList.add('hidden');
-        container.style.display = 'none';
+        googleContainer.classList.add('hidden');
       }
     }
     
-    if (btn && isGoogleEnabled) {
-      btn.onclick = (e) => {
+    if (googleBtn && isGoogleEnabled) {
+      googleBtn.onclick = (e) => {
         e.preventDefault();
         const redirectUri = window.location.origin;
         const nonce = Math.random().toString(36).substring(2);
@@ -3006,12 +3004,54 @@ async function initGoogleAuth() {
         window.location.href = authUrl;
       };
     }
-  } catch (err) {
-    const container = document.getElementById('google-auth-container');
-    if (container) {
-      container.classList.add('hidden');
-      container.style.display = 'none';
+
+    // 3. FIDO2 Biometric Passkeys Button Visibility
+    const isPasskeyEnabled = Boolean(data?.passkeyAuthEnabled === true || data?.passkeyAuthEnabled === 1);
+    const passkeyContainer = document.getElementById('container-passkey-login');
+    if (passkeyContainer) {
+      if (isPasskeyEnabled) {
+        passkeyContainer.classList.remove('hidden');
+      } else {
+        passkeyContainer.classList.add('hidden');
+      }
     }
+
+    // 4. Passwordless Magic Link Button Visibility
+    const isMagicLinkEnabled = Boolean(data?.magicLinkAuthEnabled === true || data?.magicLinkAuthEnabled === 1);
+    const magicLinkContainer = document.getElementById('container-magic-link-login');
+    if (magicLinkContainer) {
+      if (isMagicLinkEnabled) {
+        magicLinkContainer.classList.remove('hidden');
+      } else {
+        magicLinkContainer.classList.add('hidden');
+      }
+    }
+
+    // 5. Grid Layout and Master Alt-Auth Section Visibility
+    const methodsGrid = document.getElementById('alt-auth-methods-grid');
+    if (methodsGrid) {
+      if (isPasskeyEnabled && isMagicLinkEnabled) {
+        methodsGrid.classList.remove('hidden', 'grid-cols-1');
+        methodsGrid.classList.add('grid-cols-2');
+      } else if (isPasskeyEnabled || isMagicLinkEnabled) {
+        methodsGrid.classList.remove('hidden', 'grid-cols-2');
+        methodsGrid.classList.add('grid-cols-1');
+      } else {
+        methodsGrid.classList.add('hidden');
+      }
+    }
+
+    const altAuthSection = document.getElementById('alt-auth-section');
+    if (altAuthSection) {
+      if (isGoogleEnabled || isPasskeyEnabled || isMagicLinkEnabled) {
+        altAuthSection.classList.remove('hidden');
+      } else {
+        altAuthSection.classList.add('hidden');
+      }
+    }
+  } catch (err) {
+    const altAuthSection = document.getElementById('alt-auth-section');
+    if (altAuthSection) altAuthSection.classList.add('hidden');
   }
 }
 
@@ -4734,6 +4774,12 @@ async function loadPlatformSettings() {
       
       const gToggle = document.getElementById('toggle-google-auth');
       if (gToggle) gToggle.checked = data.googleAuthEnabled || false;
+
+      const magicToggle = document.getElementById('toggle-magic-link-auth');
+      if (magicToggle) magicToggle.checked = Boolean(data.magicLinkAuthEnabled);
+
+      const passkeyToggle = document.getElementById('toggle-passkey-auth');
+      if (passkeyToggle) passkeyToggle.checked = Boolean(data.passkeyAuthEnabled);
       
       const demoToggle = document.getElementById('toggle-demo-login');
       if (demoToggle) demoToggle.checked = data.demoLoginEnabled !== false;
@@ -5463,9 +5509,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       const googleClientId = document.getElementById('setting-google-client-id')?.value;
       const googleAuthEnabled = document.getElementById('toggle-google-auth')?.checked;
       const demoLoginEnabled = document.getElementById('toggle-demo-login')?.checked;
+      const magicLinkAuthEnabled = document.getElementById('toggle-magic-link-auth')?.checked;
+      const passkeyAuthEnabled = document.getElementById('toggle-passkey-auth')?.checked;
       try {
-        await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { googleClientId, googleAuthEnabled, demoLoginEnabled });
+        await apiRequest('/api/v1/admin/platform-settings', 'PATCH', { 
+          googleClientId, 
+          googleAuthEnabled, 
+          demoLoginEnabled,
+          magicLinkAuthEnabled,
+          passkeyAuthEnabled
+        });
         showToast('Platform settings updated successfully. Login screen will reflect changes.', 'success');
+        initGoogleAuth();
       } catch (err) {
         showToast(err.message, 'error');
       }
