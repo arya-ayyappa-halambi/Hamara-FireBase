@@ -62,7 +62,12 @@ import {
   approveDeviceRequestHandler,
   rejectDeviceRequestHandler,
   getClusterDiagnosticsHandler,
-  hotRestartServerHandler
+  hotRestartServerHandler,
+  getTunnelStatusHandler,
+  startTunnelHandler,
+  stopTunnelHandler,
+  updateTunnelSettingsHandler,
+  getTrafficTopologyHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -117,6 +122,15 @@ router.post('/device-requests/:id/reject', disallowOttSessionMutation, rejectDev
 // ── Zero-Downtime Hot Restart & Cluster Port Diagnostics Matrix ──────────────
 router.get('/server/cluster-diagnostics', getClusterDiagnosticsHandler);
 router.post('/server/hot-restart', disallowOttSessionMutation, hotRestartServerHandler);
+
+// ── Global Public Tunneling Manager (Ngrok & Localtunnel) ───────────────────
+router.get('/tunnel/status', getTunnelStatusHandler);
+router.post('/tunnel/start', disallowOttSessionMutation, startTunnelHandler);
+router.post('/tunnel/stop', disallowOttSessionMutation, stopTunnelHandler);
+router.patch('/tunnel/settings', disallowOttSessionMutation, updateTunnelSettingsHandler);
+
+// ── Real-Time Traffic Topology & Flow Telemetry Matrix ───────────────────────
+router.get('/traffic/topology', getTrafficTopologyHandler);
 
 router.post('/server/shutdown', disallowOttSessionMutation, shutdownServerHandler);
 router.get('/terminal-logs', getTerminalLogs);

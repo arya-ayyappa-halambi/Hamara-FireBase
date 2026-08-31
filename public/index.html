@@ -2833,6 +2833,354 @@
                 </div>
               </div>
             </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 10. GLOBAL PUBLIC HOSTING & INTERNET TUNNELS (NGROK & LOCALTUNNEL) -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-indigo-950/30 via-slate-900/60 to-black/80 border border-indigo-500/30 shadow-xl shadow-indigo-950/20 space-y-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-indigo-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <i class="fa-solid fa-globe text-base"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Global Public Hosting & Internet Tunnels</span>
+                      <span id="badge-tunnel-status-pill" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-white/10">
+                        ⚪ Offline
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Expose AegisDB to the public internet securely over HTTPS with 1-click Ngrok & Localtunnel integration.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <button type="button" id="btn-tunnel-master-toggle" onclick="window.toggleGlobalTunnel()" class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-indigo-950/50">
+                    <i class="fa-solid fa-play text-[11px]"></i>
+                    <span id="text-btn-tunnel-toggle">Start Global Tunnel</span>
+                  </button>
+                  <button type="button" onclick="window.loadTunnelStatus()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition" title="Refresh Tunnel Status">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Tunnel Provider Configuration Form -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-black/40 p-4 rounded-xl border border-white/5">
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold text-slate-400">Tunnel Provider</label>
+                  <select id="select-tunnel-provider" onchange="window.handleTunnelProviderChange()" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10">
+                    <option value="localtunnel">Localtunnel (Zero-Config, Instant)</option>
+                    <option value="ngrok">Ngrok (High-Speed & Custom Domain)</option>
+                  </select>
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold text-slate-400">Ngrok Auth Token (Optional)</label>
+                  <input type="password" id="input-tunnel-authtoken" placeholder="Paste authtoken from ngrok.com" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold text-slate-400">Custom Subdomain (Optional)</label>
+                  <input type="text" id="input-tunnel-domain" placeholder="e.g. my-company-aegis" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                </div>
+
+                <div class="space-y-1">
+                  <label class="text-[10px] font-semibold text-slate-400">Auto-Close Killswitch Timer</label>
+                  <select id="select-tunnel-ttl" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10">
+                    <option value="15">15 Minutes</option>
+                    <option value="60" selected>1 Hour (Default)</option>
+                    <option value="240">4 Hours</option>
+                    <option value="0">Permanent (Manual Stop)</option>
+                  </select>
+                </div>
+
+                <div class="col-span-full flex justify-end pt-1">
+                  <button type="button" onclick="window.saveTunnelSettings()" class="px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-slate-200 text-xs font-semibold transition flex items-center space-x-1">
+                    <i class="fa-solid fa-floppy-disk text-[10px]"></i>
+                    <span>Save Tunnel Preferences</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Active Public Tunnel Display Card (Hidden when offline) -->
+              <div id="card-active-tunnel-details" class="p-5 rounded-2xl bg-gradient-to-br from-emerald-950/40 via-slate-900/80 to-black border border-emerald-500/40 shadow-2xl space-y-4 hidden">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-emerald-500/20 pb-3">
+                  <div class="flex items-center space-x-2.5">
+                    <div class="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                      <i class="fa-solid fa-satellite-dish text-xs"></i>
+                    </div>
+                    <div>
+                      <h5 class="text-xs font-bold text-white flex items-center space-x-2">
+                        <span>Global HTTPS Tunnel Live & Active</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse font-mono font-bold">
+                          Worldwide Accessible
+                        </span>
+                      </h5>
+                      <p class="text-[10px] text-slate-400">Your AegisDB backend is reachable globally from any mobile phone, web app, or client SDK.</p>
+                    </div>
+                  </div>
+
+                  <div class="flex items-center space-x-2 font-mono text-[10px]">
+                    <span id="badge-tunnel-timer-countdown" class="px-2.5 py-1 rounded-lg bg-black/60 border border-white/10 text-amber-300">
+                      Auto-Close: --:--
+                    </span>
+                  </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row items-center gap-5">
+                  <!-- Left: Live QR Code for Global Tunnel -->
+                  <div class="flex flex-col items-center space-y-2 shrink-0">
+                    <div class="p-2.5 bg-white rounded-2xl shadow-xl shadow-emerald-950/50 border-2 border-emerald-400">
+                      <img id="img-tunnel-qr-code" src="" alt="Global Tunnel QR Code" class="w-36 h-36 object-contain rounded-lg">
+                    </div>
+                    <span class="text-[10px] text-emerald-300 font-mono flex items-center space-x-1">
+                      <i class="fa-solid fa-mobile-screen-button text-[9px]"></i>
+                      <span>Scan Anywhere via 4G/5G</span>
+                    </span>
+                  </div>
+
+                  <!-- Right: Global Public URL & Metrics -->
+                  <div class="w-full space-y-3">
+                    <div class="space-y-1">
+                      <div class="flex items-center justify-between text-[11px]">
+                        <label class="font-bold text-emerald-300 flex items-center space-x-1">
+                          <i class="fa-solid fa-lock text-[10px]"></i>
+                          <span>Global Public HTTPS Endpoint:</span>
+                        </label>
+                        <button type="button" onclick="window.copyTunnelPublicUrl()" class="px-2 py-0.5 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[10px] transition flex items-center space-x-1">
+                          <i class="fa-solid fa-copy text-[9px]"></i>
+                          <span>Copy Global URL</span>
+                        </button>
+                      </div>
+                      <input type="text" id="input-tunnel-public-url" readonly class="w-full px-3 py-2 rounded-xl bg-black/70 border border-emerald-500/40 text-xs font-mono text-emerald-200 select-all shadow-inner">
+                    </div>
+
+                    <!-- Live Tunnel Telemetry Counters -->
+                    <div class="grid grid-cols-3 gap-2 font-mono text-center pt-1">
+                      <div class="p-2 rounded-lg bg-black/50 border border-white/5">
+                        <div class="text-[9px] text-slate-400 uppercase">Requests</div>
+                        <div id="metric-tunnel-reqs" class="text-xs font-bold text-cyan-300">0</div>
+                      </div>
+                      <div class="p-2 rounded-lg bg-black/50 border border-white/5">
+                        <div class="text-[9px] text-slate-400 uppercase">Data In/Out</div>
+                        <div id="metric-tunnel-bytes" class="text-xs font-bold text-purple-300">0 KB</div>
+                      </div>
+                      <div class="p-2 rounded-lg bg-black/50 border border-white/5">
+                        <div class="text-[9px] text-slate-400 uppercase">Uptime</div>
+                        <div id="metric-tunnel-uptime" class="text-xs font-bold text-emerald-300">0s</div>
+                      </div>
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1">
+                      <span class="text-[10px] text-slate-400 flex items-center space-x-1">
+                        <i class="fa-solid fa-shield-halved text-[9px] text-emerald-400"></i>
+                        <span>Protected by Layer-7 WAF & Subnet Rate Filters.</span>
+                      </span>
+                      <a id="link-tunnel-open-tab" href="#" target="_blank" class="px-3 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/40 text-xs font-semibold transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                        <span>Open Global Endpoint</span>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <!-- 11. REAL-TIME TRAFFIC TOPOLOGY & FLOW TELEMETRY MATRIX            -->
+            <!-- ════════════════════════════════════════════════════════════════ -->
+            <div class="p-5 rounded-2xl bg-gradient-to-br from-cyan-950/30 via-slate-900/60 to-black/80 border border-cyan-500/30 shadow-xl shadow-cyan-950/20 space-y-5">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-cyan-500/20 pb-3">
+                <div class="flex items-center space-x-3">
+                  <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <i class="fa-solid fa-diagram-project text-base"></i>
+                  </div>
+                  <div>
+                    <h4 class="text-sm font-bold text-white flex items-center space-x-2">
+                      <span>Real-Time Traffic Topology & Flow Telemetry</span>
+                      <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 animate-pulse">
+                        Live Flow Stream
+                      </span>
+                    </h4>
+                    <p class="text-[11px] text-slate-400">Visual end-to-end packet routing matrix from edge ingress gateways to database storage execution.</p>
+                  </div>
+                </div>
+
+                <div class="flex items-center space-x-2">
+                  <button type="button" onclick="window.loadTrafficTopologyMetrics()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 transition" title="Refresh Flow Matrix">
+                    <i class="fa-solid fa-rotate-right text-xs"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- 4-Stage Visual Pipeline Topology Flow Diagram -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                <!-- Stage 1: Ingress Gateways -->
+                <div class="p-3.5 rounded-xl bg-black/40 border border-cyan-500/30 relative overflow-hidden space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] uppercase font-bold text-cyan-400 flex items-center space-x-1">
+                      <i class="fa-solid fa-arrow-right-to-bracket text-[9px]"></i>
+                      <span>1. Ingress Gateways</span>
+                    </span>
+                    <span id="badge-topology-ingress-state" class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono">Normal</span>
+                  </div>
+                  <div class="space-y-1 text-xs">
+                    <div class="flex justify-between text-slate-400">
+                      <span>Localhost:</span>
+                      <span id="topo-ingress-local" class="font-mono text-white font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>Wi-Fi LAN:</span>
+                      <span id="topo-ingress-lan" class="font-mono text-cyan-300 font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>Tunnel WAN:</span>
+                      <span id="topo-ingress-wan" class="font-mono text-indigo-300 font-semibold">0</span>
+                    </div>
+                  </div>
+                  <div class="text-[9px] text-slate-500 font-mono flex justify-between border-t border-white/5 pt-1">
+                    <span>Latency:</span>
+                    <span id="topo-latency-ingress">0.4ms</span>
+                  </div>
+                </div>
+
+                <!-- Stage 2: Security & WAF Filters -->
+                <div class="p-3.5 rounded-xl bg-black/40 border border-indigo-500/30 relative overflow-hidden space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] uppercase font-bold text-indigo-400 flex items-center space-x-1">
+                      <i class="fa-solid fa-shield-halved text-[9px]"></i>
+                      <span>2. WAF & Rate Filters</span>
+                    </span>
+                    <span id="badge-topology-sec-state" class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono">Shield Active</span>
+                  </div>
+                  <div class="space-y-1 text-xs">
+                    <div class="flex justify-between text-slate-400">
+                      <span>SQLi / XSS Drops:</span>
+                      <span id="topo-sec-waf-drops" class="font-mono text-rose-400 font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>Subnet Throttles:</span>
+                      <span id="topo-sec-rate-drops" class="font-mono text-amber-400 font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>Geo-Fence Blocks:</span>
+                      <span id="topo-sec-geo-drops" class="font-mono text-purple-400 font-semibold">0</span>
+                    </div>
+                  </div>
+                  <div class="text-[9px] text-slate-500 font-mono flex justify-between border-t border-white/5 pt-1">
+                    <span>Latency:</span>
+                    <span id="topo-latency-sec">0.7ms</span>
+                  </div>
+                </div>
+
+                <!-- Stage 3: Router & Engine Dispatcher -->
+                <div class="p-3.5 rounded-xl bg-black/40 border border-purple-500/30 relative overflow-hidden space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] uppercase font-bold text-purple-400 flex items-center space-x-1">
+                      <i class="fa-solid fa-route text-[9px]"></i>
+                      <span>3. Router Dispatcher</span>
+                    </span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono">Optimal</span>
+                  </div>
+                  <div class="space-y-1 text-xs">
+                    <div class="flex justify-between text-slate-400">
+                      <span>HTTP REST:</span>
+                      <span id="topo-proto-http" class="font-mono text-white font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>WebSocket:</span>
+                      <span id="topo-proto-ws" class="font-mono text-purple-300 font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>Admin Ops:</span>
+                      <span id="topo-proto-admin" class="font-mono text-amber-300 font-semibold">0</span>
+                    </div>
+                  </div>
+                  <div class="text-[9px] text-slate-500 font-mono flex justify-between border-t border-white/5 pt-1">
+                    <span>Latency:</span>
+                    <span id="topo-latency-router">1.1ms</span>
+                  </div>
+                </div>
+
+                <!-- Stage 4: SQLite Database Core -->
+                <div class="p-3.5 rounded-xl bg-black/40 border border-emerald-500/30 relative overflow-hidden space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] uppercase font-bold text-emerald-400 flex items-center space-x-1">
+                      <i class="fa-solid fa-database text-[9px]"></i>
+                      <span>4. SQLite WAL Engine</span>
+                    </span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/20 text-emerald-300 font-mono">WAL Mode</span>
+                  </div>
+                  <div class="space-y-1 text-xs">
+                    <div class="flex justify-between text-slate-400">
+                      <span>Total Requests:</span>
+                      <span id="topo-db-total-reqs" class="font-mono text-emerald-300 font-semibold">0</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>Total Bytes In:</span>
+                      <span id="topo-db-bytes-in" class="font-mono text-cyan-300 font-semibold">0 KB</span>
+                    </div>
+                    <div class="flex justify-between text-slate-400">
+                      <span>Total Bytes Out:</span>
+                      <span id="topo-db-bytes-out" class="font-mono text-purple-300 font-semibold">0 KB</span>
+                    </div>
+                  </div>
+                  <div class="text-[9px] text-slate-500 font-mono flex justify-between border-t border-white/5 pt-1">
+                    <span>Latency:</span>
+                    <span id="topo-latency-storage">1.5ms</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 4 Live Throughput Gauges -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-center">
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Incoming Bandwidth</div>
+                  <div id="metric-traffic-bandwidth-in" class="text-sm font-bold text-cyan-400">0 B/s</div>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Outgoing Bandwidth</div>
+                  <div id="metric-traffic-bandwidth-out" class="text-sm font-bold text-purple-400">0 B/s</div>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Rolling Requests / Sec</div>
+                  <div id="metric-traffic-rps" class="text-sm font-bold text-emerald-400">0.0 RPS</div>
+                </div>
+                <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
+                  <div class="text-[10px] text-slate-400 uppercase">Concurrent Sockets</div>
+                  <div id="metric-traffic-active-sockets" class="text-sm font-bold text-amber-400">1</div>
+                </div>
+              </div>
+
+              <!-- Live Active Streams Flow Table -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-300">
+                  <span class="font-bold text-white flex items-center space-x-1.5">
+                    <i class="fa-solid fa-stream text-cyan-400 text-[11px]"></i>
+                    <span>Live Real-Time Connection Streams</span>
+                  </span>
+                  <span class="text-[10px] text-slate-500 font-mono">Last 30 Stream Transactions</span>
+                </div>
+                <div class="rounded-xl bg-slate-900/60 border border-white/10 overflow-hidden max-h-[300px] overflow-y-auto">
+                  <table class="w-full text-left text-xs text-slate-300">
+                    <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10 sticky top-0">
+                      <tr>
+                        <th class="p-2.5">Client & Location</th>
+                        <th class="p-2.5">Ingress Type</th>
+                        <th class="p-2.5">Route / Method</th>
+                        <th class="p-2.5 text-center">Status</th>
+                        <th class="p-2.5 text-right">Latency</th>
+                        <th class="p-2.5 text-right">Data In/Out</th>
+                      </tr>
+                    </thead>
+                    <tbody id="table-traffic-streams-body" class="divide-y divide-white/5 font-mono text-xs">
+                      <tr><td colspan="6" class="p-4 text-center text-slate-500 text-xs">Awaiting incoming packet traffic...</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 

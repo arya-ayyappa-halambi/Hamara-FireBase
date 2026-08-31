@@ -44,6 +44,8 @@ import { maintenanceModeMiddleware } from './middleware/maintenance.middleware';
 import { ipAccessControlMiddleware } from './middleware/ip-access-control.middleware';
 import { accountPurgeSchedulerService } from './services/account-purge-scheduler.service';
 import { endpointMigrationScheduler } from './services/endpoint-migration-scheduler.service';
+import { trafficTopologyService } from './services/traffic-topology.service';
+import { tunnelManagerService } from './services/tunnel-manager.service';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -105,6 +107,42 @@ function createApp(): Application {
         projectId = (req.user as any).projectId;
       }
       metricsService.recordHttpRequest(req.method, req.path, res.statusCode, projectId);
+    });
+    next();
+  });
+
+  // ── Traffic Topology & Packet Flow Telemetry Middleware ─────────────────
+  app.use((req, res, next) => {
+    const startMs = Date.now();
+    const bytesIn = Number(req.headers['content-length'] || 0) + (req.url ? req.url.length : 0) + 128;
+    const hostHeader = (req.headers.host || '').toLowerCase();
+    const isTunnel = Boolean(
+      req.headers['x-forwarded-proto'] ||
+      req.headers['x-forwarded-host'] ||
+      hostHeader.includes('.loca.lt') ||
+      hostHeader.includes('.ngrok')
+    );
+
+    res.on('finish', () => {
+      const durationMs = Math.max(0.5, Date.now() - startMs);
+      const bytesOut = Number(res.getHeader('content-length') || 256);
+      const clientIp = req.ip || (req.socket ? req.socket.remoteAddress : '127.0.0.1') || '127.0.0.1';
+
+      trafficTopologyService.recordRequest({
+        ip: clientIp,
+        method: req.method,
+        path: req.path || req.url || '/',
+        protocol: req.httpVersion ? `HTTP/${req.httpVersion}` : 'HTTP/1.1',
+        statusCode: res.statusCode,
+        latencyMs: durationMs,
+        bytesIn,
+        bytesOut,
+        isTunnel
+      });
+
+      if (isTunnel) {
+        tunnelManagerService.recordTraffic(bytesIn + bytesOut);
+      }
     });
     next();
   });

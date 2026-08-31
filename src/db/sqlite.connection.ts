@@ -598,6 +598,30 @@ export function initSqlite(): void {
       db.exec(`ALTER TABLE platform_settings ADD COLUMN wafAutoJailRepeatOffenders INTEGER DEFAULT 1;`);
     } catch (_) {}
     try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelEnabled INTEGER DEFAULT 0;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelProvider TEXT DEFAULT 'localtunnel';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelAuthToken TEXT DEFAULT '';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelCustomDomain TEXT DEFAULT '';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelPublicUrl TEXT DEFAULT '';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelStartedAt TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelExpiresAt TEXT;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelAutoCloseMinutes INTEGER DEFAULT 60;`);
+    } catch (_) {}
+    try {
       db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN countryCode TEXT;`);
     } catch (_) {}
     try {

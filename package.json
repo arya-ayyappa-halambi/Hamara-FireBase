@@ -18,6 +18,7 @@
     "kill": "node scripts/stop.js",
     "build": "tsc --project tsconfig.json",
     "clean": "rm -rf dist",
+    "test": "ts-node tests/remote-ott-access.test.ts && ts-node tests/tunnel-manager.test.ts && ts-node tests/traffic-topology.test.ts",
     "reset-admin": "ts-node src/scripts/reset-admin.ts"
   },
   "keywords": [
@@ -30,6 +31,7 @@
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1108.0",
+    "@ngrok/ngrok": "^1.7.0",
     "ajv": "^8.20.0",
     "argon2": "^0.45.1",
     "axios": "^1.19.0",
@@ -46,6 +48,7 @@
     "jimp": "^1.6.1",
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^4.1.0",
+    "localtunnel": "^2.0.2",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.5",
     "otplib": "^11.0.1",
@@ -63,6 +66,7 @@
     "@types/express": "^4.17.21",
     "@types/hpp": "^0.2.7",
     "@types/jsonwebtoken": "^9.0.6",
+    "@types/localtunnel": "^2.0.4",
     "@types/multer": "^1.4.13",
     "@types/node": "^20.14.9",
     "@types/nodemailer": "^8.0.1",

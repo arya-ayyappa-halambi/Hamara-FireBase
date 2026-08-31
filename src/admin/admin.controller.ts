@@ -25,6 +25,8 @@ import { subnetRateLimiterService } from '../services/subnet-rate-limiter.servic
 import { emergencyControlService } from '../services/emergency-control.service';
 import { wafShieldService } from '../services/waf-shield.service';
 import { remoteOttAccessService } from '../services/remote-ott-access.service';
+import { tunnelManagerService } from '../services/tunnel-manager.service';
+import { trafficTopologyService } from '../services/traffic-topology.service';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -1351,6 +1353,87 @@ export async function hotRestartServerHandler(req: Request, res: Response, next:
       success: true,
       message: `Zero-Downtime Hot Restart initiated on port ${port}. State preserved.`,
       data: { port, host, timestamp: new Date().toISOString() }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── Global Public Tunneling Manager Handlers ─────────────────────────────────
+
+export async function getTunnelStatusHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const report = tunnelManagerService.getTunnelStatus();
+    res.status(200).json({
+      success: true,
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function startTunnelHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { provider, authToken, customDomain, autoCloseMinutes } = req.body || {};
+    const report = await tunnelManagerService.startTunnel({
+      provider,
+      authToken,
+      customDomain,
+      autoCloseMinutes
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Global public tunnel started via ${report.provider}.`,
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function stopTunnelHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const report = await tunnelManagerService.stopTunnel();
+    res.status(200).json({
+      success: true,
+      message: 'Global public tunnel disconnected.',
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateTunnelSettingsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { provider, authToken, customDomain, autoCloseMinutes } = req.body || {};
+    tunnelManagerService.updateSettings({
+      provider,
+      authToken,
+      customDomain,
+      autoCloseMinutes
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Public tunnel settings saved.',
+      data: tunnelManagerService.getTunnelStatus()
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── Real-Time Traffic Topology & Flow Telemetry Handlers ──────────────────────
+
+export async function getTrafficTopologyHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const snapshot = trafficTopologyService.getTopologySnapshot();
+    res.status(200).json({
+      success: true,
+      data: snapshot
     });
   } catch (err) {
     next(err);

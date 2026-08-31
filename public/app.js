@@ -2742,6 +2742,14 @@ function connectGlobalWebSocket() {
             }
           }
           showToast(`🛑 Server on port ${port} was stopped by ${stoppedBy}.`, 'error');
+        } else if (data.type === 'TUNNEL_STATUS_UPDATED') {
+          if (typeof window.renderTunnelUI === 'function') {
+            window.renderTunnelUI(data.data);
+          }
+        } else if (data.type === 'TRAFFIC_TOPOLOGY_TICK') {
+          if (typeof window.renderTrafficTopologyUI === 'function') {
+            window.renderTrafficTopologyUI(data.data);
+          }
         }
       } catch (_) {}
     };
@@ -9584,6 +9592,316 @@ window.triggerZeroDowntimeHotRestart = async function() {
     window.loadClusterDiagnosticsReport();
   } catch (err) {
     showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  GLOBAL PUBLIC HOSTING & INTERNET TUNNELS (NGROK & LOCALTUNNEL)
+// ─────────────────────────────────────────────────────────────────────────────
+
+let currentTunnelState = {
+  enabled: false,
+  status: 'offline',
+  provider: 'localtunnel',
+  publicUrl: null
+};
+
+window.loadTunnelStatus = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/tunnel/status', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderTunnelUI(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load tunnel status:', err);
+  }
+};
+
+window.renderTunnelUI = function(data) {
+  if (!data) return;
+  currentTunnelState = data;
+
+  const pill = document.getElementById('badge-tunnel-status-pill');
+  const btnToggle = document.getElementById('btn-tunnel-master-toggle');
+  const textBtn = document.getElementById('text-btn-tunnel-toggle');
+  const cardDetails = document.getElementById('card-active-tunnel-details');
+  const inputUrl = document.getElementById('input-tunnel-public-url');
+  const imgQr = document.getElementById('img-tunnel-qr-code');
+  const linkOpen = document.getElementById('link-tunnel-open-tab');
+  const badgeCountdown = document.getElementById('badge-tunnel-timer-countdown');
+
+  const selectProvider = document.getElementById('select-tunnel-provider');
+  const inputToken = document.getElementById('input-tunnel-authtoken');
+  const inputDomain = document.getElementById('input-tunnel-domain');
+  const selectTtl = document.getElementById('select-tunnel-ttl');
+
+  const metricReqs = document.getElementById('metric-tunnel-reqs');
+  const metricBytes = document.getElementById('metric-tunnel-bytes');
+  const metricUptime = document.getElementById('metric-tunnel-uptime');
+
+  if (selectProvider && data.provider) selectProvider.value = data.provider;
+  if (inputDomain && data.customDomain !== undefined) inputDomain.value = data.customDomain;
+  if (selectTtl && data.autoCloseMinutes !== undefined) selectTtl.value = data.autoCloseMinutes.toString();
+
+  if (data.status === 'online' && data.publicUrl) {
+    if (pill) {
+      pill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse';
+      pill.textContent = `🟢 Online (${data.provider})`;
+    }
+    if (btnToggle) {
+      btnToggle.className = 'px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-rose-950/50';
+    }
+    if (textBtn) textBtn.textContent = 'Stop Global Tunnel';
+
+    if (cardDetails) cardDetails.classList.remove('hidden');
+    if (inputUrl) inputUrl.value = data.publicUrl;
+    if (linkOpen) linkOpen.href = data.publicUrl;
+
+    if (imgQr) {
+      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.publicUrl)}`;
+    }
+
+    if (badgeCountdown) {
+      if (data.remainingSeconds !== null && data.remainingSeconds > 0) {
+        const mins = Math.floor(data.remainingSeconds / 60);
+        const secs = data.remainingSeconds % 60;
+        badgeCountdown.textContent = `Auto-Close: ${mins}m ${secs < 10 ? '0' : ''}${secs}s`;
+      } else if (data.autoCloseMinutes === 0) {
+        badgeCountdown.textContent = 'Auto-Close: Permanent';
+      }
+    }
+
+    if (metricReqs && data.stats) metricReqs.textContent = data.stats.totalRequests.toLocaleString();
+    if (metricBytes && data.stats) metricBytes.textContent = `${Math.round(data.stats.bytesTransferred / 1024).toLocaleString()} KB`;
+    if (metricUptime && data.stats) metricUptime.textContent = `${data.stats.uptimeSeconds}s`;
+  } else if (data.status === 'starting') {
+    if (pill) {
+      pill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 animate-pulse';
+      pill.textContent = '⏳ Connecting...';
+    }
+    if (btnToggle) {
+      btnToggle.className = 'px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-amber-950/50';
+    }
+    if (textBtn) textBtn.textContent = 'Connecting...';
+    if (cardDetails) cardDetails.classList.add('hidden');
+  } else {
+    if (pill) {
+      pill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-white/10';
+      pill.textContent = '⚪ Offline';
+    }
+    if (btnToggle) {
+      btnToggle.className = 'px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-indigo-950/50';
+    }
+    if (textBtn) textBtn.textContent = 'Start Global Tunnel';
+    if (cardDetails) cardDetails.classList.add('hidden');
+  }
+};
+
+window.toggleGlobalTunnel = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot open or close global tunnels.', 'warning');
+    return;
+  }
+
+  const isOnline = currentTunnelState.status === 'online' || currentTunnelState.status === 'starting';
+  const endpoint = isOnline ? '/api/v1/admin/tunnel/stop' : '/api/v1/admin/tunnel/start';
+
+  try {
+    showToast(isOnline ? '⏳ Stopping global tunnel...' : '🚀 Establishing global public HTTPS tunnel...', 'info');
+    const token = getAegisAuthToken();
+
+    const provider = document.getElementById('select-tunnel-provider')?.value || 'localtunnel';
+    const authToken = document.getElementById('input-tunnel-authtoken')?.value?.trim() || '';
+    const customDomain = document.getElementById('input-tunnel-domain')?.value?.trim() || '';
+    const autoCloseMinutes = parseInt(document.getElementById('select-tunnel-ttl')?.value || '60', 10);
+
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: isOnline ? undefined : JSON.stringify({ provider, authToken, customDomain, autoCloseMinutes })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to toggle global tunnel.');
+
+    showToast(json.message || 'Tunnel operation succeeded.', 'success');
+    if (json.data) window.renderTunnelUI(json.data);
+  } catch (err) {
+    showToast(`Tunnel Error: ${err.message}`, 'error');
+    window.loadTunnelStatus();
+  }
+};
+
+window.saveTunnelSettings = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot modify tunnel settings.', 'warning');
+    return;
+  }
+
+  const provider = document.getElementById('select-tunnel-provider')?.value || 'localtunnel';
+  const authToken = document.getElementById('input-tunnel-authtoken')?.value?.trim() || '';
+  const customDomain = document.getElementById('input-tunnel-domain')?.value?.trim() || '';
+  const autoCloseMinutes = parseInt(document.getElementById('select-tunnel-ttl')?.value || '60', 10);
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/tunnel/settings', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ provider, authToken, customDomain, autoCloseMinutes })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to save settings.');
+
+    showToast('Public tunnel preferences saved.', 'success');
+    if (json.data) window.renderTunnelUI(json.data);
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.copyTunnelPublicUrl = function() {
+  const inputUrl = document.getElementById('input-tunnel-public-url');
+  if (inputUrl && inputUrl.value) {
+    navigator.clipboard.writeText(inputUrl.value);
+    showToast('📋 Global public HTTPS URL copied to clipboard!', 'info');
+  }
+};
+
+window.handleTunnelProviderChange = function() {
+  const provider = document.getElementById('select-tunnel-provider')?.value;
+  const tokenInput = document.getElementById('input-tunnel-authtoken');
+  if (provider === 'localtunnel') {
+    if (tokenInput) tokenInput.placeholder = 'Not required for Localtunnel';
+  } else {
+    if (tokenInput) tokenInput.placeholder = 'Paste authtoken from ngrok.com';
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  REAL-TIME TRAFFIC TOPOLOGY & FLOW TELEMETRY MATRIX
+// ─────────────────────────────────────────────────────────────────────────────
+
+window.loadTrafficTopologyMetrics = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/traffic/topology', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderTrafficTopologyUI(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load traffic topology:', err);
+  }
+};
+
+window.renderTrafficTopologyUI = function(snapshot) {
+  if (!snapshot) return;
+
+  // Node 1: Ingress Gateways
+  const elLocal = document.getElementById('topo-ingress-local');
+  const elLan = document.getElementById('topo-ingress-lan');
+  const elWan = document.getElementById('topo-ingress-wan');
+  const elLatIngress = document.getElementById('topo-latency-ingress');
+  if (elLocal) elLocal.textContent = snapshot.ingressDistribution?.localhost?.toLocaleString() || '0';
+  if (elLan) elLan.textContent = snapshot.ingressDistribution?.lan?.toLocaleString() || '0';
+  if (elWan) elWan.textContent = snapshot.ingressDistribution?.wan_tunnel?.toLocaleString() || '0';
+  if (elLatIngress && snapshot.pipelineNodes?.ingress) elLatIngress.textContent = `${snapshot.pipelineNodes.ingress.avgLatencyMs}ms`;
+
+  // Node 2: Security & WAF
+  const elLatSec = document.getElementById('topo-latency-sec');
+  if (elLatSec && snapshot.pipelineNodes?.security) elLatSec.textContent = `${snapshot.pipelineNodes.security.avgLatencyMs}ms`;
+
+  // Node 3: Router Dispatcher
+  const elHttp = document.getElementById('topo-proto-http');
+  const elWs = document.getElementById('topo-proto-ws');
+  const elLatRouter = document.getElementById('topo-latency-router');
+  if (elHttp) elHttp.textContent = snapshot.protocolDistribution?.['HTTP/1.1']?.toLocaleString() || '0';
+  if (elWs) elWs.textContent = snapshot.protocolDistribution?.['WebSocket']?.toLocaleString() || '0';
+  if (elLatRouter && snapshot.pipelineNodes?.router) elLatRouter.textContent = `${snapshot.pipelineNodes.router.avgLatencyMs}ms`;
+
+  // Node 4: SQLite Database Engine
+  const elDbReqs = document.getElementById('topo-db-total-reqs');
+  const elDbBytesIn = document.getElementById('topo-db-bytes-in');
+  const elDbBytesOut = document.getElementById('topo-db-bytes-out');
+  const elLatStorage = document.getElementById('topo-latency-storage');
+  if (elDbReqs) elDbReqs.textContent = snapshot.totalRequests?.toLocaleString() || '0';
+  if (elDbBytesIn) elDbBytesIn.textContent = `${Math.round((snapshot.totalBytesIn || 0) / 1024).toLocaleString()} KB`;
+  if (elDbBytesOut) elDbBytesOut.textContent = `${Math.round((snapshot.totalBytesOut || 0) / 1024).toLocaleString()} KB`;
+  if (elLatStorage && snapshot.pipelineNodes?.storage) elLatStorage.textContent = `${snapshot.pipelineNodes.storage.avgLatencyMs}ms`;
+
+  // 4 Gauges
+  const elBwIn = document.getElementById('metric-traffic-bandwidth-in');
+  const elBwOut = document.getElementById('metric-traffic-bandwidth-out');
+  const elRps = document.getElementById('metric-traffic-rps');
+  const elSockets = document.getElementById('metric-traffic-active-sockets');
+
+  if (elBwIn) {
+    const bytes = snapshot.bandwidthInBps || 0;
+    elBwIn.textContent = bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB/s` : bytes > 1024 ? `${(bytes / 1024).toFixed(1)} KB/s` : `${bytes} B/s`;
+  }
+  if (elBwOut) {
+    const bytes = snapshot.bandwidthOutBps || 0;
+    elBwOut.textContent = bytes > 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB/s` : bytes > 1024 ? `${(bytes / 1024).toFixed(1)} KB/s` : `${bytes} B/s`;
+  }
+  if (elRps) elRps.textContent = `${(snapshot.requestsPerSecond || 0).toFixed(1)} RPS`;
+  if (elSockets) elSockets.textContent = (snapshot.activeConcurrentSockets || 1).toString();
+
+  // Streams Table
+  const tbody = document.getElementById('table-traffic-streams-body');
+  if (tbody && snapshot.recentStreams) {
+    if (snapshot.recentStreams.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500 text-xs">No active stream transactions recorded yet.</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = snapshot.recentStreams.map(s => {
+      const isErr = s.statusCode >= 400;
+      const statusBadge = isErr
+        ? `<span class="px-2 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">${s.statusCode}</span>`
+        : `<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">${s.statusCode}</span>`;
+
+      const ingressBadge = s.ingressType === 'localhost'
+        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-white/10 text-slate-300">Localhost</span>'
+        : s.ingressType === 'lan'
+        ? '<span class="px-2 py-0.5 rounded text-[10px] bg-cyan-500/20 text-cyan-300">Wi-Fi LAN</span>'
+        : '<span class="px-2 py-0.5 rounded text-[10px] bg-indigo-500/20 text-indigo-300">Tunnel WAN</span>';
+
+      return `
+        <tr class="hover:bg-white/[0.02] transition font-mono">
+          <td class="p-2.5">
+            <div class="text-white text-xs font-semibold flex items-center space-x-1.5">
+              <span>${s.countryCode ? s.countryCode : '🏠'}</span>
+              <span>${escapeHTML(s.clientIp)}</span>
+            </div>
+            <div class="text-[10px] text-slate-500">${escapeHTML(s.countryName || 'Local Network')}</div>
+          </td>
+          <td class="p-2.5">${ingressBadge}</td>
+          <td class="p-2.5">
+            <span class="text-cyan-400 font-bold text-[11px]">${escapeHTML(s.method)}</span>
+            <span class="text-slate-300 text-xs ml-1">${escapeHTML(s.path)}</span>
+          </td>
+          <td class="p-2.5 text-center">${statusBadge}</td>
+          <td class="p-2.5 text-right text-slate-400 text-xs">${s.latencyMs}ms</td>
+          <td class="p-2.5 text-right text-slate-300 text-xs">${Math.round((s.bytesIn + s.bytesOut) / 1024 * 10) / 10} KB</td>
+        </tr>
+      `;
+    }).join('');
   }
 };
 
