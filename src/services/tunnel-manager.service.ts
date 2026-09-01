@@ -87,14 +87,6 @@ export class TunnelManagerService {
     const db = getDb();
     const settings = db.prepare("SELECT * FROM platform_settings WHERE id = 'default'").get() as any;
 
-    if (this.currentStatus === 'offline' && settings?.tunnelEnabled === 1 && settings?.tunnelPublicUrl) {
-      this.currentStatus = 'online';
-      this.currentPublicUrl = settings.tunnelPublicUrl;
-      this.currentProvider = (settings.tunnelProvider as TunnelProvider) || 'cloudflare';
-      if (settings.tunnelStartedAt) this.startedAtTime = new Date(settings.tunnelStartedAt);
-      if (settings.tunnelExpiresAt) this.expiresAtTime = new Date(settings.tunnelExpiresAt);
-    }
-
     const authToken = settings?.tunnelAuthToken || '';
     const maskedAuthToken = authToken
       ? (authToken.length > 8 ? `${authToken.slice(0, 4)}••••${authToken.slice(-4)}` : '••••••••')
@@ -119,8 +111,8 @@ export class TunnelManagerService {
       maskedAuthToken,
       customDomain: settings?.tunnelCustomDomain || '',
       hostPublicIp: this.cachedHostPublicIp,
-      startedAt: this.startedAtTime ? this.startedAtTime.toISOString() : (settings?.tunnelStartedAt || null),
-      expiresAt: this.expiresAtTime ? this.expiresAtTime.toISOString() : (settings?.tunnelExpiresAt || null),
+      startedAt: this.startedAtTime ? this.startedAtTime.toISOString() : null,
+      expiresAt: this.expiresAtTime ? this.expiresAtTime.toISOString() : null,
       autoCloseMinutes: Number(settings?.tunnelAutoCloseMinutes ?? 60),
       remainingSeconds,
       stats: {
