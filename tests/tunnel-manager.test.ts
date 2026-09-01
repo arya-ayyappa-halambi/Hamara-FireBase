@@ -205,6 +205,63 @@ async function runTunnelManagerTests(): Promise<void> {
   });
   assert(nextCalled2 && mockReq2.project?.id === proj.project.id, 'Authenticated via apiKey query param');
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 9: Host OS Lifecycle & Recovery Isolation over WAN
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 9. Host OS Lifecycle & Recovery Isolation ---');
+  
+  const shutdownCheck = networkAccessService.isEndpointAccessAllowed({
+    clientIp: '198.51.100.22',
+    path: '/api/v1/admin/server/shutdown',
+    method: 'POST',
+    isTunnel: true,
+    hostHeader: 'quotes-brussels-origin-officer.trycloudflare.com'
+  });
+  assert(shutdownCheck.allowed === false, 'Hard-blocked server shutdown from external global tunnel');
+  assert(shutdownCheck.code === 'HOST_ISOLATION_PROTECTED', 'Error code is HOST_ISOLATION_PROTECTED');
+
+  const restoreCheck = networkAccessService.isEndpointAccessAllowed({
+    clientIp: '198.51.100.22',
+    path: '/api/v1/system/restore',
+    method: 'POST',
+    isTunnel: true,
+    hostHeader: 'quotes-brussels-origin-officer.trycloudflare.com'
+  });
+  assert(restoreCheck.allowed === false, 'Hard-blocked system restore from external global tunnel');
+  assert(restoreCheck.code === 'HOST_ISOLATION_PROTECTED', 'Error code is HOST_ISOLATION_PROTECTED');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 10: Google Auth .env Dynamic Resolution & Secret Protection
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 10. Google Auth .env Dynamic Resolution ---');
+  process.env.GOOGLE_CLIENT_ID = 'test-env-google-id.apps.googleusercontent.com';
+  
+  const { verifyGoogleToken } = await import('../src/auth/auth.google');
+  let googleErr: any = null;
+  try {
+    // Attempt verification with a dummy token to confirm client initialized with process.env.GOOGLE_CLIENT_ID
+    await verifyGoogleToken('dummy_invalid_token');
+  } catch (err: any) {
+    googleErr = err;
+  }
+  assert(googleErr !== null, 'Google verification executed and rejected dummy token');
+  assert(googleErr?.statusCode === 401, 'Returns 401 for invalid token instead of 403/500 misconfiguration');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 11: Storage Driver Directory Traversal Protection
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 11. Storage Driver Directory Traversal Guard ---');
+  const { LocalStorageDriver } = await import('../src/storage/local-storage.driver');
+  const driver = new LocalStorageDriver();
+  
+  let traversalErr: any = null;
+  try {
+    await driver.getFileStream('../../etc/passwd');
+  } catch (err: any) {
+    traversalErr = err;
+  }
+  assert(traversalErr !== null, 'Blocked path traversal attempt in storage driver');
+
   console.log('\n================================================================');
   console.log(`📊 Tunnel Manager Test Results: ${passed} passed, ${failed} failed`);
   console.log('================================================================\n');

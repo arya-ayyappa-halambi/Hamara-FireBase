@@ -190,7 +190,13 @@ export class ProjectAuthService {
       throw new AppError(`${provider} authentication is disabled for this project.`, 403);
     }
 
-    const clientId = (providerConfig.clientId || '').trim();
+    let clientId = (providerConfig.clientId || '').trim();
+    if (!clientId) {
+      if (provider === 'google' && process.env.GOOGLE_CLIENT_ID) clientId = process.env.GOOGLE_CLIENT_ID.trim();
+      else if (provider === 'github' && process.env.GITHUB_CLIENT_ID) clientId = process.env.GITHUB_CLIENT_ID.trim();
+      else if (provider === 'apple' && process.env.APPLE_CLIENT_ID) clientId = process.env.APPLE_CLIENT_ID.trim();
+    }
+
     if (!clientId) {
       throw new AppError(`${provider} authentication is disabled because no Client ID is configured for this project in AegisDB.`, 403);
     }

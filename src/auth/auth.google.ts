@@ -2,31 +2,38 @@ import { OAuth2Client } from 'google-auth-library';
 import { getDb } from '../db/sqlite.connection';
 import { AppError } from '../types/auth.types';
 
-// Memoize client to avoid recreating it
 let client: OAuth2Client | null = null;
+let lastConfiguredClientId: string | null = null;
 
 export async function verifyGoogleToken(idToken: string): Promise<{ email: string, name: string }> {
   const db = getDb();
   
-  // Fetch current platform settings
+  // 1. Fetch current platform settings and check environment variables
   const settings = db.prepare('SELECT googleAuthEnabled, googleClientId FROM platform_settings WHERE id = ?').get('default') as any;
   
-  if (!settings || settings.googleAuthEnabled !== 1) {
-    throw new AppError('Google authentication is currently disabled by the administrator.', 403);
+  const envGoogleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
+  const dbGoogleClientId = (settings?.googleClientId || '').trim();
+  const effectiveClientId = envGoogleClientId || dbGoogleClientId;
+
+  const isGoogleEnabled = Boolean(envGoogleClientId || (settings && settings.googleAuthEnabled === 1));
+
+  if (!isGoogleEnabled) {
+    throw new AppError('Google authentication is currently disabled by administrator.', 403);
   }
 
-  if (!settings.googleClientId) {
-    throw new AppError('Google Client ID is not configured on the server.', 500);
+  if (!effectiveClientId) {
+    throw new AppError('Google Client ID is not configured on the server (set GOOGLE_CLIENT_ID in .env).', 500);
   }
 
-  if (!client) {
-    client = new OAuth2Client(settings.googleClientId);
+  if (!client || lastConfiguredClientId !== effectiveClientId) {
+    client = new OAuth2Client(effectiveClientId);
+    lastConfiguredClientId = effectiveClientId;
   }
 
   try {
     const ticket = await client.verifyIdToken({
       idToken,
-      audience: settings.googleClientId,
+      audience: effectiveClientId,
     });
     
     const payload = ticket.getPayload();
@@ -38,8 +45,8 @@ export async function verifyGoogleToken(idToken: string): Promise<{ email: strin
       email: payload.email,
       name: payload.name || payload.email.split('@')[0]
     };
-  } catch (error) {
-    console.error('Google Auth Error:', error);
+  } catch (error: any) {
+    console.error('Google Auth Error:', error?.message || 'Token verification failure');
     throw new AppError('Failed to verify Google authentication token.', 401);
   }
 }

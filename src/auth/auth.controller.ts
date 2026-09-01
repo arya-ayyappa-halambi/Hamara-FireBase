@@ -24,12 +24,16 @@ export async function getConfig(req: Request, res: Response, next: NextFunction)
     const db = getDb();
     const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, demoLoginEnabled, magicLinkAuthEnabled, passkeyAuthEnabled FROM platform_settings WHERE id = ?').get('default') as any;
     
+    const envGoogleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
+    const googleClientId = envGoogleClientId || (settings?.googleClientId ? settings.googleClientId : '');
+    const googleAuthEnabled = Boolean(envGoogleClientId || (settings && settings.googleAuthEnabled === 1));
+
     res.status(200).json({
       success: true,
       message: 'Auth config retrieved',
       data: {
-        googleAuthEnabled: settings ? settings.googleAuthEnabled === 1 : false,
-        googleClientId: settings ? settings.googleClientId : '',
+        googleAuthEnabled,
+        googleClientId,
         demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true,
         magicLinkAuthEnabled: settings ? (settings.magicLinkAuthEnabled === 1 || settings.magicLinkAuthEnabled === true) : false,
         passkeyAuthEnabled: settings ? (settings.passkeyAuthEnabled === 1 || settings.passkeyAuthEnabled === true) : false

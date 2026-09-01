@@ -31,15 +31,27 @@ export class LocalStorageDriver implements StorageDriver {
   }
 
   async getFileStream(storedName: string): Promise<Readable> {
-    const absolutePath = path.join(this.uploadDir, storedName);
+    const safeName = path.basename(storedName);
+    const canonicalDir = path.resolve(this.uploadDir);
+    const absolutePath = path.resolve(canonicalDir, safeName);
+
+    if (!absolutePath.startsWith(canonicalDir)) {
+      throw new Error('Security Error: Path traversal attempt detected.');
+    }
     if (!fs.existsSync(absolutePath)) {
-      throw new Error(`File asset '${storedName}' not found on local storage.`);
+      throw new Error(`File asset '${safeName}' not found on local storage.`);
     }
     return fs.createReadStream(absolutePath);
   }
 
   async deleteFile(storedName: string): Promise<void> {
-    const absolutePath = path.join(this.uploadDir, storedName);
+    const safeName = path.basename(storedName);
+    const canonicalDir = path.resolve(this.uploadDir);
+    const absolutePath = path.resolve(canonicalDir, safeName);
+
+    if (!absolutePath.startsWith(canonicalDir)) {
+      throw new Error('Security Error: Path traversal attempt detected.');
+    }
     if (fs.existsSync(absolutePath)) {
       await fs.promises.unlink(absolutePath);
     }

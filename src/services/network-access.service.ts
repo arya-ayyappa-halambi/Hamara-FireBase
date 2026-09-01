@@ -275,8 +275,25 @@ export class NetworkAccessService {
       return { allowed: true, reason: 'Localhost host bypass' };
     }
 
-    // 1b. Global Tunnel Ingress Enforcement: If request is arriving over a public tunnel but tunnel is disabled
+    // 1b. Global Tunnel Ingress Enforcement & Host OS Lifecycle Isolation
     if (params.isTunnel) {
+      // 1b-i. Destructive Host Lifecycle & OS Recovery Endpoints (100% Forbidden over global tunnels)
+      const hostLockedPaths = [
+        '/api/v1/admin/server/shutdown',
+        '/api/v1/admin/server/hot-restart',
+        '/api/v1/admin/server/cluster-diagnostics',
+        '/api/v1/system/restore',
+        '/api/v1/system/verify-recovery-pin'
+      ];
+      if (hostLockedPaths.some(p => params.path.startsWith(p))) {
+        return {
+          allowed: false,
+          code: 'HOST_ISOLATION_PROTECTED',
+          reason: 'Host Machine Security: Server lifecycle, process shutdown, and system recovery operations are strictly forbidden over external global tunnels.'
+        };
+      }
+
+      // 1b-ii. Global Network Enabled Killswitch
       try {
         const db = getDb();
         const platSettings = db.prepare("SELECT tunnelEnabled FROM platform_settings WHERE id = 'default'").get() as any;
@@ -312,17 +329,29 @@ export class NetworkAccessService {
     const allRules = this.getRules().filter(r => !r.isExpired);
 
     // 4. Super Admin Endpoint Perimeter Lock (/api/v1/admin/*)
-    if (settings.adminEndpointIpLockEnabled && params.path.startsWith('/api/v1/admin')) {
-      const allowedAdminSubnets = (settings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
-      const matchesAdminSubnet = allowedAdminSubnets.some(sub => this.matchIpPattern(ip, sub));
-      const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && this.matchIpPattern(ip, r.ipPattern, r.ruleType));
+    if (params.path.startsWith('/api/v1/admin')) {
+      if (params.isTunnel) {
+        // Over public tunnel, Super Admin is locked unless explicit OTT or device authorization rule matches
+        const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && this.matchIpPattern(ip, r.ipPattern, r.ruleType));
+        if (!hasAdminAllowRule) {
+          return {
+            allowed: false,
+            code: 'ADMIN_PERIMETER_RESTRICTED',
+            reason: 'Access restricted: Super Admin management endpoints cannot be accessed over public tunnels without Zero-Trust device approval or One-Time Token (OTT).'
+          };
+        }
+      } else if (settings.adminEndpointIpLockEnabled) {
+        const allowedAdminSubnets = (process.env.ADMIN_ALLOWED_SUBNET || settings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
+        const matchesAdminSubnet = allowedAdminSubnets.some(sub => this.matchIpPattern(ip, sub));
+        const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && this.matchIpPattern(ip, r.ipPattern, r.ruleType));
 
-      if (!matchesAdminSubnet && !hasAdminAllowRule) {
-        return {
-          allowed: false,
-          code: 'ADMIN_PERIMETER_RESTRICTED',
-          reason: 'Access restricted: Super Admin endpoints can only be accessed from authorized management devices.'
-        };
+        if (!matchesAdminSubnet && !hasAdminAllowRule) {
+          return {
+            allowed: false,
+            code: 'ADMIN_PERIMETER_RESTRICTED',
+            reason: 'Access restricted: Super Admin endpoints can only be accessed from authorized management devices.'
+          };
+        }
       }
     }
 

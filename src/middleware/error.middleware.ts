@@ -33,17 +33,35 @@ interface HttpError extends Error {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function globalErrorHandler(
   err: HttpError,
-  _req: Request,
+  req: Request,
   res: Response,
   _next: NextFunction,
 ): void {
-  const isDev = process.env.NODE_ENV === 'development';
+  const hostHeader = (req?.headers?.host || '').toLowerCase();
+  const isTunnel = Boolean(
+    req?.headers?.['cf-connecting-ip'] ||
+    req?.headers?.['x-forwarded-proto'] ||
+    req?.headers?.['x-forwarded-host'] ||
+    hostHeader.includes('.trycloudflare.com') ||
+    hostHeader.includes('.loca.lt') ||
+    hostHeader.includes('.ngrok')
+  );
+  const isDev = process.env.NODE_ENV === 'development' && !isTunnel;
+
+  // Sanitize path strings to prevent host filesystem leakage
+  const sanitizeMessage = (msg: string): string => {
+    if (!msg) return msg;
+    return msg
+      .replace(/\/Users\/[^\s/]+/g, '/[host]')
+      .replace(/\/home\/[^\s/]+/g, '/[host]')
+      .replace(/[A-Za-z]:\\[^\s\\]+/g, '\\[host]');
+  };
 
   // ── Operational errors (AppError) ──────────────────────────────────────────
   if (err instanceof AppError && err.isOperational) {
     const body: ApiResponse<any> = {
       success: false,
-      message: err.message,
+      message: sanitizeMessage(err.message),
       data: err.details || null,
     };
     res.status(err.statusCode).json(body);
@@ -69,9 +87,9 @@ export function globalErrorHandler(
 
   const body: ApiResponse<null> & { stack?: string } = {
     success: false,
-    message: 'An unexpected internal server error occurred.',
+    message: isTunnel ? 'An unexpected service error occurred.' : sanitizeMessage(err.message || 'An unexpected internal server error occurred.'),
     data: null,
-    ...(isDev && { stack: err.stack }), // expose stack only in development
+    ...(isDev && { stack: err.stack }), // expose stack only in local dev without tunnel
   };
 
   res.status(err.statusCode ?? err.status ?? 500).json(body);
