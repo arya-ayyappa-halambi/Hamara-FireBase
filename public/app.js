@@ -548,6 +548,11 @@ window.switchTab = window.switchWorkspace = function switchTab(tabId) {
     activeNavBtn.classList.remove('text-slate-300');
   }
 
+  // Auto-close mobile sidebar off-canvas drawer upon selecting a tab
+  if (typeof window.toggleMobileSidebar === 'function') {
+    window.toggleMobileSidebar(false);
+  }
+
   // Clear any existing telemetry auto-poll timer
   if (state.telemetryTimer) {
     clearInterval(state.telemetryTimer);
@@ -6150,14 +6155,57 @@ document.addEventListener('DOMContentLoaded', async () => {
     item.onclick = () => switchWorkspace(item.getAttribute('data-tab'));
   });
 
-  // Mac-Style Sidebar Toggle
+  // Mobile & Desktop Sidebar Toggle Controls
+  window.toggleMobileSidebar = function(forceState) {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (!sidebar) return;
+
+    const shouldOpen = typeof forceState === 'boolean'
+      ? forceState
+      : !sidebar.classList.contains('mobile-open');
+
+    if (shouldOpen) {
+      sidebar.classList.add('mobile-open');
+      if (backdrop) backdrop.classList.remove('hidden');
+    } else {
+      sidebar.classList.remove('mobile-open');
+      if (backdrop) backdrop.classList.add('hidden');
+    }
+  };
+
   const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
   const sidebar = document.getElementById('sidebar');
   if (btnToggleSidebar && sidebar) {
-    btnToggleSidebar.onclick = () => {
-      sidebar.classList.toggle('sidebar-collapsed');
+    btnToggleSidebar.onclick = (e) => {
+      e.stopPropagation();
+      if (window.innerWidth < 1024) {
+        window.toggleMobileSidebar();
+      } else {
+        sidebar.classList.toggle('sidebar-collapsed');
+      }
     };
   }
+
+  // Universal Window Resize Listener for Charts & Layout Fluidity
+  let resizeDebounceTimer = null;
+  window.addEventListener('resize', () => {
+    if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(() => {
+      if (window.innerWidth >= 1024) {
+        window.toggleMobileSidebar(false);
+      }
+      const chartKeys = [
+        'telemetryChartCpuMemory', 'telemetryChartLatency', 'telemetryChartThreats', 'telemetryChartTenants',
+        'devChartApiThroughput', 'devChartDbLatency', 'devChartWsEvents', 'devChartStorage', 'devChartSecurityRules'
+      ];
+      chartKeys.forEach(k => {
+        if (state[k] && typeof state[k].resize === 'function') {
+          state[k].resize();
+        }
+      });
+    }, 100);
+  });
 
   // Code Tab Buttons
   document.querySelectorAll('.code-tab-btn').forEach((btn) => {

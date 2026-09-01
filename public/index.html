@@ -86,13 +86,47 @@
     @keyframes slideIn { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     @keyframes slideOut { from { transform: translateY(0); opacity: 1; } to { transform: translateY(100%); opacity: 0; } }
 
-    /* Mac-Style Sidebar Transitions */
-    .sidebar-collapsed { width: 4.5rem; }
-    .sidebar-collapsed .nav-text { display: none; }
-    .sidebar-collapsed .sidebar-header-title { display: none; }
-    .sidebar-collapsed:hover { width: 16rem; }
-    .sidebar-collapsed:hover .nav-text { display: inline; }
-    .sidebar-collapsed:hover .sidebar-header-title { display: block; }
+    /* ── Responsive Sidebar & Mac-Style Transitions ─────────────────────────── */
+    @media (min-width: 1024px) {
+      .sidebar-collapsed { width: 4.5rem; }
+      .sidebar-collapsed .nav-text { display: none; }
+      .sidebar-collapsed .sidebar-header-title { display: none; }
+      .sidebar-collapsed:hover { width: 16rem; }
+      .sidebar-collapsed:hover .nav-text { display: inline; }
+      .sidebar-collapsed:hover .sidebar-header-title { display: block; }
+    }
+
+    @media (max-width: 1023px) {
+      #sidebar {
+        position: fixed !important;
+        top: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 16rem !important;
+        z-index: 50 !important;
+        transform: translateX(-100%) !important;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.8) !important;
+      }
+      #sidebar.mobile-open {
+        transform: translateX(0) !important;
+      }
+      #sidebar .nav-text { display: inline !important; }
+      #sidebar .sidebar-header-title { display: block !important; }
+    }
+
+    /* ── Universal Chart & Grid Fluid Scaling ───────────────────────────────── */
+    canvas, svg {
+      max-width: 100% !important;
+      height: 100% !important;
+    }
+    .min-w-0 {
+      min-width: 0 !important;
+    }
+    .workspace-panel {
+      min-width: 0 !important;
+      width: 100% !important;
+    }
 
     .live-pulse {
       animation: pulseGlow 2s infinite;
@@ -1031,40 +1065,42 @@
   <div id="main-app" class="hidden flex-1 flex flex-col min-h-screen">
     
     <!-- ── TOP HEADER BAR ────────────────────────────────────────────────── -->
-    <header class="h-16 border-b border-white/10 glass-panel sticky top-0 z-40 px-6 flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <!-- Mac Sidebar Toggle -->
-        <button id="btn-toggle-sidebar" title="Toggle Sidebar (Mac Style)" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
+    <header class="h-16 border-b border-white/10 glass-panel sticky top-0 z-40 px-2.5 sm:px-4 lg:px-6 flex items-center justify-between gap-2 overflow-x-auto custom-scrollbar">
+      <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
+        <!-- Mac / Mobile Sidebar Toggle -->
+        <button id="btn-toggle-sidebar" title="Toggle Navigation Sidebar" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition cursor-pointer">
           <i class="fa-solid fa-bars text-lg"></i>
         </button>
 
         <!-- Brand Logo -->
-        <div class="flex items-center space-x-3">
-          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20">
-            <i class="fa-solid fa-shield-halved"></i>
+        <div class="flex items-center space-x-2">
+          <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
+            <i class="fa-solid fa-shield-halved text-sm sm:text-base"></i>
           </div>
-          <span class="font-bold text-lg tracking-tight text-white hidden sm:inline">AegisDB</span>
+          <span class="font-bold text-base sm:text-lg tracking-tight text-white hidden md:inline">AegisDB</span>
         </div>
 
         <!-- Role Context Switcher Badge -->
-        <div class="bg-slate-900/80 p-1 rounded-xl border border-white/10 flex items-center text-xs font-semibold">
-          <button id="btn-role-superadmin" class="px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center space-x-1.5">
-            <i class="fa-solid fa-crown text-amber-400"></i>
-            <span>Super Admin</span>
+        <div class="bg-slate-900/80 p-0.5 sm:p-1 rounded-xl border border-white/10 flex items-center text-xs font-semibold shrink-0">
+          <button id="btn-role-superadmin" class="px-2 sm:px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white flex items-center space-x-1 sm:space-x-1.5 cursor-pointer">
+            <i class="fa-solid fa-crown text-amber-400 text-xs"></i>
+            <span class="hidden sm:inline">Super Admin</span>
+            <span class="inline sm:hidden text-[11px]">Admin</span>
           </button>
-          <button id="btn-role-developer" class="px-3 py-1.5 rounded-lg transition-all bg-indigo-600 text-white shadow flex items-center space-x-1.5">
-            <i class="fa-solid fa-code text-indigo-200"></i>
-            <span>Developer</span>
+          <button id="btn-role-developer" class="px-2 sm:px-3 py-1.5 rounded-lg transition-all bg-indigo-600 text-white shadow flex items-center space-x-1 sm:space-x-1.5 cursor-pointer">
+            <i class="fa-solid fa-code text-indigo-200 text-xs"></i>
+            <span class="hidden sm:inline">Developer</span>
+            <span class="inline sm:hidden text-[11px]">Dev</span>
           </button>
         </div>
 
         <!-- GitHub-Style Workspace Context Switcher (Personal vs Organizations) -->
-        <div id="workspace-switcher-container" class="relative">
-          <button id="btn-workspace-switcher" type="button" onclick="window.toggleWorkspaceDropdown && window.toggleWorkspaceDropdown()" class="bg-slate-900/90 text-xs font-semibold text-slate-200 border border-white/10 rounded-xl px-3 py-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer flex items-center space-x-2 hover:bg-slate-800 hover:border-cyan-500/40 transition">
-            <div id="workspace-icon" class="w-4 h-4 rounded bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px]">
+        <div id="workspace-switcher-container" class="relative shrink-0">
+          <button id="btn-workspace-switcher" type="button" onclick="window.toggleWorkspaceDropdown && window.toggleWorkspaceDropdown()" class="bg-slate-900/90 text-xs font-semibold text-slate-200 border border-white/10 rounded-xl px-2.5 sm:px-3 py-1.5 focus:outline-none focus:border-cyan-500 cursor-pointer flex items-center space-x-1.5 sm:space-x-2 hover:bg-slate-800 hover:border-cyan-500/40 transition">
+            <div id="workspace-icon" class="w-4 h-4 rounded bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-[10px] shrink-0">
               <i class="fa-solid fa-user"></i>
             </div>
-            <span id="label-active-workspace" class="truncate max-w-[130px]">Personal</span>
+            <span id="label-active-workspace" class="truncate max-w-[70px] sm:max-w-[120px]">Personal</span>
             <i class="fa-solid fa-chevron-down text-[9px] text-slate-400"></i>
           </button>
 
@@ -1073,9 +1109,9 @@
             <div class="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Switch Context</div>
             
             <!-- Personal Workspace Option -->
-            <button type="button" onclick="window.switchWorkspace('personal')" class="w-full p-2 rounded-xl text-left text-xs font-semibold text-white hover:bg-white/10 transition flex items-center justify-between">
+            <button type="button" onclick="window.switchWorkspace('personal')" class="w-full p-2 rounded-xl text-left text-xs font-semibold text-white hover:bg-white/10 transition flex items-center justify-between cursor-pointer">
               <div class="flex items-center space-x-2.5">
-                <div class="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs">
+                <div class="w-6 h-6 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs shrink-0">
                   <i class="fa-solid fa-user"></i>
                 </div>
                 <div>
@@ -1106,17 +1142,17 @@
         </div>
 
         <!-- Project Selector Dropdown (Filtered to Active Workspace) -->
-        <div id="project-selector-container" class="relative">
-          <select id="select-active-project" class="bg-slate-900/90 text-xs font-semibold text-slate-200 border border-white/10 rounded-xl px-3 py-1.5 pr-8 focus:outline-none focus:border-indigo-500 cursor-pointer">
-            <option value="">Select Active Project...</option>
+        <div id="project-selector-container" class="relative shrink-0">
+          <select id="select-active-project" class="bg-slate-900/90 text-xs font-semibold text-slate-200 border border-white/10 rounded-xl px-2.5 sm:px-3 py-1.5 pr-7 sm:pr-8 focus:outline-none focus:border-indigo-500 cursor-pointer max-w-[110px] sm:max-w-[170px] truncate">
+            <option value="">Select Project...</option>
           </select>
         </div>
       </div>
 
       <!-- Right Header Actions -->
-      <div class="flex items-center space-x-4">
+      <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
         <!-- Health Badges -->
-        <div class="hidden md:flex items-center space-x-2">
+        <div class="hidden xl:flex items-center space-x-2">
           <span class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <span class="w-2 h-2 rounded-full bg-emerald-400 live-pulse"></span>
             <span>Server Online</span>
@@ -1128,21 +1164,21 @@
         </div>
 
         <!-- MFA Setup Modal Trigger Button -->
-        <button id="btn-mfa-setup-header" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition flex items-center space-x-1.5">
+        <button id="btn-mfa-setup-header" class="hidden sm:flex px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 transition items-center space-x-1.5 cursor-pointer">
           <i class="fa-solid fa-qrcode text-indigo-400"></i>
-          <span>MFA Setup</span>
+          <span class="hidden md:inline">MFA Setup</span>
         </button>
 
         <!-- Super Admin Real-Time Threat Alerts Trigger -->
         <div id="container-threat-alerts" class="relative hidden">
-          <button id="btn-threat-alerts-header" title="Security Threat Alerts & Bot Detections" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition flex items-center space-x-1.5">
+          <button id="btn-threat-alerts-header" title="Security Threat Alerts & Bot Detections" class="px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/10 text-rose-300 border border-rose-500/30 hover:bg-rose-500/20 transition flex items-center space-x-1.5 cursor-pointer">
             <i class="fa-solid fa-bell text-rose-400 animate-pulse"></i>
-            <span>Threats</span>
+            <span class="hidden md:inline">Threats</span>
             <span id="badge-threat-count" class="px-1.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px] font-bold">0</span>
           </button>
 
           <!-- Threat Alerts Dropdown Feed -->
-          <div id="dropdown-threat-alerts" class="hidden absolute right-0 mt-2 w-96 glass-panel rounded-2xl p-4 border border-rose-500/30 shadow-2xl z-50 space-y-3">
+          <div id="dropdown-threat-alerts" class="hidden absolute right-0 mt-2 w-80 sm:w-96 glass-panel rounded-2xl p-4 border border-rose-500/30 shadow-2xl z-50 space-y-3">
             <div class="flex items-center justify-between border-b border-white/10 pb-2">
               <span class="text-xs font-bold text-white flex items-center space-x-2">
                 <i class="fa-solid fa-shield-virus text-rose-400"></i>
@@ -1186,17 +1222,20 @@
         </div>
 
         <!-- User Profile Dropdown -->
-        <div class="flex items-center space-x-3 pl-3 border-l border-white/10">
+        <div class="flex items-center space-x-2 sm:space-x-3 pl-2 sm:pl-3 border-l border-white/10">
           <div class="text-right hidden lg:block">
-            <div id="user-display-name" class="text-xs font-semibold text-white">Super Admin</div>
-            <div id="user-display-email" class="text-[10px] text-slate-400">user@example.com</div>
+            <div id="user-display-name" class="text-xs font-semibold text-white truncate max-w-[120px]">Super Admin</div>
+            <div id="user-display-email" class="text-[10px] text-slate-400 truncate max-w-[120px]">user@example.com</div>
           </div>
-          <button id="btn-logout" title="Sign Out" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition">
+          <button id="btn-logout" title="Sign Out" class="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 border border-transparent hover:border-rose-500/20 transition cursor-pointer">
             <i class="fa-solid fa-right-from-bracket"></i>
           </button>
         </div>
       </div>
     </header>
+
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div id="sidebar-backdrop" onclick="window.toggleMobileSidebar && window.toggleMobileSidebar(false)" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 hidden transition-opacity duration-300 cursor-pointer"></div>
 
     <!-- ── 7-DAY ACCOUNT DELETION GRACE PERIOD RECOVERY BANNER ───────────── -->
     <div id="banner-pending-deletion" class="hidden bg-gradient-to-r from-amber-950/90 via-amber-900/60 to-slate-950 border-b border-amber-500/40 px-6 py-3 items-center justify-between z-40 text-xs text-amber-200 shadow-lg">
@@ -1411,7 +1450,7 @@
           </div>
 
           <!-- Metrics KPI Cards -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 min-w-0">
             <div class="glass-panel p-5 rounded-2xl border border-white/10 space-y-2">
               <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">CPU Usage</div>
               <div id="kpi-cpu" class="text-3xl font-extrabold text-amber-400">1.8%</div>
@@ -3812,23 +3851,23 @@
         <!-- WORKSPACE: DEVELOPER METRICS DASHBOARD (DEVELOPER MODE)         -->
         <!-- ════════════════════════════════════════════════════════════════ -->
         <section id="tab-developer-metrics" class="workspace-panel space-y-6 hidden">
-          <div class="flex items-center justify-between">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 min-w-0">
             <div>
-              <h2 class="text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
+              <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center space-x-2">
                 <i class="fa-solid fa-chart-pie text-indigo-500"></i>
                 <span>Developer Metrics</span>
               </h2>
-              <p class="text-sm text-slate-400 mt-1">Live performance & telemetry scoped to your active project.</p>
+              <p class="text-xs sm:text-sm text-slate-400 mt-1">Live performance & telemetry scoped to your active project.</p>
             </div>
-            <div class="flex space-x-2">
-              <button id="btn-refresh-dev-metrics" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl border border-white/10 transition flex items-center space-x-2">
+            <div class="flex items-center space-x-2 shrink-0">
+              <button id="btn-refresh-dev-metrics" class="px-3 sm:px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold rounded-xl border border-white/10 transition flex items-center space-x-2 cursor-pointer">
                 <i class="fa-solid fa-rotate-right"></i>
                 <span>Refresh</span>
               </button>
               
               <!-- Export Dropdown -->
               <div class="relative group">
-                <button class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center space-x-2">
+                <button class="px-3 sm:px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-lg shadow-indigo-500/20 transition flex items-center space-x-2 cursor-pointer">
                   <i class="fa-solid fa-download"></i>
                   <span>Export Report</span>
                   <i class="fa-solid fa-chevron-down text-[10px] ml-1"></i>
@@ -3855,7 +3894,7 @@
           </div>
 
           <!-- KPI Grid -->
-          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 min-w-0">
             <div class="glass-panel rounded-2xl p-5 border-l-4 border-l-blue-500 relative overflow-hidden group">
               <div class="absolute -right-4 -top-4 opacity-5 group-hover:opacity-10 transition-opacity">
                 <i class="fa-solid fa-server text-8xl text-blue-400"></i>
