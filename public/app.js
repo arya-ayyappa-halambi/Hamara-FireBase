@@ -8650,17 +8650,18 @@ window.handleToggleIpFiltering = async function(enabled) {
 };
 
 window.savePerimeterSettings = async function() {
-  const adminEndpointIpLockEnabled = document.getElementById('toggle-admin-endpoint-lock')?.checked || false;
-  const adminAllowedSubnet = document.getElementById('input-admin-allowed-subnets')?.value.trim() || '127.0.0.1';
   const requireWriteIpWhitelist = document.getElementById('toggle-write-ip-shield')?.checked || false;
+  const payload = { requireWriteIpWhitelist };
+
+  const adminLockToggle = document.getElementById('toggle-admin-endpoint-lock');
+  if (adminLockToggle) {
+    payload.adminEndpointIpLockEnabled = adminLockToggle.checked;
+    payload.adminAllowedSubnet = document.getElementById('input-admin-allowed-subnets')?.value?.trim() || '127.0.0.1';
+  }
 
   try {
-    await apiRequest('/api/v1/admin/network/settings', 'PATCH', {
-      adminEndpointIpLockEnabled,
-      adminAllowedSubnet,
-      requireWriteIpWhitelist
-    });
-    showToast('Perimeter isolation & mutation shield settings saved.', 'success');
+    await apiRequest('/api/v1/admin/network/settings', 'PATCH', payload);
+    showToast('Database write mutation shield settings saved.', 'success');
   } catch (err) {
     showToast(err.message || 'Failed to save perimeter settings', 'error');
   }
