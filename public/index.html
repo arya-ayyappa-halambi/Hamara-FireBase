@@ -1640,7 +1640,7 @@
 
               <!-- Mode B: Individual Per-Admin IP Whitelist Lock -->
               <div class="p-4 rounded-xl bg-black/40 border border-indigo-500/20 space-y-3 relative overflow-hidden flex flex-col justify-between">
-                <div>
+                <div class="space-y-2.5">
                   <div class="flex items-center justify-between">
                     <div class="flex items-center space-x-2">
                       <i class="fa-solid fa-user-shield text-indigo-400 text-xs"></i>
@@ -1650,15 +1650,50 @@
                       0 IP Locked
                     </span>
                   </div>
-                  <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
-                    Each admin can independently configure a dedicated IP whitelist lock on their specific account. Admins with no dedicated IP configured remain unrestricted unless Global Lock is active.
-                  </p>
-                </div>
-                <div class="p-2.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[11px] text-indigo-300 flex items-center justify-between">
-                  <div class="flex items-center space-x-1.5">
-                    <i class="fa-solid fa-circle-info text-xs"></i>
-                    <span>Configure via the <strong class="text-white">Security & IP</strong> button on any Admin row in the table below.</span>
+
+                  <!-- Select Admin Dropdown & Status -->
+                  <div class="space-y-1">
+                    <div class="flex items-center justify-between">
+                      <label class="text-[10px] font-semibold uppercase text-slate-400">Select Administrator</label>
+                      <span id="badge-selected-admin-ip-status" class="text-[10px] font-mono text-slate-400">--</span>
+                    </div>
+                    <select id="select-individual-admin-quick" onchange="window.handleSelectIndividualAdminQuick(this.value)" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs text-white bg-slate-900 border border-white/10 font-mono focus:border-indigo-500">
+                      <option value="">Select an admin account...</option>
+                    </select>
                   </div>
+
+                  <!-- 1-Click Presets for Individual Admin -->
+                  <div class="flex items-center justify-between pt-0.5">
+                    <label class="text-[10px] font-semibold uppercase text-slate-400">Individual Allowed Subnets</label>
+                    <div class="flex items-center space-x-1.5">
+                      <button type="button" onclick="window.applyIndividualAdminQuickPreset('localhost')" class="text-[10px] font-semibold text-amber-400 hover:text-amber-300 transition cursor-pointer" title="Lock to 127.0.0.1">
+                        <i class="fa-solid fa-laptop text-[9px] mr-0.5"></i>Localhost
+                      </button>
+                      <span class="text-slate-600 text-[10px]">|</span>
+                      <button type="button" onclick="window.applyIndividualAdminQuickPreset('current')" class="text-[10px] font-semibold text-indigo-400 hover:text-indigo-300 transition cursor-pointer" title="Lock to current IP">
+                        <i class="fa-solid fa-crosshairs text-[9px] mr-0.5"></i>My IP
+                      </button>
+                      <span class="text-slate-600 text-[10px]">|</span>
+                      <button type="button" onclick="window.applyIndividualAdminQuickPreset('clear')" class="text-[10px] font-semibold text-rose-400 hover:text-rose-300 transition cursor-pointer" title="Make unrestricted">
+                        <i class="fa-solid fa-unlock text-[9px] mr-0.5"></i>Disable
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Editable Input & Save Button -->
+                  <div class="flex gap-2">
+                    <input type="text" id="input-individual-admin-ip-quick" placeholder="127.0.0.1, 192.168.1.50, 10.0.0.0/24" class="flex-1 px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10" title="Enter allowed IPs or subnets (leave blank for unrestricted)">
+                    <button type="button" id="btn-save-individual-ip-quick" onclick="window.saveIndividualAdminIpQuick()" class="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow transition active:scale-95 cursor-pointer">
+                      Save
+                    </button>
+                  </div>
+                </div>
+
+                <div class="pt-2 border-t border-white/5 text-[10px] text-slate-400 flex items-center justify-between">
+                  <span>Changes take effect immediately on login & API access.</span>
+                  <button type="button" onclick="window.openCreateAdminModal()" class="text-amber-400 hover:text-amber-300 font-semibold cursor-pointer">
+                    + New Admin
+                  </button>
                 </div>
               </div>
             </div>
@@ -8679,6 +8714,6 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   </script>
 
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=20260901_admin_rbac_v7"></script>
+  <script src="app.js?v=20260901_admin_rbac_v8"></script>
 </body>
 </html>

@@ -1342,7 +1342,7 @@ window.loadUserManagement = async function loadUserManagement() {
     if (typeof loadComplianceNoticesTable === 'function') loadComplianceNoticesTable();
     if (typeof loadThreatFlagsTable === 'function') loadThreatFlagsTable();
 
-    // Hydrate Individual Admin IP Locks summary counter
+    // Hydrate Individual Admin IP Locks summary counter & Quick Dropdown
     const adminList = cachedAdminUsers.filter(u => u.isSuperAdmin);
     const ipLockedAdmins = adminList.filter(u => u.adminAllowedIpSubnet && u.adminAllowedIpSubnet.trim().length > 0);
     const individualBadge = document.getElementById('badge-individual-locks-count');
@@ -1352,6 +1352,26 @@ window.loadUserManagement = async function loadUserManagement() {
         individualBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
       } else {
         individualBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+      }
+    }
+
+    // Populate Individual Admin Quick Editor dropdown
+    const quickSelectEl = document.getElementById('select-individual-admin-quick');
+    if (quickSelectEl) {
+      const previouslySelected = quickSelectEl.value;
+      let opts = '<option value="">-- Select Administrator Account --</option>';
+      adminList.forEach(adm => {
+        const lockStr = adm.adminAllowedIpSubnet ? `🔒 Locked: ${adm.adminAllowedIpSubnet}` : '🌐 Unrestricted';
+        opts += `<option value="${adm.id}">${escapeHTML(adm.name || adm.email)} (${escapeHTML(adm.email)}) — ${lockStr}</option>`;
+      });
+      quickSelectEl.innerHTML = opts;
+      if (previouslySelected && adminList.some(a => String(a.id) === String(previouslySelected))) {
+        quickSelectEl.value = previouslySelected;
+      } else if (adminList.length > 0) {
+        quickSelectEl.value = adminList[0].id;
+      }
+      if (typeof window.handleSelectIndividualAdminQuick === 'function') {
+        window.handleSelectIndividualAdminQuick(quickSelectEl.value);
       }
     }
 
@@ -2021,6 +2041,104 @@ window.updateCreateAdminLockBadge = function() {
       badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5';
       badge.textContent = 'Optional / Disabled';
     }
+  }
+};
+
+window.handleSelectIndividualAdminQuick = function(userId) {
+  const inputEl = document.getElementById('input-individual-admin-ip-quick');
+  const badgeEl = document.getElementById('badge-selected-admin-ip-status');
+  if (!inputEl) return;
+
+  if (!userId) {
+    inputEl.value = '';
+    if (badgeEl) {
+      badgeEl.className = 'text-[10px] font-mono text-slate-400';
+      badgeEl.textContent = '--';
+    }
+    return;
+  }
+
+  const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+  if (user) {
+    inputEl.value = user.adminAllowedIpSubnet || '';
+    if (badgeEl) {
+      if (user.adminAllowedIpSubnet) {
+        badgeEl.className = 'text-[10px] font-mono font-bold text-emerald-400';
+        badgeEl.innerHTML = `<i class="fa-solid fa-lock text-[8px] mr-1"></i>Locked (${escapeHTML(user.adminAllowedIpSubnet)})`;
+      } else {
+        badgeEl.className = 'text-[10px] font-mono font-semibold text-slate-400';
+        badgeEl.innerHTML = `<i class="fa-solid fa-globe text-[8px] mr-1"></i>Unrestricted`;
+      }
+    }
+  }
+};
+
+window.applyIndividualAdminQuickPreset = async function(mode) {
+  const quickSelectEl = document.getElementById('select-individual-admin-quick');
+  const inputEl = document.getElementById('input-individual-admin-ip-quick');
+  const badgeEl = document.getElementById('badge-selected-admin-ip-status');
+  const userId = quickSelectEl?.value;
+
+  if (!userId) {
+    showToast('Please select an administrator account from the dropdown first.', 'error');
+    return;
+  }
+
+  if (mode === 'localhost') {
+    if (inputEl) inputEl.value = '127.0.0.1, ::1';
+    if (badgeEl) {
+      badgeEl.className = 'text-[10px] font-mono font-bold text-amber-400';
+      badgeEl.innerHTML = '<i class="fa-solid fa-laptop text-[8px] mr-1"></i>Localhost (Pending Save)';
+    }
+    showToast('Preset applied: Localhost (127.0.0.1). Click Save to apply.', 'info');
+  } else if (mode === 'clear') {
+    if (inputEl) inputEl.value = '';
+    if (badgeEl) {
+      badgeEl.className = 'text-[10px] font-mono font-bold text-rose-400';
+      badgeEl.innerHTML = '<i class="fa-solid fa-unlock text-[8px] mr-1"></i>Disabled (Pending Save)';
+    }
+    showToast('Preset applied: IP Lock cleared. Click Save to make unrestricted.', 'info');
+  } else if (mode === 'current') {
+    let clientIp = '127.0.0.1';
+    try {
+      const netRes = await apiRequest('/api/v1/admin/network/rules');
+      if (netRes?.clientIp) clientIp = netRes.clientIp;
+    } catch (_) {}
+    if (inputEl) inputEl.value = clientIp;
+    if (badgeEl) {
+      badgeEl.className = 'text-[10px] font-mono font-bold text-indigo-400';
+      badgeEl.innerHTML = `<i class="fa-solid fa-crosshairs text-[8px] mr-1"></i>${clientIp} (Pending Save)`;
+    }
+    showToast(`Preset applied: Current IP (${clientIp}). Click Save to apply.`, 'info');
+  }
+};
+
+window.saveIndividualAdminIpQuick = async function() {
+  const quickSelectEl = document.getElementById('select-individual-admin-quick');
+  const inputEl = document.getElementById('input-individual-admin-ip-quick');
+  const userId = quickSelectEl?.value;
+
+  if (!userId) {
+    showToast('Please select an administrator from the dropdown first.', 'error');
+    return;
+  }
+
+  const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+  const email = user?.email || userId;
+  const ipVal = (inputEl?.value || '').trim();
+
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/admin-config`, 'PATCH', {
+      adminAllowedIpSubnet: ipVal || null
+    });
+    if (ipVal) {
+      showToast(`🔒 Individual IP Lock saved for ${email}: ${ipVal}`, 'success');
+    } else {
+      showToast(`🌐 IP Lock removed for ${email}. Account is now unrestricted.`, 'info');
+    }
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to save individual IP lock', 'error');
   }
 };
 
