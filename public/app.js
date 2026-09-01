@@ -11610,10 +11610,21 @@ state.activeWorkspace = 'personal';
 state.activeOrgId = null;
 state.organizations = [];
 
-window.toggleWorkspaceDropdown = function() {
+window.toggleWorkspaceDropdown = function(event) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
   const dropdown = document.getElementById('dropdown-workspace-menu');
   if (dropdown) dropdown.classList.toggle('hidden');
 };
+
+document.addEventListener('click', (e) => {
+  const container = document.getElementById('workspace-switcher-container');
+  const dropdown = document.getElementById('dropdown-workspace-menu');
+  if (dropdown && !dropdown.classList.contains('hidden')) {
+    if (!container || !container.contains(e.target)) {
+      dropdown.classList.add('hidden');
+    }
+  }
+});
 
 // Unified Switcher: Handles both tab navigation ('tab-...') and tenant workspaces ('personal' | 'org_...')
 window.switchWorkspace = async function(target) {
@@ -12631,10 +12642,20 @@ window.confirmDeleteOrg = async function() {
 };
 
 window.openCreateOrgModal = function() {
-  document.getElementById('input-org-name').value = '';
-  document.getElementById('input-org-slug').value = '';
-  document.getElementById('input-org-desc').value = '';
+  const dropdown = document.getElementById('dropdown-workspace-menu');
+  if (dropdown) dropdown.classList.add('hidden');
+
+  const nameInput = document.getElementById('input-org-name');
+  const slugInput = document.getElementById('input-org-slug');
+  const descInput = document.getElementById('input-org-desc');
+  if (nameInput) nameInput.value = '';
+  if (slugInput) slugInput.value = '';
+  if (descInput) descInput.value = '';
+
   window.showModal('modal-create-org');
+  setTimeout(() => {
+    if (nameInput) nameInput.focus();
+  }, 100);
 };
 
 window.submitCreateOrg = async function() {
