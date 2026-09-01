@@ -1727,19 +1727,31 @@ function renderUsersTable(users) {
                 </span>
                 
                 <!-- Identifiable Individual IP Lock Status & 1-Click Action -->
-                <div class="mt-1 flex items-center space-x-1 flex-wrap gap-y-1">
+                <div class="mt-1 flex items-center space-x-1 flex-wrap gap-1">
                   ${u.adminAllowedIpSubnet
                     ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 inline-flex items-center" title="Account locked to: ${escapeHTML(u.adminAllowedIpSubnet)}">
-                        <i class="fa-solid fa-lock text-[8px] mr-1 text-emerald-400"></i>IP Locked (${escapeHTML(u.adminAllowedIpSubnet)})
+                        <i class="fa-solid fa-lock text-[8px] mr-1 text-emerald-400"></i>Locked (${escapeHTML(u.adminAllowedIpSubnet)})
                        </span>
+                       <button type="button" onclick="window.quickLockAdminToCurrentIp('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="1-Click: Update lock to your current client IP">
+                        <i class="fa-solid fa-crosshairs text-[8px] mr-0.5"></i>To My IP
+                       </button>
+                       <button type="button" onclick="window.quickPromptCustomIpLock('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="Edit custom IP / subnet whitelist">
+                        <i class="fa-solid fa-pen text-[8px] mr-0.5"></i>Edit IP
+                       </button>
                        <button type="button" onclick="window.quickDisableAdminIpLock('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="1-Click: Disable IP lock for this account">
-                        <i class="fa-solid fa-unlock text-[8px] mr-0.5"></i>Disable Lock
+                        <i class="fa-solid fa-unlock text-[8px] mr-0.5"></i>Disable
                        </button>`
                     : `<span class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-800 text-slate-400 border border-white/5 inline-flex items-center">
-                        <i class="fa-solid fa-globe text-[8px] mr-1"></i>IP: Unrestricted
+                        <i class="fa-solid fa-globe text-[8px] mr-1"></i>Unrestricted
                        </span>
-                       <button type="button" onclick="window.quickLockAdminToLocalhost('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="1-Click: Lock this account to Localhost (127.0.0.1)">
+                       <button type="button" onclick="window.quickLockAdminToLocalhost('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="1-Click: Lock this account to Localhost / Local Machine (127.0.0.1)">
                         <i class="fa-solid fa-laptop text-[8px] mr-0.5"></i>Lock to Localhost
+                       </button>
+                       <button type="button" onclick="window.quickLockAdminToCurrentIp('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="1-Click: Lock this account to your current client IP">
+                        <i class="fa-solid fa-crosshairs text-[8px] mr-0.5"></i>Lock to My IP
+                       </button>
+                       <button type="button" onclick="window.quickPromptCustomIpLock('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="Enter a custom IP or subnet">
+                        <i class="fa-solid fa-pen text-[8px] mr-0.5"></i>Custom IP
                        </button>`
                   }
                 </div>
@@ -2027,6 +2039,45 @@ window.quickLockAdminToLocalhost = async function(userId, email) {
     loadUserManagement();
   } catch (err) {
     showToast(err.message || 'Failed to apply Localhost IP lock', 'error');
+  }
+};
+
+window.quickLockAdminToCurrentIp = async function(userId, email) {
+  try {
+    let clientIp = '127.0.0.1';
+    try {
+      const netRes = await apiRequest('/api/v1/admin/network/rules');
+      if (netRes?.clientIp) clientIp = netRes.clientIp;
+    } catch (_) {}
+
+    await apiRequest(`/api/v1/admin/users/${userId}/admin-config`, 'PATCH', {
+      adminAllowedIpSubnet: clientIp
+    });
+    showToast(`🎯 Locked ${email} to Current IP: ${clientIp}`, 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to lock admin to current IP', 'error');
+  }
+};
+
+window.quickPromptCustomIpLock = async function(userId, email) {
+  const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+  const currentSubnet = user?.adminAllowedIpSubnet || '';
+  const customIp = prompt(`Enter allowed IP or subnet whitelist for ${email}\n(e.g. 192.168.1.50 or 10.0.0.0/24, or comma-separated):`, currentSubnet || '192.168.1.50');
+  if (customIp === null) return; // Cancelled
+  const trimmed = customIp.trim();
+  if (!trimmed) {
+    await window.quickDisableAdminIpLock(userId, email);
+    return;
+  }
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/admin-config`, 'PATCH', {
+      adminAllowedIpSubnet: trimmed
+    });
+    showToast(`🔒 Locked ${email} to IP: ${trimmed}`, 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to save custom IP lock', 'error');
   }
 };
 
