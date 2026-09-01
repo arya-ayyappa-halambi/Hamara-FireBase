@@ -34,6 +34,95 @@ export class AdminService {
   async updateUserLimits(userId: string, apiLimit: number, readLimit: number, writeLimit: number, lockoutMinutes: number, resetLockout?: boolean) {
     userStore.updateUserLimits(userId, apiLimit, readLimit, writeLimit, lockoutMinutes, resetLockout);
   }
+
+  async createAdmin(dto: { name: string; email: string; password: string; adminPermissions?: string[]; adminAllowedIpSubnet?: string | null; adminRequireMfa?: boolean }) {
+    const { name, email, password, adminPermissions, adminAllowedIpSubnet, adminRequireMfa } = dto;
+    if (!email || !password || !name) {
+      throw new Error('Name, email, and password are required.');
+    }
+    const cleanEmail = email.toLowerCase().trim();
+    const existing = await userStore.findByEmail(cleanEmail);
+    if (existing) {
+      throw new Error(`An account with email "${cleanEmail}" already exists.`);
+    }
+
+    const { hashPassword } = await import('../auth/auth.service');
+    const { v4: uuidv4 } = await import('uuid');
+
+    const passwordHash = await hashPassword(password);
+    const now = new Date();
+    const newUser = {
+      id: uuidv4(),
+      name: name.trim(),
+      email: cleanEmail,
+      passwordHash,
+      isSuperAdmin: true,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    return userStore.createAdminUser(newUser as any, adminPermissions, adminAllowedIpSubnet, adminRequireMfa);
+  }
+
+  async promoteUserToAdmin(userId: string, adminPermissions?: string[], adminAllowedIpSubnet?: string | null, adminRequireMfa?: boolean) {
+    const user = await userStore.findById(userId);
+    if (!user) {
+      throw new Error(`User with ID "${userId}" not found.`);
+    }
+    userStore.promoteToAdmin(userId, adminPermissions, adminAllowedIpSubnet, adminRequireMfa);
+    return userStore.findById(userId);
+  }
+
+  async demoteAdmin(userId: string, currentActorId?: string) {
+    const user = await userStore.findById(userId);
+    if (!user) {
+      throw new Error(`User with ID "${userId}" not found.`);
+    }
+    if (!user.isSuperAdmin) {
+      throw new Error('User is not an administrator.');
+    }
+    if (currentActorId && user.id === currentActorId) {
+      throw new Error('Safety guard: You cannot revoke your own administrator privileges.');
+    }
+
+    const db = getDb();
+    const activeAdminsCount = Number((db.prepare('SELECT COUNT(*) as count FROM users WHERE isSuperAdmin = 1 AND (adminStatus = \'active\' OR adminStatus IS NULL)').get() as any).count);
+    if (activeAdminsCount <= 1) {
+      throw new Error('Safety guard: Cannot demote the last remaining active Administrator.');
+    }
+
+    userStore.demoteAdmin(userId);
+    return userStore.findById(userId);
+  }
+
+  async updateAdminSecurityConfig(
+    userId: string,
+    config: { adminPermissions?: string[]; adminAllowedIpSubnet?: string | null; adminRequireMfa?: boolean; adminStatus?: 'active' | 'suspended' },
+    currentActorId?: string
+  ) {
+    const user = await userStore.findById(userId);
+    if (!user) {
+      throw new Error(`User with ID "${userId}" not found.`);
+    }
+    if (!user.isSuperAdmin) {
+      throw new Error('User is not an administrator.');
+    }
+
+    if (config.adminStatus === 'suspended' && currentActorId && user.id === currentActorId) {
+      throw new Error('Safety guard: You cannot suspend your own administrator account.');
+    }
+
+    if (config.adminStatus === 'suspended') {
+      const db = getDb();
+      const activeAdminsCount = Number((db.prepare('SELECT COUNT(*) as count FROM users WHERE isSuperAdmin = 1 AND id != ? AND (adminStatus = \'active\' OR adminStatus IS NULL)').get(userId) as any).count);
+      if (activeAdminsCount < 1) {
+        throw new Error('Safety guard: Cannot suspend the last remaining active Administrator.');
+      }
+    }
+
+    userStore.updateAdminSecurityConfig(userId, config);
+    return userStore.findById(userId);
+  }
   /**
    * Retrieve platform-wide metrics and system status.
    */

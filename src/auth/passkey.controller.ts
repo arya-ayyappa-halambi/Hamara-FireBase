@@ -111,10 +111,14 @@ export async function verifyLoginAssertionHandler(req: Request, res: Response, n
     const user = await userStore.findById(userId);
     if (!user) throw new AppError('User not found.', 404);
 
-    const token = generateToken(user);
-    const { refreshToken } = tokenFamilyService.createTokenFamily(user.id);
     const clientIp = networkAccessService.extractClientIp(req);
     const userAgent = req.headers['user-agent'] as string;
+
+    const { verifyAdminLoginSecurity } = await import('./auth.service');
+    verifyAdminLoginSecurity(user, clientIp);
+
+    const token = generateToken(user);
+    const { refreshToken } = tokenFamilyService.createTokenFamily(user.id);
 
     userSessionService.registerSession({
       userId: user.id,

@@ -35,6 +35,18 @@ export interface UserStore {
   
   /** Reset monthly limits */
   resetMonthlyLimits(userId: string): void;
+
+  /** Create a brand new admin user with granular permissions & optional IP lock */
+  createAdminUser(user: User, adminPermissions?: string[], adminAllowedIpSubnet?: string | null, adminRequireMfa?: boolean): Promise<User>;
+
+  /** Promote an existing developer to an Admin with designated permissions */
+  promoteToAdmin(userId: string, adminPermissions?: string[], adminAllowedIpSubnet?: string | null, adminRequireMfa?: boolean): void;
+
+  /** Demote an admin user back to a regular developer */
+  demoteAdmin(userId: string): void;
+
+  /** Update admin permissions, IP whitelist, MFA enforcement, or status */
+  updateAdminSecurityConfig(userId: string, config: { adminPermissions?: string[]; adminAllowedIpSubnet?: string | null; adminRequireMfa?: boolean; adminStatus?: 'active' | 'suspended' }): void;
 }
 
 // ── SQLite Implementation ──────────────────────────────────────────────────────
@@ -46,6 +58,10 @@ interface RawUserRow {
   name: string;
   passwordHash: string;
   isSuperAdmin: number;
+  adminPermissions?: string | null;
+  adminAllowedIpSubnet?: string | null;
+  adminRequireMfa?: number;
+  adminStatus?: string;
   createdAt: string;
   updatedAt: string;
   apiLimit: number;
@@ -85,12 +101,27 @@ function mapRowToUser(row: RawUserRow): User {
     mfaSecret = envelopeEncryptionService.decryptField(JSON.parse(mfaSecret), 'SYSTEM');
   }
 
+  let adminPermissions: any = ['*'];
+  if (row.adminPermissions) {
+    try {
+      adminPermissions = typeof row.adminPermissions === 'string' ? JSON.parse(row.adminPermissions) : row.adminPermissions;
+    } catch (_) {
+      adminPermissions = ['*'];
+    }
+  } else if (!row.isSuperAdmin) {
+    adminPermissions = [];
+  }
+
   return {
     ...row,
     email,
     name,
     mfaSecret,
     isSuperAdmin: Boolean(row.isSuperAdmin),
+    adminPermissions,
+    adminAllowedIpSubnet: row.adminAllowedIpSubnet || null,
+    adminRequireMfa: Boolean(row.adminRequireMfa),
+    adminStatus: (row.adminStatus as any) || 'active',
     mfaEnabled: row.mfaEnabled ?? 0,
     status: (row.status as any) || 'active',
     isFlagged: Boolean(row.isFlagged),
@@ -204,6 +235,129 @@ class SqliteUserStore implements UserStore {
     } else {
       db.prepare('UPDATE users SET apiLimit = ?, readLimit = ?, writeLimit = ?, lockoutMinutes = ? WHERE id = ?').run(apiLimit, readLimit, writeLimit, lockoutMinutes, userId);
     }
+  }
+
+  async createAdminUser(user: User, adminPermissions: string[] = ['*'], adminAllowedIpSubnet?: string | null, adminRequireMfa: boolean = false): Promise<User> {
+    const normalised = user.email.toLowerCase().trim();
+    const emailHash = envelopeEncryptionService.hashBlindIndex(normalised);
+    const createdAtStr = user.createdAt instanceof Date ? user.createdAt.toISOString() : String(user.createdAt);
+    const updatedAtStr = user.updatedAt instanceof Date ? user.updatedAt.toISOString() : String(user.updatedAt);
+
+    const permissionsJson = JSON.stringify(adminPermissions && adminPermissions.length > 0 ? adminPermissions : ['*']);
+    const allowedIp = adminAllowedIpSubnet && adminAllowedIpSubnet.trim().length > 0 ? adminAllowedIpSubnet.trim() : null;
+
+    const encEmail = envelopeEncryptionService.encryptField(normalised, 'SYSTEM');
+    const encName = envelopeEncryptionService.encryptField(user.name, 'SYSTEM');
+
+    const db = getDb();
+    try {
+      const stmt = db.prepare(`
+        INSERT INTO users (
+          id, email, emailHash, name, passwordHash, isSuperAdmin,
+          adminPermissions, adminAllowedIpSubnet, adminRequireMfa, adminStatus,
+          createdAt, updatedAt
+        )
+        VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, 'active', ?, ?)
+      `);
+      stmt.run(
+        user.id,
+        JSON.stringify(encEmail),
+        emailHash,
+        JSON.stringify(encName),
+        user.passwordHash,
+        permissionsJson,
+        allowedIp,
+        adminRequireMfa ? 1 : 0,
+        createdAtStr,
+        updatedAtStr
+      );
+
+      return {
+        ...user,
+        email: normalised,
+        isSuperAdmin: true,
+        adminPermissions: JSON.parse(permissionsJson),
+        adminAllowedIpSubnet: allowedIp,
+        adminRequireMfa,
+        adminStatus: 'active',
+        createdAt: new Date(createdAtStr),
+        updatedAt: new Date(updatedAtStr)
+      };
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message.includes('UNIQUE constraint failed')) {
+        throw new Error(`User with email "${user.email}" already exists.`);
+      }
+      throw err;
+    }
+  }
+
+  promoteToAdmin(userId: string, adminPermissions: string[] = ['*'], adminAllowedIpSubnet?: string | null, adminRequireMfa: boolean = false): void {
+    const db = getDb();
+    const permissionsJson = JSON.stringify(adminPermissions && adminPermissions.length > 0 ? adminPermissions : ['*']);
+    const allowedIp = adminAllowedIpSubnet && adminAllowedIpSubnet.trim().length > 0 ? adminAllowedIpSubnet.trim() : null;
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE users 
+      SET isSuperAdmin = 1,
+          adminPermissions = ?,
+          adminAllowedIpSubnet = ?,
+          adminRequireMfa = ?,
+          adminStatus = 'active',
+          updatedAt = ?
+      WHERE id = ?
+    `).run(permissionsJson, allowedIp, adminRequireMfa ? 1 : 0, now, userId);
+  }
+
+  demoteAdmin(userId: string): void {
+    const db = getDb();
+    const now = new Date().toISOString();
+    db.prepare(`
+      UPDATE users 
+      SET isSuperAdmin = 0,
+          adminPermissions = '[]',
+          adminAllowedIpSubnet = NULL,
+          adminRequireMfa = 0,
+          adminStatus = 'active',
+          updatedAt = ?
+      WHERE id = ?
+    `).run(now, userId);
+  }
+
+  updateAdminSecurityConfig(userId: string, config: { adminPermissions?: string[]; adminAllowedIpSubnet?: string | null; adminRequireMfa?: boolean; adminStatus?: 'active' | 'suspended' }): void {
+    const db = getDb();
+    const existing = db.prepare('SELECT adminPermissions, adminAllowedIpSubnet, adminRequireMfa, adminStatus FROM users WHERE id = ?').get(userId) as any;
+    if (!existing) {
+      throw new Error(`User with ID "${userId}" not found.`);
+    }
+
+    const permissionsJson = config.adminPermissions !== undefined 
+      ? JSON.stringify(config.adminPermissions) 
+      : existing.adminPermissions;
+    
+    const allowedIp = config.adminAllowedIpSubnet !== undefined
+      ? (config.adminAllowedIpSubnet && config.adminAllowedIpSubnet.trim().length > 0 ? config.adminAllowedIpSubnet.trim() : null)
+      : existing.adminAllowedIpSubnet;
+
+    const reqMfa = config.adminRequireMfa !== undefined
+      ? (config.adminRequireMfa ? 1 : 0)
+      : (existing.adminRequireMfa ?? 0);
+
+    const status = config.adminStatus !== undefined
+      ? config.adminStatus
+      : (existing.adminStatus || 'active');
+
+    const now = new Date().toISOString();
+
+    db.prepare(`
+      UPDATE users 
+      SET adminPermissions = ?,
+          adminAllowedIpSubnet = ?,
+          adminRequireMfa = ?,
+          adminStatus = ?,
+          updatedAt = ?
+      WHERE id = ?
+    `).run(permissionsJson, allowedIp, reqMfa, status, now, userId);
   }
 }
 

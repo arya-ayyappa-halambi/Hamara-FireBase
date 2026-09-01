@@ -347,6 +347,111 @@ export async function getUsers(_req: Request, res: Response, next: NextFunction)
   } catch (err) { next(err); }
 }
 
+export async function createAdminHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { name, email, password, adminPermissions, adminAllowedIpSubnet, adminRequireMfa } = req.body;
+    const adminUser = await adminService.createAdmin({
+      name,
+      email,
+      password,
+      adminPermissions,
+      adminAllowedIpSubnet,
+      adminRequireMfa
+    });
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'super_admin_operation',
+      ipAddress: networkAccessService.extractClientIp(req),
+      status: 'success',
+      details: `Created new Administrator account for "${email}" with permissions: ${JSON.stringify(adminPermissions || ['*'])} and IP lock: "${adminAllowedIpSubnet || 'None'}".`
+    });
+
+    res.status(201).json({
+      success: true,
+      message: 'Administrator account created successfully.',
+      data: adminUser,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function promoteUserToAdminHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { adminPermissions, adminAllowedIpSubnet, adminRequireMfa } = req.body;
+    const updated = await adminService.promoteUserToAdmin(id, adminPermissions, adminAllowedIpSubnet, adminRequireMfa);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'super_admin_operation',
+      ipAddress: networkAccessService.extractClientIp(req),
+      status: 'success',
+      details: `Promoted user "${id}" (${updated?.email}) to Administrator with permissions: ${JSON.stringify(adminPermissions || ['*'])}.`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `User promoted to Administrator successfully.`,
+      data: updated,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function demoteAdminHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const currentActorId = req.user?.sub;
+    const updated = await adminService.demoteAdmin(id, currentActorId);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'super_admin_operation',
+      ipAddress: networkAccessService.extractClientIp(req),
+      status: 'success',
+      details: `Revoked Administrator privileges from user "${id}" (${updated?.email}). Account converted to regular Developer.`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Administrator privileges revoked successfully.`,
+      data: updated,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function updateAdminSecurityConfigHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const currentActorId = req.user?.sub;
+    const { adminPermissions, adminAllowedIpSubnet, adminRequireMfa, adminStatus } = req.body;
+
+    const updated = await adminService.updateAdminSecurityConfig(id, {
+      adminPermissions,
+      adminAllowedIpSubnet,
+      adminRequireMfa,
+      adminStatus
+    }, currentActorId);
+
+    auditLogService.logAction({
+      actorId: req.user?.sub,
+      actorEmail: req.user?.email,
+      actionType: 'super_admin_operation',
+      ipAddress: networkAccessService.extractClientIp(req),
+      status: 'success',
+      details: `Updated security configuration for Administrator "${id}" (${updated?.email}): Status=${adminStatus || 'active'}, IP Lock="${adminAllowedIpSubnet || 'None'}", Permissions=${JSON.stringify(adminPermissions || ['*'])}.`
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Administrator security configuration updated successfully.`,
+      data: updated,
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
 export async function updateUserLimits(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;

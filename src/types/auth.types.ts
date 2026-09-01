@@ -42,7 +42,17 @@ export interface RefreshTokenDto {
   refreshToken: string;
 }
 
-// ── Internal Domain Models ────────────────────────────────────────────────────
+export type AdminPermissionScope =
+  | '*'
+  | 'all'
+  | 'telemetry'
+  | 'tenants'
+  | 'user_management'
+  | 'rate_limits'
+  | 'network'
+  | 'server_hosting'
+  | 'sec_ops'
+  | 'platform_policies';
 
 /** Full user record as stored internally (includes password hash). */
 export interface User {
@@ -51,6 +61,10 @@ export interface User {
   name: string;
   passwordHash: string;
   isSuperAdmin?: boolean;
+  adminPermissions?: AdminPermissionScope[] | string[];
+  adminAllowedIpSubnet?: string | null;
+  adminRequireMfa?: boolean;
+  adminStatus?: 'active' | 'suspended';
   mfaEnabled?: number;
   mfaSecret?: string;
   status?: 'active' | 'pending_deletion' | 'erased';

@@ -1682,7 +1682,18 @@ function renderUsersTable(users) {
         <td class="p-4 text-slate-300 text-xs font-mono">${escapeHTML(u.email)}</td>
         <td class="p-4">
           ${u.isSuperAdmin
-            ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30"><i class="fa-solid fa-crown text-[9px] mr-1"></i>Super Admin</span>'
+            ? `<div>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                  (!u.adminPermissions || u.adminPermissions.includes('*') || u.adminPermissions.includes('all'))
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                    : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                } inline-flex items-center">
+                  <i class="fa-solid fa-crown text-[9px] mr-1"></i>
+                  ${(!u.adminPermissions || u.adminPermissions.includes('*') || u.adminPermissions.includes('all')) ? 'Super Admin' : `Scoped Admin (${Array.isArray(u.adminPermissions) ? u.adminPermissions.length : 0})`}
+                </span>
+                ${u.adminAllowedIpSubnet ? `<span class="mt-1 block text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.2 rounded truncate max-w-[130px]" title="IP Locked: ${escapeHTML(u.adminAllowedIpSubnet)}"><i class="fa-solid fa-lock text-[8px] mr-0.5"></i>${escapeHTML(u.adminAllowedIpSubnet)}</span>` : ''}
+                ${u.adminStatus === 'suspended' ? `<span class="mt-1 block text-[9px] font-bold text-rose-300 bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.2 rounded uppercase tracking-wider text-center">Suspended</span>` : ''}
+              </div>`
             : '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"><i class="fa-solid fa-code text-[9px] mr-1"></i>Developer</span>'
           }
         </td>
@@ -1700,25 +1711,41 @@ function renderUsersTable(users) {
         <td class="p-4 text-slate-400 text-xs">${formattedDate}</td>
         <td class="p-4 text-right">
           <div class="flex items-center justify-end gap-1.5 flex-wrap">
-            <button type="button" data-action="open-edit-limits" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Configure Rate Limits">
+            ${u.isSuperAdmin ? `
+              <button type="button" data-action="open-admin-config" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Configure Admin Permissions & IP Lock">
+                <i class="fa-solid fa-shield-halved text-[10px]"></i>
+                <span>Security & IP</span>
+              </button>
+              <button type="button" data-action="demote-admin" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Revoke Admin Access">
+                <i class="fa-solid fa-user-minus text-[10px]"></i>
+                <span>Revoke Admin</span>
+              </button>
+            ` : `
+              <button type="button" data-action="promote-admin" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Promote to Administrator">
+                <i class="fa-solid fa-user-shield text-[10px]"></i>
+                <span>Promote to Admin</span>
+              </button>
+            `}
+
+            <button type="button" data-action="open-edit-limits" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Configure Rate Limits">
               <i class="fa-solid fa-sliders text-[10px]"></i>
               <span>Limits</span>
             </button>
 
             ${u.mfaEnabled ? `
-              <button type="button" data-action="reset-mfa" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Reset MFA Device">
+              <button type="button" data-action="reset-mfa" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Reset MFA Device">
                 <i class="fa-solid fa-shield-halved text-[10px]"></i>
                 <span>Reset MFA</span>
               </button>
             ` : ''}
 
             ${!u.isSuperAdmin ? `
-              <button type="button" data-action="open-flag-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Flag Threat Anomaly">
+              <button type="button" data-action="open-flag-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Flag Threat Anomaly">
                 <i class="fa-solid fa-flag text-[10px]"></i>
                 <span>Flag</span>
               </button>
 
-              <button type="button" data-action="open-notice-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1" title="Issue Violation Notice">
+              <button type="button" data-action="open-notice-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Issue Violation Notice">
                 <i class="fa-solid fa-gavel text-[10px]"></i>
                 <span>Notice</span>
               </button>
@@ -1728,6 +1755,35 @@ function renderUsersTable(users) {
       </tr>
     `;
   }).join('');
+
+  tableBody.querySelectorAll('[data-action="open-admin-config"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = btn.getAttribute('data-user-id');
+      window.openAdminConfigModal(userId);
+    });
+  });
+
+  tableBody.querySelectorAll('[data-action="promote-admin"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = btn.getAttribute('data-user-id');
+      const email = btn.getAttribute('data-user-email');
+      window.promoteUserToAdmin(userId, email);
+    });
+  });
+
+  tableBody.querySelectorAll('[data-action="demote-admin"]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const userId = btn.getAttribute('data-user-id');
+      const email = btn.getAttribute('data-user-email');
+      window.demoteAdmin(userId, email);
+    });
+  });
 
   tableBody.querySelectorAll('[data-action="open-edit-limits"]').forEach((btn) => {
     btn.addEventListener('click', (e) => {
@@ -1782,6 +1838,199 @@ window.resetUserMfa = async function(userId) {
       showToast(err.message, 'error');
     }
   }, 50);
+};
+
+// ── Admin Management Modal Controls ──────────────────────────────────────────
+
+window.openCreateAdminModal = function() {
+  const modal = document.getElementById('modal-create-admin');
+  if (!modal) return;
+  const nameEl = document.getElementById('input-create-admin-name');
+  const emailEl = document.getElementById('input-create-admin-email');
+  const passEl = document.getElementById('input-create-admin-password');
+  const ipEl = document.getElementById('input-create-admin-allowed-ip');
+  const mfaEl = document.getElementById('check-create-admin-require-mfa');
+
+  if (nameEl) nameEl.value = '';
+  if (emailEl) emailEl.value = '';
+  if (passEl) passEl.value = '';
+  if (ipEl) ipEl.value = '';
+  if (mfaEl) mfaEl.checked = false;
+
+  window.toggleAllAdminScopes('create', true);
+  modal.classList.remove('hidden');
+};
+
+window.closeCreateAdminModal = function() {
+  const modal = document.getElementById('modal-create-admin');
+  if (modal) modal.classList.add('hidden');
+};
+
+window.toggleAllAdminScopes = function(type, selectAll) {
+  const selector = type === 'create' ? '.create-admin-scope' : '.config-admin-scope';
+  document.querySelectorAll(selector).forEach((cb) => {
+    cb.checked = selectAll;
+  });
+};
+
+window.autoFillCurrentIpForAdmin = async function(type) {
+  const inputEl = document.getElementById(type === 'create' ? 'input-create-admin-allowed-ip' : 'input-admin-config-allowed-ip');
+  if (!inputEl) return;
+
+  try {
+    const res = await apiRequest('/api/v1/admin/network/rules');
+    const clientIp = res?.clientIp || '127.0.0.1';
+    const currentVal = (inputEl.value || '').trim();
+    if (!currentVal) {
+      inputEl.value = clientIp;
+    } else if (!currentVal.split(',').map(s => s.trim()).includes(clientIp)) {
+      inputEl.value = `${currentVal}, ${clientIp}`;
+    }
+    showToast(`Detected current IP: ${clientIp}`, 'info');
+  } catch (err) {
+    const fallbackIp = '127.0.0.1';
+    inputEl.value = inputEl.value ? `${inputEl.value}, ${fallbackIp}` : fallbackIp;
+    showToast(`Set default management IP: ${fallbackIp}`, 'info');
+  }
+};
+
+window.submitCreateAdmin = async function() {
+  const name = document.getElementById('input-create-admin-name')?.value?.trim();
+  const email = document.getElementById('input-create-admin-email')?.value?.trim();
+  const password = document.getElementById('input-create-admin-password')?.value;
+  const allowedIp = document.getElementById('input-create-admin-allowed-ip')?.value?.trim();
+  const requireMfa = document.getElementById('check-create-admin-require-mfa')?.checked || false;
+
+  if (!name || !email || !password) {
+    showToast('Name, email, and password are required to create an admin account.', 'error');
+    return;
+  }
+
+  const selectedScopes = [];
+  document.querySelectorAll('.create-admin-scope:checked').forEach((cb) => {
+    selectedScopes.push(cb.value);
+  });
+
+  const btn = document.getElementById('btn-submit-create-admin');
+  if (btn) btn.disabled = true;
+
+  try {
+    await apiRequest('/api/v1/admin/users/create-admin', 'POST', {
+      name,
+      email,
+      password,
+      adminPermissions: selectedScopes.length === 8 ? ['*'] : selectedScopes,
+      adminAllowedIpSubnet: allowedIp || null,
+      adminRequireMfa: requireMfa
+    });
+
+    window.closeCreateAdminModal();
+    showToast(`Administrator account for ${email} created successfully!`, 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to create administrator account.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+window.openAdminConfigModal = function(userId) {
+  const user = cachedAdminUsers.find(u => String(u.id) === String(userId));
+  if (!user) {
+    showToast('User not found', 'error');
+    return;
+  }
+
+  const modal = document.getElementById('modal-admin-config');
+  if (!modal) return;
+
+  const idEl = document.getElementById('admin-config-user-id');
+  const nameEl = document.getElementById('admin-config-user-name');
+  const emailEl = document.getElementById('admin-config-user-email');
+  const statusEl = document.getElementById('admin-config-status');
+  const ipEl = document.getElementById('input-admin-config-allowed-ip');
+  const mfaEl = document.getElementById('check-admin-config-require-mfa');
+
+  if (idEl) idEl.value = user.id;
+  if (nameEl) nameEl.textContent = user.name || 'Administrator';
+  if (emailEl) emailEl.textContent = user.email;
+  if (statusEl) statusEl.value = user.adminStatus || 'active';
+  if (ipEl) ipEl.value = user.adminAllowedIpSubnet || '';
+  if (mfaEl) mfaEl.checked = Boolean(user.adminRequireMfa);
+
+  const permissions = Array.isArray(user.adminPermissions) ? user.adminPermissions : ['*'];
+  const hasWildcard = permissions.includes('*') || permissions.includes('all');
+
+  document.querySelectorAll('.config-admin-scope').forEach((cb) => {
+    cb.checked = hasWildcard || permissions.includes(cb.value);
+  });
+
+  modal.classList.remove('hidden');
+};
+
+window.closeAdminConfigModal = function() {
+  const modal = document.getElementById('modal-admin-config');
+  if (modal) modal.classList.add('hidden');
+};
+
+window.submitAdminConfig = async function() {
+  const userId = document.getElementById('admin-config-user-id')?.value;
+  if (!userId) return;
+
+  const status = document.getElementById('admin-config-status')?.value || 'active';
+  const allowedIp = document.getElementById('input-admin-config-allowed-ip')?.value?.trim();
+  const requireMfa = document.getElementById('check-admin-config-require-mfa')?.checked || false;
+
+  const selectedScopes = [];
+  document.querySelectorAll('.config-admin-scope:checked').forEach((cb) => {
+    selectedScopes.push(cb.value);
+  });
+
+  const btn = document.getElementById('btn-submit-admin-config');
+  if (btn) btn.disabled = true;
+
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/admin-config`, 'PATCH', {
+      adminStatus: status,
+      adminAllowedIpSubnet: allowedIp || null,
+      adminRequireMfa: requireMfa,
+      adminPermissions: selectedScopes.length === 8 ? ['*'] : selectedScopes
+    });
+
+    window.closeAdminConfigModal();
+    showToast('Administrator security configuration saved successfully.', 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to update administrator configuration.', 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+};
+
+window.promoteUserToAdmin = async function(userId, email) {
+  if (!confirm(`Are you sure you want to promote ${email} to an Administrator?`)) return;
+
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/promote`, 'PATCH', {
+      adminPermissions: ['*']
+    });
+    showToast(`User ${email} promoted to Administrator successfully!`, 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to promote user to administrator.', 'error');
+  }
+};
+
+window.demoteAdmin = async function(userId, email) {
+  if (!confirm(`Are you sure you want to revoke Administrator access for ${email}? They will be converted to a regular Developer.`)) return;
+
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/demote`, 'PATCH');
+    showToast(`Administrator privileges revoked for ${email}.`, 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to revoke administrator privileges.', 'error');
+  }
 };
 
 window.openEditUserLimits = function(userId) {

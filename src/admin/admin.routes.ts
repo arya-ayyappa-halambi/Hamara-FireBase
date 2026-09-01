@@ -1,9 +1,13 @@
 import { Router } from 'express';
 import { authenticateJwt } from '../middleware/auth.middleware';
-import { requireSuperAdmin, disallowOttSessionMutation } from '../middleware/admin.middleware';
+import { requireSuperAdmin, requireAdminPermission, disallowOttSessionMutation } from '../middleware/admin.middleware';
 import {
   getStats,
   getUsers,
+  createAdminHandler,
+  promoteUserToAdminHandler,
+  demoteAdminHandler,
+  updateAdminSecurityConfigHandler,
   updateRateLimits,
   updateUserLimits,
   getAccountDeletionRequests,
@@ -148,10 +152,14 @@ router.post('/platform-settings/migration/cancel', disallowOttSessionMutation, c
 router.post('/platform-settings/migration/execute-now', disallowOttSessionMutation, executeScheduledMigrationNowHandler);
 router.post('/platform-settings/broadcast-notice', disallowOttSessionMutation, broadcastEndpointNoticeHandler);
 
-router.get('/stats', getStats);
-router.get('/users', getUsers);
-router.patch('/users/:id/limits', disallowOttSessionMutation, updateUserLimits);
-router.post('/users/:id/reset-mfa', disallowOttSessionMutation, resetUserMfa);
+router.get('/stats', requireAdminPermission('telemetry'), getStats);
+router.get('/users', requireAdminPermission('user_management'), getUsers);
+router.post('/users/create-admin', requireAdminPermission('user_management'), disallowOttSessionMutation, createAdminHandler);
+router.patch('/users/:id/promote', requireAdminPermission('user_management'), disallowOttSessionMutation, promoteUserToAdminHandler);
+router.patch('/users/:id/demote', requireAdminPermission('user_management'), disallowOttSessionMutation, demoteAdminHandler);
+router.patch('/users/:id/admin-config', requireAdminPermission('user_management'), disallowOttSessionMutation, updateAdminSecurityConfigHandler);
+router.patch('/users/:id/limits', requireAdminPermission('user_management'), disallowOttSessionMutation, updateUserLimits);
+router.post('/users/:id/reset-mfa', requireAdminPermission('user_management'), disallowOttSessionMutation, resetUserMfa);
 
 // ── Trust & Safety / Threat Intelligence & Moderation ─────────────────────────
 router.get('/security/alerts', getSecurityAlerts);

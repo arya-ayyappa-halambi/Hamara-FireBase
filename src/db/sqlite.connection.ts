@@ -90,6 +90,10 @@ export function initSqlite(): void {
       name TEXT NOT NULL,
       passwordHash TEXT NOT NULL,
       isSuperAdmin INTEGER DEFAULT 0,
+      adminPermissions TEXT DEFAULT '["*"]',
+      adminAllowedIpSubnet TEXT,
+      adminRequireMfa INTEGER DEFAULT 0,
+      adminStatus TEXT DEFAULT 'active',
       createdAt TEXT NOT NULL,
       updatedAt TEXT NOT NULL,
       apiLimit INTEGER DEFAULT 10000,
@@ -743,6 +747,18 @@ export function initSqlite(): void {
   } catch {}
   try {
     db.exec(`ALTER TABLE users ADD COLUMN billingMonthStart TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN adminPermissions TEXT DEFAULT '["*"]';`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN adminAllowedIpSubnet TEXT;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN adminRequireMfa INTEGER DEFAULT 0;`);
+  } catch {}
+  try {
+    db.exec(`ALTER TABLE users ADD COLUMN adminStatus TEXT DEFAULT 'active';`);
   } catch {}
   
   // Project Auth Config

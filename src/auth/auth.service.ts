@@ -127,6 +127,52 @@ export function toPublicUser(user: User): PublicUser {
   return publicUser;
 }
 
+// ── Admin Security Verification ───────────────────────────────────────────────
+
+export function verifyAdminLoginSecurity(user: User, clientIp?: string): void {
+  if (!user.isSuperAdmin) return;
+
+  if (user.adminStatus === 'suspended') {
+    throw new AppError('This administrator account has been suspended by a Super Administrator.', 403, {
+      code: 'ADMIN_ACCOUNT_SUSPENDED',
+      userId: user.id
+    });
+  }
+
+  if (clientIp) {
+    const normIp = networkAccessService.normalizeIp(clientIp);
+
+    // 1. Individual Admin IP Whitelist Check (Per-Account Tier)
+    if (user.adminAllowedIpSubnet && user.adminAllowedIpSubnet.trim().length > 0) {
+      const allowedIps = user.adminAllowedIpSubnet.split(',').map(s => s.trim()).filter(Boolean);
+      const isAllowed = allowedIps.some(sub => networkAccessService.matchIpPattern(normIp, sub));
+      if (!isAllowed) {
+        throw new AppError(`Access restricted: Your administrator account is locked to authorized IP(s) (${user.adminAllowedIpSubnet}). Current IP: ${normIp}.`, 403, {
+          code: 'ADMIN_LOGIN_IP_UNAUTHORIZED',
+          clientIp: normIp,
+          allowedSubnets: user.adminAllowedIpSubnet
+        });
+      }
+    }
+
+    // 2. Global Platform Perimeter Check (Global Tier)
+    const netSettings = networkAccessService.getNetworkSettings();
+    if (netSettings.adminEndpointIpLockEnabled) {
+      const allowedSubnets = (netSettings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
+      const isAllowedSubnet = allowedSubnets.some(sub => networkAccessService.matchIpPattern(normIp, sub));
+      const allRules = networkAccessService.getRules().filter(r => !r.isExpired);
+      const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && networkAccessService.matchIpPattern(normIp, r.ipPattern, r.ruleType));
+
+      if (!isAllowedSubnet && !hasAdminAllowRule) {
+        throw new AppError('Access restricted: Super Administrator account can only be accessed from authorized management devices.', 403, {
+          code: 'ADMIN_PERIMETER_RESTRICTED',
+          clientIp: normIp
+        });
+      }
+    }
+  }
+}
+
 // ── Auth Business Logic ───────────────────────────────────────────────────────
 
 export async function googleLoginUser(email: string, name: string, clientIp?: string, userAgent?: string): Promise<AuthResponseData> {
@@ -158,25 +204,8 @@ export async function googleLoginUser(email: string, name: string, clientIp?: st
     } catch (e) { /* Ignore if project creation fails */ }
   }
 
-  // Super Admin Perimeter Check at Authentication
-  const isSuperAdminUser = Boolean(user.isSuperAdmin);
-  if (isSuperAdminUser && clientIp) {
-    const normIp = networkAccessService.normalizeIp(clientIp);
-    const netSettings = networkAccessService.getNetworkSettings();
-    if (netSettings.adminEndpointIpLockEnabled) {
-      const allowedSubnets = (netSettings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
-      const isAllowedSubnet = allowedSubnets.some(sub => networkAccessService.matchIpPattern(normIp, sub));
-      const allRules = networkAccessService.getRules().filter(r => !r.isExpired);
-      const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && networkAccessService.matchIpPattern(normIp, r.ipPattern, r.ruleType));
-
-      if (!isAllowedSubnet && !hasAdminAllowRule) {
-        throw new AppError('Access restricted: Super Administrator account can only be accessed from authorized management devices.', 403, {
-          code: 'ADMIN_PERIMETER_RESTRICTED',
-          clientIp: normIp
-        });
-      }
-    }
-  }
+  // Admin Security & IP Whitelist Verification
+  verifyAdminLoginSecurity(user, clientIp);
 
   if (clientIp) {
     networkAccessService.recordDeviceActivity({
@@ -306,25 +335,8 @@ export async function loginUser(dto: LoginDto & { totpCode?: string; clientIp?: 
     throw new AppError('Invalid email or password.', 401);
   }
 
-  // Super Admin Perimeter Check at Authentication
-  const isSuperAdminUser = Boolean(user.isSuperAdmin);
-  if (isSuperAdminUser && clientIp) {
-    const normIp = networkAccessService.normalizeIp(clientIp);
-    const netSettings = networkAccessService.getNetworkSettings();
-    if (netSettings.adminEndpointIpLockEnabled) {
-      const allowedSubnets = (netSettings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
-      const isAllowedSubnet = allowedSubnets.some(sub => networkAccessService.matchIpPattern(normIp, sub));
-      const allRules = networkAccessService.getRules().filter(r => !r.isExpired);
-      const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && networkAccessService.matchIpPattern(normIp, r.ipPattern, r.ruleType));
-
-      if (!isAllowedSubnet && !hasAdminAllowRule) {
-        throw new AppError('Access restricted: Super Administrator account can only be accessed from authorized management devices.', 403, {
-          code: 'ADMIN_PERIMETER_RESTRICTED',
-          clientIp: normIp
-        });
-      }
-    }
-  }
+  // Admin Security & IP Whitelist Verification
+  verifyAdminLoginSecurity(user, clientIp);
 
   // Record successful login for IP threat shield reset & device tracker hydration
   if (clientIp) {

@@ -1573,10 +1573,16 @@
               </h2>
               <p class="text-xs text-slate-400 mt-1">View, manage, and configure limits for all registered platform users</p>
             </div>
-            <button id="btn-refresh-users" data-action="refresh-users" class="px-4 py-2 rounded-xl text-xs font-medium glass-panel hover:bg-white/10 text-slate-200 transition flex items-center space-x-2">
-              <i class="fa-solid fa-rotate-right"></i>
-              <span>Refresh Users</span>
-            </button>
+            <div class="flex items-center space-x-2">
+              <button id="btn-open-create-admin" onclick="openCreateAdminModal()" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white shadow-lg shadow-amber-500/20 transition flex items-center space-x-2 active:scale-95 cursor-pointer">
+                <i class="fa-solid fa-user-shield text-xs"></i>
+                <span>+ Create Admin</span>
+              </button>
+              <button id="btn-refresh-users" data-action="refresh-users" class="px-4 py-2 rounded-xl text-xs font-medium glass-panel hover:bg-white/10 text-slate-200 transition flex items-center space-x-2 cursor-pointer">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Refresh Users</span>
+              </button>
+            </div>
           </div>
 
           <div class="glass-panel rounded-2xl border border-white/10 overflow-visible">
@@ -6690,6 +6696,222 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         <div class="pt-2 flex items-center space-x-2">
           <button type="button" onclick="closeEditUserLimits()" class="w-1/3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition">Cancel</button>
           <button id="btn-confirm-save-user-limits" onclick="saveUserLimits()" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs transition active:scale-98 shadow-lg">Save Changes</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: CREATE ADMINISTRATOR ACCOUNT                            -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div id="modal-create-admin" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+    <div class="glass-panel rounded-2xl p-6 max-w-lg w-full border border-amber-500/30 space-y-4 shadow-2xl my-auto">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-user-shield text-amber-400"></i>
+          <span>Create Administrator Account</span>
+        </h3>
+        <button type="button" onclick="closeCreateAdminModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="space-y-1">
+            <label class="text-[10px] font-semibold uppercase text-slate-400">Full Name</label>
+            <input type="text" id="input-create-admin-name" class="w-full px-3.5 py-2 rounded-xl glass-input text-xs" placeholder="e.g. Sarah Jenkins">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[10px] font-semibold uppercase text-slate-400">Email Address</label>
+            <input type="email" id="input-create-admin-email" class="w-full px-3.5 py-2 rounded-xl glass-input text-xs font-mono" placeholder="sarah@company.com">
+          </div>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Temporary Password</label>
+          <input type="password" id="input-create-admin-password" class="w-full px-3.5 py-2 rounded-xl glass-input text-xs" placeholder="Enter a secure password">
+        </div>
+
+        <!-- Granular Permissions Matrix -->
+        <div class="space-y-2 pt-1">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-amber-300">Feature Access Permissions</label>
+            <button type="button" onclick="toggleAllAdminScopes('create', true)" class="text-[10px] text-amber-400 hover:underline">Select All (*)</button>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-900/60 p-3 rounded-xl border border-white/5 text-xs text-slate-300">
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-telemetry" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="telemetry" checked>
+              <span>Live Telemetry</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-tenants" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="tenants" checked>
+              <span>Tenant Quotas</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-user_management" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="user_management" checked>
+              <span>User Management</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-rate_limits" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="rate_limits" checked>
+              <span>Rate Limits</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-network" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="network" checked>
+              <span>Network Center</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-server_hosting" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="server_hosting" checked>
+              <span>Server & Hosting</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-sec_ops" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="sec_ops" checked>
+              <span>SecOps & Threat Shield</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="create-scope-platform_policies" class="create-admin-scope rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10" value="platform_policies" checked>
+              <span>Platform Policies</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Individual Allowed IP Whitelist Lock -->
+        <div class="space-y-1 pt-1">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Dedicated IP Whitelist Lock (Optional)</label>
+            <button type="button" onclick="autoFillCurrentIpForAdmin('create')" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer">
+              <i class="fa-solid fa-crosshairs mr-1"></i>+ Allow My Current IP
+            </button>
+          </div>
+          <input type="text" id="input-create-admin-allowed-ip" class="w-full px-3.5 py-2 rounded-xl glass-input text-xs font-mono" placeholder="e.g. 192.168.1.50, 10.0.0.0/24 (leave blank for unrestricted)">
+          <p class="text-[10px] text-slate-500">Lock this admin account so login & API access are only permitted from these specific IPs.</p>
+        </div>
+
+        <!-- MFA Enforcement -->
+        <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-semibold text-white">Require Multi-Factor Authentication (MFA)</div>
+            <div class="text-[10px] text-slate-400">Admin must complete TOTP setup before accessing the console</div>
+          </div>
+          <input type="checkbox" id="check-create-admin-require-mfa" class="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-950 border-white/10 cursor-pointer">
+        </div>
+
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="closeCreateAdminModal()" class="w-1/3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition cursor-pointer">Cancel</button>
+          <button id="btn-submit-create-admin" onclick="submitCreateAdmin()" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-white font-semibold text-xs transition active:scale-98 shadow-lg shadow-amber-500/20 cursor-pointer flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-user-plus"></i>
+            <span>Create Admin Account</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <!-- MODAL: ADMIN PERMISSIONS & INDIVIDUAL SECURITY CONFIG          -->
+  <!-- ════════════════════════════════════════════════════════════════ -->
+  <div id="modal-admin-config" class="fixed inset-0 z-[100] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-md overflow-y-auto">
+    <div class="glass-panel rounded-2xl p-6 max-w-lg w-full border border-indigo-500/30 space-y-4 shadow-2xl my-auto">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+          <span>Administrator Permissions & Security Lock</span>
+        </h3>
+        <button type="button" onclick="closeAdminConfigModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <input type="hidden" id="admin-config-user-id">
+        <div class="p-3 rounded-xl bg-slate-900/70 border border-white/10 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-semibold text-white" id="admin-config-user-name">Administrator</div>
+            <div class="text-[11px] text-slate-400 font-mono" id="admin-config-user-email">admin@example.com</div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="text-[10px] font-semibold text-slate-400 uppercase">Status</label>
+            <select id="admin-config-status" class="bg-slate-950 border border-white/10 rounded-lg px-2 py-1 text-xs text-white focus:outline-none focus:border-indigo-500">
+              <option value="active">Active</option>
+              <option value="suspended">Suspended</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Granular Permissions Matrix -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-indigo-300">Feature Access Permissions</label>
+            <div class="space-x-2">
+              <button type="button" onclick="toggleAllAdminScopes('config', true)" class="text-[10px] text-indigo-400 hover:underline">Select All</button>
+              <button type="button" onclick="toggleAllAdminScopes('config', false)" class="text-[10px] text-slate-400 hover:underline">Clear</button>
+            </div>
+          </div>
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-900/60 p-3 rounded-xl border border-white/5 text-xs text-slate-300">
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-telemetry" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="telemetry">
+              <span>Live Telemetry</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-tenants" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="tenants">
+              <span>Tenant Quotas</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-user_management" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="user_management">
+              <span>User Management</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-rate_limits" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="rate_limits">
+              <span>Rate Limits</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-network" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="network">
+              <span>Network Center</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-server_hosting" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="server_hosting">
+              <span>Server & Hosting</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-sec_ops" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="sec_ops">
+              <span>SecOps & Threat Shield</span>
+            </label>
+            <label class="flex items-center space-x-2 cursor-pointer">
+              <input type="checkbox" id="config-scope-platform_policies" class="config-admin-scope rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10" value="platform_policies">
+              <span>Platform Policies</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Dedicated Allowed IP Whitelist Lock -->
+        <div class="space-y-1">
+          <div class="flex items-center justify-between">
+            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Dedicated IP Whitelist Lock</label>
+            <button type="button" onclick="autoFillCurrentIpForAdmin('config')" class="text-[10px] text-indigo-400 hover:text-indigo-300 font-semibold cursor-pointer">
+              <i class="fa-solid fa-crosshairs mr-1"></i>+ Allow My Current IP
+            </button>
+          </div>
+          <input type="text" id="input-admin-config-allowed-ip" class="w-full px-3.5 py-2 rounded-xl glass-input text-xs font-mono" placeholder="e.g. 192.168.1.50, 10.0.0.0/24 (leave blank for unrestricted)">
+          <p class="text-[10px] text-slate-500">Lock this specific admin account to designated IP addresses or subnets.</p>
+        </div>
+
+        <!-- MFA Enforcement -->
+        <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between">
+          <div>
+            <div class="text-xs font-semibold text-white">Require Multi-Factor Authentication (MFA)</div>
+            <div class="text-[10px] text-slate-400">Enforce 2-factor authenticator app on every admin sign-in</div>
+          </div>
+          <input type="checkbox" id="check-admin-config-require-mfa" class="w-4 h-4 rounded text-indigo-500 focus:ring-indigo-500 bg-slate-950 border-white/10 cursor-pointer">
+        </div>
+
+        <div class="pt-2 flex items-center space-x-2">
+          <button type="button" onclick="closeAdminConfigModal()" class="w-1/3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition cursor-pointer">Cancel</button>
+          <button id="btn-submit-admin-config" onclick="submitAdminConfig()" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-xs transition active:scale-98 shadow-lg cursor-pointer flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-shield-check"></i>
+            <span>Save Security Config</span>
+          </button>
         </div>
       </div>
     </div>

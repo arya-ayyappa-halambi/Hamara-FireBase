@@ -59,10 +59,14 @@ export async function verifyMagicAuthHandler(req: Request, res: Response, next: 
     const user = await userStore.findById(userId);
     if (!user) throw new AppError('User not found.', 404);
 
-    const authToken = generateToken(user);
-    const { refreshToken } = tokenFamilyService.createTokenFamily(user.id);
     const clientIp = networkAccessService.extractClientIp(req);
     const userAgent = req.headers['user-agent'] as string;
+
+    const { verifyAdminLoginSecurity } = await import('./auth.service');
+    verifyAdminLoginSecurity(user, clientIp);
+
+    const authToken = generateToken(user);
+    const { refreshToken } = tokenFamilyService.createTokenFamily(user.id);
 
     userSessionService.registerSession({
       userId: user.id,
