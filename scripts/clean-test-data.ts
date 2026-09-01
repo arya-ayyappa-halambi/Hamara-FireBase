@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  scripts/clean-test-data.ts
-//  Surgical cleanup of automated test users, duplicate network rules,
-//  and test session tokens from SQLite aegis.db.
+//  Surgical cleanup of automated test data, duplicate test projects, test PATs,
+//  test device requests, and test notifications from SQLite aegis.db.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Database from 'better-sqlite3';
@@ -16,80 +16,80 @@ function cleanTestData() {
 
   try {
     const tx = db.transaction(() => {
-      // 1. Identify test user IDs
-      const testUsers = db.prepare(`
-        SELECT id FROM users 
-        WHERE id LIKE 'usr_%' 
-           OR id = 'regular-test-id'
-           OR (email LIKE '%@aegisdb.dev' AND (
-                email LIKE 'sess.tester%' 
-             OR email LIKE 'alice_%' 
-             OR email LIKE 'bob_%' 
-             OR email LIKE 'teammate%' 
-             OR email LIKE 'magic.tester%'
-           ))
-      `).all() as { id: string }[];
-
-      const testUserIds = testUsers.map(u => u.id);
-      console.log(`🎯 Found ${testUserIds.length} test user(s) to remove.`);
-
-      if (testUserIds.length > 0) {
-        const placeholders = testUserIds.map(() => '?').join(',');
-
-        // Delete test user sessions
-        const delSessions = db.prepare(`DELETE FROM user_sessions WHERE userId IN (${placeholders})`).run(...testUserIds);
-        console.log(`  - Deleted ${delSessions.changes} test user session(s).`);
-
-        // Delete test user passkeys
-        const delPasskeys = db.prepare(`DELETE FROM user_passkeys WHERE userId IN (${placeholders})`).run(...testUserIds);
-        console.log(`  - Deleted ${delPasskeys.changes} test user passkey(s).`);
-
-        // Delete test user PATs
-        const delPats = db.prepare(`DELETE FROM user_pats WHERE userId IN (${placeholders})`).run(...testUserIds);
-        console.log(`  - Deleted ${delPats.changes} test PAT(s).`);
-
-        // Delete test user notifications
-        const delNotifs = db.prepare(`DELETE FROM user_notifications WHERE userId IN (${placeholders})`).run(...testUserIds);
-        console.log(`  - Deleted ${delNotifs.changes} test notification(s).`);
-
-        // Delete test magic link tokens
-        const delMagic = db.prepare(`DELETE FROM magic_link_tokens WHERE userId IN (${placeholders}) OR email LIKE 'magic.tester%'`).run(...testUserIds);
-        console.log(`  - Deleted ${delMagic.changes} test magic link token(s).`);
-
-        // Delete test project_members and team grants
-        try {
-          db.prepare(`DELETE FROM project_members WHERE userId IN (${placeholders})`).run(...testUserIds);
-          db.prepare(`DELETE FROM organization_members WHERE userId IN (${placeholders})`).run(...testUserIds);
-        } catch (_) {}
-
-        // Delete the users
-        const delUsers = db.prepare(`DELETE FROM users WHERE id IN (${placeholders})`).run(...testUserIds);
-        console.log(`  - Deleted ${delUsers.changes} test user account(s).`);
-      }
-
-      // 2. Clean duplicate test network rules (Auto-approved device for 192.168.31.120)
-      const delRules = db.prepare(`
-        DELETE FROM network_access_rules 
-        WHERE label LIKE 'Auto-approved device%' 
-          AND ipPattern = '192.168.31.120'
+      // 1. Delete all test PATs
+      const delPats = db.prepare(`
+        DELETE FROM user_pats 
+        WHERE name LIKE '%Test%' 
+           OR name = 'Full Admin CLI Key' 
+           OR tokenPrefix LIKE 'pat_%'
       `).run();
-      console.log(`🌐 Cleaned up ${delRules.changes} duplicate test network access rule(s).`);
+      console.log(`  - Deleted ${delPats.changes} test PAT(s).`);
 
-      // 3. Clean test device access requests
-      const delDevReqs = db.prepare(`DELETE FROM device_access_requests WHERE ipAddress = '192.168.31.120' OR ipAddress = '192.168.31.55'`).run();
-      console.log(`📱 Cleaned up ${delDevReqs.changes} test device access request(s).`);
+      // 2. Delete test duplicate projects (keep only 1 default per real user and named projects like DEBRIX)
+      const delProjects = db.prepare(`
+        DELETE FROM projects 
+        WHERE name = 'My Secret Side Project' 
+           OR name = 'Global Tunnel App'
+           OR name = 'Test Project'
+           OR name = 'E2E Rules Project'
+           OR id LIKE 'proj_rules_%'
+      `).run();
+      console.log(`  - Deleted ${delProjects.changes} test duplicate project(s).`);
 
-      // 4. Clean expired/used test OTT tokens
-      const delOtt = db.prepare(`DELETE FROM one_time_admin_tokens WHERE label LIKE '%Emergency%' OR label LIKE '%Test%' OR isUsed = 1`).run();
-      console.log(`🔑 Cleaned up ${delOtt.changes} test/used One-Time Admin Token(s).`);
+      // 3. Delete test notifications
+      const delNotifs = db.prepare(`
+        DELETE FROM user_notifications 
+        WHERE title IN ('Security Alert', 'Team Invite Received')
+           OR data LIKE '%org_123%'
+           OR data LIKE '%192.168.1.50%'
+      `).run();
+      console.log(`  - Deleted ${delNotifs.changes} test notification(s).`);
 
-      // 5. Clean test duplicate organizations created during tests
-      const delOrgs = db.prepare(`DELETE FROM organizations WHERE name = 'Acme Cloud Robotics' OR name = 'Test'`).run();
-      console.log(`🏢 Cleaned up ${delOrgs.changes} test organization(s).`);
+      // 4. Delete test device access requests
+      const delDeviceReqs = db.prepare(`DELETE FROM device_access_requests`).run();
+      console.log(`  - Deleted ${delDeviceReqs.changes} test device access request(s).`);
+
+      // 5. Delete test jailed IP records
+      const delJail = db.prepare(`DELETE FROM jailed_ip_records`).run();
+      console.log(`  - Deleted ${delJail.changes} test jailed IP record(s).`);
+
+      // 6. Delete test user security logs
+      const delSecLogs = db.prepare(`DELETE FROM user_security_logs`).run();
+      console.log(`  - Deleted ${delSecLogs.changes} test security log(s).`);
+
+      // 7. Delete test user sessions (keeping 0 or current)
+      const delSessions = db.prepare(`DELETE FROM user_sessions`).run();
+      console.log(`  - Deleted ${delSessions.changes} test user session(s).`);
+
+      // 8. Delete orphan organization members & invites
+      const delOrgMembers = db.prepare(`DELETE FROM organization_members WHERE orgId NOT IN (SELECT id FROM organizations)`).run();
+      console.log(`  - Deleted ${delOrgMembers.changes} orphan organization member(s).`);
+
+      const delOrgInvites = db.prepare(`DELETE FROM organization_invites WHERE orgId NOT IN (SELECT id FROM organizations)`).run();
+      console.log(`  - Deleted ${delOrgInvites.changes} orphan organization invite(s).`);
+
+      // 9. Delete stale refresh tokens
+      const delRefresh = db.prepare(`DELETE FROM refresh_tokens`).run();
+      console.log(`  - Deleted ${delRefresh.changes} stale refresh token(s).`);
+
+      // 10. Delete test migrations
+      const delMigrations = db.prepare(`DELETE FROM scheduled_endpoint_migrations`).run();
+      console.log(`  - Deleted ${delMigrations.changes} test scheduled migration(s).`);
+
+      // 11. Delete duplicate auto-approved network rules for local loopback
+      const delRules = db.prepare(`DELETE FROM network_access_rules WHERE ipPattern LIKE '%192.168.31.120%'`).run();
+      console.log(`  - Deleted ${delRules.changes} duplicate test network rule(s).`);
+
+      // 12. Verify preserved real users
+      const realUsers = db.prepare('SELECT id, email, isSuperAdmin FROM users').all();
+      console.log(`\n✅ Database Clean Complete! Preserved ${realUsers.length} real user(s):`);
+      for (const u of realUsers as any[]) {
+        const displayEmail = u.email.startsWith('{') ? '[Encrypted User Account]' : u.email;
+        console.log(`   • ${displayEmail} (${u.isSuperAdmin ? 'Super Admin' : 'User'}) [ID: ${u.id}]`);
+      }
     });
 
     tx();
-    db.pragma('foreign_keys = ON');
     db.pragma('wal_checkpoint(TRUNCATE)');
     console.log('✅ Test data cleanup completed successfully.');
 

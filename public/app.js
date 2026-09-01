@@ -10379,6 +10379,56 @@ function bufferToBase64Url(buffer) {
 
 // ── 1. Passkeys / WebAuthn (FIDO2) Handlers ───────────────────────────────────
 
+window.toggleUserPasskeysDrawer = function() {
+  const drawer = document.getElementById('drawer-user-passkeys');
+  const icon = document.getElementById('icon-toggle-user-passkeys-drawer');
+  const text = document.getElementById('text-toggle-user-passkeys-drawer');
+  if (!drawer) return;
+  const isHidden = drawer.classList.toggle('hidden');
+  if (icon) icon.className = isHidden ? 'fa-solid fa-chevron-down text-[10px]' : 'fa-solid fa-chevron-up text-[10px]';
+  if (text) text.textContent = isHidden ? 'Show Details' : 'Hide Details';
+};
+
+window.toggleUserSessionsDrawer = function() {
+  const drawer = document.getElementById('drawer-user-sessions');
+  const icon = document.getElementById('icon-toggle-user-sessions-drawer');
+  const text = document.getElementById('text-toggle-user-sessions-drawer');
+  if (!drawer) return;
+  const isHidden = drawer.classList.toggle('hidden');
+  if (icon) icon.className = isHidden ? 'fa-solid fa-chevron-down text-[10px]' : 'fa-solid fa-chevron-up text-[10px]';
+  if (text) text.textContent = isHidden ? 'Show Sessions' : 'Hide Sessions';
+};
+
+window.toggleUserPatsDrawer = function() {
+  const drawer = document.getElementById('drawer-user-pats');
+  const icon = document.getElementById('icon-toggle-user-pats-drawer');
+  const text = document.getElementById('text-toggle-user-pats-drawer');
+  if (!drawer) return;
+  const isHidden = drawer.classList.toggle('hidden');
+  if (icon) icon.className = isHidden ? 'fa-solid fa-chevron-down text-[10px]' : 'fa-solid fa-chevron-up text-[10px]';
+  if (text) text.textContent = isHidden ? 'Show Tokens' : 'Hide Tokens';
+};
+
+window.toggleUserOrgsDrawer = function() {
+  const drawer = document.getElementById('drawer-user-orgs');
+  const icon = document.getElementById('icon-toggle-user-orgs-drawer');
+  const text = document.getElementById('text-toggle-user-orgs-drawer');
+  if (!drawer) return;
+  const isHidden = drawer.classList.toggle('hidden');
+  if (icon) icon.className = isHidden ? 'fa-solid fa-chevron-down text-[10px]' : 'fa-solid fa-chevron-up text-[10px]';
+  if (text) text.textContent = isHidden ? 'Show Workspaces' : 'Hide Workspaces';
+};
+
+window.toggleUserSecLogsDrawer = function() {
+  const drawer = document.getElementById('drawer-user-sec-logs');
+  const icon = document.getElementById('icon-toggle-user-sec-logs-drawer');
+  const text = document.getElementById('text-toggle-user-sec-logs-drawer');
+  if (!drawer) return;
+  const isHidden = drawer.classList.toggle('hidden');
+  if (icon) icon.className = isHidden ? 'fa-solid fa-chevron-down text-[9px]' : 'fa-solid fa-chevron-up text-[9px]';
+  if (text) text.textContent = isHidden ? 'Show Feed' : 'Hide Feed';
+};
+
 window.executePasskeyLogin = async function() {
   if (!window.PublicKeyCredential) {
     showToast('Biometric Passkeys (WebAuthn) are not supported on this browser/device.', 'error');
@@ -10530,14 +10580,19 @@ window.registerNewPasskey = async function() {
 
 window.fetchUserPasskeys = async function() {
   const container = document.getElementById('user-passkeys-list');
+  const badge = document.getElementById('badge-user-passkeys-count');
   if (!container || !state.accessToken) return;
 
   try {
     const res = await apiRequest('/api/v1/auth/passkeys', 'GET');
     const passkeys = Array.isArray(res) ? res : (res?.data || []);
 
+    if (badge) {
+      badge.textContent = `${passkeys.length} Passkey${passkeys.length === 1 ? '' : 's'}`;
+    }
+
     if (passkeys.length === 0) {
-      container.innerHTML = '<div class="text-xs text-slate-500 py-2">No passkeys registered. Click "+ Register New Passkey" above.</div>';
+      container.innerHTML = '<div class="text-xs text-slate-500 py-2">No passkeys registered. Click "+ Register Passkey" above.</div>';
       return;
     }
 
@@ -10588,15 +10643,14 @@ window.openMagicLinkModal = function() {
 
 window.requestMagicAuth = async function() {
   const email = document.getElementById('input-magic-email')?.value?.trim();
-  if (!email) {
-    showToast('Please enter your email address.', 'error');
+  if (!email || !email.includes('@')) {
+    showToast('Please enter a valid email address.', 'error');
     return;
   }
 
   try {
-    showToast('Generating Magic Link & OTP...', 'info');
     const res = await apiRequest('/api/v1/auth/magic-link/request', 'POST', { email });
-    showToast('Magic code generated!', 'success');
+    showToast(res?.message || 'Verification code sent to your email!', 'success');
 
     document.getElementById('magic-auth-step-1')?.classList.add('hidden');
     document.getElementById('magic-auth-step-2')?.classList.remove('hidden');
@@ -10684,6 +10738,7 @@ window.verifyMagicAuthOtp = async function() {
 
 window.fetchUserSessions = async function() {
   const container = document.getElementById('user-active-sessions-list');
+  const badge = document.getElementById('badge-user-sessions-count');
   if (!container || !state.accessToken) return;
 
   try {
@@ -10768,11 +10823,16 @@ window.logoutAllOtherSessions = async function() {
 
 window.fetchUserPats = async function() {
   const container = document.getElementById('user-pats-list');
+  const badge = document.getElementById('badge-user-pats-count');
   if (!container || !state.accessToken) return;
 
   try {
     const res = await apiRequest('/api/v1/auth/pats', 'GET');
     const pats = Array.isArray(res) ? res : (res?.data || []);
+
+    if (badge) {
+      badge.textContent = `${pats.length} Token${pats.length === 1 ? '' : 's'}`;
+    }
 
     if (pats.length === 0) {
       container.innerHTML = '<div class="text-xs text-slate-500 py-2">No active Personal Access Tokens. Click "+ Generate New PAT" above.</div>';
@@ -10942,6 +11002,11 @@ window.fetchUserOrganizations = async function() {
     const res = await apiRequest('/api/v1/orgs', 'GET');
     const orgs = Array.isArray(res) ? res : (res?.data || []);
     state.organizations = orgs;
+
+    const badge = document.getElementById('badge-user-orgs-count');
+    if (badge) {
+      badge.textContent = `${orgs.length} Workspace${orgs.length === 1 ? '' : 's'}`;
+    }
 
     // 1. Populate header workspace dropdown list
     const wsList = document.getElementById('workspace-orgs-list');
@@ -12023,11 +12088,16 @@ window.markAllNotificationsRead = async function() {
 
 window.fetchUserSecurityLogs = async function() {
   const container = document.getElementById('user-security-logs-feed');
+  const badge = document.getElementById('badge-user-sec-logs-count');
   if (!container || !state.accessToken) return;
 
   try {
     const res = await apiRequest('/api/v1/auth/security-logs', 'GET');
     const logs = Array.isArray(res) ? res : (res?.data || []);
+
+    if (badge) {
+      badge.textContent = `${logs.length} Event${logs.length === 1 ? '' : 's'}`;
+    }
 
     if (logs.length === 0) {
       container.innerHTML = '<div class="text-slate-500 text-center py-4">No recent security events.</div>';
