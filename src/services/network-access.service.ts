@@ -330,17 +330,7 @@ export class NetworkAccessService {
 
     // 4. Super Admin Endpoint Perimeter Lock (/api/v1/admin/*)
     if (params.path.startsWith('/api/v1/admin')) {
-      if (params.isTunnel) {
-        // Over public tunnel, Super Admin is locked unless explicit OTT or device authorization rule matches
-        const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && this.matchIpPattern(ip, r.ipPattern, r.ruleType));
-        if (!hasAdminAllowRule) {
-          return {
-            allowed: false,
-            code: 'ADMIN_PERIMETER_RESTRICTED',
-            reason: 'Access restricted: Super Admin management endpoints cannot be accessed over public tunnels without Zero-Trust device approval or One-Time Token (OTT).'
-          };
-        }
-      } else if (settings.adminEndpointIpLockEnabled) {
+      if (settings.adminEndpointIpLockEnabled) {
         const allowedAdminSubnets = (process.env.ADMIN_ALLOWED_SUBNET || settings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
         const matchesAdminSubnet = allowedAdminSubnets.some(sub => this.matchIpPattern(ip, sub));
         const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && this.matchIpPattern(ip, r.ipPattern, r.ruleType));
