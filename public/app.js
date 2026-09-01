@@ -529,6 +529,12 @@ window.setRoleMode = function setRoleMode(mode) {
 // ── Workspace Panel Navigation ─────────────────────────────────────────────────
 
 window.switchTab = window.switchWorkspace = function switchTab(tabId) {
+  if (typeof tabId === 'string') {
+    if (!tabId.startsWith('tab-') && document.getElementById(`tab-${tabId}`)) {
+      tabId = `tab-${tabId}`;
+    }
+  }
+
   document.querySelectorAll('.workspace-panel').forEach((panel) => {
     panel.classList.add('hidden');
   });
