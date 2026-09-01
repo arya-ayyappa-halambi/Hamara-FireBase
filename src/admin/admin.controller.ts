@@ -1438,6 +1438,36 @@ export async function updateTunnelSettingsHandler(req: Request, res: Response, n
   }
 }
 
+export async function clearTunnelSettingsHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const report = tunnelManagerService.clearSettings();
+    res.status(200).json({
+      success: true,
+      message: 'Public tunnel configuration cleared.',
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function attachTunnelHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { publicUrl, provider } = req.body || {};
+    if (!publicUrl) {
+      throw new AppError('Public tunnel URL is required.', 400);
+    }
+    const report = tunnelManagerService.adoptExternalTunnel(publicUrl, provider || 'cloudflare');
+    res.status(200).json({
+      success: true,
+      message: 'Active global public tunnel attached.',
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ── Real-Time Traffic Topology & Flow Telemetry Handlers ──────────────────────
 
 export async function getTrafficTopologyHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {

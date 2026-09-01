@@ -460,7 +460,7 @@ Every AegisDB project operates as an independent authentication realm:
 | `POST` | `/api/v1/project-auth/oauth/:provider` | Authenticate via OAuth (`google`, `apple`, `github`) |
 
 ### Database Services (`/api/v1/db`)
-*Requires `x-aegis-api-key`, `Authorization: Bearer <JWT>`, or `x-aegis-pat` header.*
+*Requires `x-aegis-api-key`, `x-api-key`, `apikey`, `?apiKey=...`, `Authorization: Bearer <JWT>`, or `x-aegis-pat` header.*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/db/collections` | List all collections in project |
@@ -481,12 +481,21 @@ Every AegisDB project operates as an independent authentication realm:
 | `GET` | `/api/v1/storage/assets/:filename` | Stream or download stored file asset |
 
 ### Super Admin Operations (`/api/v1/admin`)
-*Requires Super Admin Bearer JWT.*
+*Requires Super Admin Bearer JWT or One-Time Access Token (OTT).*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/admin/stats` | Real-time CPU, RAM, and SQLite query metrics |
 | `PATCH` | `/api/v1/admin/platform-settings` | Update hosting mode, bind IP, port, or custom domain |
 | `POST` | `/api/v1/admin/server/shutdown` | Gracefully shut down server, release port & close terminal |
+| `POST` | `/api/v1/admin/server/hot-restart` | Trigger zero-downtime rolling reload |
+| `GET` | `/api/v1/admin/server/cluster-diagnostics` | Scan candidate ports and socket binding matrix |
+| `GET` | `/api/v1/admin/tunnel/status` | Fetch live global public tunnel status report & telemetry |
+| `POST` | `/api/v1/admin/tunnel/start` | Start global HTTPS tunnel (Cloudflare, Ngrok, Localtunnel) |
+| `POST` | `/api/v1/admin/tunnel/stop` | Disconnect active global public tunnel |
+| `POST` | `/api/v1/admin/tunnel/attach` | Adopt an existing active external tunnel URL (CLI cloudflared) |
+| `PATCH` | `/api/v1/admin/tunnel/settings` | Update saved tunnel provider preferences |
+| `DELETE` | `/api/v1/admin/tunnel/settings` | Reset/wipe saved tunnel configuration |
+| `GET` | `/api/v1/admin/traffic/topology` | Fetch 4-stage pipeline telemetry & live stream matrix |
 | `GET` | `/api/v1/admin/network/rules` | Fetch all configured IP/CIDR/range access rules |
 | `POST` | `/api/v1/admin/network/rules` | Create a new IP, CIDR subnet, or range rule |
 | `DELETE` | `/api/v1/admin/network/rules/:id` | Delete a network access rule |
@@ -503,8 +512,6 @@ Every AegisDB project operates as an independent authentication realm:
 | `POST` | `/api/v1/admin/network/rate-limits` | Create new CIDR subnet rate quota and burst cap |
 | `PATCH` | `/api/v1/admin/network/rate-limits/:id` | Update subnet rate policy limits and active status |
 | `DELETE` | `/api/v1/admin/network/rate-limits/:id` | Delete a subnet rate limiting policy |
-| `GET` | `/api/v1/admin/network/rate-limits/metrics` | Fetch real-time RPS and bandwidth telemetry metrics |
-| `PATCH` | `/api/v1/admin/rate-limits` | Adjust global token bucket rate limits live |
 | `GET` | `/api/v1/admin/account-deletions` | Inspect active and historical account deletion queues |
 | `POST` | `/api/v1/admin/account-deletions/:id/cancel` | Retain an account upon user appeal |
 | `POST` | `/api/v1/admin/backups/purge` | Trigger immediate cleanup of expired snapshots |
@@ -513,41 +520,44 @@ Every AegisDB project operates as an independent authentication realm:
 
 ## 21. Performance Verification & Automated Test Suites
 
-AegisDB includes comprehensive integration tests with over 150 automated verification checks:
+AegisDB includes comprehensive integration test suites with over **200 automated verification checks** running with isolated in-memory SQLite instances (`DB_PATH=:memory:`):
 
 ```bash
-# Run complete test suite (all tests passing 100%)
+# Run complete test suite (all 11 test suites passing 100%)
 npm test
 
-# 1. GitHub-Grade Multi-Tenant Organizations & Teams (40 checks)
-npx ts-node tests/organizations.test.ts
+# 1. Remote One-Time Tokens (OTT) & Zero-Trust Device Approvals (29 checks)
+npx ts-node tests/remote-ott-access.test.ts
 
-# 2. FIDO2 Biometric Passkeys & WebAuthn Level 3 (20 checks)
+# 2. Global Public Tunneling Manager & Ingress Killswitches (22 checks)
+npx ts-node tests/tunnel-manager.test.ts
+
+# 3. Real-Time Traffic Topology & Flow Telemetry Matrix (28 checks)
+npx ts-node tests/traffic-topology.test.ts
+
+# 4. Global Ingress & Super Admin Device Lock (17 checks)
+npx ts-node tests/global-perimeter-lock.test.ts
+
+# 5. FIDO2 Biometric Passkeys & WebAuthn Level 3 (20 checks)
 npx ts-node tests/passkeys.test.ts
 
-# 3. Passwordless Magic Links & 6-Digit Email OTP (10 checks)
+# 6. Passwordless Magic Links & 6-Digit Email OTP (10 checks)
 npx ts-node tests/magic-link.test.ts
 
-# 4. User Active Sessions & Remote Device Logout (13 checks)
+# 7. User Active Sessions & Remote Device Logout (13 checks)
 npx ts-node tests/user-sessions.test.ts
 
-# 5. Personal Access Tokens (PATs) & Scope Enforcement (11 checks)
+# 8. Personal Access Tokens (PATs) & Fine-Grained Scopes (11 checks)
 npx ts-node tests/user-pats.test.ts
 
-# 6. In-App Real-Time Notification Center (9 checks)
+# 9. GitHub-Grade Multi-Tenant Organizations & Teams (40 checks)
+npx ts-node tests/organizations.test.ts
+
+# 10. In-App Real-Time Notification Center (9 checks)
 npx ts-node tests/notifications.test.ts
 
-# 7. User Storage Quota Metering & Over-Limit Rejection (4 checks)
+# 11. User Storage Quotas & Visual Metering (4 checks)
 npx ts-node tests/storage-quota.test.ts
-
-# 8. Adaptive Subnet Rate Limiting & Bandwidth Throttling (23 checks)
-npx ts-node tests/subnet-rate-limiting.test.ts
-
-# 9. Geo-IP, Country Flags, Geo-Fencing & Threat Intelligence (36 checks)
-npx ts-node tests/geoip-and-threat-intel.test.ts
-
-# 10. Endpoint Scoping, Perimeter Lock & Multi-Tenant IP Isolation (17 checks)
-npx ts-node tests/endpoint-scoping-and-tenant-ip.test.ts
 ```
 
 ---

@@ -28,10 +28,15 @@ function isBrowserContext(req: Request): boolean {
 }
 
 export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextFunction): void {
-  const apiKeyHeader = req.headers['x-aegis-api-key'];
+  const apiKeyCandidate =
+    (req.headers['x-aegis-api-key'] as string) ||
+    (req.headers['x-api-key'] as string) ||
+    (req.headers['apikey'] as string) ||
+    (req.query?.apiKey as string) ||
+    (req.query?.apikey as string);
 
-  if (apiKeyHeader && typeof apiKeyHeader === 'string') {
-    const rawApiKey = apiKeyHeader.trim();
+  if (apiKeyCandidate && typeof apiKeyCandidate === 'string') {
+    const rawApiKey = apiKeyCandidate.trim();
     if (!rawApiKey.startsWith('aegis_pk_') && !rawApiKey.startsWith('aegis_sk_')) {
       return next(new AppError('Invalid API Key format. API keys must start with "aegis_pk_" or "aegis_sk_".', 401));
     }

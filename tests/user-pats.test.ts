@@ -28,7 +28,14 @@ async function runPatTests(): Promise<void> {
   initSqlite();
 
   const db = getDb();
-  const testUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  let testUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  if (!testUser) {
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'PAT Tester', 'fake_hash', 0, datetime('now'), datetime('now'))
+    `).run('pat-test-user-id', 'pat.tester@aegisdb.dev', 'pat_hash');
+    testUser = { id: 'pat-test-user-id' };
+  }
   const userId = testUser.id;
 
   // ─────────────────────────────────────────────────────────────────────────

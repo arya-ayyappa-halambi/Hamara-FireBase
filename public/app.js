@@ -579,22 +579,25 @@ window.switchTab = window.switchWorkspace = function switchTab(tabId) {
     loadUserManagement();
   } else if (tabId === 'tab-rate-limits') {
     // Rate limits are static form, no load needed
-  } else if (tabId === 'tab-sec-ops') {
-    loadLockedAccounts();
-    loadPlatformSettings();
-  } else if (tabId === 'tab-server-hosting') {
-    loadPlatformSettings();
-    if (typeof loadLiveTerminalLogs === 'function') loadLiveTerminalLogs();
+  } else if (tabId === 'tab-network') {
     if (typeof window.loadNetworkAccessSettings === 'function') window.loadNetworkAccessSettings();
     if (typeof window.loadNetworkRules === 'function') window.loadNetworkRules();
     if (typeof window.loadTrackedDevicesTable === 'function') window.loadTrackedDevicesTable();
-    if (typeof window.loadJailedIpsTable === 'function') window.loadJailedIpsTable();
     if (typeof window.loadSubnetRatePolicies === 'function') window.loadSubnetRatePolicies();
-    if (typeof window.loadEmergencyStatus === 'function') window.loadEmergencyStatus();
+    if (typeof window.loadTrafficTopologyMetrics === 'function') window.loadTrafficTopologyMetrics();
+  } else if (tabId === 'tab-server-hosting') {
+    loadPlatformSettings();
+    if (typeof loadLiveTerminalLogs === 'function') loadLiveTerminalLogs();
+    if (typeof window.loadClusterDiagnosticsReport === 'function') window.loadClusterDiagnosticsReport();
+    if (typeof window.loadTunnelStatus === 'function') window.loadTunnelStatus();
+  } else if (tabId === 'tab-sec-ops') {
+    loadLockedAccounts();
+    loadPlatformSettings();
     if (typeof window.loadWafSettings === 'function') window.loadWafSettings();
     if (typeof window.loadWafStats === 'function') window.loadWafStats();
+    if (typeof window.loadJailedIpsTable === 'function') window.loadJailedIpsTable();
+    if (typeof window.loadEmergencyStatus === 'function') window.loadEmergencyStatus();
     if (typeof window.loadOttAndDeviceData === 'function') window.loadOttAndDeviceData();
-    if (typeof window.loadClusterDiagnosticsReport === 'function') window.loadClusterDiagnosticsReport();
   } else if (tabId === 'tab-project-management') {
     loadMyProjects();
   } else if (tabId === 'tab-data-browser') {
@@ -3169,24 +3172,42 @@ window.logout = async function() {
 // ── Dynamic Host & Port Prompt Configurator ────────────────────────────────────
 
 const promptEndpointConfig = {
-  mode: 'both', // 'localhost' | 'network' | 'both' | 'custom'
+  mode: 'both', // 'global' | 'localhost' | 'network' | 'both' | 'custom'
   host: window.location.hostname || '0.0.0.0',
   port: window.location.port || '3000',
   networkIp: '192.168.31.57',
-  customDomain: ''
+  customDomain: '',
+  globalUrl: ''
 };
+
+function getEffectiveApiKey() {
+  return (
+    state.currentProject?.apiKey ||
+    state.currentProject?.anonKey ||
+    (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') ||
+    'aegis_pk_live_sample123'
+  );
+}
 
 function getEffectivePromptBaseUrl() {
   const port = promptEndpointConfig.port || window.location.port || '3000';
   const portStr = (port && port !== '80' && port !== '443') ? `:${port}` : '';
   const currentHost = window.location.hostname || 'localhost';
 
-  if (promptEndpointConfig.mode === 'localhost') {
+  const activeTunnelUrl = (typeof currentTunnelState !== 'undefined' && currentTunnelState.status === 'online' && currentTunnelState.publicUrl)
+    ? currentTunnelState.publicUrl.trim().replace(/\/+$/, '')
+    : (promptEndpointConfig.globalUrl || '');
+
+  if (promptEndpointConfig.mode === 'global') {
+    if (activeTunnelUrl) return activeTunnelUrl;
+    return `http://localhost${portStr}`;
+  } else if (promptEndpointConfig.mode === 'localhost') {
     return `http://localhost${portStr}`;
   } else if (promptEndpointConfig.mode === 'network') {
     const ip = promptEndpointConfig.networkIp || currentHost || '127.0.0.1';
     return `http://${ip}${portStr}`;
   } else if (promptEndpointConfig.mode === 'both') {
+    if (activeTunnelUrl) return activeTunnelUrl;
     if (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
       return `http://${currentHost}${portStr}`;
     }
@@ -3194,33 +3215,45 @@ function getEffectivePromptBaseUrl() {
   } else if (promptEndpointConfig.mode === 'custom') {
     if (promptEndpointConfig.customDomain && promptEndpointConfig.customDomain.trim()) {
       const cleanDomain = promptEndpointConfig.customDomain.trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
-      return `http://${cleanDomain}${portStr}`;
+      const proto = promptEndpointConfig.customDomain.startsWith('https://') ? 'https://' : 'http://';
+      return `${proto}${cleanDomain}${portStr}`;
     }
     const cleanHost = (promptEndpointConfig.host || 'localhost').trim().replace(/^https?:\/\//, '').replace(/\/.*$/, '');
     return `http://${cleanHost}${portStr}`;
   }
-  return window.location.origin;
+  return activeTunnelUrl || window.location.origin;
 }
 
 function getEffectivePromptDualUrl() {
   const port = promptEndpointConfig.port || window.location.port || '3000';
   const portStr = (port && port !== '80' && port !== '443') ? `:${port}` : '';
   const currentHost = window.location.hostname || 'localhost';
+  const ip = promptEndpointConfig.networkIp || '192.168.31.57';
+
+  if (promptEndpointConfig.mode === 'both') {
+    const activeTunnelUrl = (typeof currentTunnelState !== 'undefined' && currentTunnelState.status === 'online' && currentTunnelState.publicUrl)
+      ? currentTunnelState.publicUrl
+      : '';
+    if (activeTunnelUrl) {
+      return `http://${ip}${portStr} (Local Wi-Fi LAN)`;
+    }
+  }
+
   if (currentHost && currentHost !== 'localhost' && currentHost !== '127.0.0.1') {
     return `http://localhost${portStr}`;
   }
-  const ip = promptEndpointConfig.networkIp || '192.168.31.57';
   return `http://${ip}${portStr}`;
 }
 
 function buildMigrationPrompt(baseUrl, isDual, dualUrl) {
   const dualNote = isDual ? ` (and for Wi-Fi / mobile devices: ${dualUrl})` : '';
+  const effectiveApiKey = getEffectiveApiKey();
   return `You are an expert full-stack engineer and cloud architect.
 I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to AegisDB (a self-hosted, lightweight BaaS).
 
 AegisDB Server Specifications:
 - Base URL: ${baseUrl}${dualNote}
-- Project API Key: Retrieve from localStorage ('aegisApiKey') or config constant. Pass in 'x-aegis-api-key' header.
+- Project API Key: Retrieve from localStorage ('aegisApiKey') or config constant (Active: '${effectiveApiKey}'). Pass in 'x-aegis-api-key' or 'x-api-key' header.
 - User Session: When users sign in, store their JWT token in localStorage ('aegisToken') and pass 'Authorization: Bearer <token>'.
 
 Please systematically migrate the application according to these specifications:
@@ -3312,6 +3345,7 @@ ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
 }
 
 function buildAegisClientCode(baseUrl) {
+  const effectiveApiKey = getEffectiveApiKey();
   return `/**
  * AegisClient — Official Universal Drop-in SDK for AegisDB
  * Works in Browser (Vanilla JS, React, Vue, Svelte, Next.js) and Node.js
@@ -3320,7 +3354,7 @@ class AegisClient {
   constructor(options = {}) {
     const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '${baseUrl}';
     this.baseUrl = (options.baseUrl || defaultOrigin).replace(/\\/+$/, '');
-    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') || '';
+    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') || '${effectiveApiKey}';
     this.token = options.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisToken') : '') || '';
   }
 
@@ -3583,7 +3617,37 @@ function updatePromptUI() {
   const hosttabSdkCode = document.getElementById('hosttab-text-sdk-code');
   if (hosttabSdkCode) hosttabSdkCode.textContent = sdkText;
 
-  // 9. Update Mode Buttons active state across both toolbars
+  // 8b. Update Server & Hosting Tab Active Target Badge & Mode Buttons
+  const activeBadge = document.getElementById('label-active-prompt-endpoint-badge');
+  if (activeBadge) {
+    const activeTunnelUrl = (typeof currentTunnelState !== 'undefined' && currentTunnelState.status === 'online' && currentTunnelState.publicUrl)
+      ? currentTunnelState.publicUrl
+      : '';
+    if (promptEndpointConfig.mode === 'global' || (promptEndpointConfig.mode === 'both' && activeTunnelUrl)) {
+      activeBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse';
+      activeBadge.textContent = `⚡ Global HTTPS (${activeTunnelUrl || 'Active Tunnel'})`;
+    } else if (promptEndpointConfig.mode === 'network') {
+      activeBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      activeBadge.textContent = `🌐 Wi-Fi LAN (${baseUrl})`;
+    } else if (promptEndpointConfig.mode === 'localhost') {
+      activeBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-slate-800 text-slate-300 border border-white/10';
+      activeBadge.textContent = `💻 Localhost (${baseUrl})`;
+    } else {
+      activeBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+      activeBadge.textContent = `⚡ Target (${baseUrl})`;
+    }
+  }
+
+  document.querySelectorAll('.btn-prompt-mode-target').forEach((btn) => {
+    const m = btn.getAttribute('data-mode');
+    if (m === promptEndpointConfig.mode) {
+      btn.className = 'btn-prompt-mode-target px-2.5 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1 bg-emerald-600 text-white shadow-sm';
+    } else {
+      btn.className = 'btn-prompt-mode-target px-2.5 py-1 rounded-lg text-xs font-semibold transition flex items-center space-x-1 bg-slate-800 text-slate-300 hover:text-white';
+    }
+  });
+
+  // 9. Update Mode Buttons active state across modal and about banner
   document.querySelectorAll('.btn-prompt-mode').forEach((btn) => {
     const mode = btn.getAttribute('data-mode');
     if (mode === promptEndpointConfig.mode) {
@@ -3593,7 +3657,7 @@ function updatePromptUI() {
     }
   });
 
-  // 9. Sync Inputs
+  // 10. Sync Inputs
   document.querySelectorAll('.input-prompt-host').forEach((inp) => {
     if (document.activeElement !== inp) {
       inp.value = promptEndpointConfig.host || '';
@@ -3609,6 +3673,41 @@ function updatePromptUI() {
   try {
     localStorage.setItem('aegis_prompt_config', JSON.stringify(promptEndpointConfig));
   } catch (_) {}
+}
+
+window.setPromptEndpointMode = function(mode) {
+  promptEndpointConfig.mode = mode;
+  if (mode === 'localhost') {
+    promptEndpointConfig.host = 'localhost';
+  } else if (mode === 'network') {
+    promptEndpointConfig.host = promptEndpointConfig.networkIp;
+  }
+  updatePromptUI();
+};
+
+let promptAutoSyncTickerStarted = false;
+let lastPromptSyncHash = '';
+
+function startPromptAutoSyncTicker() {
+  if (promptAutoSyncTickerStarted) return;
+  promptAutoSyncTickerStarted = true;
+
+  setInterval(() => {
+    const activeTunnelUrl = (typeof currentTunnelState !== 'undefined' && currentTunnelState.status === 'online')
+      ? (currentTunnelState.publicUrl || '')
+      : '';
+    const currentPort = promptEndpointConfig.port || window.location.port || '3000';
+    const currentHost = promptEndpointConfig.host || window.location.hostname || 'localhost';
+    const currentMode = promptEndpointConfig.mode || 'both';
+    const currentIp = promptEndpointConfig.networkIp || '';
+    const currentApiKey = getEffectiveApiKey();
+
+    const hash = `${activeTunnelUrl}|${currentPort}|${currentHost}|${currentMode}|${currentIp}|${currentApiKey}`;
+    if (hash !== lastPromptSyncHash) {
+      lastPromptSyncHash = hash;
+      updatePromptUI();
+    }
+  }, 2000);
 }
 
 async function initPromptEndpointManager() {
@@ -3675,6 +3774,7 @@ async function initPromptEndpointManager() {
   });
 
   updatePromptUI();
+  startPromptAutoSyncTicker();
 }
 
 window.openAiContextModal = function() {
@@ -9933,6 +10033,10 @@ window.renderTunnelUI = function(data) {
     if (textBtn) textBtn.textContent = 'Start Global Tunnel';
     if (cardDetails) cardDetails.classList.add('hidden');
   }
+
+  if (typeof updatePromptUI === 'function') {
+    updatePromptUI();
+  }
 };
 
 window.toggleGlobalTunnel = async function() {
@@ -10002,6 +10106,100 @@ window.saveTunnelSettings = async function() {
     if (json.data) window.renderTunnelUI(json.data);
   } catch (err) {
     showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.clearTunnelSettings = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot modify tunnel settings.', 'warning');
+    return;
+  }
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/tunnel/settings', {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to clear settings.');
+
+    const inputToken = document.getElementById('input-tunnel-authtoken');
+    const inputDomain = document.getElementById('input-tunnel-domain');
+    const selectProvider = document.getElementById('select-tunnel-provider');
+    const selectTtl = document.getElementById('select-tunnel-ttl');
+    if (inputToken) inputToken.value = '';
+    if (inputDomain) inputDomain.value = '';
+    if (selectProvider) selectProvider.value = 'cloudflare';
+    if (selectTtl) selectTtl.value = '60';
+
+    showToast('Public tunnel configuration cleared & reset.', 'success');
+    if (json.data) window.renderTunnelUI(json.data);
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.attachLiveTunnelUrl = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot modify tunnel settings.', 'warning');
+    return;
+  }
+
+  const inputUrl = document.getElementById('input-tunnel-custom-attach')?.value?.trim();
+  if (!inputUrl) {
+    showToast('Please enter an active tunnel URL (e.g. https://quotes-brussels-origin-officer.trycloudflare.com)', 'warning');
+    return;
+  }
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/tunnel/attach', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        publicUrl: inputUrl,
+        provider: inputUrl.includes('trycloudflare.com') ? 'cloudflare' : inputUrl.includes('ngrok') ? 'ngrok' : 'localtunnel'
+      })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to attach live tunnel URL.');
+
+    showToast('✅ Active public tunnel URL attached & live!', 'success');
+    if (json.data) window.renderTunnelUI(json.data);
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.toggleSectionCollapse = function(containerId, chevronId, labelId) {
+  const container = document.getElementById(containerId);
+  const chevron = document.getElementById(chevronId);
+  const label = labelId ? document.getElementById(labelId) : null;
+  if (!container) return;
+
+  const isHidden = container.classList.contains('hidden');
+  if (isHidden) {
+    container.classList.remove('hidden');
+    if (chevron) {
+      chevron.classList.remove('fa-chevron-down');
+      chevron.classList.add('fa-chevron-up');
+    }
+    if (label) label.textContent = 'Hide';
+  } else {
+    container.classList.add('hidden');
+    if (chevron) {
+      chevron.classList.remove('fa-chevron-up');
+      chevron.classList.add('fa-chevron-down');
+    }
+    if (label) label.textContent = 'Show';
   }
 };
 

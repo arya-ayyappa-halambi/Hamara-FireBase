@@ -28,6 +28,14 @@ async function runGlobalPerimeterTests(): Promise<void> {
   console.log('================================================================\n');
 
   initSqlite();
+  const db = getDb();
+  let adminUser = db.prepare("SELECT id, email FROM users WHERE isSuperAdmin = 1 LIMIT 1").get() as any;
+  if (!adminUser) {
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
+    `).run('test-superadmin-uuid', 'admin@aegisdb.dev', 'admin_hash', 'Super Admin', 'hashed_pw');
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // TEST 1: Global Tunnel Client IP Resolution
@@ -76,9 +84,8 @@ async function runGlobalPerimeterTests(): Promise<void> {
     adminAllowedSubnet: '127.0.0.1'
   });
 
-  const db = getDb();
-  const adminUser = db.prepare("SELECT id, email FROM users WHERE isSuperAdmin = 1 LIMIT 1").get() as any;
-  const adminUserId = adminUser?.id || 'superadmin-root';
+  const activeAdmin = db.prepare("SELECT id, email FROM users WHERE isSuperAdmin = 1 LIMIT 1").get() as any;
+  const adminUserId = activeAdmin?.id || 'superadmin-root';
 
   // A: Local Hosting Device Request -> MUST ALLOW
   let localError: any = null;

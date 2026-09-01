@@ -264,12 +264,31 @@ export class NetworkAccessService {
     path: string;
     method: string;
     projectId?: string | null;
+    isTunnel?: boolean;
+    hostHeader?: string;
   }): { allowed: boolean; reason: string; code?: string } {
     const ip = this.normalizeIp(params.clientIp);
 
-    // 1. Localhost Safety Guarantee: Always allow 127.0.0.1 / host machine interface to avoid lockouts
-    if (this.isLocalhost(ip)) {
+    // 1. Localhost Safety Guarantee: Always allow direct 127.0.0.1 / host machine interface to avoid lockouts
+    // Note: If arriving over an external public tunnel, it is subject to tunnel status checks even if loopback
+    if (this.isLocalhost(ip) && !params.isTunnel) {
       return { allowed: true, reason: 'Localhost host bypass' };
+    }
+
+    // 1b. Global Tunnel Ingress Enforcement: If request is arriving over a public tunnel but tunnel is disabled
+    if (params.isTunnel) {
+      try {
+        const db = getDb();
+        const platSettings = db.prepare("SELECT tunnelEnabled FROM platform_settings WHERE id = 'default'").get() as any;
+        const isTunnelEnabled = Boolean(platSettings?.tunnelEnabled);
+        if (!isTunnelEnabled) {
+          return {
+            allowed: false,
+            code: 'GLOBAL_NETWORK_DISABLED',
+            reason: 'Global public tunnel network access is currently disabled by administrator.'
+          };
+        }
+      } catch (_) {}
     }
 
     // 2. Quarantine Jail Check: If IP is actively jailed for brute-force / flood, block immediately

@@ -67,6 +67,8 @@ import {
   startTunnelHandler,
   stopTunnelHandler,
   updateTunnelSettingsHandler,
+  clearTunnelSettingsHandler,
+  attachTunnelHandler,
   getTrafficTopologyHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
@@ -123,11 +125,13 @@ router.post('/device-requests/:id/reject', disallowOttSessionMutation, rejectDev
 router.get('/server/cluster-diagnostics', getClusterDiagnosticsHandler);
 router.post('/server/hot-restart', disallowOttSessionMutation, hotRestartServerHandler);
 
-// ── Global Public Tunneling Manager (Ngrok & Localtunnel) ───────────────────
+// ── Global Public Tunneling Manager (Cloudflare, Ngrok & Localtunnel) ────────
 router.get('/tunnel/status', getTunnelStatusHandler);
 router.post('/tunnel/start', disallowOttSessionMutation, startTunnelHandler);
 router.post('/tunnel/stop', disallowOttSessionMutation, stopTunnelHandler);
+router.post('/tunnel/attach', disallowOttSessionMutation, attachTunnelHandler);
 router.patch('/tunnel/settings', disallowOttSessionMutation, updateTunnelSettingsHandler);
+router.delete('/tunnel/settings', disallowOttSessionMutation, clearTunnelSettingsHandler);
 
 // ── Real-Time Traffic Topology & Flow Telemetry Matrix ───────────────────────
 router.get('/traffic/topology', getTrafficTopologyHandler);

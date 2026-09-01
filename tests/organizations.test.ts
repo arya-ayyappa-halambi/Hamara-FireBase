@@ -31,7 +31,14 @@ async function runOrgTests(): Promise<void> {
   initSqlite();
 
   const db = getDb();
-  const testUser = db.prepare('SELECT id, email FROM users LIMIT 1').get() as any;
+  let testUser = db.prepare('SELECT id, email FROM users LIMIT 1').get() as any;
+  if (!testUser) {
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'Org Owner', 'fake_pass', 1, datetime('now'), datetime('now'))
+    `).run('org-owner-id', 'owner@aegisdb.dev', 'owner_hash');
+    testUser = { id: 'org-owner-id', email: 'owner@aegisdb.dev' };
+  }
   const ownerId = testUser.id;
 
   // Create two extra test users for RBAC testing

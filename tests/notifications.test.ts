@@ -28,7 +28,14 @@ async function runNotificationTests(): Promise<void> {
   initSqlite();
 
   const db = getDb();
-  const testUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  let testUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  if (!testUser) {
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'Notif User', 'fake_pass', 0, datetime('now'), datetime('now'))
+    `).run('notif-user-id', 'notif@aegisdb.dev', 'notif_hash');
+    testUser = { id: 'notif-user-id' };
+  }
   const userId = testUser.id;
 
   // ─────────────────────────────────────────────────────────────────────────

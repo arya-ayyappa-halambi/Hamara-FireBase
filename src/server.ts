@@ -149,7 +149,7 @@ function createApp(): Application {
       });
 
       if (isTunnel) {
-        tunnelManagerService.recordTraffic(bytesIn + bytesOut);
+        tunnelManagerService.recordTraffic(bytesIn + bytesOut, hostHeader);
       }
     });
     next();

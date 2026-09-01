@@ -131,12 +131,22 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
   }
 
   // 3. Evaluate access permissions with perimeter and project scoping
+  const hostHeader = (req.headers.host || '').toLowerCase();
+  const isTunnel = Boolean(
+    req.headers['x-forwarded-proto'] ||
+    req.headers['cf-connecting-ip'] ||
+    hostHeader.includes('trycloudflare.com') ||
+    hostHeader.includes('.loca.lt') ||
+    hostHeader.includes('.ngrok')
+  );
   const projectId = (req.headers['x-aegis-project-id'] as string) || (req.headers['x-project-id'] as string) || (req.query?.projectId as string) || null;
   const { allowed, reason, code } = networkAccessService.isEndpointAccessAllowed({
     clientIp,
     path: req.path,
     method: req.method,
-    projectId
+    projectId,
+    isTunnel,
+    hostHeader
   });
 
   if (allowed) {

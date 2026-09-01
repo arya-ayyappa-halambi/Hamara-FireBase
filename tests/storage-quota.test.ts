@@ -28,7 +28,14 @@ async function runStorageQuotaTests(): Promise<void> {
   initSqlite();
 
   const db = getDb();
-  const testUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  let testUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  if (!testUser) {
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'Storage User', 'fake_pass', 0, datetime('now'), datetime('now'))
+    `).run('storage-user-id', 'storage@aegisdb.dev', 'storage_hash');
+    testUser = { id: 'storage-user-id' };
+  }
   const userId = testUser.id;
 
   // ─────────────────────────────────────────────────────────────────────────

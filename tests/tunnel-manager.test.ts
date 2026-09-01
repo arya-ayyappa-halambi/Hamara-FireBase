@@ -119,6 +119,92 @@ async function runTunnelManagerTests(): Promise<void> {
   assert(errReturned?.statusCode === 403, 'Returns 403 Forbidden');
   assert(errReturned?.details?.code === 'OTT_IMMUTABLE_SESSION', 'Code is OTT_IMMUTABLE_SESSION');
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 6: Adopt External Live Tunnel URL
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 6. Adopt External Live Tunnel URL ---');
+  const adopted = tunnelManagerService.adoptExternalTunnel('https://quotes-brussels-origin-officer.trycloudflare.com', 'cloudflare');
+  assert(adopted.status === 'online', 'Adopted tunnel status is online');
+  assert(adopted.publicUrl === 'https://quotes-brussels-origin-officer.trycloudflare.com', 'Adopted publicUrl matches');
+  assert(adopted.provider === 'cloudflare', 'Adopted provider is cloudflare');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 7: Global Network Ingress Disabled Killswitch
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 7. Global Network Disabled Killswitch Enforcement ---');
+  const { networkAccessService } = await import('../src/services/network-access.service');
+
+  // Stop tunnel so tunnelEnabled is 0 in platform_settings
+  await tunnelManagerService.stopTunnel();
+
+  const disabledCheck = networkAccessService.isEndpointAccessAllowed({
+    clientIp: '198.51.100.22',
+    path: '/api/v1/db/collections/items/documents',
+    method: 'GET',
+    isTunnel: true,
+    hostHeader: 'quotes-brussels-origin-officer.trycloudflare.com'
+  });
+
+  assert(disabledCheck.allowed === false, 'Blocked WAN tunnel traffic when tunnel is disabled');
+  assert(disabledCheck.code === 'GLOBAL_NETWORK_DISABLED', 'Error code is GLOBAL_NETWORK_DISABLED');
+
+  // Re-enable tunnel
+  tunnelManagerService.adoptExternalTunnel('https://quotes-brussels-origin-officer.trycloudflare.com', 'cloudflare');
+  const enabledCheck = networkAccessService.isEndpointAccessAllowed({
+    clientIp: '198.51.100.22',
+    path: '/api/v1/db/collections/items/documents',
+    method: 'GET',
+    isTunnel: true,
+    hostHeader: 'quotes-brussels-origin-officer.trycloudflare.com'
+  });
+  assert(enabledCheck.allowed === true, 'Permitted project database access over global tunnel when enabled');
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 8: Flexible API Key Extraction for Global Tunnel Ingress
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 8. Flexible Project API Key Authentication ---');
+  const { authenticateApiKeyOrJwt } = await import('../src/middleware/apikey.middleware');
+  const { projectService } = await import('../src/project/project.service');
+
+  const db = getDb();
+  let testUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  if (!testUser) {
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES ('tunnel-owner-id', 'tunnel@aegisdb.dev', 'thash', 'Tunnel User', 'pass', 0, datetime('now'), datetime('now'))
+    `).run();
+    testUser = { id: 'tunnel-owner-id' };
+  }
+
+  const proj = await projectService.createProject(testUser.id, 'Global Tunnel App');
+  const rawKey = proj.rawApiKey;
+
+  // Test header x-api-key
+  let nextCalled1 = false;
+  const mockReq1: any = {
+    headers: { 'x-api-key': rawKey },
+    query: {},
+    path: '/api/v1/db/collections/tasks/documents',
+    method: 'GET'
+  };
+  authenticateApiKeyOrJwt(mockReq1, {} as any, (err?: any) => {
+    if (!err) nextCalled1 = true;
+  });
+  assert(nextCalled1 && mockReq1.project?.id === proj.project.id, 'Authenticated via x-api-key header');
+
+  // Test query parameter apiKey
+  let nextCalled2 = false;
+  const mockReq2: any = {
+    headers: {},
+    query: { apiKey: rawKey },
+    path: '/api/v1/db/collections/tasks/documents',
+    method: 'GET'
+  };
+  authenticateApiKeyOrJwt(mockReq2, {} as any, (err?: any) => {
+    if (!err) nextCalled2 = true;
+  });
+  assert(nextCalled2 && mockReq2.project?.id === proj.project.id, 'Authenticated via apiKey query param');
+
   console.log('\n================================================================');
   console.log(`📊 Tunnel Manager Test Results: ${passed} passed, ${failed} failed`);
   console.log('================================================================\n');

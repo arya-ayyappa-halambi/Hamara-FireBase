@@ -30,7 +30,17 @@ async function runPasskeyTests(): Promise<void> {
   initSqlite();
 
   const db = getDb();
-  const rawUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  let rawUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
+  if (!rawUser) {
+    const { envelopeEncryptionService } = require('../src/services/envelope-encryption.service');
+    const testEmail = 'passkey.tester@aegisdb.dev';
+    const emailHash = envelopeEncryptionService.hashBlindIndex(testEmail);
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES (?, ?, ?, 'Passkey Tester', 'fake_hash', 0, datetime('now'), datetime('now'))
+    `).run('passkey-test-user-id', testEmail, emailHash);
+    rawUser = { id: 'passkey-test-user-id' };
+  }
   const testUser = await userStore.findById(rawUser.id);
   if (!testUser) throw new Error('Test user not found');
   const userId = testUser.id;

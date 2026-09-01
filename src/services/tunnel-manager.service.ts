@@ -87,6 +87,14 @@ export class TunnelManagerService {
     const db = getDb();
     const settings = db.prepare("SELECT * FROM platform_settings WHERE id = 'default'").get() as any;
 
+    if (this.currentStatus === 'offline' && settings?.tunnelEnabled === 1 && settings?.tunnelPublicUrl) {
+      this.currentStatus = 'online';
+      this.currentPublicUrl = settings.tunnelPublicUrl;
+      this.currentProvider = (settings.tunnelProvider as TunnelProvider) || 'cloudflare';
+      if (settings.tunnelStartedAt) this.startedAtTime = new Date(settings.tunnelStartedAt);
+      if (settings.tunnelExpiresAt) this.expiresAtTime = new Date(settings.tunnelExpiresAt);
+    }
+
     const authToken = settings?.tunnelAuthToken || '';
     const maskedAuthToken = authToken
       ? (authToken.length > 8 ? `${authToken.slice(0, 4)}••••${authToken.slice(-4)}` : '••••••••')
@@ -123,6 +131,35 @@ export class TunnelManagerService {
       },
       lastError: this.lastErrorMessage
     };
+  }
+
+  /**
+   * Adopt and register an externally running tunnel URL (e.g. from CLI cloudflared, custom proxy).
+   */
+  public adoptExternalTunnel(publicUrl: string, provider: TunnelProvider = 'cloudflare'): TunnelStatusReport {
+    let cleanUrl = publicUrl.trim().replace(/\/+$/, '');
+    if (!cleanUrl.startsWith('http://') && !cleanUrl.startsWith('https://')) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+
+    this.currentStatus = 'online';
+    this.currentPublicUrl = cleanUrl;
+    this.currentProvider = provider;
+    if (!this.startedAtTime) this.startedAtTime = new Date();
+    this.lastErrorMessage = null;
+
+    const db = getDb();
+    db.prepare(`
+      UPDATE platform_settings
+      SET tunnelEnabled = 1,
+          tunnelProvider = ?,
+          tunnelPublicUrl = ?,
+          tunnelStartedAt = COALESCE(tunnelStartedAt, ?)
+      WHERE id = 'default'
+    `).run(provider, cleanUrl, this.startedAtTime.toISOString());
+
+    this.broadcastStatus();
+    return this.getTunnelStatus();
   }
 
   /**
@@ -335,11 +372,54 @@ export class TunnelManagerService {
   }
 
   /**
-   * Record traffic passing through tunnel.
+   * Clear and reset all saved tunnel configuration settings.
    */
-  public recordTraffic(bytes: number): void {
+  public clearSettings(): TunnelStatusReport {
+    if (this.currentStatus === 'online' || this.currentStatus === 'starting') {
+      try { this.stopTunnel(); } catch (_) {}
+    }
+    const db = getDb();
+    db.prepare(`
+      UPDATE platform_settings
+      SET tunnelEnabled = 0,
+          tunnelProvider = 'cloudflare',
+          tunnelAuthToken = NULL,
+          tunnelCustomDomain = NULL,
+          tunnelPublicUrl = NULL,
+          tunnelStartedAt = NULL,
+          tunnelExpiresAt = NULL,
+          tunnelAutoCloseMinutes = 60
+      WHERE id = 'default'
+    `).run();
+    this.currentStatus = 'offline';
+    this.currentPublicUrl = null;
+    this.broadcastStatus();
+    return this.getTunnelStatus();
+  }
+
+  /**
+   * Record traffic passing through tunnel and auto-detect active tunnel hostname if present.
+   */
+  public recordTraffic(bytes: number, hostHeader?: string): void {
     this.totalRequestsCount += 1;
     this.bytesTransferredCount += bytes;
+
+    if (hostHeader && (this.currentStatus !== 'online' || !this.currentPublicUrl)) {
+      const cleanHost = hostHeader.split(':')[0].trim().toLowerCase();
+      if (
+        cleanHost.includes('trycloudflare.com') ||
+        cleanHost.includes('.ngrok') ||
+        cleanHost.includes('.loca.lt') ||
+        cleanHost.includes('.localtunnel.me')
+      ) {
+        const detectedProvider: TunnelProvider = cleanHost.includes('trycloudflare.com')
+          ? 'cloudflare'
+          : cleanHost.includes('ngrok')
+            ? 'ngrok'
+            : 'localtunnel';
+        this.adoptExternalTunnel(`https://${cleanHost}`, detectedProvider);
+      }
+    }
   }
 
   private handleTunnelClosed(): void {
