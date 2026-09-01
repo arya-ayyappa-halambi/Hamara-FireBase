@@ -1725,7 +1725,24 @@ function renderUsersTable(users) {
                   <i class="fa-solid fa-crown text-[9px] mr-1"></i>
                   ${(!u.adminPermissions || u.adminPermissions.includes('*') || u.adminPermissions.includes('all')) ? 'Super Admin' : `Scoped Admin (${Array.isArray(u.adminPermissions) ? u.adminPermissions.length : 0})`}
                 </span>
-                ${u.adminAllowedIpSubnet ? `<span class="mt-1 block text-[9px] font-mono text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-1.5 py-0.2 rounded truncate max-w-[130px]" title="IP Locked: ${escapeHTML(u.adminAllowedIpSubnet)}"><i class="fa-solid fa-lock text-[8px] mr-0.5"></i>${escapeHTML(u.adminAllowedIpSubnet)}</span>` : ''}
+                
+                <!-- Identifiable Individual IP Lock Status & 1-Click Action -->
+                <div class="mt-1 flex items-center space-x-1 flex-wrap gap-y-1">
+                  ${u.adminAllowedIpSubnet
+                    ? `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 inline-flex items-center" title="Account locked to: ${escapeHTML(u.adminAllowedIpSubnet)}">
+                        <i class="fa-solid fa-lock text-[8px] mr-1 text-emerald-400"></i>IP Locked (${escapeHTML(u.adminAllowedIpSubnet)})
+                       </span>
+                       <button type="button" onclick="window.quickDisableAdminIpLock('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="1-Click: Disable IP lock for this account">
+                        <i class="fa-solid fa-unlock text-[8px] mr-0.5"></i>Disable Lock
+                       </button>`
+                    : `<span class="px-1.5 py-0.5 rounded text-[9px] font-semibold bg-slate-800 text-slate-400 border border-white/5 inline-flex items-center">
+                        <i class="fa-solid fa-globe text-[8px] mr-1"></i>IP: Unrestricted
+                       </span>
+                       <button type="button" onclick="window.quickLockAdminToLocalhost('${u.id}', '${escapeHTML(u.email)}')" class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition cursor-pointer active:scale-95 inline-flex items-center" title="1-Click: Lock this account to Localhost (127.0.0.1)">
+                        <i class="fa-solid fa-laptop text-[8px] mr-0.5"></i>Lock to Localhost
+                       </button>`
+                  }
+                </div>
                 ${u.adminStatus === 'suspended' ? `<span class="mt-1 block text-[9px] font-bold text-rose-300 bg-rose-500/20 border border-rose-500/30 px-1.5 py-0.2 rounded uppercase tracking-wider text-center">Suspended</span>` : ''}
               </div>`
             : '<span class="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"><i class="fa-solid fa-code text-[9px] mr-1"></i>Developer</span>'
@@ -1892,6 +1909,7 @@ window.openCreateAdminModal = function() {
   if (mfaEl) mfaEl.checked = false;
 
   window.toggleAllAdminScopes('create', true);
+  if (typeof window.updateCreateAdminLockBadge === 'function') window.updateCreateAdminLockBadge();
   modal.classList.remove('hidden');
 };
 
@@ -1917,6 +1935,98 @@ window.setIndividualAdminIpPreset = function(type, mode) {
   } else if (mode === 'clear') {
     inputEl.value = '';
     showToast('IP Lock cleared: Account is unrestricted (can log in from any network)', 'info');
+  }
+
+  if (type === 'create') {
+    window.updateCreateAdminLockBadge();
+  } else {
+    window.updateAdminConfigLockBadge();
+  }
+};
+
+window.handleAdminConfigIpLockToggle = function(enabled) {
+  const ipInput = document.getElementById('input-admin-config-allowed-ip');
+  if (!ipInput) return;
+  if (!enabled) {
+    ipInput.value = '';
+    showToast('Individual IP Lock disabled. Account will be unrestricted upon saving.', 'info');
+  } else {
+    if (!ipInput.value.trim()) {
+      ipInput.value = '127.0.0.1, ::1';
+      showToast('Individual IP Lock enabled: Set to Localhost (127.0.0.1).', 'info');
+    }
+  }
+  window.updateAdminConfigLockBadge();
+};
+
+window.handleCreateAdminIpLockToggle = function(enabled) {
+  const ipInput = document.getElementById('input-create-admin-allowed-ip');
+  if (!ipInput) return;
+  if (!enabled) {
+    ipInput.value = '';
+  } else {
+    if (!ipInput.value.trim()) {
+      ipInput.value = '127.0.0.1, ::1';
+    }
+  }
+  window.updateCreateAdminLockBadge();
+};
+
+window.updateAdminConfigLockBadge = function() {
+  const ipVal = (document.getElementById('input-admin-config-allowed-ip')?.value || '').trim();
+  const toggle = document.getElementById('toggle-admin-config-ip-lock');
+  const badge = document.getElementById('label-admin-config-lock-status-badge');
+  const isLocked = ipVal.length > 0;
+  if (toggle) toggle.checked = isLocked;
+  if (badge) {
+    if (isLocked) {
+      badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      badge.textContent = 'Active Lock';
+    } else {
+      badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5';
+      badge.textContent = 'Disabled (Open)';
+    }
+  }
+};
+
+window.updateCreateAdminLockBadge = function() {
+  const ipVal = (document.getElementById('input-create-admin-allowed-ip')?.value || '').trim();
+  const toggle = document.getElementById('toggle-create-admin-ip-lock');
+  const badge = document.getElementById('label-create-admin-lock-status-badge');
+  const isLocked = ipVal.length > 0;
+  if (toggle) toggle.checked = isLocked;
+  if (badge) {
+    if (isLocked) {
+      badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      badge.textContent = 'Active Lock';
+    } else {
+      badge.className = 'px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5';
+      badge.textContent = 'Optional / Disabled';
+    }
+  }
+};
+
+window.quickDisableAdminIpLock = async function(userId, email) {
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/admin-config`, 'PATCH', {
+      adminAllowedIpSubnet: null
+    });
+    showToast(`IP Lock disabled for ${email}. Account is now unrestricted.`, 'info');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to disable IP lock', 'error');
+  }
+};
+
+window.quickLockAdminToLocalhost = async function(userId, email) {
+  try {
+    await apiRequest(`/api/v1/admin/users/${userId}/admin-config`, 'PATCH', {
+      adminAllowedIpSubnet: '127.0.0.1, ::1'
+    });
+    showToast(`🔒 Locked ${email} to Localhost (127.0.0.1).`, 'success');
+    loadUserManagement();
+  } catch (err) {
+    showToast(err.message || 'Failed to apply Localhost IP lock', 'error');
   }
 };
 
@@ -2067,6 +2177,8 @@ window.openAdminConfigModal = function(userId) {
   document.querySelectorAll('.config-admin-scope').forEach((cb) => {
     cb.checked = hasWildcard || permissions.includes(cb.value);
   });
+
+  if (typeof window.updateAdminConfigLockBadge === 'function') window.updateAdminConfigLockBadge();
 
   modal.classList.remove('hidden');
 };

@@ -6857,25 +6857,51 @@ const activeUsers = await aegis.db.queryDocuments('users', {
 
         <!-- Individual Allowed IP Whitelist Lock -->
         <div class="space-y-1 pt-1">
-        <!-- Individual Allowed IP Whitelist Lock -->
-        <div class="space-y-1.5 pt-1">
-          <div class="flex items-center justify-between">
-            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Dedicated IP Whitelist Lock (Optional)</label>
-            <span class="text-[10px] text-slate-500 font-mono">Individual Choice</span>
+        <!-- ── INDIVIDUAL ACCOUNT IP & DEVICE LOCK ── -->
+        <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-950/30 via-slate-900/60 to-slate-950/80 border border-amber-500/30 space-y-3">
+          <div class="flex items-center justify-between border-b border-amber-500/20 pb-2.5">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-lock"></i>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                  <span>Individual Account IP Lock</span>
+                  <span id="label-create-admin-lock-status-badge" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5">Optional / Disabled</span>
+                </div>
+                <div class="text-[10px] text-slate-400">Lock this new admin to authorized IP addresses or local machine.</div>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-create-admin-ip-lock" onchange="window.handleCreateAdminIpLockToggle(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-600"></div>
+            </label>
           </div>
-          <div class="flex flex-wrap gap-1.5 pb-1">
-            <button type="button" onclick="window.setIndividualAdminIpPreset('create', 'localhost')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition cursor-pointer">
-              <i class="fa-solid fa-lock text-[9px] mr-1"></i>Localhost (127.0.0.1)
-            </button>
-            <button type="button" onclick="autoFillCurrentIpForAdmin('create')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition cursor-pointer">
-              <i class="fa-solid fa-crosshairs text-[9px] mr-1"></i>My Current IP
-            </button>
-            <button type="button" onclick="window.setIndividualAdminIpPreset('create', 'clear')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-400 border border-white/5 transition cursor-pointer">
-              <i class="fa-solid fa-globe text-[9px] mr-1"></i>Unrestricted (Clear)
-            </button>
+
+          <div id="container-create-admin-ip-details" class="space-y-2">
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="window.setIndividualAdminIpPreset('create', 'localhost')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition cursor-pointer flex items-center space-x-1 active:scale-95">
+                <i class="fa-solid fa-laptop text-[9px]"></i>
+                <span>Lock to Local Machine (127.0.0.1)</span>
+              </button>
+              <button type="button" onclick="autoFillCurrentIpForAdmin('create')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition cursor-pointer flex items-center space-x-1 active:scale-95">
+                <i class="fa-solid fa-crosshairs text-[9px]"></i>
+                <span>Lock to Current IP</span>
+              </button>
+              <button type="button" onclick="window.setIndividualAdminIpPreset('create', 'clear')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition cursor-pointer flex items-center space-x-1 active:scale-95">
+                <i class="fa-solid fa-unlock text-[9px]"></i>
+                <span>Disable Lock (Open)</span>
+              </button>
+            </div>
+            <div>
+              <label class="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">Approved IP / CIDR Subnet List</label>
+              <input type="text" id="input-create-admin-allowed-ip" oninput="window.updateCreateAdminLockBadge()" class="mt-1 w-full px-3.5 py-2 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10" placeholder="127.0.0.1, 192.168.1.50, 10.0.0.0/24">
+            </div>
+            <div class="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-300 flex items-start space-x-1.5">
+              <i class="fa-solid fa-shield-halved mt-0.5 text-xs shrink-0"></i>
+              <span>Leave blank or disabled if you want this admin to be able to sign in from anywhere.</span>
+            </div>
           </div>
-          <input type="text" id="input-create-admin-allowed-ip" class="w-full px-3.5 py-2 rounded-xl glass-input text-xs font-mono" placeholder="e.g. 192.168.1.50, 10.0.0.0/24 (leave blank for unrestricted)">
-          <p class="text-[10px] text-slate-500">Lock this admin account so login & API access are only permitted from these specific IPs.</p>
         </div>
 
         <!-- MFA Enforcement -->
@@ -6975,25 +7001,51 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           </div>
         </div>
 
-        <!-- Dedicated Allowed IP Whitelist Lock -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between">
-            <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Dedicated IP Whitelist Lock</label>
-            <span class="text-[10px] text-slate-500 font-mono">Individual Choice</span>
+        <!-- ── INDIVIDUAL ACCOUNT IP & DEVICE LOCK ── -->
+        <div class="p-4 rounded-2xl bg-gradient-to-br from-indigo-950/30 via-slate-900/60 to-slate-950/80 border border-indigo-500/30 space-y-3">
+          <div class="flex items-center justify-between border-b border-indigo-500/20 pb-2.5">
+            <div class="flex items-center space-x-2.5">
+              <div class="w-7 h-7 rounded-lg bg-indigo-500/20 text-indigo-400 flex items-center justify-center text-xs">
+                <i class="fa-solid fa-lock"></i>
+              </div>
+              <div>
+                <div class="text-xs font-bold text-white flex items-center space-x-1.5">
+                  <span>Individual Account IP Lock</span>
+                  <span id="label-admin-config-lock-status-badge" class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-slate-800 text-slate-400 border border-white/5">Disabled</span>
+                </div>
+                <div class="text-[10px] text-slate-400">Lock this specific admin to authorized IP addresses or local machine.</div>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="toggle-admin-config-ip-lock" onchange="window.handleAdminConfigIpLockToggle(this.checked)" class="sr-only peer">
+              <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
+            </label>
           </div>
-          <div class="flex flex-wrap gap-1.5 pb-1">
-            <button type="button" onclick="window.setIndividualAdminIpPreset('config', 'localhost')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition cursor-pointer">
-              <i class="fa-solid fa-lock text-[9px] mr-1"></i>Localhost (127.0.0.1)
-            </button>
-            <button type="button" onclick="autoFillCurrentIpForAdmin('config')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition cursor-pointer">
-              <i class="fa-solid fa-crosshairs text-[9px] mr-1"></i>My Current IP
-            </button>
-            <button type="button" onclick="window.setIndividualAdminIpPreset('config', 'clear')" class="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-800 hover:bg-slate-700 text-slate-400 border border-white/5 transition cursor-pointer">
-              <i class="fa-solid fa-globe text-[9px] mr-1"></i>Unrestricted (Clear)
-            </button>
+
+          <div id="container-admin-config-ip-details" class="space-y-2">
+            <div class="flex flex-wrap gap-1.5">
+              <button type="button" onclick="window.setIndividualAdminIpPreset('config', 'localhost')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition cursor-pointer flex items-center space-x-1 active:scale-95">
+                <i class="fa-solid fa-laptop text-[9px]"></i>
+                <span>Lock to Local Machine (127.0.0.1)</span>
+              </button>
+              <button type="button" onclick="autoFillCurrentIpForAdmin('config')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 transition cursor-pointer flex items-center space-x-1 active:scale-95">
+                <i class="fa-solid fa-crosshairs text-[9px]"></i>
+                <span>Lock to Current IP</span>
+              </button>
+              <button type="button" onclick="window.setIndividualAdminIpPreset('config', 'clear')" class="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition cursor-pointer flex items-center space-x-1 active:scale-95">
+                <i class="fa-solid fa-unlock text-[9px]"></i>
+                <span>Disable Lock (Open)</span>
+              </button>
+            </div>
+            <div>
+              <label class="text-[10px] font-semibold text-slate-300 uppercase tracking-wider">Approved IP / CIDR Subnet List</label>
+              <input type="text" id="input-admin-config-allowed-ip" oninput="window.updateAdminConfigLockBadge()" class="mt-1 w-full px-3.5 py-2 rounded-xl glass-input text-xs font-mono text-white bg-slate-900 border border-white/10" placeholder="127.0.0.1, 192.168.1.50, 10.0.0.0/24">
+            </div>
+            <div class="p-2 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10px] text-indigo-300 flex items-start space-x-1.5">
+              <i class="fa-solid fa-shield-halved mt-0.5 text-xs shrink-0"></i>
+              <span>When active, sign-in attempts (Password, Google, Passkeys, Magic Link) and API actions will be strictly denied from other IPs.</span>
+            </div>
           </div>
-          <input type="text" id="input-admin-config-allowed-ip" class="w-full px-3.5 py-2 rounded-xl glass-input text-xs font-mono" placeholder="e.g. 192.168.1.50, 10.0.0.0/24 (leave blank for unrestricted)">
-          <p class="text-[10px] text-slate-500">Lock this specific admin account to designated IP addresses or subnets.</p>
         </div>
 
         <!-- MFA Enforcement -->
@@ -8627,6 +8679,6 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   </script>
 
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=20260901_admin_rbac_v4"></script>
+  <script src="app.js?v=20260901_admin_rbac_v5"></script>
 </body>
 </html>
