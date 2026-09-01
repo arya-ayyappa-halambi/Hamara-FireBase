@@ -12,6 +12,7 @@ import { adminService } from "../src/admin/admin.service";
 import { userStore } from "../src/store/user.store";
 import { loginUser, verifyAdminLoginSecurity, registerUser } from "../src/auth/auth.service";
 import { requireAdminPermission } from "../src/middleware/admin.middleware";
+import { networkAccessService } from "../src/services/network-access.service";
 
 let passed = 0;
 let failed = 0;
@@ -74,7 +75,7 @@ async function runAdminRbacTests(): Promise<void> {
   assert(Array.isArray(promotedBob?.adminPermissions) && (promotedBob?.adminPermissions?.includes("user_management") ?? false), "Bob has user_management scope");
 
   // ─────────────────────────────────────────────────────────────────────────
-  // TEST 3: Dedicated Admin Login IP Whitelist Enforcement
+  // TEST 3: Dedicated Admin Login IP Whitelist Enforcement (Individual Choice)
   // ─────────────────────────────────────────────────────────────────────────
   console.log("\n--- 3. Individual Admin Login IP Whitelist Enforcement ---");
   
@@ -199,6 +200,59 @@ async function runAdminRbacTests(): Promise<void> {
     selfDemoteError = err.message;
   }
   assert(selfDemoteError.includes("cannot revoke your own administrator privileges"), "Self-demotion is safely blocked");
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // TEST 7: Global Platform Policy (Lock ALL Admins to Localhost / Subnet)
+  // ─────────────────────────────────────────────────────────────────────────
+  console.log("\n--- 7. Global Platform Policy (Lock ALL Admins) ---");
+  
+  // Create Charlie with NO individual IP lock (unrestricted choice)
+  const adminCharlie = await adminService.createAdmin({
+    name: "Admin Charlie",
+    email: "charlie.admin@company.com",
+    password: "SecureAdminPassword123!",
+    adminPermissions: ["*"],
+    adminAllowedIpSubnet: null, // No individual restriction
+    adminRequireMfa: false
+  });
+
+  // Turn ON Global Platform Perimeter Lock (locking all admins to 127.0.0.1)
+  networkAccessService.updateNetworkSettings({
+    adminEndpointIpLockEnabled: true,
+    adminAllowedSubnet: "127.0.0.1, ::1"
+  });
+
+  // Charlie logging in from 127.0.0.1 (permitted by Global Policy)
+  let charlieLocalLogin = false;
+  try {
+    const loginRes = await loginUser({
+      email: "charlie.admin@company.com",
+      password: "SecureAdminPassword123!",
+      clientIp: "127.0.0.1"
+    });
+    charlieLocalLogin = Boolean(loginRes.token);
+  } catch (e) {
+    charlieLocalLogin = false;
+  }
+  assert(charlieLocalLogin, "Charlie successfully logs in from 127.0.0.1 under Global Policy");
+
+  // Charlie logging in from external IP (198.51.100.40) -> BLOCKED by Global Policy
+  let charlieGlobalBlockedCode = "";
+  try {
+    await loginUser({
+      email: "charlie.admin@company.com",
+      password: "SecureAdminPassword123!",
+      clientIp: "198.51.100.40"
+    });
+  } catch (err: any) {
+    charlieGlobalBlockedCode = err?.details?.code || err?.code || "";
+  }
+  assert(charlieGlobalBlockedCode === "ADMIN_PERIMETER_RESTRICTED", "Charlie blocked from external IP by Global Policy with ADMIN_PERIMETER_RESTRICTED");
+
+  // Reset Global Platform Perimeter Lock to false
+  networkAccessService.updateNetworkSettings({
+    adminEndpointIpLockEnabled: false
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // TEST RESULTS

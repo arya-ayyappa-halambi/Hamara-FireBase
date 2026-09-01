@@ -1335,10 +1335,44 @@ window.loadUserManagement = async function loadUserManagement() {
     loadDeletionRequests();
     if (typeof loadComplianceNoticesTable === 'function') loadComplianceNoticesTable();
     if (typeof loadThreatFlagsTable === 'function') loadThreatFlagsTable();
+
+    // Hydrate Individual Admin IP Locks summary counter
+    const adminList = cachedAdminUsers.filter(u => u.isSuperAdmin);
+    const ipLockedAdmins = adminList.filter(u => u.adminAllowedIpSubnet && u.adminAllowedIpSubnet.trim().length > 0);
+    const individualBadge = document.getElementById('badge-individual-locks-count');
+    if (individualBadge) {
+      individualBadge.textContent = `${ipLockedAdmins.length} of ${adminList.length} admins IP-locked`;
+      if (ipLockedAdmins.length > 0) {
+        individualBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      } else {
+        individualBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30';
+      }
+    }
+
+    // Hydrate Global Platform Perimeter status & controls in User Management
+    try {
+      const netSettings = await apiRequest('/api/v1/admin/network/settings');
+      const isGlobalLocked = Boolean(netSettings?.adminEndpointIpLockEnabled);
+      const globalToggle = document.getElementById('toggle-global-admin-lock-sync');
+      const globalSubnetsInput = document.getElementById('input-global-admin-allowed-subnets-sync');
+      const globalStatusBadge = document.getElementById('badge-global-admin-lock-status');
+
+      if (globalToggle) globalToggle.checked = isGlobalLocked;
+      if (globalSubnetsInput) globalSubnetsInput.value = netSettings?.adminAllowedSubnet || '127.0.0.1';
+      if (globalStatusBadge) {
+        if (isGlobalLocked) {
+          globalStatusBadge.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 inline-flex items-center';
+          globalStatusBadge.innerHTML = '<i class="fa-solid fa-lock mr-1 text-amber-400"></i>Global Lock Active';
+        } else {
+          globalStatusBadge.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-white/5 inline-flex items-center';
+          globalStatusBadge.innerHTML = 'Global Lock Disabled';
+        }
+      }
+    } catch (_) {}
   } catch (err) {
     tableBody.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
   }
-}
+};
 
 let cachedDeletions = [];
 let currentFilteredDeletions = [];
@@ -1873,6 +1907,75 @@ window.toggleAllAdminScopes = function(type, selectAll) {
   });
 };
 
+window.setIndividualAdminIpPreset = function(type, mode) {
+  const inputEl = document.getElementById(type === 'create' ? 'input-create-admin-allowed-ip' : 'input-admin-config-allowed-ip');
+  if (!inputEl) return;
+
+  if (mode === 'localhost') {
+    inputEl.value = '127.0.0.1, ::1';
+    showToast('Preset applied: Locked to Localhost / Local Machine (127.0.0.1)', 'info');
+  } else if (mode === 'clear') {
+    inputEl.value = '';
+    showToast('IP Lock cleared: Account is unrestricted (can log in from any network)', 'info');
+  }
+};
+
+window.toggleGlobalAdminLockFromUserMgmt = async function(enabled) {
+  const subnetsInput = document.getElementById('input-global-admin-allowed-subnets-sync');
+  const subnets = (subnetsInput?.value || '127.0.0.1').trim();
+  const statusBadge = document.getElementById('badge-global-admin-lock-status');
+  const networkTabToggle = document.getElementById('toggle-admin-endpoint-lock');
+
+  try {
+    await apiRequest('/api/v1/admin/network/settings', 'PATCH', {
+      adminEndpointIpLockEnabled: enabled,
+      adminAllowedSubnet: subnets
+    });
+
+    if (networkTabToggle) networkTabToggle.checked = enabled;
+    if (statusBadge) {
+      if (enabled) {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30 inline-flex items-center';
+        statusBadge.innerHTML = '<i class="fa-solid fa-lock mr-1 text-amber-400"></i>Global Lock Active';
+      } else {
+        statusBadge.className = 'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-white/5 inline-flex items-center';
+        statusBadge.innerHTML = 'Global Lock Disabled';
+      }
+    }
+    showToast(enabled ? '🔒 Global Lock Enabled: ALL Super Admins are locked to local machine/subnets.' : '🌐 Global Lock Disabled: Admins can log in from authorized networks or individual IPs.', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to update global admin lock', 'error');
+    if (document.getElementById('toggle-global-admin-lock-sync')) {
+      document.getElementById('toggle-global-admin-lock-sync').checked = !enabled;
+    }
+  }
+};
+
+window.applyGlobalLocalhostPreset = async function() {
+  const subnetsInput = document.getElementById('input-global-admin-allowed-subnets-sync');
+  const globalToggle = document.getElementById('toggle-global-admin-lock-sync');
+  if (subnetsInput) subnetsInput.value = '127.0.0.1, ::1';
+  if (globalToggle) globalToggle.checked = true;
+  await window.toggleGlobalAdminLockFromUserMgmt(true);
+};
+
+window.saveGlobalSubnetsFromUserMgmt = async function() {
+  const subnetsInput = document.getElementById('input-global-admin-allowed-subnets-sync');
+  const globalToggle = document.getElementById('toggle-global-admin-lock-sync');
+  const subnets = (subnetsInput?.value || '127.0.0.1').trim();
+  const enabled = globalToggle ? globalToggle.checked : false;
+
+  try {
+    await apiRequest('/api/v1/admin/network/settings', 'PATCH', {
+      adminEndpointIpLockEnabled: enabled,
+      adminAllowedSubnet: subnets
+    });
+    showToast(`Global allowed management subnets saved: ${subnets}`, 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to save subnets', 'error');
+  }
+};
+
 window.autoFillCurrentIpForAdmin = async function(type) {
   const inputEl = document.getElementById(type === 'create' ? 'input-create-admin-allowed-ip' : 'input-admin-config-allowed-ip');
   if (!inputEl) return;
@@ -1886,7 +1989,7 @@ window.autoFillCurrentIpForAdmin = async function(type) {
     } else if (!currentVal.split(',').map(s => s.trim()).includes(clientIp)) {
       inputEl.value = `${currentVal}, ${clientIp}`;
     }
-    showToast(`Detected current IP: ${clientIp}`, 'info');
+    showToast(`Detected & allowed current IP: ${clientIp}`, 'info');
   } catch (err) {
     const fallbackIp = '127.0.0.1';
     inputEl.value = inputEl.value ? `${inputEl.value}, ${fallbackIp}` : fallbackIp;
