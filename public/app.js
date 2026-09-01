@@ -1801,40 +1801,40 @@ function renderUsersTable(users) {
         <td class="p-4 text-right">
           <div class="flex items-center justify-end gap-1.5 flex-wrap">
             ${u.isSuperAdmin ? `
-              <button type="button" data-action="open-admin-config" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Configure Admin Permissions & IP Lock">
+              <button type="button" onclick="window.openAdminConfigModal('${u.id}')" data-action="open-admin-config" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Configure Admin Permissions & IP Lock">
                 <i class="fa-solid fa-shield-halved text-[10px]"></i>
                 <span>Security & IP</span>
               </button>
-              <button type="button" data-action="demote-admin" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Revoke Admin Access">
+              <button type="button" onclick="window.demoteAdmin('${u.id}', '${escapeHTML(u.email)}')" data-action="demote-admin" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Revoke Admin Access">
                 <i class="fa-solid fa-user-minus text-[10px]"></i>
                 <span>Revoke Admin</span>
               </button>
             ` : `
-              <button type="button" data-action="promote-admin" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Promote to Administrator">
+              <button type="button" onclick="window.promoteUserToAdmin('${u.id}', '${escapeHTML(u.email)}')" data-action="promote-admin" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Promote to Administrator">
                 <i class="fa-solid fa-user-shield text-[10px]"></i>
                 <span>Promote to Admin</span>
               </button>
             `}
 
-            <button type="button" data-action="open-edit-limits" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Configure Rate Limits">
+            <button type="button" onclick="window.openEditUserLimits('${u.id}')" data-action="open-edit-limits" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Configure Rate Limits">
               <i class="fa-solid fa-sliders text-[10px]"></i>
               <span>Limits</span>
             </button>
 
             ${u.mfaEnabled ? `
-              <button type="button" data-action="reset-mfa" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Reset MFA Device">
+              <button type="button" onclick="window.resetUserMfa('${u.id}')" data-action="reset-mfa" data-user-id="${u.id}" class="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Reset MFA Device">
                 <i class="fa-solid fa-shield-halved text-[10px]"></i>
                 <span>Reset MFA</span>
               </button>
             ` : ''}
 
             ${!u.isSuperAdmin ? `
-              <button type="button" data-action="open-flag-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Flag Threat Anomaly">
+              <button type="button" onclick="window.openManualFlagModal('${u.id}', '${escapeHTML(u.email)}')" data-action="open-flag-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Flag Threat Anomaly">
                 <i class="fa-solid fa-flag text-[10px]"></i>
                 <span>Flag</span>
               </button>
 
-              <button type="button" data-action="open-notice-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Issue Violation Notice">
+              <button type="button" onclick="window.openIssueNoticeModal('${u.id}', '${escapeHTML(u.email)}')" data-action="open-notice-modal" data-user-id="${u.id}" data-user-email="${escapeHTML(u.email)}" class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 text-[11px] font-semibold transition active:scale-95 inline-flex items-center space-x-1 cursor-pointer" title="Issue Violation Notice">
                 <i class="fa-solid fa-gavel text-[10px]"></i>
                 <span>Notice</span>
               </button>
@@ -5775,9 +5775,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.addEventListener('click', (e) => {
     const actionBtn = e.target.closest('[data-action]');
     if (!actionBtn) return;
-    
-    e.preventDefault();
-    e.stopPropagation();
 
     const action = actionBtn.getAttribute('data-action');
     const userId = actionBtn.getAttribute('data-user-id');
@@ -5788,6 +5785,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const collectionName = actionBtn.getAttribute('data-collection-name');
 
     if (action === 'refresh-users') {
+      e.preventDefault();
+      e.stopPropagation();
       actionBtn.querySelector('span').textContent = 'CLICKED AT ' + new Date().toLocaleTimeString();
       const icon = actionBtn.querySelector('i');
       if (icon) icon.classList.add('animate-spin');
@@ -5804,15 +5803,65 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (icon) icon.classList.remove('animate-spin');
           });
       }
+    } else if (action === 'open-flag-modal') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.openManualFlagModal === 'function') window.openManualFlagModal(userId, userEmail);
+    } else if (action === 'open-notice-modal') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.openIssueNoticeModal === 'function') window.openIssueNoticeModal(userId, userEmail);
+    } else if (action === 'view-appeal') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.openAppealDetailsModal === 'function') window.openAppealDetailsModal(noticeId);
+    } else if (action === 'accept-appeal') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.reviewNoticeDecision === 'function') window.reviewNoticeDecision(noticeId, 'accepted');
+    } else if (action === 'reject-appeal') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.reviewNoticeDecision === 'function') window.reviewNoticeDecision(noticeId, 'rejected');
+    } else if (action === 'promote-admin') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.promoteUserToAdmin === 'function') window.promoteUserToAdmin(userId, userEmail);
+    } else if (action === 'demote-admin') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.demoteAdmin === 'function') window.demoteAdmin(userId, userEmail);
+    } else if (action === 'open-admin-config') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.openAdminConfigModal === 'function') window.openAdminConfigModal(userId);
+    } else if (action === 'open-edit-limits') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.openEditUserLimits === 'function') window.openEditUserLimits(userId);
+    } else if (action === 'reset-mfa') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof window.resetUserMfa === 'function') window.resetUserMfa(userId);
     } else if (action === 'toggle-user-dropdown') {
+      e.preventDefault();
+      e.stopPropagation();
       if (typeof window.toggleUserDropdown === 'function') window.toggleUserDropdown(e, userId);
     } else if (action === 'dismiss-alert') {
+      e.preventDefault();
+      e.stopPropagation();
       if (typeof window.dismissThreatAlert === 'function') window.dismissThreatAlert(alertId);
     } else if (action === 'edit-doc-rules') {
+      e.preventDefault();
+      e.stopPropagation();
       if (typeof window.editDocumentRules === 'function') window.editDocumentRules(docId, collectionName);
     } else if (action === 'view-document') {
+      e.preventDefault();
+      e.stopPropagation();
       if (typeof window.viewDocumentDetail === 'function') window.viewDocumentDetail(docId, collectionName);
     } else if (action === 'delete-document') {
+      e.preventDefault();
+      e.stopPropagation();
       if (typeof window.deleteDocument === 'function') window.deleteDocument(docId, collectionName);
     }
   });
@@ -8403,7 +8452,7 @@ function renderComplianceNoticesTable(notices) {
           ${n.userExplanation
             ? `<div class="p-2.5 rounded-xl bg-purple-950/40 border border-purple-500/30 space-y-1.5">
                 <p class="text-purple-200 text-[11px] line-clamp-2 italic leading-tight font-sans">"${escapeHTML(n.userExplanation)}"</p>
-                <button type="button" data-action="view-appeal" data-notice-id="${n.id}" class="text-[10px] font-semibold text-purple-300 hover:text-purple-100 flex items-center space-x-1 underline">
+                <button type="button" onclick="window.openAppealDetailsModal('${n.id}')" data-action="view-appeal" data-notice-id="${n.id}" class="text-[10px] font-semibold text-purple-300 hover:text-purple-100 flex items-center space-x-1 underline cursor-pointer">
                   <i class="fa-solid fa-expand text-[9px]"></i>
                   <span>View Full Appeal</span>
                 </button>
@@ -8414,11 +8463,11 @@ function renderComplianceNoticesTable(notices) {
         <td class="p-4 text-right">
           ${n.status === 'open' || n.status === 'appealed' ? `
             <div class="flex flex-col gap-1.5 items-end">
-              <button type="button" data-action="accept-appeal" data-notice-id="${n.id}" class="w-28 px-2.5 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 text-[11px] font-semibold transition active:scale-95 flex items-center justify-center space-x-1">
+              <button type="button" onclick="window.reviewNoticeDecision('${n.id}', 'accepted')" data-action="accept-appeal" data-notice-id="${n.id}" class="w-28 px-2.5 py-1.5 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-200 border border-emerald-500/30 text-[11px] font-semibold transition active:scale-95 flex items-center justify-center space-x-1 cursor-pointer">
                 <i class="fa-solid fa-check text-[10px]"></i>
                 <span>Revoke Notice</span>
               </button>
-              <button type="button" data-action="reject-appeal" data-notice-id="${n.id}" class="w-28 px-2.5 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-[11px] font-semibold transition active:scale-95 flex items-center justify-center space-x-1">
+              <button type="button" onclick="window.reviewNoticeDecision('${n.id}', 'rejected')" data-action="reject-appeal" data-notice-id="${n.id}" class="w-28 px-2.5 py-1.5 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/30 text-[11px] font-semibold transition active:scale-95 flex items-center justify-center space-x-1 cursor-pointer">
                 <i class="fa-solid fa-trash text-[10px]"></i>
                 <span>Reject & Purge</span>
               </button>
