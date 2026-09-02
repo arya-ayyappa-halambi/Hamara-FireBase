@@ -8,6 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { wsService } from '../realtime/websocket.service';
 import os from 'os';
 import { geoipThreatIntelService, GeoIpThreatData } from './geoip-threat-intel.service';
+import { meshVpnService } from './mesh-vpn.service';
 
 export interface NetworkAccessRule {
   id: string;
@@ -334,8 +335,9 @@ export class NetworkAccessService {
         const allowedAdminSubnets = (process.env.ADMIN_ALLOWED_SUBNET || settings.adminAllowedSubnet || '127.0.0.1').split(',').map(s => s.trim()).filter(Boolean);
         const matchesAdminSubnet = allowedAdminSubnets.some(sub => this.matchIpPattern(ip, sub));
         const hasAdminAllowRule = allRules.some(r => r.action === 'allow' && (r.scope === 'admin_only' || r.scope === 'global') && this.matchIpPattern(ip, r.ipPattern, r.ruleType));
+        const isMeshAutoAllowed = meshVpnService.getMeshStatus().autoWhitelistEnabled && meshVpnService.isMeshOrPrivateIp(ip);
 
-        if (!matchesAdminSubnet && !hasAdminAllowRule) {
+        if (!matchesAdminSubnet && !hasAdminAllowRule && !isMeshAutoAllowed) {
           return {
             allowed: false,
             code: 'ADMIN_PERIMETER_RESTRICTED',

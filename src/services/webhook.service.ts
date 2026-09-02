@@ -134,6 +134,48 @@ export class WebhookService {
       });
     }
   }
+
+  /**
+   * Dispatches a single test payload to an n8n or custom webhook endpoint.
+   */
+  async testDispatch(targetUrl: string, event: string = 'test.ping', payload: any = { message: 'AegisDB n8n Webhook Test Event', timestamp: new Date().toISOString() }): Promise<{ success: boolean; statusCode?: number; responseTimeMs: number; error?: string }> {
+    const startTime = Date.now();
+    try {
+      const payloadString = JSON.stringify({
+        id: uuidv4(),
+        event,
+        timestamp: new Date().toISOString(),
+        source: 'AegisDB n8n Automation Engine',
+        data: payload
+      });
+      const dummySecret = 'whsec_test_secret';
+      const signature = crypto.createHmac('sha256', dummySecret).update(payloadString).digest('hex');
+
+      const res = await fetch(targetUrl.trim(), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-aegis-signature': signature,
+          'x-aegis-event': event
+        },
+        body: payloadString,
+        signal: AbortSignal.timeout(5000)
+      });
+      const responseTimeMs = Date.now() - startTime;
+      return {
+        success: res.ok,
+        statusCode: res.status,
+        responseTimeMs
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        responseTimeMs: Date.now() - startTime,
+        error: err.message
+      };
+    }
+  }
 }
 
 export const webhookService = new WebhookService();
+

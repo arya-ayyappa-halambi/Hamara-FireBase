@@ -74,7 +74,10 @@ import {
   clearTunnelSettingsHandler,
   attachTunnelHandler,
   getTrafficTopologyHandler,
-  getTenantQuotas
+  getTenantQuotas,
+  getMeshVpnStatusHandler,
+  updateMeshVpnSettingsHandler,
+  pingMeshPeerHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -140,6 +143,11 @@ router.delete('/tunnel/settings', disallowOttSessionMutation, clearTunnelSetting
 
 // ── Real-Time Traffic Topology & Flow Telemetry Matrix ───────────────────────
 router.get('/traffic/topology', getTrafficTopologyHandler);
+
+// ── Private Mesh VPN & P2P Overlay (n2n, Tailscale, WireGuard, ZeroTier) ────
+router.get('/mesh/status', getMeshVpnStatusHandler);
+router.patch('/mesh/settings', disallowOttSessionMutation, updateMeshVpnSettingsHandler);
+router.post('/mesh/ping', pingMeshPeerHandler);
 
 router.post('/server/shutdown', disallowOttSessionMutation, shutdownServerHandler);
 router.get('/terminal-logs', getTerminalLogs);

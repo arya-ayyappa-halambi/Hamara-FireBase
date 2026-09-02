@@ -603,6 +603,7 @@ window.switchTab = window.switchWorkspace = function switchTab(tabId) {
     if (typeof loadLiveTerminalLogs === 'function') loadLiveTerminalLogs();
     if (typeof window.loadClusterDiagnosticsReport === 'function') window.loadClusterDiagnosticsReport();
     if (typeof window.loadTunnelStatus === 'function') window.loadTunnelStatus();
+    if (typeof window.loadMeshVpnStatus === 'function') window.loadMeshVpnStatus();
   } else if (tabId === 'tab-sec-ops') {
     loadLockedAccounts();
     loadPlatformSettings();
@@ -3882,6 +3883,14 @@ function getEffectivePromptBaseUrl() {
   if (promptEndpointConfig.mode === 'global') {
     if (activeTunnelUrl) return activeTunnelUrl;
     return `http://localhost${portStr}`;
+  } else if (promptEndpointConfig.mode === 'mesh') {
+    if (typeof currentMeshState !== 'undefined' && currentMeshState.meshDirectUrl) {
+      return currentMeshState.meshDirectUrl;
+    }
+    if (typeof currentMeshState !== 'undefined' && currentMeshState.meshIp) {
+      return `http://${currentMeshState.meshIp}${portStr}`;
+    }
+    return `http://10.1.0.5${portStr}`;
   } else if (promptEndpointConfig.mode === 'localhost') {
     return `http://localhost${portStr}`;
   } else if (promptEndpointConfig.mode === 'network') {
@@ -4307,6 +4316,9 @@ function updatePromptUI() {
     if (promptEndpointConfig.mode === 'global' || (promptEndpointConfig.mode === 'both' && activeTunnelUrl)) {
       activeBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse';
       activeBadge.textContent = `⚡ Global HTTPS (${activeTunnelUrl || 'Active Tunnel'})`;
+    } else if (promptEndpointConfig.mode === 'mesh') {
+      activeBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 animate-pulse';
+      activeBadge.textContent = `🔒 Private Mesh VPN (${baseUrl})`;
     } else if (promptEndpointConfig.mode === 'network') {
       activeBadge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30';
       activeBadge.textContent = `🌐 Wi-Fi LAN (${baseUrl})`;
@@ -6043,6 +6055,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('container-threat-alerts')?.classList.remove('hidden');
       if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
       if (typeof window.loadTunnelStatus === 'function') window.loadTunnelStatus();
+      if (typeof window.loadMeshVpnStatus === 'function') window.loadMeshVpnStatus();
     }
 
     (async () => {
@@ -10951,6 +10964,271 @@ window.attachLiveTunnelUrl = async function() {
     if (json.data) window.renderTunnelUI(json.data);
   } catch (err) {
     showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+// ── Private Mesh VPN & P2P Tunnels (n2n, Tailscale, WireGuard, ZeroTier) ────
+
+let currentMeshState = {
+  enabled: true,
+  status: 'standby',
+  protocol: 'auto',
+  protocolDisplayName: 'Mesh VPN (Standby)',
+  interfaceName: null,
+  meshIp: null,
+  meshIpv6: null,
+  meshPort: 3000,
+  meshDirectUrl: null,
+  autoWhitelistEnabled: true,
+  customIpConfigured: '',
+  detectedInterfaces: []
+};
+
+window.loadMeshVpnStatus = async function() {
+  try {
+    const token = getAegisAuthToken();
+    const port = promptEndpointConfig.port || window.location.port || '3000';
+    const res = await fetch(`/api/v1/admin/mesh/status?port=${port}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const json = await res.json();
+    if (json.success && json.data) {
+      window.renderMeshVpnUI(json.data);
+    }
+  } catch (err) {
+    console.error('Failed to load Mesh VPN status:', err);
+  }
+};
+
+window.renderMeshVpnUI = function(data) {
+  if (!data) return;
+  currentMeshState = data;
+
+  const pill = document.getElementById('badge-mesh-status-pill');
+  const card = document.getElementById('card-active-mesh-details');
+  const textProto = document.getElementById('text-mesh-protocol-name');
+  const badgeAdapter = document.getElementById('badge-mesh-adapter-pill');
+  const badgeWhitelist = document.getElementById('badge-mesh-whitelist-status');
+  const inputUrl = document.getElementById('input-mesh-direct-url');
+  const imgQr = document.getElementById('img-mesh-qr-code');
+
+  const selectProto = document.getElementById('select-mesh-protocol');
+  const inputCustomIp = document.getElementById('input-mesh-custom-ip');
+  const checkWhitelist = document.getElementById('check-mesh-autowhitelist');
+
+  if (selectProto && data.protocol) selectProto.value = data.customIpConfigured ? 'custom' : (data.protocol || 'auto');
+  if (inputCustomIp && data.customIpConfigured !== undefined) inputCustomIp.value = data.customIpConfigured;
+  if (checkWhitelist) checkWhitelist.checked = Boolean(data.autoWhitelistEnabled);
+
+  const isOnline = data.status === 'online' && data.meshIp;
+  if (isOnline) {
+    if (pill) {
+      pill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30 animate-pulse';
+      pill.textContent = `🟢 Mesh Active (${data.interfaceName || 'overlay'}: ${data.meshIp})`;
+    }
+    if (textProto) textProto.textContent = `${data.protocolDisplayName} Live`;
+    if (badgeAdapter) badgeAdapter.textContent = `Interface: ${data.interfaceName || 'overlay'}`;
+    if (inputUrl) inputUrl.value = data.meshDirectUrl || `http://${data.meshIp}:${data.meshPort}`;
+    if (imgQr) {
+      const targetUrl = data.meshDirectUrl || `http://${data.meshIp}:${data.meshPort}`;
+      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(targetUrl)}`;
+    }
+    if (card) card.classList.remove('hidden');
+  } else {
+    if (pill) {
+      pill.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-white/10';
+      pill.textContent = '⚪ Mesh Standby (No Active Interface)';
+    }
+    if (card) card.classList.remove('hidden');
+    if (textProto) textProto.textContent = 'Mesh VPN (Standby)';
+    if (badgeAdapter) badgeAdapter.textContent = 'No Virtual Adapter Found';
+    if (inputUrl) inputUrl.value = data.customIpConfigured ? `http://${data.customIpConfigured}:${data.meshPort}` : 'Configure or connect n2n/Tailscale to activate';
+    if (imgQr && data.customIpConfigured) {
+      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`http://${data.customIpConfigured}:${data.meshPort}`)}`;
+    }
+  }
+
+  if (badgeWhitelist) {
+    if (data.autoWhitelistEnabled) {
+      badgeWhitelist.className = 'px-2.5 py-1 rounded-lg bg-emerald-950/60 border border-emerald-500/30 text-emerald-300';
+      badgeWhitelist.innerHTML = '<i class="fa-solid fa-check-circle text-[9px]"></i> Subnet Whitelisted';
+    } else {
+      badgeWhitelist.className = 'px-2.5 py-1 rounded-lg bg-slate-800 border border-white/10 text-slate-400';
+      badgeWhitelist.innerHTML = '<i class="fa-solid fa-ban text-[9px]"></i> Whitelist Inactive';
+    }
+  }
+
+  if (typeof updatePromptUI === 'function') {
+    updatePromptUI();
+  }
+};
+
+window.saveMeshVpnSettings = async function() {
+  if (state.user?.isOttLogin) {
+    showToast('🔒 One-Time Access Mode: Cannot modify mesh settings.', 'warning');
+    return;
+  }
+
+  const protocol = document.getElementById('select-mesh-protocol')?.value || 'auto';
+  const customIp = document.getElementById('input-mesh-custom-ip')?.value?.trim() || '';
+  const autoWhitelist = Boolean(document.getElementById('check-mesh-autowhitelist')?.checked);
+
+  try {
+    const token = getAegisAuthToken();
+    const res = await fetch('/api/v1/admin/mesh/settings', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ enabled: true, protocol, customIp, autoWhitelist })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Failed to save mesh settings.');
+
+    showToast('✅ Mesh VPN preferences saved & applied.', 'success');
+    if (json.data) window.renderMeshVpnUI(json.data);
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+};
+
+window.pingMeshPeerProbe = async function() {
+  const host = document.getElementById('input-peer-ping-host')?.value?.trim();
+  const badge = document.getElementById('badge-peer-ping-result');
+  if (!host) {
+    showToast('Please enter a peer mesh IP to probe.', 'warning');
+    return;
+  }
+
+  try {
+    if (badge) {
+      badge.className = 'text-[10px] font-mono text-purple-300 animate-pulse';
+      badge.textContent = 'Probing peer...';
+    }
+    const token = getAegisAuthToken();
+    const port = promptEndpointConfig.port || window.location.port || 3000;
+    const res = await fetch('/api/v1/admin/mesh/ping', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ host, port })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Ping probe failed.');
+
+    const data = json.data;
+    if (data.reachable) {
+      if (badge) {
+        badge.className = 'text-[10px] font-mono text-emerald-300 font-bold';
+        badge.textContent = `🟢 Reachable (${data.latencyMs}ms)`;
+      }
+      showToast(`Peer ${host} reachable in ${data.latencyMs}ms!`, 'success');
+    } else {
+      if (badge) {
+        badge.className = 'text-[10px] font-mono text-rose-300';
+        badge.textContent = `🔴 Unreachable (${data.error || 'Timeout'})`;
+      }
+      showToast(`Peer ${host} unreachable: ${data.error || 'Timeout'}`, 'warning');
+    }
+  } catch (err) {
+    if (badge) {
+      badge.className = 'text-[10px] font-mono text-rose-400';
+      badge.textContent = 'Probe Failed';
+    }
+    showToast(`Probe error: ${err.message}`, 'error');
+  }
+};
+
+window.copyMeshDirectUrl = async function() {
+  const input = document.getElementById('input-mesh-direct-url');
+  if (input && input.value) {
+    await window.copyToClipboard(input.value);
+    showToast('Copied Private Mesh VPN URL!', 'success');
+  }
+};
+
+// ── n8n Workflow Automation Quick-Connect ────────────────────────────────────
+
+window.registerN8nWebhook = async function() {
+  const url = document.getElementById('input-n8n-webhook-url')?.value?.trim();
+  if (!url) {
+    showToast('Please enter an n8n Webhook URL.', 'warning');
+    return;
+  }
+
+  const events = [];
+  if (document.getElementById('check-n8n-doc-events')?.checked) {
+    events.push('document.created', 'document.updated', 'document.deleted');
+  }
+  if (document.getElementById('check-n8n-auth-events')?.checked) {
+    events.push('user.signed_up', 'user.deleted');
+  }
+  if (document.getElementById('check-n8n-sec-events')?.checked) {
+    events.push('security.jail_ip', 'security.alert');
+  }
+
+  if (events.length === 0) {
+    showToast('Please select at least one event type.', 'warning');
+    return;
+  }
+
+  const projectId = state.activeProject?.id || (state.projects && state.projects[0]?.id) || 'default-project';
+
+  try {
+    const res = await apiRequest(`/api/v1/projects/${projectId}/webhooks`, 'POST', { url, events });
+    showToast('✅ n8n Webhook pipeline registered successfully!', 'success');
+    if (typeof loadWebhookLogs === 'function') loadWebhookLogs();
+  } catch (err) {
+    showToast(`Failed to register n8n webhook: ${err.message}`, 'error');
+  }
+};
+
+window.dispatchN8nTestPing = async function() {
+  const url = document.getElementById('input-n8n-webhook-url')?.value?.trim();
+  if (!url) {
+    showToast('Please enter an n8n Webhook URL to test.', 'warning');
+    return;
+  }
+
+  const projectId = state.activeProject?.id || (state.projects && state.projects[0]?.id) || 'default-project';
+
+  try {
+    showToast('⏳ Dispatching test ping to n8n Webhook node...', 'info');
+    const token = getAegisAuthToken();
+    const res = await fetch(`/api/v1/projects/${projectId}/webhooks/test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        url,
+        event: 'test.n8n_ping',
+        payload: {
+          platform: 'AegisDB',
+          message: 'Hello from AegisDB n8n Automation Engine!',
+          timestamp: new Date().toISOString()
+        }
+      })
+    });
+
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.message || 'Test dispatch failed.');
+
+    const data = json.data;
+    if (data.success) {
+      showToast(`✅ n8n responded HTTP ${data.statusCode} in ${data.responseTimeMs}ms!`, 'success');
+    } else {
+      showToast(`⚠️ Dispatch attempted (${data.responseTimeMs}ms): ${data.error || `HTTP ${data.statusCode}`}`, 'warning');
+    }
+  } catch (err) {
+    showToast(`Test ping error: ${err.message}`, 'error');
   }
 };
 

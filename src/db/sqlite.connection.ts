@@ -630,6 +630,18 @@ export function initSqlite(): void {
       db.exec(`ALTER TABLE platform_settings ADD COLUMN tunnelAutoCloseMinutes INTEGER DEFAULT 60;`);
     } catch (_) {}
     try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN meshVpnEnabled INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN meshVpnProtocol TEXT DEFAULT 'auto';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN meshVpnCustomIp TEXT DEFAULT '';`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE platform_settings ADD COLUMN meshVpnAutoWhitelist INTEGER DEFAULT 1;`);
+    } catch (_) {}
+    try {
       db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN countryCode TEXT;`);
     } catch (_) {}
     try {

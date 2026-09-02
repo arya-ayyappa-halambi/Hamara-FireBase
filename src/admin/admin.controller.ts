@@ -27,6 +27,7 @@ import { wafShieldService } from '../services/waf-shield.service';
 import { remoteOttAccessService } from '../services/remote-ott-access.service';
 import { tunnelManagerService } from '../services/tunnel-manager.service';
 import { trafficTopologyService } from '../services/traffic-topology.service';
+import { meshVpnService } from '../services/mesh-vpn.service';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -1633,6 +1634,52 @@ export async function getTrafficTopologyHandler(_req: Request, res: Response, ne
     next(err);
   }
 }
+
+// ── Mesh VPN & P2P Overlay Handlers ──────────────────────────────────────────
+
+export async function getMeshVpnStatusHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const port = Number(req.query.port) || undefined;
+    const report = meshVpnService.getMeshStatus(port);
+    res.status(200).json({
+      success: true,
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function updateMeshVpnSettingsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { enabled, protocol, customIp, autoWhitelist } = req.body || {};
+    const report = meshVpnService.updateMeshSettings({ enabled, protocol, customIp, autoWhitelist });
+    res.status(200).json({
+      success: true,
+      message: 'Mesh VPN settings updated.',
+      data: report
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function pingMeshPeerHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { host, port, timeoutMs } = req.body || {};
+    if (!host) {
+      throw new AppError('Peer host address is required.', 400);
+    }
+    const result = await meshVpnService.probePeerReachability(host, Number(port) || 3000, Number(timeoutMs) || 2500);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 
 
 

@@ -11,6 +11,7 @@ import {
   listWebhooks,
   registerWebhook,
   deleteWebhook,
+  testWebhook,
   rotateApiKey,
   getProjectStats,
   getWebhookLogs,
@@ -49,6 +50,7 @@ router.delete('/:id/collaborators/:userId', removeProjectCollaborator);
 // Webhook endpoints
 router.get('/:id/webhooks', listWebhooks);
 router.post('/:id/webhooks', registerWebhook);
+router.post('/:id/webhooks/test', testWebhook);
 router.delete('/:id/webhooks/:webhookId', deleteWebhook);
 
 export default router;

@@ -218,6 +218,20 @@ export async function deleteWebhook(req: Request, res: Response, next: NextFunct
   } catch (err) { next(err); }
 }
 
+export async function testWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { url, event, payload } = req.body || {};
+    if (!url) {
+      throw new AppError('url is required for test webhook dispatch.', 400);
+    }
+    const result = await webhookService.testDispatch(url, event || 'test.ping', payload);
+    res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (err) { next(err); }
+}
+
 export async function getBackupConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const ownerId = getOwnerId(req);
