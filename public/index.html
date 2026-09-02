@@ -1532,28 +1532,38 @@
                 <i class="fa-solid fa-city text-amber-400"></i>
                 <span>Multi-Tenant & Quota Manager</span>
               </h2>
-              <p class="text-xs text-slate-400 mt-1">Manage project quotas, tenant limits, and service keys</p>
+              <p class="text-xs text-slate-400 mt-1">Manage tenant storage quotas, rate limits, and platform resource limits</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              <button onclick="loadTenantsList()" class="px-3.5 py-1.5 rounded-xl text-xs font-medium glass-panel hover:bg-white/10 text-slate-200 transition flex items-center space-x-2 cursor-pointer">
+                <i class="fa-solid fa-rotate-right"></i>
+                <span>Refresh Quotas</span>
+              </button>
             </div>
           </div>
 
           <div class="glass-panel rounded-2xl border border-white/10 overflow-hidden">
             <div class="p-4 border-b border-white/10 bg-slate-900/50 flex items-center justify-between">
-              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400">Tenant Projects List</div>
+              <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center space-x-2">
+                <i class="fa-solid fa-layer-group text-amber-400"></i>
+                <span>Registered Tenants & Resource Quotas</span>
+              </div>
             </div>
             <div class="overflow-x-auto">
               <table class="w-full text-left text-xs text-slate-300">
                 <thead class="bg-slate-950/80 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
                   <tr>
-                    <th class="p-4">Project Name</th>
-                    <th class="p-4">Project ID</th>
-                    <th class="p-4">Owner ID</th>
-                    <th class="p-4">Storage Limit</th>
-                    <th class="p-4">Actions</th>
+                    <th class="p-4">Tenant Account</th>
+                    <th class="p-4">Role / Tier</th>
+                    <th class="p-4">Active Projects</th>
+                    <th class="p-4">Storage Usage & Quota</th>
+                    <th class="p-4">Rate Limits</th>
+                    <th class="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="table-tenants-body" class="divide-y divide-white/5 font-mono">
                   <tr>
-                    <td colspan="5" class="p-4 text-center text-slate-500">Loading tenant projects...</td>
+                    <td colspan="6" class="p-4 text-center text-slate-500">Loading tenant quotas...</td>
                   </tr>
                 </tbody>
               </table>
@@ -8712,6 +8722,6 @@ const activeUsers = await aegis.db.queryDocuments('users', {
   </script>
 
   <!-- Application Controller JavaScript -->
-  <script src="app.js?v=20260902_clipboard_fix_v12"></script>
+  <script src="app.js?v=20260902_project_privacy_v13"></script>
 </body>
 </html>

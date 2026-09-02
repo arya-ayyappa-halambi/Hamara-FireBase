@@ -73,7 +73,8 @@ import {
   updateTunnelSettingsHandler,
   clearTunnelSettingsHandler,
   attachTunnelHandler,
-  getTrafficTopologyHandler
+  getTrafficTopologyHandler,
+  getTenantQuotas
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -153,6 +154,7 @@ router.post('/platform-settings/migration/execute-now', disallowOttSessionMutati
 router.post('/platform-settings/broadcast-notice', disallowOttSessionMutation, broadcastEndpointNoticeHandler);
 
 router.get('/stats', requireAdminPermission('telemetry'), getStats);
+router.get('/tenants', requireAdminPermission('tenants'), getTenantQuotas);
 router.get('/users', requireAdminPermission('user_management'), getUsers);
 router.post('/users/create-admin', requireAdminPermission('user_management'), disallowOttSessionMutation, createAdminHandler);
 router.patch('/users/:id/promote', requireAdminPermission('user_management'), disallowOttSessionMutation, promoteUserToAdminHandler);

@@ -82,20 +82,8 @@ export class ProjectService {
     let sql: string;
     let params: any[];
 
-    if (isSuperAdmin && orgId === undefined) {
-      // Super Admin sees ALL projects platform-wide
-      sql = `
-        SELECT p.*,
-          (SELECT COUNT(*) FROM collections c WHERE (c.projectId = p.id)) as collectionCount,
-          (SELECT COUNT(*) FROM documents d WHERE (d.projectId = p.id)) as documentCount,
-          (SELECT COUNT(*) FROM assets a WHERE (a.projectId = p.id)) as assetCount,
-          (SELECT COUNT(*) FROM deployments dep WHERE (dep.projectId = p.id)) as deploymentCount
-        FROM projects p
-        ORDER BY p.createdAt DESC
-      `;
-      params = [];
-    } else if (orgId === null) {
-      // Personal Workspace projects only
+    if (orgId === null) {
+      // Personal Workspace projects only (strictly owned by current user)
       sql = `
         SELECT p.*,
           (SELECT COUNT(*) FROM collections c WHERE (c.projectId = p.id)) as collectionCount,
@@ -145,7 +133,7 @@ export class ProjectService {
     const rows = db.prepare(sql).all(...params) as any[];
 
     return rows.map((r) => {
-      const myProjectRole = isSuperAdmin ? 'admin' : (organizationService.getEffectiveProjectRole(userId, r.id) || 'viewer');
+      const myProjectRole = r.ownerId === userId ? 'admin' : (isSuperAdmin ? 'admin' : (organizationService.getEffectiveProjectRole(userId, r.id) || 'viewer'));
       return {
         id: r.id,
         ownerId: r.ownerId,

@@ -1575,6 +1575,53 @@ export async function attachTunnelHandler(req: Request, res: Response, next: Nex
 
 // ── Real-Time Traffic Topology & Flow Telemetry Handlers ──────────────────────
 
+// ── Multi-Tenant Quotas & Limits Aggregator ──────────────────────────────────
+
+export async function getTenantQuotas(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const db = getDb();
+    const rows = db.prepare(`
+      SELECT 
+        u.id as userId,
+        u.email,
+        u.isSuperAdmin,
+        u.storageQuotaBytes,
+        u.rateLimitRpm,
+        u.createdAt,
+        (SELECT COUNT(*) FROM projects p WHERE p.ownerId = u.id) as projectCount,
+        (SELECT COALESCE(SUM(LENGTH(d.data)), 0) FROM documents d JOIN projects p ON d.projectId = p.id WHERE p.ownerId = u.id) as docBytes,
+        (SELECT COALESCE(SUM(a.size), 0) FROM assets a JOIN projects p ON a.projectId = p.id WHERE p.ownerId = u.id) as assetBytes
+      FROM users u
+      ORDER BY u.createdAt DESC
+    `).all() as any[];
+
+    const tenants = rows.map(r => {
+      const usedStorage = Number(r.docBytes || 0) + Number(r.assetBytes || 0);
+      const maxStorage = Number(r.storageQuotaBytes || 524288000); // 500 MB default
+      return {
+        userId: r.userId,
+        email: r.email,
+        role: r.isSuperAdmin ? 'Super Admin' : 'Developer',
+        projectCount: Number(r.projectCount || 0),
+        usedStorageBytes: usedStorage,
+        maxStorageBytes: maxStorage,
+        rateLimitRpm: Number(r.rateLimitRpm || 120),
+        createdAt: r.createdAt
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Tenant quotas retrieved.',
+      data: tenants
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// ── Real-Time Traffic Topology & Flow Telemetry Handlers ──────────────────────
+
 export async function getTrafficTopologyHandler(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const snapshot = trafficTopologyService.getTopologySnapshot();
@@ -1586,6 +1633,7 @@ export async function getTrafficTopologyHandler(_req: Request, res: Response, ne
     next(err);
   }
 }
+
 
 
 

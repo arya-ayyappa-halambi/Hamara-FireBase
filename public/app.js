@@ -1106,41 +1106,76 @@ async function loadDeveloperMetrics() {
 // ── Super Admin Workspace 2: Multi-Tenant & Quotas ──────────────────────────────
 
 async function loadProjectsList() {
-  const tableBody = document.getElementById('table-tenants-body');
-  try {
-    const projects = await apiRequest('/api/v1/projects');
-    state.projects = projects;
-    renderProjectsTable(projects);
-    updateProjectSelectorDropdown(projects);
-  } catch (err) {
-    if (tableBody) tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
-  }
+  await loadTenantsList();
 }
 
-function renderProjectsTable(projects) {
+async function loadTenantsList() {
+  const tableBody = document.getElementById('table-tenants-body');
+  if (!tableBody) return;
+  try {
+    const res = await apiRequest('/api/v1/admin/tenants');
+    const tenants = Array.isArray(res) ? res : (res?.data || []);
+    renderTenantsTable(tenants);
+  } catch (err) {
+    if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-rose-400">${escapeHTML(err.message)}</td></tr>`;
+  }
+}
+window.loadTenantsList = loadTenantsList;
+
+function renderTenantsTable(tenants) {
   const tableBody = document.getElementById('table-tenants-body');
   if (!tableBody) return;
 
-  if (!projects || projects.length === 0) {
-    tableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-slate-500">No tenant projects found.</td></tr>`;
+  if (!tenants || tenants.length === 0) {
+    tableBody.innerHTML = `<tr><td colspan="6" class="p-4 text-center text-slate-500">No registered tenants found.</td></tr>`;
     return;
   }
 
-  tableBody.innerHTML = projects
+  tableBody.innerHTML = tenants
     .map(
-      (p) => `
+      (t) => {
+        const usedMb = ((t.usedStorageBytes || 0) / (1024 * 1024)).toFixed(2);
+        const maxMb = ((t.maxStorageBytes || 524288000) / (1024 * 1024)).toFixed(0);
+        const percent = Math.min(100, Math.round(((t.usedStorageBytes || 0) / (t.maxStorageBytes || 524288000)) * 100));
+        const roleBadge = t.role === 'Super Admin'
+          ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-300 border border-amber-500/20">Super Admin</span>'
+          : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/10 text-indigo-300 border border-indigo-500/20">Developer</span>';
+
+        return `
     <tr class="hover:bg-white/5 transition">
-      <td class="p-4 font-semibold text-white">${escapeHTML(p.name)}</td>
-      <td class="p-4 text-slate-400">${p.id}</td>
-      <td class="p-4 text-slate-400">${p.ownerId}</td>
-      <td class="p-4 text-indigo-400 font-semibold">${((p.maxStorageBytes || 1073741824) / (1024 * 1024 * 1024)).toFixed(1)} GB</td>
-      <td class="p-4 text-right space-x-2">
-        <button onclick="rotateProjectKeys('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/20 hover:bg-amber-500/20 text-[10px] font-semibold transition">
-          <i class="fa-solid fa-key"></i> Rotate Key
+      <td class="p-4">
+        <div class="font-semibold text-white">${escapeHTML(t.email)}</div>
+        <div class="text-[10px] text-slate-500 font-mono">${t.userId}</div>
+      </td>
+      <td class="p-4">${roleBadge}</td>
+      <td class="p-4">
+        <span class="px-2.5 py-1 rounded-lg bg-slate-900 border border-white/10 font-mono text-xs font-bold text-amber-300">
+          ${t.projectCount || 0} projects
+        </span>
+      </td>
+      <td class="p-4">
+        <div class="space-y-1">
+          <div class="flex items-center justify-between text-[11px]">
+            <span class="text-slate-300 font-semibold">${usedMb} MB used</span>
+            <span class="text-slate-500">${maxMb} MB (${percent}%)</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div class="h-full rounded-full ${percent > 85 ? 'bg-rose-500' : (percent > 60 ? 'bg-amber-500' : 'bg-indigo-500')}" style="width: ${percent}%;"></div>
+          </div>
+        </div>
+      </td>
+      <td class="p-4 text-slate-300 text-xs font-mono">
+        <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-white/5 text-slate-300 text-[11px] font-semibold">${t.rateLimitRpm || 120} RPM</span>
+      </td>
+      <td class="p-4 text-right">
+        <button type="button" onclick="openEditUserLimits('${t.userId}')" class="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-500/20 text-[11px] font-semibold transition active:scale-95 cursor-pointer inline-flex items-center space-x-1" title="Configure Tenant Quotas & Rate Limits">
+          <i class="fa-solid fa-sliders text-[10px]"></i>
+          <span>Configure Limits</span>
         </button>
       </td>
     </tr>
-  `
+  `;
+      }
     )
     .join('');
 }
