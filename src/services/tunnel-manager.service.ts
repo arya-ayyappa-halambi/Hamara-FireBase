@@ -53,6 +53,7 @@ export class TunnelManagerService {
   private lastErrorMessage: string | null = null;
   private totalRequestsCount: number = 0;
   private bytesTransferredCount: number = 0;
+  private healthFailureCount: number = 0;
 
   constructor() {
     this.refreshHostPublicIp();
@@ -425,6 +426,7 @@ export class TunnelManagerService {
 
   private startWatchdog(targetPort: number): void {
     if (this.watchdogTimer) clearInterval(this.watchdogTimer);
+    this.healthFailureCount = 0;
 
     // Watchdog runs every 25 seconds to verify tunnel health and auto-heal if connection dropped
     this.watchdogTimer = setInterval(async () => {
@@ -440,15 +442,33 @@ export class TunnelManagerService {
           validateStatus: () => true
         });
 
-        if (pingRes.status >= 500 && (this.currentProvider === 'localtunnel' || this.currentProvider === 'cloudflare')) {
-          console.warn(`[Tunnel Watchdog] Public tunnel returned HTTP ${pingRes.status}. Auto-healing connection...`);
-          // Stop and restart
-          await this.stopTunnel();
-          await this.startTunnel({ provider: this.currentProvider, port: targetPort });
+        if (pingRes.status >= 200 && pingRes.status < 400) {
+          this.healthFailureCount = 0;
+          this.lastErrorMessage = null;
+        } else if (pingRes.status >= 500 && (this.currentProvider === 'localtunnel' || this.currentProvider === 'cloudflare')) {
+          this.healthFailureCount++;
+          if (this.healthFailureCount >= 2) {
+            console.warn(`[Tunnel Watchdog] Public tunnel returned HTTP ${pingRes.status}. Auto-healing connection...`);
+            this.healthFailureCount = 0;
+            await this.stopTunnel();
+            await this.startTunnel({ provider: this.currentProvider, port: targetPort });
+          }
         }
       } catch (err: any) {
         if (this.currentStatus === 'online') {
-          console.warn(`[Tunnel Watchdog] Health check error: ${err.message}`);
+          this.healthFailureCount++;
+          if (this.healthFailureCount >= 2 && (this.currentProvider === 'localtunnel' || this.currentProvider === 'cloudflare')) {
+            console.warn(`[Tunnel Watchdog] Public tunnel endpoint unreachable (${err.code || err.message}). Auto-healing connection...`);
+            this.healthFailureCount = 0;
+            try {
+              await this.stopTunnel();
+              await this.startTunnel({ provider: this.currentProvider, port: targetPort });
+            } catch (reconnectErr: any) {
+              console.warn(`[Tunnel Watchdog] Auto-heal restart failed: ${reconnectErr.message}`);
+            }
+          } else {
+            console.warn(`[Tunnel Watchdog] Tunnel ping notice: ${err.code || err.message} (attempt ${this.healthFailureCount}/2)`);
+          }
         }
       }
     }, 25000);
