@@ -56,7 +56,28 @@ export class TunnelManagerService {
   private healthFailureCount: number = 0;
 
   constructor() {
+    this.restorePersistedState();
     this.refreshHostPublicIp();
+  }
+
+  private restorePersistedState(): void {
+    try {
+      const db = getDb();
+      const settings = db.prepare("SELECT * FROM platform_settings WHERE id = 'default'").get() as any;
+      if (settings?.tunnelEnabled === 1 && settings?.tunnelPublicUrl && this.currentStatus === 'offline') {
+        this.currentStatus = 'online';
+        this.currentPublicUrl = settings.tunnelPublicUrl;
+        this.currentProvider = (settings.tunnelProvider as TunnelProvider) || 'cloudflare';
+        if (settings.tunnelStartedAt) {
+          this.startedAtTime = new Date(settings.tunnelStartedAt);
+        }
+        if (settings.tunnelExpiresAt) {
+          this.expiresAtTime = new Date(settings.tunnelExpiresAt);
+        }
+        const targetPort = Number(process.env.PORT || settings?.serverPort || 3000);
+        this.startWatchdog(targetPort);
+      }
+    } catch (_) {}
   }
 
   /**
@@ -87,6 +108,20 @@ export class TunnelManagerService {
   public getTunnelStatus(): TunnelStatusReport {
     const db = getDb();
     const settings = db.prepare("SELECT * FROM platform_settings WHERE id = 'default'").get() as any;
+
+    if (this.currentStatus === 'offline' && settings?.tunnelEnabled === 1 && settings?.tunnelPublicUrl) {
+      this.currentStatus = 'online';
+      this.currentPublicUrl = settings.tunnelPublicUrl;
+      this.currentProvider = (settings.tunnelProvider as TunnelProvider) || 'cloudflare';
+      if (settings.tunnelStartedAt) {
+        this.startedAtTime = new Date(settings.tunnelStartedAt);
+      }
+      if (settings.tunnelExpiresAt) {
+        this.expiresAtTime = new Date(settings.tunnelExpiresAt);
+      }
+      const targetPort = Number(process.env.PORT || settings?.serverPort || 3000);
+      this.startWatchdog(targetPort);
+    }
 
     const authToken = settings?.tunnelAuthToken || '';
     const maskedAuthToken = authToken

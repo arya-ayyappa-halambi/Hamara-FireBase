@@ -6042,6 +6042,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadPlatformSettings();
       document.getElementById('container-threat-alerts')?.classList.remove('hidden');
       if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
+      if (typeof window.loadTunnelStatus === 'function') window.loadTunnelStatus();
     }
 
     (async () => {
