@@ -30,24 +30,26 @@ window.copyToClipboard = async function(text) {
   if (text === undefined || text === null) return false;
   const strText = String(text);
   
-  if (navigator.clipboard && window.isSecureContext && typeof navigator.clipboard.writeText === 'function') {
+  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
     try {
       await navigator.clipboard.writeText(strText);
       return true;
     } catch (_) {}
   }
 
-  // Fallback for non-secure / HTTP contexts (Safari & Chrome on local network IPs)
+  // Fallback for non-secure / HTTP / LAN IP contexts (Safari & Chrome on local network IPs like http://192.168.x.x)
   try {
     const textArea = document.createElement('textarea');
     textArea.value = strText;
     textArea.style.position = 'fixed';
     textArea.style.left = '-999999px';
     textArea.style.top = '-999999px';
+    textArea.style.opacity = '0';
     textArea.setAttribute('readonly', '');
     document.body.appendChild(textArea);
     textArea.focus();
     textArea.select();
+    textArea.setSelectionRange(0, 99999);
     const successful = document.execCommand('copy');
     document.body.removeChild(textArea);
     return successful;
@@ -9654,7 +9656,7 @@ window.renderTrackedDevicesTable = function(devices) {
         <td class="p-3.5 font-mono text-xs font-bold text-indigo-300">
           <span class="inline-flex items-center space-x-1">
             <span>${escapeHTML(d.ipAddress)}</span>
-            <button type="button" onclick="navigator.clipboard.writeText('${d.ipAddress}'); showToast('IP copied', 'info');" class="text-slate-500 hover:text-white transition text-[10px]" title="Copy IP">
+            <button type="button" onclick="window.copyToClipboard('${d.ipAddress}'); showToast('IP copied', 'info');" class="text-slate-500 hover:text-white transition text-[10px] cursor-pointer" title="Copy IP">
               <i class="fa-solid fa-copy"></i>
             </button>
           </span>
@@ -10343,7 +10345,7 @@ window.copyGeneratedOttUrl = function(type = 'network') {
 
   const textToCopy = url || inputEl?.value;
   if (textToCopy) {
-    navigator.clipboard.writeText(textToCopy);
+    window.copyToClipboard(textToCopy);
     showToast(`📋 ${type === 'local' ? 'Localhost' : 'Wi-Fi Network'} login URL copied to clipboard!`, 'info');
   }
 };
@@ -10943,7 +10945,7 @@ window.toggleSectionCollapse = function(containerId, chevronId, labelId) {
 window.copyTunnelPublicUrl = function() {
   const inputUrl = document.getElementById('input-tunnel-public-url');
   if (inputUrl && inputUrl.value) {
-    navigator.clipboard.writeText(inputUrl.value);
+    window.copyToClipboard(inputUrl.value);
     showToast('📋 Global public HTTPS URL copied to clipboard!', 'info');
   }
 };
@@ -10951,7 +10953,7 @@ window.copyTunnelPublicUrl = function() {
 window.copyLocaltunnelIp = function() {
   const textIp = document.getElementById('text-localtunnel-ip')?.textContent;
   if (textIp && textIp !== 'Loading IP...') {
-    navigator.clipboard.writeText(textIp.trim());
+    window.copyToClipboard(textIp.trim());
     showToast('📋 Localtunnel Password IP copied!', 'info');
   }
 };
@@ -11638,7 +11640,8 @@ window.submitCreatePat = async function() {
 window.copyPatToken = function() {
   const text = document.getElementById('label-pat-raw-token')?.textContent;
   if (text) {
-    navigator.clipboard.writeText(text).then(() => showToast('Token copied to clipboard!', 'success'));
+    window.copyToClipboard(text);
+    showToast('Token copied to clipboard!', 'success');
   }
 };
 
@@ -12572,7 +12575,8 @@ window.revokeOrgInvite = async function(orgId, inviteId) {
 
 window.copyOrgInviteLink = function(token) {
   const url = `${window.location.origin}/#invite=${token}`;
-  navigator.clipboard.writeText(url).then(() => showToast('Invitation link copied to clipboard!', 'success'));
+  window.copyToClipboard(url);
+  showToast('Invitation link copied to clipboard!', 'success');
 };
 
 // ── Org Subpanel: Audit Log ──────────────────────────────────────────────────
