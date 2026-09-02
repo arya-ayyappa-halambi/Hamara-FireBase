@@ -85,6 +85,11 @@
   "directories": {
     "test": "tests"
   },
+  "overrides": {
+    "fast-uri": "^3.1.6",
+    "axios": "^1.19.0",
+    "qs": "^6.16.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/aryaayyappa/Hamara-FireBase.git"
