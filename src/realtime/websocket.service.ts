@@ -159,25 +159,40 @@ class WebSocketService {
         return;
       }
 
-      const key = `${ownerId}::${collection}`;
+      let targetProjectId = ws.projectId || msg.projectId;
+      if ((ws.user as any)?.isProjectUser) {
+        targetProjectId = (ws.user as any).projectId;
+      }
+
+      if (!targetProjectId) {
+        ws.send(JSON.stringify({ event: 'error', message: '"projectId" is required for collection subscription.' }));
+        return;
+      }
+
+      const key = `${ownerId}::${targetProjectId}::${collection}`;
       if (!this.subscriptions.has(key)) {
         this.subscriptions.set(key, new Set());
       }
       this.subscriptions.get(key)!.add(ws);
-      ws.subscriptions?.add(collection);
+      ws.subscriptions?.add(key);
 
-      ws.send(JSON.stringify({ event: 'subscribed', collection }));
+      ws.send(JSON.stringify({ event: 'subscribed', collection, projectId: targetProjectId }));
       return;
     }
 
     // Action: Unsubscribe from collection
     if (action === 'unsubscribe') {
       const collection = msg.collection;
-      if (collection && typeof collection === 'string') {
-        const key = `${ownerId}::${collection}`;
+      let targetProjectId = ws.projectId || msg.projectId;
+      if ((ws.user as any)?.isProjectUser) {
+        targetProjectId = (ws.user as any).projectId;
+      }
+
+      if (collection && typeof collection === 'string' && targetProjectId) {
+        const key = `${ownerId}::${targetProjectId}::${collection}`;
         this.subscriptions.get(key)?.delete(ws);
-        ws.subscriptions?.delete(collection);
-        ws.send(JSON.stringify({ event: 'unsubscribed', collection }));
+        ws.subscriptions?.delete(key);
+        ws.send(JSON.stringify({ event: 'unsubscribed', collection, projectId: targetProjectId }));
       }
       return;
     }
@@ -194,10 +209,8 @@ class WebSocketService {
   // ── Cleanup ───────────────────────────────────────────────────────────────────
 
   private cleanupSocket(ws: AuthenticatedSocket): void {
-    if (!ws.user || !ws.subscriptions) return;
-    const ownerId = ws.user.sub;
-    for (const collection of ws.subscriptions) {
-      const key = `${ownerId}::${collection}`;
+    if (!ws.subscriptions) return;
+    for (const key of ws.subscriptions) {
       this.subscriptions.get(key)?.delete(ws);
     }
     ws.subscriptions.clear();
@@ -207,20 +220,22 @@ class WebSocketService {
 
   /**
    * Broadcast a database change stream event to all active client connections
-   * subscribed to the given collection owned by `ownerId`.
+   * subscribed to the given collection owned by `ownerId` and scoped to `projectId`.
    */
   broadcastChange(
     ownerId: string,
+    projectId: string,
     collectionName: string,
     event: ChangeEventType,
     data: unknown,
   ): void {
-    const key = `${ownerId}::${collectionName}`;
+    const key = `${ownerId}::${projectId}::${collectionName}`;
     const subscribers = this.subscriptions.get(key);
     if (!subscribers || subscribers.size === 0) return;
 
     const payload = JSON.stringify({
       event,
+      projectId,
       collection: collectionName,
       data,
       timestamp: new Date().toISOString(),

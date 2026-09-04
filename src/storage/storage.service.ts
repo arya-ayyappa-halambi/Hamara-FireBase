@@ -126,25 +126,40 @@ class SqliteAssetStore {
     return row.total || 0;
   }
 
-  findById(ownerId: string, assetId: string): AssetMetadata {
+  findById(ownerId: string, assetId: string, projectId?: string): AssetMetadata {
     const db = getDb();
-    const row = db.prepare('SELECT * FROM assets WHERE id = ? AND ownerId = ?').get(assetId, ownerId) as AssetMetadata | undefined;
+    let query = 'SELECT * FROM assets WHERE id = ?';
+    const params: any[] = [assetId];
+    if (projectId) {
+      query += ' AND projectId = ?';
+      params.push(projectId);
+    } else {
+      query += ' AND ownerId = ?';
+      params.push(ownerId);
+    }
+    const row = db.prepare(query).get(...params) as AssetMetadata | undefined;
     if (!row) {
       throw new AppError(`Asset "${assetId}" not found.`, 404);
     }
     return row;
   }
 
-  listByOwner(ownerId: string): AssetMetadata[] {
+  listByOwner(ownerId: string, projectId?: string): AssetMetadata[] {
     const db = getDb();
-    const rows = db.prepare('SELECT * FROM assets WHERE ownerId = ? ORDER BY uploadedAt DESC').all(ownerId) as AssetMetadata[];
-    return rows;
+    if (projectId) {
+      return db.prepare('SELECT * FROM assets WHERE projectId = ? ORDER BY uploadedAt DESC').all(projectId) as AssetMetadata[];
+    }
+    return db.prepare('SELECT * FROM assets WHERE ownerId = ? ORDER BY uploadedAt DESC').all(ownerId) as AssetMetadata[];
   }
 
-  delete(ownerId: string, assetId: string): AssetMetadata {
-    const meta = this.findById(ownerId, assetId);
+  delete(ownerId: string, assetId: string, projectId?: string): AssetMetadata {
+    const meta = this.findById(ownerId, assetId, projectId);
     const db = getDb();
-    db.prepare('DELETE FROM assets WHERE id = ? AND ownerId = ?').run(assetId, ownerId);
+    if (projectId) {
+      db.prepare('DELETE FROM assets WHERE id = ? AND projectId = ?').run(assetId, projectId);
+    } else {
+      db.prepare('DELETE FROM assets WHERE id = ? AND ownerId = ?').run(assetId, ownerId);
+    }
     return meta;
   }
 }
@@ -294,14 +309,14 @@ export function getUserStorageQuota(userId: string, limitBytes = 524288000): { u
   }
 }
 
-/** Returns all assets owned by the requesting user. */
-export function listAssets(ownerId: string): PublicAssetMetadata[] {
-  return assetStore.listByOwner(ownerId).map(toPublicMeta);
+/** Returns all assets owned by the requesting user or project. */
+export function listAssets(ownerId: string, projectId?: string): PublicAssetMetadata[] {
+  return assetStore.listByOwner(ownerId, projectId).map(toPublicMeta);
 }
 
-/** Returns metadata for a single asset (owner-scoped). */
-export function getAsset(ownerId: string, assetId: string): PublicAssetMetadata {
-  return toPublicMeta(assetStore.findById(ownerId, assetId));
+/** Returns metadata for a single asset (owner-scoped or project-scoped). */
+export function getAsset(ownerId: string, assetId: string, projectId?: string): PublicAssetMetadata {
+  return toPublicMeta(assetStore.findById(ownerId, assetId, projectId));
 }
 
 /**
@@ -309,8 +324,8 @@ export function getAsset(ownerId: string, assetId: string): PublicAssetMetadata 
  * Resolves the file path from the internal metadata store — never from
  * user-supplied input — making path traversal attacks impossible.
  */
-export function streamAsset(ownerId: string, assetId: string, res: Response): void {
-  const meta = assetStore.findById(ownerId, assetId);
+export function streamAsset(ownerId: string, assetId: string, res: Response, projectId?: string): void {
+  const meta = assetStore.findById(ownerId, assetId, projectId);
 
   if (!fs.existsSync(meta.absolutePath)) {
     throw new AppError('Asset file not found on disk. It may have been removed.', 404);
@@ -333,8 +348,8 @@ export function streamAsset(ownerId: string, assetId: string, res: Response): vo
 /**
  * Deletes an asset's metadata record AND its file from disk.
  */
-export function deleteAsset(ownerId: string, assetId: string): PublicAssetMetadata {
-  const meta = assetStore.delete(ownerId, assetId);
+export function deleteAsset(ownerId: string, assetId: string, projectId?: string): PublicAssetMetadata {
+  const meta = assetStore.delete(ownerId, assetId, projectId);
 
   // Best-effort file deletion — don't fail the request if the file is already gone
   if (fs.existsSync(meta.absolutePath)) {

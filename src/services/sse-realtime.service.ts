@@ -7,14 +7,14 @@ export interface SseSubscriber {
 }
 
 export class SseRealtimeService {
-  /** Map of key (`${ownerId}::${collectionName}`) to list of active SSE subscribers */
+  /** Map of key (`${ownerId}::${projectId}::${collectionName}`) to list of active SSE subscribers */
   private readonly subscribers = new Map<string, SseSubscriber[]>();
 
   /**
    * Add a new SSE client subscriber.
    */
-  add(ownerId: string, collectionName: string, res: Response, filter?: any): void {
-    const key = `${ownerId}::${collectionName}`;
+  add(ownerId: string, projectId: string, collectionName: string, res: Response, filter?: any): void {
+    const key = `${ownerId}::${projectId}::${collectionName}`;
     if (!this.subscribers.has(key)) {
       this.subscribers.set(key, []);
     }
@@ -24,15 +24,15 @@ export class SseRealtimeService {
 
     // Clean up when client disconnects
     res.on('close', () => {
-      this.remove(ownerId, collectionName, res);
+      this.remove(ownerId, projectId, collectionName, res);
     });
   }
 
   /**
    * Remove an SSE client connection.
    */
-  remove(ownerId: string, collectionName: string, res: Response): void {
-    const key = `${ownerId}::${collectionName}`;
+  remove(ownerId: string, projectId: string, collectionName: string, res: Response): void {
+    const key = `${ownerId}::${projectId}::${collectionName}`;
     const list = this.subscribers.get(key);
     if (list) {
       this.subscribers.set(
@@ -43,15 +43,16 @@ export class SseRealtimeService {
   }
 
   /**
-   * Broadcasts document change event to matching SSE subscribers.
+   * Broadcasts document change event to matching SSE subscribers for the specific project.
    */
-  broadcast(ownerId: string, collectionName: string, event: string, data: any): void {
-    const key = `${ownerId}::${collectionName}`;
+  broadcast(ownerId: string, projectId: string, collectionName: string, event: string, data: any): void {
+    const key = `${ownerId}::${projectId}::${collectionName}`;
     const subs = this.subscribers.get(key);
     if (!subs || subs.length === 0) return;
 
     const payload = JSON.stringify({
       event,
+      projectId,
       collection: collectionName,
       data,
       timestamp: new Date().toISOString(),

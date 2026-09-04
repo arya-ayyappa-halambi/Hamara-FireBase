@@ -77,8 +77,8 @@ export class ReplicationService {
 
           // Broadcast change streams locally
           const docObj = JSON.parse(mut.data);
-          wsService.broadcastChange(mut.ownerId, mut.collectionName, 'document:inserted', docObj);
-          sseRealtimeService.broadcast(mut.ownerId, mut.collectionName, 'document:inserted', docObj);
+          wsService.broadcastChange(mut.ownerId, mut.projectId, mut.collectionName, 'document:inserted', docObj);
+          sseRealtimeService.broadcast(mut.ownerId, mut.projectId, mut.collectionName, 'document:inserted', docObj);
           continue;
         }
 
@@ -91,16 +91,16 @@ export class ReplicationService {
           if (mut.isDelete) {
             db.prepare('DELETE FROM documents WHERE id = ?').run(mut.id);
             // Broadcast deletion locally
-            wsService.broadcastChange(mut.ownerId, mut.collectionName, 'document:deleted', { _id: mut.id });
-            sseRealtimeService.broadcast(mut.ownerId, mut.collectionName, 'document:deleted', { _id: mut.id });
+            wsService.broadcastChange(mut.ownerId, mut.projectId, mut.collectionName, 'document:deleted', { _id: mut.id });
+            sseRealtimeService.broadcast(mut.ownerId, mut.projectId, mut.collectionName, 'document:deleted', { _id: mut.id });
           } else {
             db.prepare(`
               UPDATE documents SET data = ?, updatedAt = ?, version = ? WHERE id = ?
             `).run(mut.data, mut.updatedAt, mut.version, mut.id);
             // Broadcast update locally
             const docObj = JSON.parse(mut.data);
-            wsService.broadcastChange(mut.ownerId, mut.collectionName, 'document:updated', docObj);
-            sseRealtimeService.broadcast(mut.ownerId, mut.collectionName, 'document:updated', docObj);
+            wsService.broadcastChange(mut.ownerId, mut.projectId, mut.collectionName, 'document:updated', docObj);
+            sseRealtimeService.broadcast(mut.ownerId, mut.projectId, mut.collectionName, 'document:updated', docObj);
           }
         }
       }

@@ -15,6 +15,7 @@ import { AppError, ApiResponse } from '../types/auth.types';
 import { sseRealtimeService } from '../services/sse-realtime.service';
 import { metricsService } from '../services/metrics.service';
 import { networkAccessService } from '../services/network-access.service';
+import { organizationService } from '../services/organization.service';
 import {
   Collection,
   Document,
@@ -39,21 +40,33 @@ function getOwnerId(req: Request): string {
 }
 
 function getProjectId(req: Request): string {
-  // 1. If using API key, req.project is set securely by api-key middleware.
-  if (req.project?.id) return req.project.id;
+  const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
 
-  const projectId = req.headers['x-aegis-project-id'];
-  if (!projectId || typeof projectId !== 'string') {
-    throw new AppError('Project context missing. Ensure API key or x-aegis-project-id header is provided.', 400);
+  // 1. If using API key, req.project is set securely by api-key middleware.
+  if (req.project?.id) {
+    // Cross-project protection: If a project user token is also passed, it MUST match the API key's project
+    const projectUser = req.projectUser || (req.user as any)?.isProjectUser ? (req.user as any) : undefined;
+    if (projectUser?.projectId && projectUser.projectId !== req.project.id) {
+      throw new AppError('Access denied: Authentication token does not match the project API key.', 403);
+    }
+    // Also enforce header consistency if explicitly passed
+    if (headerProjId && headerProjId !== req.project.id) {
+      throw new AppError('Access denied: x-aegis-project-id header does not match the authenticated project API key.', 403);
+    }
+    return req.project.id;
   }
 
   // 2. If it's a project user (via JWT), ensure they only access the project they belong to.
   const user = req.user as any;
-  if (user?.isProjectUser) {
-    if (user.projectId !== projectId) {
+  if (user?.isProjectUser && user.projectId) {
+    if (headerProjId && headerProjId !== user.projectId) {
       throw new AppError('Access denied: Project users can only access their own project.', 403);
     }
-    return projectId;
+    return user.projectId;
+  }
+
+  if (!headerProjId || typeof headerProjId !== 'string') {
+    throw new AppError('Project context missing. Ensure API key or x-aegis-project-id header is provided.', 400);
   }
 
   // 3. If it's a super admin user, allow access to any project.
@@ -61,19 +74,20 @@ function getProjectId(req: Request): string {
   const db = getDb();
 
   if (user?.isSuperAdmin === true) {
-    const proj = db.prepare('SELECT id FROM projects WHERE id = ?').get(projectId);
+    const proj = db.prepare('SELECT id FROM projects WHERE id = ?').get(headerProjId);
     if (!proj) {
       throw new AppError('Access denied: Project not found.', 404);
     }
-    return projectId;
+    return headerProjId;
   }
 
-  const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, ownerId);
-  if (!proj) {
+  // 4. Verify user has access to this project (owner, member, or team grant)
+  const effectiveRole = organizationService.getEffectiveProjectRole(ownerId, headerProjId);
+  if (!effectiveRole) {
     throw new AppError('Access denied: Project not found or you do not have permission to access it.', 403);
   }
 
-  return projectId;
+  return headerProjId;
 }
 
 // ── Helper: Check Rate Limits & Lockout ───────────────────────────────────────
@@ -725,9 +739,9 @@ export async function queryRealtime(req: Request, res: Response, next: NextFunct
 
     const filter = parseQueryFilter(req.query);
 
-    sseRealtimeService.add(ownerId, req.params.name, res, filter);
+    sseRealtimeService.add(ownerId, projectId, req.params.name, res, filter);
 
-    res.write(`data: ${JSON.stringify({ event: 'connected', collection: req.params.name })}\n\n`);
+    res.write(`data: ${JSON.stringify({ event: 'connected', collection: req.params.name, projectId })}\n\n`);
   } catch (err) { next(err); }
 }
 

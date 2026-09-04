@@ -361,8 +361,8 @@ class SqliteDbStore {
       _version: 1,
     };
 
-    wsService.broadcastChange(ownerId, collectionName, 'document:inserted', returnedDoc);
-    sseRealtimeService.broadcast(ownerId, collectionName, 'document:inserted', returnedDoc);
+    wsService.broadcastChange(ownerId, projectId, collectionName, 'document:inserted', returnedDoc);
+    sseRealtimeService.broadcast(ownerId, projectId, collectionName, 'document:inserted', returnedDoc);
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'document.created', returnedDoc);
@@ -530,8 +530,8 @@ class SqliteDbStore {
       `).run(now, ownerId, projectId, collectionName);
     })();
 
-    wsService.broadcastChange(ownerId, collectionName, 'document:updated', updated);
-    sseRealtimeService.broadcast(ownerId, collectionName, 'document:updated', updated);
+    wsService.broadcastChange(ownerId, projectId, collectionName, 'document:updated', updated);
+    sseRealtimeService.broadcast(ownerId, projectId, collectionName, 'document:updated', updated);
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'document.updated', updated);
@@ -563,8 +563,8 @@ class SqliteDbStore {
       db.prepare('UPDATE collections SET updatedAt = ? WHERE ownerId = ? AND projectId = ? AND name = ?').run(now, ownerId, projectId, collectionName);
     })();
 
-    wsService.broadcastChange(ownerId, collectionName, 'document:deleted', { _id: docId });
-    sseRealtimeService.broadcast(ownerId, collectionName, 'document:deleted', { _id: docId });
+    wsService.broadcastChange(ownerId, projectId, collectionName, 'document:deleted', { _id: docId });
+    sseRealtimeService.broadcast(ownerId, projectId, collectionName, 'document:deleted', { _id: docId });
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'document.deleted', { _id: docId, collectionName });

@@ -16,6 +16,12 @@ const router = Router();
 
 // Protect all organization routes with JWT auth
 router.use(authenticateJwt);
+router.use((req: Request, _res: Response, next: NextFunction) => {
+  if ((req.user as any)?.isProjectUser) {
+    return next(new AppError('Forbidden: Project end-users cannot access organization management APIs.', 403));
+  }
+  next();
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. Organization Lifecycle

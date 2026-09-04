@@ -110,3 +110,14 @@ export function authenticateJwt(req: Request, _res: Response, next: NextFunction
     next(error);
   }
 }
+
+/**
+ * Perimeter Guard: Ensures only Platform Developers / Admins (from users table)
+ * can access platform management routes. Rejects project end-users with 403 Forbidden.
+ */
+export function requirePlatformDeveloper(req: Request, _res: Response, next: NextFunction): void {
+  if ((req.user as any)?.isProjectUser) {
+    return next(new AppError('Forbidden: Project end-users cannot access platform developer account management APIs.', 403));
+  }
+  next();
+}

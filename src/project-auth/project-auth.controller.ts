@@ -8,25 +8,39 @@ import { envelopeEncryptionService } from '../services/envelope-encryption.servi
 function getResolvedProjectId(req: Request): string {
   // 1. Set securely by api-key middleware
   if (req.project && req.project.id) {
+    const projectUser = req.projectUser || (req.user as any)?.isProjectUser ? (req.user as any) : undefined;
+    if (projectUser?.projectId && projectUser.projectId !== req.project.id) {
+      throw new AppError('Access denied: Authentication token does not match the project API key.', 403);
+    }
     return req.project.id;
   }
   
-  // 2. Used by Dashboard (Admin JWT)
+  // 2. Used by Dashboard (Admin JWT) or Project User Token
   const headerProjId = req.headers['x-aegis-project-id'] as string;
   const bodyProjId = req.body.projectId as string;
+  const user = req.user as any;
+
+  if (user?.isProjectUser && user.projectId) {
+    if (headerProjId && headerProjId !== user.projectId) {
+      throw new AppError('Access denied: Project users can only access their own project.', 403);
+    }
+    return user.projectId;
+  }
+
   const projectId = headerProjId || bodyProjId;
   
   if (!projectId) {
     throw new AppError('Project ID is missing. Provide x-aegis-api-key header or x-aegis-project-id header.', 400);
   }
 
-  // If using Admin JWT, ensure they own the project (unless they are a project user, though project users shouldn't hit these endpoints for admin tasks)
-  const user = req.user as any;
   if (user && !user.isProjectUser) {
     const db = require('../db/sqlite.connection').getDb();
-    const proj = db.prepare('SELECT id FROM projects WHERE id = ? AND ownerId = ?').get(projectId, user.sub);
-    if (!proj) {
-      throw new AppError('Access denied: Project not found or you do not own it.', 403);
+    if (user.isSuperAdmin !== true) {
+      const { organizationService } = require('../services/organization.service');
+      const role = organizationService.getEffectiveProjectRole(user.sub, projectId);
+      if (!role) {
+        throw new AppError('Access denied: Project not found or you do not have permission to access it.', 403);
+      }
     }
   }
 

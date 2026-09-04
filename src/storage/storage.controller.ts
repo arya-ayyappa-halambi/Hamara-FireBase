@@ -20,9 +20,33 @@ import { projectService } from '../project/project.service';
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 function getOwnerId(req: Request): string {
+  if (req.project?.ownerId) return req.project.ownerId;
+  const user = req.user as any;
+  if (user?.isProjectUser && user.projectId) {
+    const db = require('../db/sqlite.connection').getDb();
+    const proj = db.prepare('SELECT ownerId FROM projects WHERE id = ?').get(user.projectId) as { ownerId: string } | undefined;
+    if (proj) return proj.ownerId;
+  }
   const sub = req.user?.sub;
   if (!sub) throw new AppError('Authentication context missing.', 401);
   return sub;
+}
+
+function getResolvedProjectId(req: Request): string | undefined {
+  if (req.project?.id) {
+    const projectUser = req.projectUser || (req.user as any)?.isProjectUser ? (req.user as any) : undefined;
+    if (projectUser?.projectId && projectUser.projectId !== req.project.id) {
+      throw new AppError('Access denied: Authentication token does not match the project API key.', 403);
+    }
+    return req.project.id;
+  }
+  const user = req.user as any;
+  if (user?.isProjectUser && user.projectId) {
+    return user.projectId;
+  }
+  const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+  if (headerProjId) return headerProjId;
+  return undefined;
 }
 
 // ── Handlers ──────────────────────────────────────────────────────────────────
@@ -45,7 +69,7 @@ export async function uploadAsset(req: Request, res: Response, next: NextFunctio
 
     const ownerId = getOwnerId(req);
     const linkedCollectionId = req.body.linkedCollectionId as string | undefined;
-    const projectId = req.project?.id || req.body.projectId;
+    const projectId = req.project?.id || req.body.projectId || getResolvedProjectId(req);
 
     if (projectId) {
       const user = req.user as any;
@@ -76,11 +100,12 @@ export async function uploadAsset(req: Request, res: Response, next: NextFunctio
 
 /**
  * GET /api/v1/storage/assets
- * Returns all asset metadata records owned by the authenticated user.
+ * Returns all asset metadata records owned by the authenticated user / project.
  */
 export async function listUserAssets(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const assets = listAssets(getOwnerId(req));
+    const projectId = getResolvedProjectId(req);
+    const assets = listAssets(getOwnerId(req), projectId);
     res.status(200).json({
       success: true,
       message: `${assets.length} asset(s) found.`,
@@ -93,11 +118,12 @@ export async function listUserAssets(req: Request, res: Response, next: NextFunc
 
 /**
  * GET /api/v1/storage/assets/:id
- * Returns metadata for a single asset (owner-scoped).
+ * Returns metadata for a single asset (owner-scoped or project-scoped).
  */
 export async function getAssetMetadata(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const meta = getAsset(getOwnerId(req), req.params.id);
+    const projectId = getResolvedProjectId(req);
+    const meta = getAsset(getOwnerId(req), req.params.id, projectId);
     res.status(200).json({
       success: true,
       message: 'Asset retrieved.',
@@ -115,7 +141,8 @@ export async function getAssetMetadata(req: Request, res: Response, next: NextFu
  */
 export async function downloadAsset(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    streamAsset(getOwnerId(req), req.params.id, res);
+    const projectId = getResolvedProjectId(req);
+    streamAsset(getOwnerId(req), req.params.id, res, projectId);
   } catch (err) {
     next(err);
   }
@@ -127,7 +154,8 @@ export async function downloadAsset(req: Request, res: Response, next: NextFunct
  */
 export async function removeAsset(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const deleted = deleteAsset(getOwnerId(req), req.params.id);
+    const projectId = getResolvedProjectId(req);
+    const deleted = deleteAsset(getOwnerId(req), req.params.id, projectId);
     res.status(200).json({
       success: true,
       message: 'Asset deleted.',
