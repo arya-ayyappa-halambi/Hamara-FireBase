@@ -28,6 +28,7 @@ import { remoteOttAccessService } from '../services/remote-ott-access.service';
 import { tunnelManagerService } from '../services/tunnel-manager.service';
 import { trafficTopologyService } from '../services/traffic-topology.service';
 import { meshVpnService } from '../services/mesh-vpn.service';
+import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 
 export async function getPlatformSettings(_req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -1586,12 +1587,13 @@ export async function getTenantQuotas(_req: Request, res: Response, next: NextFu
         u.id as userId,
         u.email,
         u.isSuperAdmin,
-        u.storageQuotaBytes,
-        u.rateLimitRpm,
+        COALESCE(u.storageQuotaBytes, 524288000) as storageQuotaBytes,
+        COALESCE(u.rateLimitRpm, 120) as rateLimitRpm,
+        COALESCE(u.apiLimit, 10000) as apiLimit,
         u.createdAt,
         (SELECT COUNT(*) FROM projects p WHERE p.ownerId = u.id) as projectCount,
         (SELECT COALESCE(SUM(LENGTH(d.data)), 0) FROM documents d JOIN projects p ON d.projectId = p.id WHERE p.ownerId = u.id) as docBytes,
-        (SELECT COALESCE(SUM(a.size), 0) FROM assets a JOIN projects p ON a.projectId = p.id WHERE p.ownerId = u.id) as assetBytes
+        (SELECT COALESCE(SUM(a.sizeBytes), 0) FROM assets a WHERE a.ownerId = u.id) as assetBytes
       FROM users u
       ORDER BY u.createdAt DESC
     `).all() as any[];
@@ -1599,14 +1601,25 @@ export async function getTenantQuotas(_req: Request, res: Response, next: NextFu
     const tenants = rows.map(r => {
       const usedStorage = Number(r.docBytes || 0) + Number(r.assetBytes || 0);
       const maxStorage = Number(r.storageQuotaBytes || 524288000); // 500 MB default
+      let email = r.email;
+      if (typeof email === 'string' && email.startsWith('{')) {
+        try {
+          const parsed = JSON.parse(email);
+          const decrypted = envelopeEncryptionService.decryptField(parsed, 'SYSTEM');
+          if (decrypted) email = decrypted;
+        } catch {
+          // ignore
+        }
+      }
       return {
         userId: r.userId,
-        email: r.email,
+        email,
         role: r.isSuperAdmin ? 'Super Admin' : 'Developer',
         projectCount: Number(r.projectCount || 0),
         usedStorageBytes: usedStorage,
         maxStorageBytes: maxStorage,
         rateLimitRpm: Number(r.rateLimitRpm || 120),
+        apiLimit: Number(r.apiLimit || 10000),
         createdAt: r.createdAt
       };
     });

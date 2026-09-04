@@ -659,6 +659,12 @@ export function initSqlite(): void {
     try {
       db.exec(`ALTER TABLE tracked_client_devices ADD COLUMN threatScore INTEGER DEFAULT 0;`);
     } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE users ADD COLUMN storageQuotaBytes INTEGER DEFAULT 524288000;`);
+    } catch (_) {}
+    try {
+      db.exec(`ALTER TABLE users ADD COLUMN rateLimitRpm INTEGER DEFAULT 120;`);
+    } catch (_) {}
   } catch {}
 
   // Ensure scheduled_endpoint_migrations table exists
