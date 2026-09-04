@@ -127,10 +127,12 @@ export async function listProjectUsers(req: Request, res: Response, next: NextFu
 
     // Directly query the db for simplicity here (or move to service)
     const db = require('../db/sqlite.connection').getDb();
-    const usersRaw = db.prepare('SELECT id, email, provider, createdAt, lastLoginAt FROM project_users WHERE projectId = ? ORDER BY createdAt DESC').all(projectId) as any[];
+    const usersRaw = db.prepare('SELECT id, email, provider, role, customClaims, status, createdAt, lastLoginAt FROM project_users WHERE projectId = ? ORDER BY createdAt DESC').all(projectId) as any[];
     
     const users = usersRaw.map(u => ({
       ...u,
+      role: u.role || 'viewer',
+      status: u.status || 'active',
       email: envelopeEncryptionService.decryptField(
         typeof u.email === 'string' && u.email.startsWith('{') ? JSON.parse(u.email) : u.email,
         projectId

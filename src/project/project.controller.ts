@@ -17,6 +17,9 @@ import path from 'path';
 function getOwnerId(req: Request): string {
   const sub = req.user?.sub;
   if (!sub) throw new AppError('Authentication context missing.', 401);
+  if ((req.user as any)?.isProjectUser) {
+    throw new AppError('Forbidden: Project end-users cannot access project management APIs.', 403);
+  }
   return sub;
 }
 

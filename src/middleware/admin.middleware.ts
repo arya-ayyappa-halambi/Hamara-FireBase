@@ -5,6 +5,9 @@ import { networkAccessService } from '../services/network-access.service';
 
 export function requireAdminPermission(requiredScope?: AdminPermissionScope) {
   return (req: Request, _res: Response, next: NextFunction): void => {
+    if ((req.user as any)?.isProjectUser) {
+      return next(new AppError('Forbidden: Project end-users cannot access administrative APIs.', 403));
+    }
     const userId = req.user?.sub || (req.user as any)?.id || (req.user as any)?.userId;
     if (!userId) {
       return next(new AppError('Authentication required.', 401));

@@ -9,7 +9,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { registerUser, loginUser, refreshAccessToken, logoutUser, setupMfa, verifyAndEnableMfa, disableMfa, changePassword, updateUserProfile, googleLoginUser, requestPasswordReset, executePasswordReset } from './auth.service';
+import { projectAuthService } from '../project-auth/project-auth.service';
 import { RegisterDto, LoginDto, RefreshTokenDto, ApiResponse, AuthResponseData, AppError } from '../types/auth.types';
 import { failedLoginService } from '../services/failed-login-limiter.service';
 import { verifyGoogleToken } from './auth.google';
@@ -76,6 +78,35 @@ export async function register(
     if (req.body._hp_bot_catch) {
       throw new AppError('Suspicious activity detected.', 403);
     }
+
+    const apiKey = (req.headers['x-aegis-api-key'] as string | undefined) || (req.project as any)?.apiKey;
+    const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+    const bodyProjId = req.body.projectId as string | undefined;
+
+    // If an API key or project header is present, route this to projectAuthService (project end-user)
+    if (apiKey || headerProjId || bodyProjId || req.project?.id) {
+      let projectId = req.project?.id || headerProjId || bodyProjId;
+      if (!projectId && apiKey) {
+        const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ?').get(hash) as any;
+        if (!proj) {
+          throw new AppError('Invalid x-aegis-api-key provided.', 401);
+        }
+        projectId = proj.id;
+      }
+      if (!projectId) {
+        throw new AppError('Project ID is required for project user registration.', 400);
+      }
+
+      const result = await projectAuthService.registerUser(projectId, req.body.email, req.body.password, req.body.provider || 'email');
+      res.status(201).json({
+        success: true,
+        message: 'Project user registered successfully.',
+        data: result
+      });
+      return;
+    }
+
     const ip = networkAccessService.extractClientIp(req);
     const dto: RegisterDto & { clientIp?: string; userAgent?: string } = {
       email:    req.body.email,
@@ -110,6 +141,35 @@ export async function login(
   const email = req.body?.email || '';
 
   try {
+    const apiKey = (req.headers['x-aegis-api-key'] as string | undefined) || (req.project as any)?.apiKey;
+    const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+    const bodyProjId = req.body.projectId as string | undefined;
+
+    // If an API key or project header is present, route this to projectAuthService (project end-user)
+    if (apiKey || headerProjId || bodyProjId || req.project?.id) {
+      let projectId = req.project?.id || headerProjId || bodyProjId;
+      if (!projectId && apiKey) {
+        const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ?').get(hash) as any;
+        if (!proj) {
+          throw new AppError('Invalid x-aegis-api-key provided.', 401);
+        }
+        projectId = proj.id;
+      }
+      if (!projectId) {
+        throw new AppError('Project ID is required for project user login.', 400);
+      }
+
+      const result = await projectAuthService.loginUser(projectId, req.body.email, req.body.password);
+      failedLoginService.recordSuccessfulLogin(ip, email);
+      res.status(200).json({
+        success: true,
+        message: 'Project user logged in successfully.',
+        data: result
+      });
+      return;
+    }
+
     const dto: LoginDto & { totpCode?: string; clientIp?: string; userAgent?: string } = {
       email:    req.body.email,
       password: req.body.password,
