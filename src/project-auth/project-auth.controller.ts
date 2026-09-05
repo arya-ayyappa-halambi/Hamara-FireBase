@@ -110,6 +110,36 @@ export async function handleOAuthProvider(req: Request, res: Response, next: Nex
   } catch (err) { next(err); }
 }
 
+export async function refreshProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const { refreshToken } = req.body;
+
+    const result = await projectAuthService.rotateRefreshToken(projectId, refreshToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'Token refreshed successfully.',
+      data: result
+    });
+  } catch (err) { next(err); }
+}
+
+export async function logoutProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const projectId = getResolvedProjectId(req);
+    const { refreshToken } = req.body;
+
+    await projectAuthService.logoutUser(projectId, refreshToken);
+
+    res.status(200).json({
+      success: true,
+      message: 'Logged out successfully.',
+      data: null
+    });
+  } catch (err) { next(err); }
+}
+
 export async function deleteProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const projectId = getResolvedProjectId(req);

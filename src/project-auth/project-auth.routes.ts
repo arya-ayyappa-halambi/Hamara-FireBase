@@ -2,6 +2,8 @@ import { Router } from 'express';
 import {
   registerProjectUser,
   loginProjectUser,
+  refreshProjectUser,
+  logoutProjectUser,
   handleOAuthProvider,
   listProjectUsers,
   deleteProjectUser,
@@ -32,6 +34,8 @@ router.post('/attest', attestApp);
 // Other routes require strict App Check (if enabled on project)
 router.post('/register', enforceAppCheck, registerProjectUser);
 router.post('/login', checkFailedLoginLockout, enforceAppCheck, loginProjectUser);
+router.post('/refresh', enforceAppCheck, refreshProjectUser);
+router.post('/logout', enforceAppCheck, logoutProjectUser);
 router.post('/oauth/:provider', enforceAppCheck, handleOAuthProvider);
 
 // GDPR Art. 17 & 20 End-User Data Portability and Account Erasure

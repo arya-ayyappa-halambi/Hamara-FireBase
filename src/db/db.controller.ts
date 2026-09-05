@@ -205,6 +205,19 @@ export function evaluateRuleExpression(
   if (trimmed === 'true') return true;
   if (trimmed === 'false') return false;
 
+  // Static AST / token defense against sandbox breakout attempts
+  if (
+    /process\s*\./i.test(trimmed) ||
+    /require\s*\(/i.test(trimmed) ||
+    /import\s*\(/i.test(trimmed) ||
+    /child_process/i.test(trimmed) ||
+    /constructor\s*\.\s*constructor/i.test(trimmed) ||
+    /__proto__/i.test(trimmed) ||
+    /global(This)?/i.test(trimmed)
+  ) {
+    return false;
+  }
+
   try {
     const resourceObj = context.resource
       ? { ...context.resource, data: { ...context.resource } }
@@ -242,8 +255,12 @@ export function evaluateRuleExpression(
       RegExp,
     };
 
-    vm.createContext(sandbox);
-    const result = vm.runInContext(trimmed, sandbox, { timeout: 50 });
+    const vmContext = vm.createContext(sandbox, {
+      codeGeneration: { strings: false, wasm: false }
+    } as any);
+    const result = vm.runInContext(trimmed, vmContext, {
+      timeout: 50
+    });
     return !!result;
   } catch {
     return false; // Fail-closed on expression execution error

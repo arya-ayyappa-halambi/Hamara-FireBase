@@ -7,6 +7,7 @@ import argon2 from 'argon2';
 import jwt from 'jsonwebtoken';
 import { webhookService } from '../services/webhook.service';
 import { envelopeEncryptionService } from '../services/envelope-encryption.service';
+import { tokenFamilyService } from '../services/token-family.service';
 
 const ARGON2_OPTIONS: any = {
   type: argon2.argon2id,
@@ -126,7 +127,7 @@ export class ProjectAuthService {
     return this.generateAuthResponse(user.id, projectId, normalizedEmail);
   }
 
-  private generateAuthResponse(userId: string, projectId: string, email: string) {
+  private generateAuthResponse(userId: string, projectId: string, email: string, existingFamilyId?: string) {
     const db = getDb();
     const userRow = db.prepare('SELECT role, customClaims, status, scheduledDeletionAt FROM project_users WHERE id = ?').get(userId) as any;
     const role = userRow?.role || 'viewer';
@@ -157,10 +158,13 @@ export class ProjectAuthService {
       ...customClaims
     };
 
-    const accessToken = jwt.sign(payload, this.getJwtSecret(), { expiresIn: '7d' });
+    const accessToken = jwt.sign(payload, this.getJwtSecret(), { expiresIn: '1h' });
+    const refreshSession = tokenFamilyService.createTokenFamily(userId, existingFamilyId);
     
     return {
+      token: accessToken,
       accessToken,
+      refreshToken: refreshSession.refreshToken,
       user: {
         id: userId,
         email,
@@ -176,6 +180,61 @@ export class ProjectAuthService {
       daysRemaining
     };
   }
+
+  async rotateRefreshToken(projectId: string, rawRefreshToken: string) {
+    if (!rawRefreshToken) {
+      throw new AppError('Refresh token is required.', 400);
+    }
+
+    const tokenHash = tokenFamilyService.hashToken(rawRefreshToken);
+    const db = getDb();
+    const tokenRecord = db.prepare('SELECT * FROM refresh_tokens WHERE tokenHash = ?').get(tokenHash) as any;
+
+    if (!tokenRecord) {
+      throw new AppError('Invalid refresh token.', 401);
+    }
+
+    if (tokenRecord.isRevoked === 1) {
+      throw new AppError('Refresh token has been revoked.', 401);
+    }
+
+    if (new Date(tokenRecord.expiresAt) < new Date()) {
+      throw new AppError('Refresh token has expired.', 401);
+    }
+
+    // Reuse detection
+    if (tokenRecord.isSpent === 1) {
+      tokenFamilyService.revokeTokenFamily(tokenRecord.familyId);
+      throw new AppError('SECURITY ALERT: Refresh token reuse detected! All session tokens in this family have been invalidated.', 401, 'TOKEN_REUSE_DETECTED');
+    }
+
+    // Mark current token spent
+    db.prepare('UPDATE refresh_tokens SET isSpent = 1 WHERE id = ?').run(tokenRecord.id);
+
+    // Verify user belongs to this project
+    const user = db.prepare('SELECT * FROM project_users WHERE id = ? AND projectId = ?').get(tokenRecord.userId, projectId) as any;
+    if (!user) {
+      throw new AppError('Project user not found or does not belong to this project.', 401);
+    }
+
+    let email = user.email;
+    if (typeof email === 'string' && email.startsWith('{')) {
+      email = envelopeEncryptionService.decryptField(JSON.parse(email), projectId) || email;
+    }
+
+    return this.generateAuthResponse(user.id, projectId, email, tokenRecord.familyId);
+  }
+
+  async logoutUser(projectId: string, rawRefreshToken: string) {
+    if (!rawRefreshToken) return;
+    const tokenHash = tokenFamilyService.hashToken(rawRefreshToken);
+    const db = getDb();
+    const tokenRecord = db.prepare('SELECT familyId FROM refresh_tokens WHERE tokenHash = ?').get(tokenHash) as any;
+    if (tokenRecord?.familyId) {
+      tokenFamilyService.revokeTokenFamily(tokenRecord.familyId);
+    }
+  }
+
   async handleOAuth(projectId: string, provider: string, token: string) {
     if (!token) throw new AppError('Token is required.', 400);
     

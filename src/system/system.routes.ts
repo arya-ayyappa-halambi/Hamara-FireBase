@@ -55,10 +55,32 @@ router.get('/status', (req, res) => {
   }
 });
 
-export default router;
+import crypto from 'crypto';
+import { failedLoginService } from '../services/failed-login-limiter.service';
+
+function safeComparePin(a: string, b: string): boolean {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const bufA = Buffer.from(a);
+  const bufB = Buffer.from(b);
+  if (bufA.length !== bufB.length) {
+    crypto.timingSafeEqual(bufA, bufA);
+    return false;
+  }
+  return crypto.timingSafeEqual(bufA, bufB);
+}
 
 // Verify Server Recovery PIN for frontend Lock Screen
 router.post('/verify-recovery-pin', apiLimiter, (req, res) => {
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown';
+  const lockStatus = failedLoginService.isLockedOut(ip, 'recovery_pin');
+  if (lockStatus.locked) {
+    return res.status(429).json({
+      success: false,
+      message: `Too many failed recovery PIN attempts. Account locked. Try again in ${lockStatus.remainingSec} seconds.`,
+      remainingSec: lockStatus.remainingSec
+    });
+  }
+
   const recoveryPin = req.body?.recoveryPin;
   const serverPin = process.env.RECOVERY_PIN;
 
@@ -66,9 +88,24 @@ router.post('/verify-recovery-pin', apiLimiter, (req, res) => {
     return res.status(500).json({ success: false, message: 'Server RECOVERY_PIN is not configured.' });
   }
 
-  if (recoveryPin !== serverPin) {
-    return res.status(401).json({ success: false, message: 'Invalid 6-Digit Server Recovery Passcode.' });
+  if (!recoveryPin || !safeComparePin(String(recoveryPin), serverPin)) {
+    const failResult = failedLoginService.recordFailedAttempt(ip, 'recovery_pin');
+    if (failResult.locked) {
+      return res.status(429).json({
+        success: false,
+        message: `Too many failed attempts. Locked out for ${failResult.remainingSec} seconds.`,
+        remainingSec: failResult.remainingSec
+      });
+    }
+    return res.status(401).json({
+      success: false,
+      message: `Invalid 6-Digit Server Recovery Passcode. (${5 - failResult.attempts} attempts remaining)`
+    });
   }
 
+  failedLoginService.recordSuccessfulLogin(ip, 'recovery_pin');
   return res.json({ success: true, message: 'Passcode verified successfully.' });
 });
+
+export default router;
+

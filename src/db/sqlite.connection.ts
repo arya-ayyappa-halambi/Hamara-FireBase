@@ -276,14 +276,16 @@ export function initSqlite(): void {
       id TEXT PRIMARY KEY,
       userId TEXT NOT NULL,
       tokenHash TEXT UNIQUE NOT NULL,
-      expiresAt TEXT NOT NULL,
+      familyId TEXT,
+      isSpent INTEGER DEFAULT 0,
       isRevoked INTEGER DEFAULT 0,
-      createdAt TEXT NOT NULL,
-      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+      expiresAt TEXT NOT NULL,
+      createdAt TEXT NOT NULL
     );
 
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_hash ON refresh_tokens(tokenHash);
     CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(userId);
+    CREATE INDEX IF NOT EXISTS idx_refresh_tokens_family ON refresh_tokens(familyId);
 
     -- 8. Project End-Users Table (Firebase-style Auth)
     CREATE TABLE IF NOT EXISTS project_users (

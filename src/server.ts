@@ -227,6 +227,14 @@ function createApp(): Application {
   // ── Multi-Region Logical Sync Replication Route ──────────────────────────────────
   app.post('/api/v1/replication/sync', (req, res, next) => {
     try {
+      const replicationKey = req.headers['x-aegis-replication-key'] as string | undefined;
+      const expectedKey = replicationService.getReplicationSecret();
+
+      if (!replicationKey || replicationKey !== expectedKey) {
+        res.status(401).json({ success: false, message: 'Unauthorized: Invalid or missing replication secret.' });
+        return;
+      }
+
       const { senderNodeId, mutations } = req.body;
       if (!mutations || !Array.isArray(mutations)) {
         res.status(400).json({ success: false, message: 'mutations array required.' });

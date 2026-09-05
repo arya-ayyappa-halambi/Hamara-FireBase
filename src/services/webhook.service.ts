@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb, getReaderDb } from '../db/sqlite.connection';
 import { auditLogService } from './audit-log.service';
 import { taskQueueService } from './task-queue.service';
+import { validateSsrfUrl } from '../utils/ssrf-guard';
 
 export interface Webhook {
   id: string;
@@ -100,6 +101,18 @@ export class WebhookService {
       // Dispatch asynchronously in the background task queue
       taskQueueService.enqueue(async () => {
         try {
+          const ssrfCheck = await validateSsrfUrl(target.url);
+          if (!ssrfCheck.safe) {
+            console.warn(`[Webhook] Blocked SSRF attempt to ${target.url}: ${ssrfCheck.reason}`);
+            auditLogService.logAction({
+              actionType: 'webhook_dispatch',
+              projectId,
+              status: 'failure',
+              details: `Blocked SSRF attempt to ${target.url}: ${ssrfCheck.reason}`
+            });
+            return;
+          }
+
           const res = await fetch(target.url, {
             method: 'POST',
             headers: {
@@ -141,6 +154,15 @@ export class WebhookService {
   async testDispatch(targetUrl: string, event: string = 'test.ping', payload: any = { message: 'AegisDB n8n Webhook Test Event', timestamp: new Date().toISOString() }): Promise<{ success: boolean; statusCode?: number; responseTimeMs: number; error?: string }> {
     const startTime = Date.now();
     try {
+      const ssrfCheck = await validateSsrfUrl(targetUrl);
+      if (!ssrfCheck.safe) {
+        return {
+          success: false,
+          responseTimeMs: Date.now() - startTime,
+          error: `SSRF Guard Violation: ${ssrfCheck.reason}`
+        };
+      }
+
       const payloadString = JSON.stringify({
         id: uuidv4(),
         event,

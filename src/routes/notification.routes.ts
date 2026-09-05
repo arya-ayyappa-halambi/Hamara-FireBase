@@ -4,14 +4,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router, Request, Response, NextFunction } from 'express';
-import { authenticateJwt } from '../middleware/auth.middleware';
+import { authenticateJwt, requirePlatformDeveloper } from '../middleware/auth.middleware';
 import { notificationService } from '../services/notification.service';
 import { AppError } from '../types/auth.types';
 
 const router = Router();
 
-// Protect all notification routes with JWT auth
+// Protect all notification routes with JWT auth and enforce platform developer perimeter
 router.use(authenticateJwt);
+router.use(requirePlatformDeveloper);
 
 // 1. List user notifications + unread count
 router.get('/', async (req: Request, res: Response, next: NextFunction) => {

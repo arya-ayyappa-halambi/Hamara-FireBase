@@ -154,28 +154,41 @@ export class NetworkAccessService {
   public extractClientIp(req: any): string {
     if (!req) return '127.0.0.1';
     const headers = req.headers || {};
+    const physicalSocketIp = this.normalizeIp(req.socket?.remoteAddress || req.connection?.remoteAddress || req.ip || '127.0.0.1');
+    const isPhysicalLoopback = this.isLocalhost(physicalSocketIp);
+
+    let extracted: string | null = null;
 
     const cfIp = headers['cf-connecting-ip'] as string;
     if (cfIp && typeof cfIp === 'string' && cfIp.trim()) {
-      return this.normalizeIp(cfIp.split(',')[0].trim());
+      extracted = this.normalizeIp(cfIp.split(',')[0].trim());
+    } else {
+      const trueClientIp = headers['true-client-ip'] as string;
+      if (trueClientIp && typeof trueClientIp === 'string' && trueClientIp.trim()) {
+        extracted = this.normalizeIp(trueClientIp.split(',')[0].trim());
+      } else {
+        const xRealIp = headers['x-real-ip'] as string;
+        if (xRealIp && typeof xRealIp === 'string' && xRealIp.trim()) {
+          extracted = this.normalizeIp(xRealIp.split(',')[0].trim());
+        } else {
+          const xForwardedFor = headers['x-forwarded-for'] as string;
+          if (xForwardedFor && typeof xForwardedFor === 'string' && xForwardedFor.trim()) {
+            extracted = this.normalizeIp(xForwardedFor.split(',')[0].trim());
+          }
+        }
+      }
     }
 
-    const trueClientIp = headers['true-client-ip'] as string;
-    if (trueClientIp && typeof trueClientIp === 'string' && trueClientIp.trim()) {
-      return this.normalizeIp(trueClientIp.split(',')[0].trim());
+    if (extracted) {
+      // Anti-IP Spoofing: If direct connection is from an external non-loopback IP,
+      // never allow forwarded headers to claim loopback (127.0.0.1 / ::1 / localhost)
+      if (!isPhysicalLoopback && this.isLocalhost(extracted)) {
+        return physicalSocketIp;
+      }
+      return extracted;
     }
 
-    const xRealIp = headers['x-real-ip'] as string;
-    if (xRealIp && typeof xRealIp === 'string' && xRealIp.trim()) {
-      return this.normalizeIp(xRealIp.split(',')[0].trim());
-    }
-
-    const xForwardedFor = headers['x-forwarded-for'] as string;
-    if (xForwardedFor && typeof xForwardedFor === 'string' && xForwardedFor.trim()) {
-      return this.normalizeIp(xForwardedFor.split(',')[0].trim());
-    }
-
-    return this.normalizeIp(req.ip || req.socket?.remoteAddress || '127.0.0.1');
+    return physicalSocketIp;
   }
 
   public getHostMachineIps(): Set<string> {

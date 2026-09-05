@@ -82,13 +82,17 @@ export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextF
     const token = extractBearerToken(req);
     if (token) {
       const secret = process.env.JWT_SECRET;
-      if (secret) {
-        try {
-          const decoded = jwt.verify(token, secret) as any;
-          req.projectUser = decoded;
-        } catch (_) {
-          // Ignore invalid/expired token so administrative API key access works
+      if (!secret) {
+        return next(new AppError('Server JWT secret is not configured.', 500));
+      }
+      try {
+        const decoded = jwt.verify(token, secret) as any;
+        if (decoded.projectId && decoded.projectId !== project.id) {
+          return next(new AppError('Forbidden: Project token does not match the specified API key project.', 403));
         }
+        req.projectUser = decoded;
+      } catch (err: any) {
+        return next(new AppError('Invalid or expired Bearer token provided with API key.', 401));
       }
     }
 

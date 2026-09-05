@@ -12,6 +12,7 @@ import { webhookService } from '../services/webhook.service';
 import { metricsService } from '../services/metrics.service';
 import { projectBackupService } from '../services/project-backup.service';
 import { networkAccessService } from '../services/network-access.service';
+import { assertSafeWebhookUrl } from '../utils/ssrf-guard';
 import path from 'path';
 
 function getOwnerId(req: Request): string {
@@ -186,6 +187,7 @@ export async function registerWebhook(req: Request, res: Response, next: NextFun
     if (!url || !events || !Array.isArray(events)) {
       throw new AppError('url (string) and events (array of strings) are required.', 400);
     }
+    await assertSafeWebhookUrl(url);
     const webhook = webhookService.register(id, url, events);
     
     auditLogService.logAction({
@@ -227,6 +229,7 @@ export async function testWebhook(req: Request, res: Response, next: NextFunctio
     if (!url) {
       throw new AppError('url is required for test webhook dispatch.', 400);
     }
+    await assertSafeWebhookUrl(url);
     const result = await webhookService.testDispatch(url, event || 'test.ping', payload);
     res.status(200).json({
       success: true,

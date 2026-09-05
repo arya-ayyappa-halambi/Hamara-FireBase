@@ -20,6 +20,10 @@ export interface ReplicationMutation {
 export class ReplicationService {
   private readonly nodeId = process.env.NODE_ID || `node-${Math.random().toString(36).substring(2, 9)}`;
 
+  public getReplicationSecret(): string {
+    return process.env.REPLICATION_SECRET || process.env.JWT_SECRET || 'aegisdb_replication_secret_key';
+  }
+
   private getPeers(): string[] {
     const peersStr = process.env.REPLICATION_PEERS || '';
     return peersStr
@@ -42,6 +46,9 @@ export class ReplicationService {
             senderNodeId: this.nodeId,
             mutations: [mutation],
           }, {
+            headers: {
+              'x-aegis-replication-key': this.getReplicationSecret(),
+            },
             timeout: 5000,
           });
         } catch (err: any) {
@@ -59,26 +66,49 @@ export class ReplicationService {
 
     db.transaction(() => {
       for (const mut of incoming) {
+        if (!mut || typeof mut !== 'object' || !mut.id || !mut.ownerId || !mut.projectId || !mut.collectionName) {
+          continue;
+        }
+
         // Query existing document locally
         const local = db.prepare(`
           SELECT updatedAt, data FROM documents WHERE id = ?
         `).get(mut.id) as { updatedAt: string; data: string } | undefined;
+
+        let parsedData: any = {};
+        try {
+          parsedData = typeof mut.data === 'string' ? JSON.parse(mut.data) : (mut.data || {});
+        } catch {
+          parsedData = {};
+        }
+        const dataStr = typeof mut.data === 'string' ? mut.data : JSON.stringify(mut.data || {});
 
         if (!local) {
           if (mut.isDelete) {
             continue; // Already deleted / doesn't exist
           }
 
+          // Ensure collection exists locally
+          db.prepare(`
+            INSERT OR IGNORE INTO collections (ownerId, projectId, name, schema, createdAt, updatedAt)
+            VALUES (?, ?, ?, '{}', ?, ?)
+          `).run(
+            mut.ownerId,
+            mut.projectId,
+            mut.collectionName,
+            mut.createdAt || new Date().toISOString(),
+            mut.updatedAt || new Date().toISOString()
+          );
+
           // Insert incoming document
           db.prepare(`
             INSERT INTO documents (id, ownerId, projectId, collectionName, data, createdAt, updatedAt, version)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-          `).run(mut.id, mut.ownerId, mut.projectId, mut.collectionName, mut.data, mut.createdAt, mut.updatedAt, mut.version);
+          `).run(mut.id, mut.ownerId, mut.projectId, mut.collectionName, dataStr, mut.createdAt || new Date().toISOString(), mut.updatedAt || new Date().toISOString(), mut.version || 1);
 
           // Broadcast change streams locally
-          const docObj = JSON.parse(mut.data);
-          wsService.broadcastChange(mut.ownerId, mut.projectId, mut.collectionName, 'document:inserted', docObj);
-          sseRealtimeService.broadcast(mut.ownerId, mut.projectId, mut.collectionName, 'document:inserted', docObj);
+          wsService.broadcastChange(mut.ownerId, mut.projectId, mut.collectionName, 'document:inserted', parsedData);
+          sseRealtimeService.broadcast(mut.ownerId, mut.projectId, mut.collectionName, 'document:inserted', parsedData);
           continue;
         }
 
@@ -96,11 +126,10 @@ export class ReplicationService {
           } else {
             db.prepare(`
               UPDATE documents SET data = ?, updatedAt = ?, version = ? WHERE id = ?
-            `).run(mut.data, mut.updatedAt, mut.version, mut.id);
+            `).run(dataStr, mut.updatedAt || new Date().toISOString(), mut.version || 1, mut.id);
             // Broadcast update locally
-            const docObj = JSON.parse(mut.data);
-            wsService.broadcastChange(mut.ownerId, mut.projectId, mut.collectionName, 'document:updated', docObj);
-            sseRealtimeService.broadcast(mut.ownerId, mut.projectId, mut.collectionName, 'document:updated', docObj);
+            wsService.broadcastChange(mut.ownerId, mut.projectId, mut.collectionName, 'document:updated', parsedData);
+            sseRealtimeService.broadcast(mut.ownerId, mut.projectId, mut.collectionName, 'document:updated', parsedData);
           }
         }
       }
