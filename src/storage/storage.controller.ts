@@ -33,19 +33,39 @@ function getOwnerId(req: Request): string {
 }
 
 function getResolvedProjectId(req: Request): string | undefined {
+  const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+
   if (req.project?.id) {
     const projectUser = req.projectUser || (req.user as any)?.isProjectUser ? (req.user as any) : undefined;
     if (projectUser?.projectId && projectUser.projectId !== req.project.id) {
       throw new AppError('Access denied: Authentication token does not match the project API key.', 403);
     }
+    if (headerProjId && headerProjId !== req.project.id) {
+      throw new AppError('Access denied: x-aegis-project-id header does not match the authenticated project API key.', 403);
+    }
     return req.project.id;
   }
+
   const user = req.user as any;
   if (user?.isProjectUser && user.projectId) {
+    if (headerProjId && headerProjId !== user.projectId) {
+      throw new AppError('Access denied: Project users can only access their own project.', 403);
+    }
     return user.projectId;
   }
-  const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
-  if (headerProjId) return headerProjId;
+
+  if (headerProjId) {
+    const ownerId = getOwnerId(req);
+    if (user?.isSuperAdmin !== true) {
+      const { organizationService } = require('../services/organization.service');
+      const role = organizationService.getEffectiveProjectRole(ownerId, headerProjId);
+      if (!role) {
+        throw new AppError('Access denied: Project not found or you do not have permission to access it.', 403);
+      }
+    }
+    return headerProjId;
+  }
+
   return undefined;
 }
 

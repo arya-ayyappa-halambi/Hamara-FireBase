@@ -14,6 +14,11 @@ import * as service from './hoster.service';
 // ── Shared helper ─────────────────────────────────────────────────────────────
 
 function ownerId(req: Request): string {
+  if (req.project?.ownerId) return req.project.ownerId;
+  const user = req.user as any;
+  if (user?.isProjectUser) {
+    throw new AppError('Forbidden: Project end-users cannot access hoster deployment APIs.', 403);
+  }
   const sub = req.user?.sub;
   if (!sub) throw new AppError('Authentication context missing.', 401);
   return sub;

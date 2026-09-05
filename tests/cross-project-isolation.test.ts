@@ -159,6 +159,69 @@ async function runCrossProjectTests(): Promise<void> {
   });
   assert(adminBlocked, "requireAdminPermission blocks project user token from Super Admin routes");
 
+  // 6. Token Mismatch and Cross-Project Key Replay Defense
+  console.log("\n--- 6. Token Mismatch and Replay Defense ---");
+  const { register: authRegister, login: authLogin } = require("../src/auth/auth.controller");
+  
+  // Test root register with API Key (Ingress Interception)
+  const clientUserEmail = `client_${Date.now()}@test.com`;
+  const mockRegisterReq: any = {
+    headers: { 'x-aegis-api-key': projResultA.rawApiKey },
+    body: { email: clientUserEmail, password: "ClientPassword123!" }
+  };
+  let registerResData: any = null;
+  let registerStatusCode = 0;
+  const mockRegisterRes: any = {
+    status: (code: number) => {
+      registerStatusCode = code;
+      return mockRegisterRes;
+    },
+    json: (data: any) => {
+      registerResData = data;
+      return mockRegisterRes;
+    }
+  };
+
+  await authRegister(mockRegisterReq, mockRegisterRes, (err: any) => {
+    if (err) console.error(err);
+  });
+
+  assert(registerStatusCode === 201, "Root /api/v1/auth/register with API key returns 201 Created");
+  assert(registerResData?.success === true, "Root register response succeeds");
+  
+  // Verify it was saved in project_users table, NOT users table
+  const inPlatformUsers = db.prepare("SELECT id FROM users WHERE email = ?").get(clientUserEmail);
+  const inProjectUsers = db.prepare("SELECT id FROM project_users WHERE projectId = ?").all(projA.id) as any[];
+  assert(!inPlatformUsers, "Client user registered via root auth is NOT in platform 'users' table");
+  assert(inProjectUsers.length >= 2, "Client user registered via root auth is properly saved in 'project_users' table");
+
+  // Test root login with API Key (Ingress Interception)
+  const mockLoginReq: any = {
+    headers: { 'x-aegis-api-key': projResultA.rawApiKey },
+    body: { email: clientUserEmail, password: "ClientPassword123!" },
+    ip: "127.0.0.1"
+  };
+  let loginResData: any = null;
+  let loginStatusCode = 0;
+  const mockLoginRes: any = {
+    status: (code: number) => {
+      loginStatusCode = code;
+      return mockLoginRes;
+    },
+    json: (data: any) => {
+      loginResData = data;
+      return mockLoginRes;
+    }
+  };
+
+  await authLogin(mockLoginReq, mockLoginRes, (err: any) => {
+    if (err) console.error(err);
+  });
+
+  assert(loginStatusCode === 200, "Root /api/v1/auth/login with API key returns 200 OK");
+  assert(!!loginResData?.data?.accessToken, "Root login returns valid project user access token");
+  assert(loginResData?.data?.user?.projectId === projA.id, "Returned project user token belongs to Project A");
+
   console.log("\n================================================================");
   console.log(`📊 Cross-Project Isolation Results: ${passed} passed, ${failed} failed`);
   console.log("================================================================\n");

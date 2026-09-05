@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateJwt } from '../middleware/auth.middleware';
+import { authenticateJwt, requirePlatformDeveloper } from '../middleware/auth.middleware';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 import {
   createProject,
@@ -26,6 +26,7 @@ import {
 const router = Router();
 
 router.use(authenticateJwt);
+router.use(requirePlatformDeveloper);
 router.use(apiLimiter);
 
 router.post('/', createProject);

@@ -50,6 +50,35 @@ export async function googleLogin(req: Request, res: Response, next: NextFunctio
     const { token } = req.body;
     if (!token) throw new AppError('Google token is required.', 400);
 
+    const apiKey = (req.headers['x-aegis-api-key'] as string | undefined) || (req.project as any)?.apiKey;
+    const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+    const bodyProjId = req.body.projectId as string | undefined;
+
+    // If an API key or project header is present, route this to projectAuthService (project end-user)
+    if (apiKey || headerProjId || bodyProjId || req.project?.id) {
+      let projectId = req.project?.id || headerProjId || bodyProjId;
+      if (!projectId && apiKey) {
+        const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
+        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ?').get(hash) as any;
+        if (!proj) {
+          throw new AppError('Invalid x-aegis-api-key provided.', 401);
+        }
+        projectId = proj.id;
+      }
+      if (!projectId) {
+        throw new AppError('Project ID is required for project user login.', 400);
+      }
+
+      const result = await projectAuthService.handleOAuth(projectId, 'google', token);
+      failedLoginService.recordSuccessfulLogin(ip, result.user.email);
+      res.status(200).json({
+        success: true,
+        message: 'Project user logged in with Google successfully.',
+        data: result
+      });
+      return;
+    }
+
     const { email, name } = await verifyGoogleToken(token);
     const userAgent = req.headers['user-agent'] as string | undefined;
     
