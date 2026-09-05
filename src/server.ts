@@ -188,7 +188,7 @@ function createApp(): Application {
   app.use('/', metricsRouter);
 
   // ── Health Check (Permissive CORS for Cross-Port & Remote Device Probes) ──
-  app.get('/health', (_req: Request, res: Response) => {
+  app.get(['/health', '/api/health', '/api/v1/health', '/api/v1/system/health'], (_req: Request, res: Response) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', '*');
