@@ -10655,7 +10655,7 @@ window.renderClusterDiagnosticsReport = function(data) {
         <td class="p-3 text-slate-300 text-xs truncate max-w-[220px]" title="${escapeHTML(pm.description)}">${escapeHTML(pm.description)}</td>
         <td class="p-3 text-right">
           ${isFree ? `
-            <button type="button" onclick="document.getElementById('input-target-port').value='${pm.port}'; window.savePlatformSettings();" class="px-2.5 py-1 rounded bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold transition active:scale-95">
+            <button type="button" onclick="window.switchServerToPort(${pm.port})" class="px-2.5 py-1 rounded bg-cyan-600/20 hover:bg-cyan-600/40 text-cyan-300 border border-cyan-500/30 text-[11px] font-semibold transition active:scale-95">
               Switch to ${pm.port}
             </button>
           ` : isActive ? `
@@ -10667,6 +10667,38 @@ window.renderClusterDiagnosticsReport = function(data) {
       </tr>
     `;
   }).join('');
+};
+
+window.switchServerToPort = async function(targetPort) {
+  const port = parseInt(targetPort, 10);
+  if (!port || isNaN(port)) return;
+
+  const confirmed = confirm(`⚡ Switch AegisDB server binding to Port ${port}?\n\nThis will update the server port configuration and reconnect your dashboard to http://${window.location.hostname}:${port}.`);
+  if (!confirmed) return;
+
+  try {
+    showToast(`⚡ Switching AegisDB port to ${port}...`, 'info');
+    const res = await apiRequest('/api/v1/admin/platform-settings', 'PATCH', {
+      serverPort: port
+    });
+
+    showToast(`Port switched to ${port} successfully! Reconnecting...`, 'success');
+
+    // Synchronize UI inputs if present
+    const hosttabPort = document.getElementById('hosttab-input-port');
+    if (hosttabPort) hosttabPort.value = port;
+    const settingPort = document.getElementById('setting-server-port');
+    if (settingPort) settingPort.value = port;
+
+    const newUrl = res.data?.canonicalBaseUrl || `http://${window.location.hostname}:${port}`;
+    if (typeof triggerClientMigrationRedirect === 'function') {
+      triggerClientMigrationRedirect(newUrl, res.data?.serverHostingMode || 'both');
+    } else {
+      setTimeout(() => { window.location.href = newUrl; }, 1200);
+    }
+  } catch (err) {
+    showToast(err.message || `Failed to switch to port ${port}.`, 'error');
+  }
 };
 
 window.triggerZeroDowntimeHotRestart = async function() {
