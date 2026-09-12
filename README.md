@@ -12,7 +12,7 @@ FlareBase is a lightweight, zero-configuration, production-grade Firebase-like B
 ![OAuth 2.0](https://img.shields.io/badge/OAuth_2.0-Google_|_Apple_|_GitHub-2496ed?style=flat-square&logo=google&logoColor=white)
 ![Security Rules](https://img.shields.io/badge/Security-Row_Level_&_Collection-10b981?style=flat-square&logo=auth0&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-macOS_|_Windows_|_Linux-informational?style=flat-square)
-![License](https://img.shields.io/badge/License-BSL_1.1-amber?style=flat-square)
+![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)
 
 ---
 
@@ -650,13 +650,8 @@ pm2 reload flarebase
 
 ---
 
-## License & Commercial Rights
+## License
 
-FlareBase is created by **Arya Ayyappa Halambi** and licensed under the **Business Source License 1.1 (BSL 1.1)**.
+Proprietary & Confidential. All rights reserved.
 
-- **Free for Personal, Development & Internal Use**: You are free to view the source code, self-host, build applications, and run internal business backends.
-- **Non-Compete Cloud Protection**: You may **not** provide FlareBase as a managed commercial service, cloud platform, or Backend-as-a-Service (BaaS) to third parties in competition with the author without a separate Commercial Enterprise License.
-- **Commercial & Enterprise Licensing**: For commercial cloud hosting rights, enterprise support, or custom terms, contact **Arya Ayyappa Halambi** at `aryaayyappahalambi@gmail.com`.
-- **Open Source Transition**: Automatically converts to the Apache License, Version 2.0 four years from release.
-
-See the full [LICENSE](LICENSE) file for legal details.
+Unauthorized copying, modification, distribution, public hosting, or commercial use of this codebase is strictly prohibited.
