@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { projectAuthService } from './project-auth.service';
 import { AppError } from '../types/auth.types';
 import { failedLoginService } from '../services/failed-login-limiter.service';
+import { networkAccessService } from '../services/network-access.service';
 import jwt from 'jsonwebtoken';
 import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 
@@ -55,15 +56,22 @@ export async function registerProjectUser(req: Request, res: Response, next: Nex
       throw new AppError('Suspicious activity detected.', 403);
     }
     const { email, password, provider } = req.body;
+    const clientIp = networkAccessService.extractClientIp(req);
+    const deviceFingerprint = (req.headers['x-device-fingerprint'] as string | undefined) ||
+      (req.headers['x-fb-device-id'] as string | undefined) ||
+      (req.headers['x-flare-device-id'] as string | undefined) ||
+      req.body.deviceFingerprint;
     
-    const result = await projectAuthService.registerUser(projectId, email, password, provider);
+    const result = await projectAuthService.registerUser(projectId, email, password, provider, clientIp, deviceFingerprint);
     
     res.status(201).json({
       success: true,
       message: 'User registered successfully.',
       data: result
     });
-  } catch (err) { next(err); }
+  } catch (err) {
+    next(err);
+  }
 }
 
 export async function loginProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {

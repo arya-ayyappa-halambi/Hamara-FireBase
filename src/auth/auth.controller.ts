@@ -127,6 +127,8 @@ export async function register(
     const headerProjId = extractProjectHeaderId(req);
     const bodyProjId = req.body.projectId as string | undefined;
 
+    const ip = networkAccessService.extractClientIp(req);
+
     // If an API key or project header is present, route this to projectAuthService (project end-user)
     if (apiKey || headerProjId || bodyProjId || req.project?.id) {
       let projectId = req.project?.id || headerProjId || bodyProjId;
@@ -142,7 +144,12 @@ export async function register(
         throw new AppError('Project ID is required for project user registration.', 400);
       }
 
-      const result = await projectAuthService.registerUser(projectId, req.body.email, req.body.password, req.body.provider || 'email');
+      const deviceFingerprint = (req.headers['x-device-fingerprint'] as string | undefined) ||
+        (req.headers['x-fb-device-id'] as string | undefined) ||
+        (req.headers['x-flare-device-id'] as string | undefined) ||
+        req.body.deviceFingerprint;
+
+      const result = await projectAuthService.registerUser(projectId, req.body.email, req.body.password, req.body.provider || 'email', ip, deviceFingerprint);
       res.status(201).json({
         success: true,
         message: 'Project user registered successfully.',
@@ -151,13 +158,18 @@ export async function register(
       return;
     }
 
-    const ip = networkAccessService.extractClientIp(req);
-    const dto: RegisterDto & { clientIp?: string; userAgent?: string } = {
+    const deviceFingerprint = (req.headers['x-device-fingerprint'] as string | undefined) ||
+      (req.headers['x-fb-device-id'] as string | undefined) ||
+      (req.headers['x-flare-device-id'] as string | undefined) ||
+      req.body.deviceFingerprint;
+
+    const dto: RegisterDto & { clientIp?: string; userAgent?: string; deviceFingerprint?: string } = {
       email:    req.body.email,
       password: req.body.password,
       name:     req.body.name,
       clientIp: ip,
       userAgent: req.headers['user-agent'] as string,
+      deviceFingerprint,
     };
 
     const data = await registerUser(dto);

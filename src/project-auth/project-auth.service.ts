@@ -8,6 +8,7 @@ import jwt from 'jsonwebtoken';
 import { webhookService } from '../services/webhook.service';
 import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 import { tokenFamilyService } from '../services/token-family.service';
+import { antiAbuseService } from '../services/anti-abuse.service';
 
 const ARGON2_OPTIONS: any = {
   type: argon2.argon2id,
@@ -25,7 +26,7 @@ export class ProjectAuthService {
     return secret;
   }
 
-  async registerUser(projectId: string, email: string, passwordText: string, provider: string = 'email') {
+  async registerUser(projectId: string, email: string, passwordText: string, provider: string = 'email', clientIp?: string, deviceFingerprint?: string) {
     // 1. Verify Project exists
     const db = getDb();
     const projectRow = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId) as any;
@@ -51,6 +52,7 @@ export class ProjectAuthService {
     
     const normalizedEmail = email.toLowerCase().trim();
     const emailHash = envelopeEncryptionService.hashBlindIndex(normalizedEmail);
+    const canonical = antiAbuseService.canonicalizeEmail(email);
 
     if (provider === 'email' && (!passwordText || passwordText.length < 6)) {
       throw new AppError('Password must be at least 6 characters.', 400);
@@ -71,9 +73,11 @@ export class ProjectAuthService {
 
     // 5. Insert
     db.prepare(`
-      INSERT INTO project_users (id, projectId, email, emailHash, passwordHash, provider, createdAt, updatedAt)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(userId, projectId, JSON.stringify(encEmail), emailHash, passwordHash, provider, now, now);
+      INSERT INTO project_users (id, projectId, email, emailHash, canonicalEmailHash, deviceFingerprint, lastRegistrationIp, passwordHash, provider, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(userId, projectId, JSON.stringify(encEmail), emailHash, canonical.canonicalHash, deviceFingerprint || null, clientIp || null, passwordHash, provider, now, now);
+
+    antiAbuseService.recordDeviceRegistration(deviceFingerprint, userId, clientIp, projectId);
 
     // Trigger webhook event
     webhookService.dispatch(projectId, 'user.signed_up', {

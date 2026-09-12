@@ -49,6 +49,7 @@ import { endpointMigrationScheduler } from './services/endpoint-migration-schedu
 import { trafficTopologyService } from './services/traffic-topology.service';
 import { tunnelManagerService } from './services/tunnel-manager.service';
 import { networkAccessService } from './services/network-access.service';
+import { threatDetectionService } from './services/threat-detection.service';
 
 // ── Environment Guard ─────────────────────────────────────────────────────────
 
@@ -210,6 +211,41 @@ function createApp(): Application {
 
   // ── Maintenance Mode ─────────────────────────────────────────────────────
   app.use(maintenanceModeMiddleware);
+
+  // ── Real-Time High-Performance Threat Detection & WAF Middleware ────────
+  app.use('/api/v1', (req, res, next) => {
+    if (req.method !== 'GET' || (req.query && Object.keys(req.query).length > 0)) {
+      const clientIp = networkAccessService.extractClientIp(req);
+      const projectId = (req as any).project?.id || (req.headers['x-flare-project-id'] as string) || (req.headers['x-aegis-project-id'] as string);
+      const userId = (req as any).user?.sub || (req as any).projectUser?.id;
+      const userEmail = (req as any).user?.email || (req as any).projectUser?.email;
+
+      const inspection = threatDetectionService.inspectProjectRequest({
+        url: req.url,
+        query: req.query as Record<string, any>,
+        body: req.body,
+        headers: req.headers as Record<string, any>,
+        ipAddress: clientIp,
+        projectId,
+        userId,
+        userEmail
+      });
+
+      // Critical threat signature block (Score >= 90)
+      if (inspection.riskScore >= 90) {
+        res.status(403).json({
+          success: false,
+          error: {
+            code: 'THREAT_SIGNATURE_DETECTED',
+            message: 'Malicious threat signature detected. Request blocked by FlareBase Security Shield.',
+            details: { category: inspection.threatCategory, evidence: inspection.evidence }
+          }
+        });
+        return;
+      }
+    }
+    next();
+  });
 
   // ── API Routes ───────────────────────────────────────────────────────────
   app.use('/api/v1/auth',     authRouter);

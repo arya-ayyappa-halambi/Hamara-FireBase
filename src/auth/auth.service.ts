@@ -30,6 +30,7 @@ import { accountModerationService } from '../services/account-moderation.service
 import { envelopeEncryptionService } from '../services/envelope-encryption.service';
 import { networkAccessService } from '../services/network-access.service';
 import { userSessionService } from '../services/user-session.service';
+import { antiAbuseService } from '../services/anti-abuse.service';
 
 // ── Argon2id Configuration ────────────────────────────────────────────────────
 
@@ -232,8 +233,8 @@ export async function googleLoginUser(email: string, name: string, clientIp?: st
 }
 
 /** Register a new user and issue both access JWT & refresh token. */
-export async function registerUser(dto: RegisterDto & { clientIp?: string; userAgent?: string }): Promise<AuthResponseData> {
-  const { email, password, name, clientIp, userAgent } = dto;
+export async function registerUser(dto: RegisterDto & { clientIp?: string; userAgent?: string; deviceFingerprint?: string }): Promise<AuthResponseData> {
+  const { email, password, name, clientIp, userAgent, deviceFingerprint } = dto;
 
   const existing = await userStore.findByEmail(email);
   if (existing) {
@@ -243,6 +244,8 @@ export async function registerUser(dto: RegisterDto & { clientIp?: string; userA
   const activePolicy = policyService.getActivePolicy();
   const passwordHash = await hashPassword(password);
   const now = new Date();
+  const canonical = antiAbuseService.canonicalizeEmail(email);
+
   const newUser: User = {
     id: uuidv4(),
     email: email.toLowerCase().trim(),
@@ -258,18 +261,26 @@ export async function registerUser(dto: RegisterDto & { clientIp?: string; userA
 
   const savedUser = await userStore.create(newUser);
 
+  // Update canonicalEmailHash, deviceFingerprint, and lastRegistrationIp
+  try {
+    const db = getDb();
+    db.prepare('UPDATE users SET canonicalEmailHash = ?, deviceFingerprint = ?, lastRegistrationIp = ? WHERE id = ?')
+      .run(canonical.canonicalHash, deviceFingerprint || null, clientIp || null, savedUser.id);
+  } catch (_) {}
+
   // Auto-create "Default Project" and API Key for new user
   try {
     projectService.createProject(savedUser.id, 'Default Project');
   } catch (e) { /* Ignore if project creation fails */ }
 
-  // Evaluate Threat Intelligence Heuristics (Burner email, Bot agents, etc.)
+  // Evaluate Threat Intelligence Heuristics (Burner email, Bot agents, Device collisions, etc.)
   try {
     const threatRes = await threatDetectionService.evaluateThreat({
       userId: savedUser.id,
       userEmail: savedUser.email,
       ipAddress: clientIp,
       userAgent: userAgent,
+      deviceFingerprint: deviceFingerprint,
       eventType: 'registration'
     });
     if (threatRes) {
@@ -282,6 +293,9 @@ export async function registerUser(dto: RegisterDto & { clientIp?: string; userA
 
   const token = generateToken(savedUser);
   const refreshToken = await issueRefreshToken(savedUser.id);
+
+  // Record device & subnet registration
+  antiAbuseService.recordDeviceRegistration(deviceFingerprint, savedUser.id, clientIp);
 
   if (clientIp) {
     userSessionService.registerSession({

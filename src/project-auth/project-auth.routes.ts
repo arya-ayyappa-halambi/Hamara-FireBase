@@ -18,6 +18,7 @@ import { authenticateApiKeyOrJwt } from '../middleware/apikey.middleware';
 import { enforceAppCheck } from '../middleware/appcheck.middleware';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
+import { antiSpamRegistrationMiddleware } from '../middleware/anti-spam.middleware';
 
 const router = Router();
 
@@ -32,7 +33,7 @@ router.get('/config', getPublicProjectAuthConfig);
 router.post('/attest', attestApp);
 
 // Other routes require strict App Check (if enabled on project)
-router.post('/register', enforceAppCheck, registerProjectUser);
+router.post('/register', enforceAppCheck, antiSpamRegistrationMiddleware, registerProjectUser);
 router.post('/login', checkFailedLoginLockout, enforceAppCheck, loginProjectUser);
 router.post('/refresh', enforceAppCheck, refreshProjectUser);
 router.post('/logout', enforceAppCheck, logoutProjectUser);

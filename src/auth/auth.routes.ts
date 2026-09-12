@@ -15,6 +15,7 @@ import { validateBody, registerSchema, loginSchema, refreshTokenSchema, forgotPa
 import { checkFailedLoginLockout } from '../middleware/failed-login.middleware';
 import { authenticateJwt, requirePlatformDeveloper } from '../middleware/auth.middleware';
 import { authLimiter } from '../middleware/rateLimit.middleware';
+import { antiSpamRegistrationMiddleware } from '../middleware/anti-spam.middleware';
 
 const router = Router();
 
@@ -29,6 +30,7 @@ router.post('/google', authLimiter, googleLogin);
 router.post(
   '/register',
   authLimiter,
+  antiSpamRegistrationMiddleware,
   validateBody(registerSchema),
   register,
 );

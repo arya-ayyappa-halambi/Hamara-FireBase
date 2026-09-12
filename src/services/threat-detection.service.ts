@@ -9,34 +9,136 @@ import { getDb } from '../db/sqlite.connection';
 import { AccountSecurityFlag } from '../types/auth.types';
 import { wsService } from '../realtime/websocket.service';
 import { auditLogService } from './audit-log.service';
+import { antiAbuseService } from './anti-abuse.service';
 import { v4 as uuidv4 } from 'uuid';
 
-const DISPOSABLE_DOMAINS = new Set([
-  'mailinator.com',
-  '10minutemail.com',
-  'tempmail.com',
-  'guerrillamail.com',
-  'throwawaymail.com',
-  'trashmail.com',
-  'sharklasers.com',
-  'getairmail.com',
-  'dispostable.com',
-  'yopmail.com',
-  'fakeinbox.com',
-  'mytempemail.com',
-  'mohmal.com'
-]);
+export type ThreatCategory = 
+  | 'sql_nosql_injection'
+  | 'xss_malicious_payload'
+  | 'path_traversal_probe'
+  | 'rapid_burst_dos'
+  | 'credential_stuffing'
+  | 'unauthorized_cross_tenant_probe'
+  | 'data_exfiltration_burst'
+  | 'bot_activity'
+  | 'spam'
+  | 'malicious_traffic'
+  | 'illegal_content'
+  | 'compromised_account';
+
+const SQL_NOSQL_INJECTION_PATTERNS = [
+  /(\$where|\$regex|\$expr)\s*:/i,
+  /(\bUNION\b\s+\bSELECT\b|\bSELECT\b\s+.*\s+\bFROM\b)/i,
+  /(\bDROP\b\s+\bTABLE\b|\bINSERT\b\s+\bINTO\b|\bDELETE\b\s+\bFROM\b)/i,
+  /(;\s*--|'\s+OR\s+'1'='1|"\s+OR\s+"1"="1|'\s+OR\s+1=1\b)/i,
+  /(\bsleep\s*\(\s*\d+\s*\)|\bbenchmark\s*\()/i
+];
+
+const XSS_PAYLOAD_PATTERNS = [
+  /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/i,
+  /javascript\s*:\s*[^"'>\s]+/i,
+  /\bon(?:error|load|click|mouse|key|submit)\s*=/i,
+  /<iframe|<object|<embed/i
+];
+
+const PATH_TRAVERSAL_PATTERNS = [
+  /(?:\.\.\/|\.\.\\){2,}/,
+  /(?:\/etc\/passwd|\/etc\/shadow|\/proc\/self|\/boot\.ini|c:\\windows\\system32)/i
+];
 
 export interface ThreatEvaluationContext {
   userId: string;
   userEmail: string;
   ipAddress?: string;
   userAgent?: string;
-  eventType: 'registration' | 'failed_login_lockout' | 'malicious_payload_probe' | 'rapid_burst_traffic' | 'compromised_access';
+  eventType: 'registration' | 'failed_login_lockout' | 'malicious_payload_probe' | 'rapid_burst_traffic' | 'compromised_access' | 'project_request_probe';
   payload?: any;
+  body?: Record<string, any>;
+  deviceFingerprint?: string;
+  projectId?: string;
 }
 
 export class ThreatDetectionService {
+  /**
+   * Fast, non-blocking real-time inspection for incoming project API requests.
+   * Scans query parameters and body payloads for malicious injection signatures.
+   */
+  public inspectProjectRequest(params: {
+    url?: string;
+    query?: Record<string, any>;
+    body?: any;
+    headers?: Record<string, any>;
+    ipAddress?: string;
+    projectId?: string;
+    userId?: string;
+    userEmail?: string;
+  }): { riskScore: number; threatCategory?: ThreatCategory; evidence?: string; isFlagged: boolean } {
+    let riskScore = 0;
+    let threatCategory: ThreatCategory | undefined;
+    let matchedEvidence: string | undefined;
+
+    // Serialize payload for pattern matching
+    const rawToCheck = [
+      params.url || '',
+      JSON.stringify(params.query || {}),
+      typeof params.body === 'string' ? params.body : JSON.stringify(params.body || {})
+    ].join(' ');
+
+    // 1. SQL / NoSQL Injection Check
+    for (const pattern of SQL_NOSQL_INJECTION_PATTERNS) {
+      if (pattern.test(rawToCheck)) {
+        riskScore += 80;
+        threatCategory = 'sql_nosql_injection';
+        matchedEvidence = `SQL/NoSQL injection pattern matched: ${pattern.toString()}`;
+        break;
+      }
+    }
+
+    // 2. XSS & Script Payload Check
+    if (riskScore < 70) {
+      for (const pattern of XSS_PAYLOAD_PATTERNS) {
+        if (pattern.test(rawToCheck)) {
+          riskScore += 75;
+          threatCategory = 'xss_malicious_payload';
+          matchedEvidence = `XSS / malicious script payload matched: ${pattern.toString()}`;
+          break;
+        }
+      }
+    }
+
+    // 3. Path Traversal Check
+    if (riskScore < 70) {
+      for (const pattern of PATH_TRAVERSAL_PATTERNS) {
+        if (pattern.test(rawToCheck)) {
+          riskScore += 85;
+          threatCategory = 'path_traversal_probe';
+          matchedEvidence = `Directory path traversal attempt detected: ${pattern.toString()}`;
+          break;
+        }
+      }
+    }
+
+    // If threat detected and user is identified, asynchronously trigger threat flagging
+    if (riskScore >= 70 && params.userId && params.userEmail) {
+      setImmediate(() => {
+        this.evaluateThreat({
+          userId: params.userId!,
+          userEmail: params.userEmail!,
+          ipAddress: params.ipAddress,
+          eventType: 'malicious_payload_probe',
+          payload: { threatCategory, evidence: matchedEvidence, projectId: params.projectId }
+        }).catch(() => {});
+      });
+    }
+
+    return {
+      riskScore,
+      threatCategory,
+      evidence: matchedEvidence,
+      isFlagged: riskScore >= 70
+    };
+  }
+
   /**
    * Evaluate risk score for a user event and trigger automated flagging if threshold exceeded.
    */
@@ -44,24 +146,38 @@ export class ThreatDetectionService {
     const db = getDb();
     let riskScore = 0;
     const triggers: Record<string, any> = {};
-    let primaryReason: 'bot_activity' | 'spam' | 'malicious_traffic' | 'illegal_content' | 'compromised_account' = 'bot_activity';
+    let primaryReason: ThreatCategory = 'bot_activity';
     let severity: 'low' | 'medium' | 'high' | 'critical' = 'medium';
 
-    const domain = ctx.userEmail.split('@')[1]?.toLowerCase();
-
-    // 1. Disposable / Burner Email Detection
-    if (domain && DISPOSABLE_DOMAINS.has(domain)) {
-      riskScore += 75;
-      primaryReason = 'spam';
-      triggers.disposableEmail = { domain, detected: true };
-    }
-
-    // 2. Event-specific scoring
+    // 1. Comprehensive Anti-Abuse Risk Assessment for Registration
     if (ctx.eventType === 'registration') {
-      if (ctx.userAgent && (ctx.userAgent.includes('HeadlessChrome') || ctx.userAgent.includes('curl/') || ctx.userAgent.includes('python-requests'))) {
-        riskScore += 35;
+      const abuseEval = antiAbuseService.evaluateRegistrationRisk({
+        email: ctx.userEmail,
+        clientIp: ctx.ipAddress,
+        userAgent: ctx.userAgent,
+        body: ctx.body,
+        deviceFingerprint: ctx.deviceFingerprint,
+        projectId: ctx.projectId
+      });
+
+      riskScore = abuseEval.riskScore;
+      if (abuseEval.reasons.length > 0) {
+        triggers.antiAbuseSignals = abuseEval.reasons;
+        triggers.canonicalEmail = abuseEval.canonical.canonicalEmail;
+        triggers.subnet = abuseEval.subnet;
+        triggers.isSharedNetwork = abuseEval.isSharedNetwork;
+      }
+
+      if (abuseEval.isDisposable) {
+        primaryReason = 'spam';
+      } else if (abuseEval.isCanonicalCollision) {
+        primaryReason = 'spam';
+      } else if (abuseEval.isDeviceSpam) {
         primaryReason = 'bot_activity';
-        triggers.botUserAgent = ctx.userAgent;
+      } else if (abuseEval.isBot || abuseEval.isHoneypotTriggered) {
+        primaryReason = 'bot_activity';
+      } else if (abuseEval.isSubnetSpam) {
+        primaryReason = 'spam';
       }
     } else if (ctx.eventType === 'failed_login_lockout') {
       riskScore += 50;
@@ -87,6 +203,9 @@ export class ThreatDetectionService {
     try {
       db.prepare('UPDATE users SET riskScore = MAX(riskScore, ?) WHERE id = ?').run(riskScore, ctx.userId);
     } catch {}
+    try {
+      db.prepare('UPDATE project_users SET riskScore = MAX(riskScore, ?) WHERE id = ?').run(riskScore, ctx.userId);
+    } catch {}
 
     // Auto-Flag account if high/critical risk
     if (riskScore >= 70) {
@@ -111,11 +230,12 @@ export class ThreatDetectionService {
           now
         );
 
-        db.prepare('UPDATE users SET isFlagged = 1 WHERE id = ?').run(ctx.userId);
+        try { db.prepare('UPDATE users SET isFlagged = 1 WHERE id = ?').run(ctx.userId); } catch {}
+        try { db.prepare('UPDATE project_users SET isFlagged = 1 WHERE id = ?').run(ctx.userId); } catch {}
 
         auditLogService.logAction({
           actorId: 'system_ai_threat_engine',
-          actorEmail: 'security@aegisdb.internal',
+          actorEmail: 'security@flarebase.internal',
           actionType: 'security_event',
           ipAddress: ctx.ipAddress,
           status: 'failure',
@@ -126,7 +246,7 @@ export class ThreatDetectionService {
           id: flagId,
           userId: ctx.userId,
           userEmail: ctx.userEmail,
-          reason: primaryReason,
+          reason: primaryReason as any,
           severity,
           riskScore,
           detectionSource: 'system_automated_heuristic',
@@ -139,7 +259,7 @@ export class ThreatDetectionService {
         wsService.broadcast('SECURITY_ALERT_FLAGGED', {
           flag: flagRecord,
           timestamp: now,
-          summary: `High risk account detected: ${ctx.userEmail} (${primaryReason.toUpperCase()} - Score: ${riskScore})`
+          summary: `High risk activity detected: ${ctx.userEmail} (${primaryReason.toUpperCase()} - Score: ${riskScore})`
         });
 
         console.log(`🚨 [ThreatEngine] Auto-flagged high risk user "${ctx.userEmail}" (${primaryReason}, Score: ${riskScore}).`);

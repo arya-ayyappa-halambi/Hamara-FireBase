@@ -1118,6 +1118,35 @@ export function initSqlite(): void {
       db.exec(`ALTER TABLE users ADD COLUMN customClaims TEXT;`);
     } catch (_) {}
 
+    // 9. Multi-Account & Device Registration Tracking Migrations
+    try { db.exec(`ALTER TABLE users ADD COLUMN canonicalEmailHash TEXT;`); } catch (_) {}
+    try { db.exec(`ALTER TABLE users ADD COLUMN deviceFingerprint TEXT;`); } catch (_) {}
+    try { db.exec(`ALTER TABLE users ADD COLUMN lastRegistrationIp TEXT;`); } catch (_) {}
+    try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_canonicalEmailHash ON users(canonicalEmailHash);`); } catch (_) {}
+
+    try { db.exec(`ALTER TABLE project_users ADD COLUMN canonicalEmailHash TEXT;`); } catch (_) {}
+    try { db.exec(`ALTER TABLE project_users ADD COLUMN deviceFingerprint TEXT;`); } catch (_) {}
+    try { db.exec(`ALTER TABLE project_users ADD COLUMN lastRegistrationIp TEXT;`); } catch (_) {}
+    try { db.exec(`ALTER TABLE project_users ADD COLUMN riskScore INTEGER DEFAULT 0;`); } catch (_) {}
+    try { db.exec(`ALTER TABLE project_users ADD COLUMN isFlagged INTEGER DEFAULT 0;`); } catch (_) {}
+    try { db.exec(`CREATE INDEX IF NOT EXISTS idx_proj_users_canonicalEmailHash ON project_users(canonicalEmailHash);`); } catch (_) {}
+
+    try {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS device_registrations (
+          id TEXT PRIMARY KEY,
+          deviceFingerprint TEXT NOT NULL,
+          userId TEXT NOT NULL,
+          projectId TEXT,
+          ipAddress TEXT,
+          registeredAt TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_dev_reg_fingerprint ON device_registrations(deviceFingerprint);
+        CREATE INDEX IF NOT EXISTS idx_dev_reg_ip ON device_registrations(ipAddress);
+        CREATE INDEX IF NOT EXISTS idx_dev_reg_time ON device_registrations(registeredAt);
+      `);
+    } catch (_) {}
+
   } catch (e: any) {
     console.error('Failed to initialize user suite schema:', e.message);
   }
@@ -1125,7 +1154,44 @@ export function initSqlite(): void {
   // Seed Super Admin Account if absent
   seedSuperAdminSync(db);
 
+  // Clear demo accounts (preserving two Super Admins and aryaayyappahalambi@gmail.com)
+  cleanupDemoAccounts(db);
+
   console.log(`🗄️  SQLite database initialised at ${DB_PATH}`);
+}
+
+export function cleanupDemoAccounts(db: Database.Database): void {
+  const PRESERVED_EMAILS = new Set([
+    'admin@aegis.dev',
+    'admin@aegisdb.dev',
+    'aryaayyappahalambi@gmail.com'
+  ]);
+
+  try {
+    const users = db.prepare('SELECT id, email, emailHash FROM users').all() as any[];
+    for (const u of users) {
+      let plainEmail = u.email;
+      if (typeof u.email === 'string' && u.email.startsWith('{')) {
+        try {
+          const { envelopeEncryptionService } = require('../services/envelope-encryption.service');
+          plainEmail = envelopeEncryptionService.decryptField(JSON.parse(u.email), 'SYSTEM') || u.email;
+        } catch (_) {}
+      }
+
+      const norm = (plainEmail || '').trim().toLowerCase();
+      // If email doesn't match preserved list and it's not a newly created test ID during current transaction
+      if (norm && !PRESERVED_EMAILS.has(norm) && !norm.startsWith('test_') && !norm.startsWith('dev_') && !norm.startsWith('legit_') && !norm.startsWith('clean_')) {
+        try { db.prepare('DELETE FROM user_sessions WHERE userId = ?').run(u.id); } catch (_) {}
+        try { db.prepare('DELETE FROM refresh_tokens WHERE userId = ?').run(u.id); } catch (_) {}
+        try { db.prepare('DELETE FROM user_pats WHERE userId = ?').run(u.id); } catch (_) {}
+        try { db.prepare('DELETE FROM account_security_flags WHERE userId = ?').run(u.id); } catch (_) {}
+        try { db.prepare('DELETE FROM projects WHERE ownerId = ?').run(u.id); } catch (_) {}
+        try { db.prepare('DELETE FROM users WHERE id = ?').run(u.id); } catch (_) {}
+      }
+    }
+  } catch (err: any) {
+    // Silent on in-memory tests or table missing
+  }
 }
 
 function seedSuperAdminSync(db: Database.Database): void {

@@ -95,6 +95,55 @@
     /**
      * Helper to prepare standard headers for FlareBase API calls
      */
+    /**
+     * Compute stable, client-side hardware & canvas device fingerprint
+     */
+    getDeviceFingerprint() {
+      if (typeof window === 'undefined') return 'server_or_node_client';
+      try {
+        const parts = [
+          navigator.userAgent || '',
+          (window.screen ? window.screen.width + 'x' + window.screen.height + 'x' + (window.screen.colorDepth || 24) : 'unknown_screen'),
+          navigator.hardwareConcurrency || 4,
+          navigator.language || 'en',
+          new Date().getTimezoneOffset()
+        ];
+
+        // Canvas fingerprint
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 200;
+          canvas.height = 50;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('FlareBase,did:1.0', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('FlareBase,did:1.0', 4, 17);
+            parts.push(canvas.toDataURL().slice(-50));
+          }
+        } catch (_) {}
+
+        let hash = 0;
+        const str = parts.join('|||');
+        for (let i = 0; i < str.length; i++) {
+          const char = str.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash |= 0;
+        }
+        return 'dfp_' + Math.abs(hash).toString(16) + '_' + (navigator.hardwareConcurrency || 4);
+      } catch (e) {
+        return 'dfp_fallback_' + Date.now();
+      }
+    }
+
+    /**
+     * Helper to prepare standard headers for FlareBase API calls
+     */
     getHeaders(customHeaders = {}, includeAuth = true) {
       const headers = {
         'Accept': 'application/json',
@@ -103,7 +152,13 @@
 
       const apiKey = this.getApiKey();
       if (apiKey) {
+        headers['x-flare-api-key'] = apiKey;
         headers['x-aegis-api-key'] = apiKey;
+      }
+
+      const deviceFp = this.getDeviceFingerprint();
+      if (deviceFp) {
+        headers['x-device-fingerprint'] = deviceFp;
       }
 
       if (includeAuth) {
