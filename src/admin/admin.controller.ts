@@ -681,6 +681,108 @@ export async function manualFlagUser(req: Request, res: Response, next: NextFunc
   } catch (err) { next(err); }
 }
 
+export async function getUserSecurityMatrixHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { search, category, minRisk, isFlagged, projectId } = req.query;
+    const matrix = threatDetectionService.getUserSecurityMatrix({
+      search: search ? String(search) : undefined,
+      category: category ? String(category) : undefined,
+      minRisk: minRisk !== undefined ? Number(minRisk) : undefined,
+      isFlagged: isFlagged !== undefined ? isFlagged === 'true' : undefined,
+      projectId: projectId ? String(projectId) : undefined
+    });
+    res.status(200).json({
+      success: true,
+      message: 'User security threat matrix retrieved.',
+      data: matrix
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function getThreatIntelligenceStatsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { projectId } = req.query;
+    const stats = threatDetectionService.getThreatIntelligenceStats(projectId ? String(projectId) : undefined);
+    res.status(200).json({
+      success: true,
+      message: 'Threat intelligence platform statistics retrieved.',
+      data: stats
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function unflagUserHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const result = threatDetectionService.unflagUser(id, adminId, adminEmail);
+    res.status(200).json({
+      success: true,
+      message: `Account "${result.userEmail}" unflagged and restored successfully.`,
+      data: result
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function quarantineUserHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { id } = req.params;
+    const { reason, severity, notes } = req.body;
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const flag = threatDetectionService.quarantineUser(
+      id,
+      adminId,
+      adminEmail,
+      reason || 'malicious_traffic',
+      severity || 'high',
+      notes
+    );
+    res.status(200).json({
+      success: true,
+      message: `Account "${flag.userEmail}" quarantined successfully.`,
+      data: flag
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function runPlatformSecurityAuditHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const auditResult = threatDetectionService.runPlatformSecurityAudit(adminId, adminEmail);
+    res.status(200).json({
+      success: true,
+      message: `Security audit completed on ${auditResult.scannedCount} accounts.`,
+      data: auditResult
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
+export async function exportThreatIntelligenceHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const format = req.query.format === 'csv' ? 'csv' : 'json';
+    const report = threatDetectionService.exportThreatIntelligenceReport(format);
+    res.setHeader('Content-Type', report.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${report.filename}"`);
+    res.status(200).send(report.data);
+  } catch (err) { next(err); }
+}
+
+export async function purgeResolvedIncidentsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const adminId = req.user?.sub || 'system';
+    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const result = threatDetectionService.purgeResolvedIncidents(adminId, adminEmail);
+    res.status(200).json({
+      success: true,
+      message: `Purged ${result.purgedCount} resolved security incidents.`,
+      data: result
+    } as ApiResponse<any>);
+  } catch (err) { next(err); }
+}
+
 export async function issueComplianceNotice(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;

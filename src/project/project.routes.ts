@@ -20,7 +20,8 @@ import {
   triggerBackup,
   listProjectCollaborators,
   addProjectCollaborator,
-  removeProjectCollaborator
+  removeProjectCollaborator,
+  getProjectThreatIntelligence
 } from './project.controller';
 
 const router = Router();
@@ -32,6 +33,7 @@ router.use(apiLimiter);
 router.post('/', createProject);
 router.get('/', listProjects);
 router.get('/:id/stats', getProjectStats);
+router.get('/:id/threat-intelligence', getProjectThreatIntelligence);
 router.get('/:id/webhook-logs', getWebhookLogs);
 router.patch('/:id', updateProject);
 router.delete('/:id', deleteProject);

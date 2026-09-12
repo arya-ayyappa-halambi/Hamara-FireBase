@@ -77,7 +77,14 @@ import {
   getTenantQuotas,
   getMeshVpnStatusHandler,
   updateMeshVpnSettingsHandler,
-  pingMeshPeerHandler
+  pingMeshPeerHandler,
+  getUserSecurityMatrixHandler,
+  getThreatIntelligenceStatsHandler,
+  unflagUserHandler,
+  quarantineUserHandler,
+  runPlatformSecurityAuditHandler,
+  exportThreatIntelligenceHandler,
+  purgeResolvedIncidentsHandler
 } from './admin.controller';
 import { apiLimiter } from '../middleware/rateLimit.middleware';
 
@@ -178,6 +185,15 @@ router.post('/users/:id/flag', manualFlagUser);
 router.post('/users/:id/notice', issueComplianceNotice);
 router.get('/notices', listComplianceNotices);
 router.post('/notices/:id/decision', reviewComplianceNotice);
+
+// ── Live Threat Intelligence & User Security Matrix ──────────────────────────
+router.get('/threat-intelligence/matrix', getUserSecurityMatrixHandler);
+router.get('/threat-intelligence/stats', getThreatIntelligenceStatsHandler);
+router.post('/threat-intelligence/unflag-user/:id', disallowOttSessionMutation, unflagUserHandler);
+router.post('/threat-intelligence/quarantine-user/:id', disallowOttSessionMutation, quarantineUserHandler);
+router.post('/threat-intelligence/run-scan', disallowOttSessionMutation, runPlatformSecurityAuditHandler);
+router.get('/threat-intelligence/export', exportThreatIntelligenceHandler);
+router.post('/threat-intelligence/purge-resolved', disallowOttSessionMutation, purgeResolvedIncidentsHandler);
 
 // ── Account Deletions Lifecycle & Retention ───────────────────────────────────
 router.get('/account-deletions', getAccountDeletionRequests);

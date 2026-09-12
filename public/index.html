@@ -1351,6 +1351,10 @@
               <i class="fa-solid fa-shield-halved text-base text-rose-400 w-5"></i>
               <span class="nav-text">Security (SecOps)</span>
             </button>
+            <button data-tab="tab-threat-radar" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition" title="Auto Threat Detection & User Security Intelligence">
+              <i class="fa-solid fa-user-shield text-base text-rose-400 w-5"></i>
+              <span class="nav-text">Threat Intelligence</span>
+            </button>
             <button data-tab="tab-platform-policies" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition" title="Policies & Terms">
               <i class="fa-solid fa-scale-balanced text-base text-amber-400 w-5"></i>
               <span class="nav-text">Policies & Terms</span>
@@ -1379,6 +1383,10 @@
             <button data-tab="tab-auth-config" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition" title="Project Authentication & Users">
               <i class="fa-solid fa-users text-base text-indigo-400 w-5"></i>
               <span class="nav-text">Authentication</span>
+            </button>
+            <button data-tab="tab-threat-radar" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition" title="Auto Threat Detection & User Security">
+              <i class="fa-solid fa-shield-virus text-base text-rose-400 w-5"></i>
+              <span class="nav-text">Threat Detection</span>
             </button>
             <button data-tab="tab-api-tester" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition" title="API Key Tester">
               <i class="fa-solid fa-flask text-base text-indigo-400 w-5"></i>
@@ -2698,7 +2706,7 @@
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
               <div class="flex items-center space-x-2.5">
                 <div class="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xs">
-                  <i class="fa-solid fa-radar"></i>
+                  <i class="fa-solid fa-satellite-dish"></i>
                 </div>
                 <div>
                   <h3 class="text-xs font-bold text-white uppercase tracking-wider flex items-center space-x-2">
@@ -4122,6 +4130,235 @@
                   <i class="fa-solid fa-broom mr-1"></i> Purge Expired
                 </button>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <!-- WORKSPACE: AUTO THREAT DETECTION & LIVE USER SECURITY MATRIX    -->
+        <!-- ════════════════════════════════════════════════════════════════ -->
+        <section id="tab-threat-radar" class="workspace-panel space-y-6 hidden">
+          <!-- Workspace Header -->
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                  <i class="fa-solid fa-user-shield text-base animate-pulse"></i>
+                </div>
+                <span>Auto Threat Detection & User Security Matrix</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Live heuristic threat scoring, hardware device fingerprint tracking, shared Wi-Fi NAT safety, and automated quarantine.</p>
+            </div>
+            <div class="flex items-center flex-wrap gap-2">
+              <span id="badge-threat-shield-status" class="px-3 py-1 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block"></span>
+                <span>Threat Shield Active (0.001ms WAF)</span>
+              </span>
+              <button type="button" onclick="window.runThreatSecurityScan()" id="btn-run-threat-scan" class="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-500 hover:to-amber-500 text-white border border-rose-500/40 text-xs font-bold transition flex items-center space-x-1.5 active:scale-95 shadow-lg shadow-rose-950/40 cursor-pointer">
+                <i class="fa-solid fa-wand-magic-sparkles text-xs"></i>
+                <span>Run Live Security Scan</span>
+              </button>
+              <div class="relative group">
+                <button type="button" class="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition flex items-center space-x-1.5 border border-white/10 cursor-pointer">
+                  <i class="fa-solid fa-download text-xs"></i>
+                  <span>Export</span>
+                  <i class="fa-solid fa-chevron-down text-[9px] ml-1"></i>
+                </button>
+                <div class="absolute right-0 mt-1 w-44 bg-slate-900 border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 overflow-hidden text-xs">
+                  <button type="button" onclick="window.exportThreatIntelligenceLog('json')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-white/10 hover:text-white transition flex items-center space-x-2">
+                    <i class="fa-solid fa-file-code text-indigo-400 w-4"></i> <span>Export as JSON</span>
+                  </button>
+                  <button type="button" onclick="window.exportThreatIntelligenceLog('csv')" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-white/10 hover:text-white transition flex items-center space-x-2 border-t border-white/5">
+                    <i class="fa-solid fa-file-csv text-emerald-400 w-4"></i> <span>Export as CSV</span>
+                  </button>
+                </div>
+              </div>
+              <button type="button" onclick="window.loadThreatIntelligenceMatrix()" class="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition border border-white/10 active:scale-95 cursor-pointer" title="Refresh Threat Matrix">
+                <i class="fa-solid fa-rotate-right text-xs"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Top Metrics Counters (5 Cards) -->
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono">
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-slate-900/80 to-black/90 border border-white/10 space-y-1">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <span>Inspected Users</span>
+                <i class="fa-solid fa-users text-indigo-400 text-xs"></i>
+              </div>
+              <div id="metric-threat-total-users" class="text-xl font-bold text-white">0</div>
+              <div class="text-[9px] text-slate-500">Total registered profiles</div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-rose-950/40 via-slate-900/80 to-black/90 border border-rose-500/30 space-y-1 shadow-lg shadow-rose-950/20">
+              <div class="text-[10px] text-rose-400 uppercase tracking-wider flex items-center justify-between font-semibold">
+                <span>Quarantined</span>
+                <i class="fa-solid fa-triangle-exclamation text-rose-400 text-xs"></i>
+              </div>
+              <div id="metric-threat-flagged-users" class="text-xl font-bold text-rose-300">0</div>
+              <div class="text-[9px] text-rose-400/80">Active security isolates</div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-amber-950/30 via-slate-900/80 to-black/90 border border-amber-500/30 space-y-1">
+              <div class="text-[10px] text-amber-400 uppercase tracking-wider flex items-center justify-between font-semibold">
+                <span>Threats Blocked</span>
+                <i class="fa-solid fa-shield-halved text-amber-400 text-xs"></i>
+              </div>
+              <div id="metric-threat-critical-intercepts" class="text-xl font-bold text-amber-300">0</div>
+              <div class="text-[9px] text-slate-500">SQLi, XSS, Path Traversal</div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-cyan-950/30 via-slate-900/80 to-black/90 border border-cyan-500/30 space-y-1">
+              <div class="text-[10px] text-cyan-400 uppercase tracking-wider flex items-center justify-between font-semibold">
+                <span>Shared Wi-Fi Safe</span>
+                <i class="fa-solid fa-wifi text-cyan-400 text-xs"></i>
+              </div>
+              <div id="metric-threat-shared-wifi" class="text-xl font-bold text-cyan-300">0</div>
+              <div class="text-[9px] text-slate-500">Verified multi-device NATs</div>
+            </div>
+
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-violet-950/30 via-slate-900/80 to-black/90 border border-violet-500/30 space-y-1">
+              <div class="text-[10px] text-violet-400 uppercase tracking-wider flex items-center justify-between font-semibold">
+                <span>WAF Latency</span>
+                <i class="fa-solid fa-bolt text-violet-400 text-xs"></i>
+              </div>
+              <div id="metric-threat-latency" class="text-xl font-bold text-violet-300">0.001ms</div>
+              <div class="text-[9px] text-emerald-400">Zero query overhead</div>
+            </div>
+          </div>
+
+          <!-- Interactive Filter & Search Toolbar -->
+          <div class="p-4 rounded-2xl bg-slate-900/70 border border-white/10 space-y-3">
+            <div class="flex flex-col md:flex-row items-center gap-3">
+              <!-- Search Bar -->
+              <div class="relative flex-1 w-full">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-xs text-slate-400"></i>
+                <input id="input-threat-search" type="text" placeholder="Search by email, name, user ID, device fingerprint, or IP..." oninput="window.filterThreatMatrix()" class="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-950 border border-white/10 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-rose-500/50 transition">
+              </div>
+
+              <!-- Threat Category Dropdown -->
+              <div class="w-full sm:w-auto">
+                <select id="select-threat-category" onchange="window.filterThreatMatrix()" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-white/10 text-xs text-slate-300 focus:outline-none focus:border-rose-500/50 transition">
+                  <option value="all">All Threat Categories</option>
+                  <option value="sql_nosql_injection">SQL & NoSQL Injection</option>
+                  <option value="xss_malicious_payload">XSS & Script Payload</option>
+                  <option value="path_traversal_probe">Path Traversal Probe</option>
+                  <option value="rapid_burst_dos">Rapid DoS Burst</option>
+                  <option value="bot_activity">Bot / Headless Client</option>
+                  <option value="canonical_alias_flood">Canonical Alias Flood</option>
+                  <option value="multi_account_device">Multi-Account Physical Device</option>
+                  <option value="malicious_traffic">General Malicious Traffic</option>
+                  <option value="compromised_account">Compromised Account</option>
+                </select>
+              </div>
+
+              <!-- Risk Level Filter -->
+              <div class="w-full sm:w-auto">
+                <select id="select-threat-risk" onchange="window.filterThreatMatrix()" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-white/10 text-xs text-slate-300 focus:outline-none focus:border-rose-500/50 transition">
+                  <option value="all">All Risk Levels</option>
+                  <option value="critical">🔴 Critical Risk (Score ≥ 70)</option>
+                  <option value="warning">🟡 Moderate Risk (Score 40-69)</option>
+                  <option value="safe">🟢 Clean / Safe (Score &lt; 40)</option>
+                </select>
+              </div>
+
+              <!-- Status Filter -->
+              <div class="w-full sm:w-auto">
+                <select id="select-threat-status" onchange="window.filterThreatMatrix()" class="w-full px-3 py-2 rounded-xl bg-slate-950 border border-white/10 text-xs text-slate-300 focus:outline-none focus:border-rose-500/50 transition">
+                  <option value="all">All Account Statuses</option>
+                  <option value="quarantined">🔴 Quarantined Only</option>
+                  <option value="active">🟢 Active / Normal Only</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Active Filter Chips -->
+            <div class="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-white/5">
+              <span id="label-threat-showing-count">Showing 0 users</span>
+              <button type="button" onclick="window.resetThreatFilters()" class="text-rose-400 hover:underline flex items-center space-x-1 cursor-pointer">
+                <i class="fa-solid fa-rotate-left text-[10px]"></i>
+                <span>Reset Filters</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live User Security Intelligence Matrix Table -->
+          <div class="p-5 rounded-2xl bg-gradient-to-br from-slate-950/90 via-slate-900/60 to-black border border-white/10 shadow-2xl space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-7 h-7 rounded-lg bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+                  <i class="fa-solid fa-users-viewfinder text-xs"></i>
+                </div>
+                <div>
+                  <h4 class="text-sm font-bold text-white">Live User Security Threat Matrix</h4>
+                  <p class="text-[10px] text-slate-400">Dynamic composite scoring, hardware tokens, and zero-false-positive Wi-Fi intelligence.</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button type="button" onclick="window.purgeResolvedThreatIncidents()" class="px-2.5 py-1 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 text-xs transition flex items-center space-x-1 border border-white/5 cursor-pointer" title="Purge resolved historical flags">
+                  <i class="fa-solid fa-broom text-[10px]"></i>
+                  <span>Purge Resolved</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="rounded-xl border border-white/10 overflow-hidden overflow-x-auto custom-scrollbar">
+              <table class="w-full text-left text-xs text-slate-300">
+                <thead class="bg-slate-950 text-slate-400 text-[10px] uppercase tracking-wider border-b border-white/10">
+                  <tr>
+                    <th class="p-3">User Identity</th>
+                    <th class="p-3 text-center">Risk Score</th>
+                    <th class="p-3">Threat Signals & Categories</th>
+                    <th class="p-3">Device Fingerprint</th>
+                    <th class="p-3">Network / Shared Wi-Fi</th>
+                    <th class="p-3 text-center">Status</th>
+                    <th class="p-3 text-right">Security Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="table-threat-matrix-body" class="divide-y divide-white/5 font-mono text-xs">
+                  <tr>
+                    <td colspan="7" class="p-8 text-center text-slate-500">
+                      <div class="flex flex-col items-center justify-center space-y-2">
+                        <i class="fa-solid fa-circle-notch fa-spin text-rose-400 text-lg"></i>
+                        <span>Loading live threat intelligence matrix...</span>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Real-Time Rolling Threat Event Stream (WebSocket Feed) -->
+          <div class="p-5 rounded-2xl bg-black/80 border border-white/10 space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-7 h-7 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <i class="fa-solid fa-satellite-dish text-xs animate-pulse"></i>
+                </div>
+                <div>
+                  <h4 class="text-xs font-bold text-white flex items-center space-x-2">
+                    <span>Live Threat Event Stream (WebSocket CDC)</span>
+                    <span id="badge-threat-stream-status" class="px-2 py-0.5 rounded-full text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      Streaming
+                    </span>
+                  </h4>
+                  <p class="text-[10px] text-slate-400">Real-time rolling telemetry of incoming inspected requests, blocked probes, and auto-quarantines.</p>
+                </div>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button type="button" id="btn-toggle-threat-stream" onclick="window.toggleThreatFeedPause()" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[10px] font-semibold transition border border-white/10 flex items-center space-x-1 cursor-pointer">
+                  <i id="icon-toggle-threat-stream" class="fa-solid fa-pause text-[9px]"></i>
+                  <span id="label-toggle-threat-stream">Pause Stream</span>
+                </button>
+                <button type="button" onclick="window.clearThreatFeed()" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-slate-200 text-[10px] transition border border-white/5 cursor-pointer">
+                  <i class="fa-solid fa-trash-can text-[9px] mr-1"></i> Clear
+                </button>
+              </div>
+            </div>
+
+            <div id="container-threat-live-feed" class="p-3.5 rounded-xl bg-slate-950/90 border border-white/5 font-mono text-[11px] space-y-2 max-h-[220px] overflow-y-auto custom-scrollbar">
+              <div class="text-slate-500 italic">[Waiting for real-time security events. Threat shield running active heuristic monitoring...]</div>
             </div>
           </div>
         </section>
@@ -7809,6 +8046,130 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         <button type="button" onclick="event.preventDefault(); event.stopPropagation(); confirmManualFlagUser()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs transition active:scale-98">
           Flag User & Trigger Review
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Deep Threat Incident & Payload Inspector -->
+  <div id="modal-threat-incident-detail" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-2xl w-full border border-rose-500/30 space-y-4 max-h-[85vh] flex flex-col shadow-2xl shadow-rose-950/40">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3 shrink-0">
+        <div class="flex items-center space-x-2.5">
+          <div class="w-8 h-8 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400">
+            <i class="fa-solid fa-bug-slash text-sm"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-semibold text-white">Threat Evidence & Deep Payload Inspection</h3>
+            <p class="text-[10px] text-slate-400">Raw parameters, matched regex signatures, client fingerprint, and IP telemetry.</p>
+          </div>
+        </div>
+        <button type="button" onclick="window.hideModal('modal-threat-incident-detail')" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 overflow-y-auto custom-scrollbar flex-1 pr-1 font-mono text-xs">
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-white/10 space-y-1">
+            <div class="text-[10px] text-slate-400 uppercase">Target User</div>
+            <div id="inspect-threat-user-email" class="text-white font-bold truncate">user@example.com</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-white/10 space-y-1">
+            <div class="text-[10px] text-slate-400 uppercase">Composite Risk Score</div>
+            <div id="inspect-threat-risk-score" class="text-rose-400 font-bold text-sm">0/100</div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-white/10 space-y-1">
+            <div class="text-[10px] text-slate-400 uppercase">Hardware Fingerprint</div>
+            <div id="inspect-threat-device" class="text-slate-300 text-[11px] truncate">dfp_...</div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-900/60 border border-white/10 space-y-1">
+            <div class="text-[10px] text-slate-400 uppercase">Connecting IP / Subnet</div>
+            <div id="inspect-threat-ip" class="text-slate-300 text-[11px] truncate">127.0.0.1</div>
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="text-[10px] uppercase text-slate-400 font-semibold">Detected Threat Signals & Categories</div>
+          <div id="inspect-threat-categories" class="flex flex-wrap gap-1.5">
+            <!-- Badges dynamically rendered -->
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="text-[10px] uppercase text-slate-400 font-semibold">Raw Trigger Evidence & Payload JSON</div>
+          <pre id="inspect-threat-raw-json" class="p-4 rounded-xl bg-slate-950 border border-white/10 text-[11px] text-rose-300 overflow-x-auto max-h-[220px] custom-scrollbar"></pre>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-white/10 flex items-center justify-between shrink-0">
+        <span id="inspect-threat-status-badge" class="px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+          🔴 Quarantined
+        </span>
+        <div class="flex items-center space-x-2">
+          <button type="button" id="btn-modal-threat-toggle-quarantine" onclick="window.toggleUserQuarantineFromModal()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg transition active:scale-95 cursor-pointer">
+            Unflag & Restore Account
+          </button>
+          <button type="button" onclick="window.hideModal('modal-threat-incident-detail')" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition cursor-pointer">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Direct User Quarantine -->
+  <div id="modal-quarantine-user-direct" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-4 sm:p-6 bg-slate-950/85 backdrop-blur-md">
+    <div class="glass-panel rounded-2xl p-6 max-w-md w-full border border-rose-500/40 space-y-4 shadow-2xl shadow-rose-950/40">
+      <div class="flex items-center justify-between border-b border-white/10 pb-3">
+        <h3 class="text-base font-semibold text-white flex items-center space-x-2">
+          <i class="fa-solid fa-lock text-rose-400"></i>
+          <span>Quarantine Account</span>
+        </h3>
+        <button type="button" onclick="window.hideModal('modal-quarantine-user-direct')" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition cursor-pointer">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <input type="hidden" id="quarantine-target-user-id">
+        <div class="text-xs text-slate-300">Quarantining Account: <span id="quarantine-target-user-email" class="text-rose-300 font-mono font-bold"></span></div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Quarantine Reason</label>
+          <select id="select-quarantine-reason" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-xs text-slate-200">
+            <option value="malicious_traffic">Malicious Traffic / Injection Probes</option>
+            <option value="bot_activity">Automated Bot / Headless Scraping</option>
+            <option value="spam">Multi-Account / Disposable Email Spam</option>
+            <option value="compromised_account">Compromised Credentials / Brute Force</option>
+            <option value="illegal_content">Platform Terms Violation</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Severity</label>
+          <select id="select-quarantine-severity" class="w-full px-3 py-2.5 rounded-xl bg-slate-950 border border-white/10 text-xs text-slate-200">
+            <option value="critical">Critical (Risk Score 95 - Full Quarantine)</option>
+            <option value="high">High (Risk Score 85 - High Threat)</option>
+            <option value="medium">Medium (Risk Score 50 - Under Watch)</option>
+          </select>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-[10px] font-semibold uppercase text-slate-400">Investigation Notes</label>
+          <textarea id="input-quarantine-notes" rows="3" class="w-full p-3 rounded-xl bg-slate-950 border border-white/10 text-xs text-slate-200 resize-none" placeholder="Reason for manual quarantine..."></textarea>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-2">
+          <button type="button" onclick="window.confirmQuarantineUserAction()" class="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white font-bold text-xs shadow-lg shadow-rose-950/50 transition active:scale-98 cursor-pointer">
+            Confirm Quarantine
+          </button>
+          <button type="button" onclick="window.hideModal('modal-quarantine-user-direct')" class="py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 font-semibold text-xs transition cursor-pointer">
+            Cancel
+          </button>
+        </div>
       </div>
     </div>
   </div>

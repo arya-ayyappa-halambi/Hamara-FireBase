@@ -349,3 +349,26 @@ export async function removeProjectCollaborator(req: Request, res: Response, nex
   } catch (err) { next(err); }
 }
 
+export async function getProjectThreatIntelligence(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const isSuperAdmin = Boolean(req.user?.isSuperAdmin);
+    const { id } = req.params;
+    const project = projectService.getProjectById(id, ownerId, isSuperAdmin);
+    if (!project || (project.ownerId !== ownerId && !req.user?.isSuperAdmin)) {
+      throw new AppError('Project not found or unauthorized', 404);
+    }
+    const { threatDetectionService } = await import('../services/threat-detection.service');
+    const matrix = threatDetectionService.getUserSecurityMatrix({ projectId: id });
+    const stats = threatDetectionService.getThreatIntelligenceStats(id);
+    res.status(200).json({
+      success: true,
+      message: 'Project threat intelligence data retrieved.',
+      data: {
+        matrix,
+        stats
+      }
+    });
+  } catch (err) { next(err); }
+}
+

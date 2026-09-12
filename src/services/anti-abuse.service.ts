@@ -145,6 +145,7 @@ export interface RegistrationRiskContext {
   body?: Record<string, any>;
   projectId?: string;
   deviceFingerprint?: string;
+  excludeUserId?: string;
 }
 
 export interface RiskEvaluationResult {
@@ -380,15 +381,27 @@ class AntiAbuseService {
   /**
    * Check if a root canonical email address is already registered.
    */
-  public checkCanonicalEmailCollision(canonicalEmailHash: string, projectId?: string): { hasCollision: boolean; collisionType?: 'platform_user' | 'project_user' } {
+  public checkCanonicalEmailCollision(canonicalEmailHash: string, projectId?: string, excludeUserId?: string): { hasCollision: boolean; collisionType?: 'platform_user' | 'project_user' } {
     if (!canonicalEmailHash) return { hasCollision: false };
     try {
       const db = getDb();
       if (projectId) {
-        const row = db.prepare('SELECT id FROM project_users WHERE projectId = ? AND canonicalEmailHash = ?').get(projectId, canonicalEmailHash);
+        let sql = 'SELECT id FROM project_users WHERE projectId = ? AND canonicalEmailHash = ?';
+        const params: any[] = [projectId, canonicalEmailHash];
+        if (excludeUserId) {
+          sql += ' AND id != ?';
+          params.push(excludeUserId);
+        }
+        const row = db.prepare(sql).get(...params);
         if (row) return { hasCollision: true, collisionType: 'project_user' };
       } else {
-        const row = db.prepare('SELECT id FROM users WHERE canonicalEmailHash = ?').get(canonicalEmailHash);
+        let sql = 'SELECT id FROM users WHERE canonicalEmailHash = ?';
+        const params: any[] = [canonicalEmailHash];
+        if (excludeUserId) {
+          sql += ' AND id != ?';
+          params.push(excludeUserId);
+        }
+        const row = db.prepare(sql).get(...params);
         if (row) return { hasCollision: true, collisionType: 'platform_user' };
       }
     } catch (_) {}
@@ -521,7 +534,7 @@ class AntiAbuseService {
     }
 
     // 3. Canonical Email Duplicate Collision (+60)
-    const collision = this.checkCanonicalEmailCollision(canonical.canonicalHash, ctx.projectId);
+    const collision = this.checkCanonicalEmailCollision(canonical.canonicalHash, ctx.projectId, ctx.excludeUserId);
     if (collision.hasCollision) {
       riskScore += 60;
       reasons.push('Multiple account collision: Canonical root email address is already registered');

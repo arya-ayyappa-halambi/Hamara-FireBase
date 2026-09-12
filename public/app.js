@@ -628,6 +628,11 @@ window.switchTab = window.switchWorkspace = function switchTab(tabId) {
     }
   } else if (tabId === 'tab-settings') {
     loadPlatformSettings();
+  } else if (tabId === 'tab-threat-radar') {
+    if (typeof window.loadThreatIntelligenceMatrix === 'function') {
+      window.loadThreatIntelligenceMatrix();
+      state.telemetryTimer = setInterval(window.loadThreatIntelligenceMatrix, 3000);
+    }
   } else if (tabId === 'tab-about') {
     initPromptEndpointManager();
   }
@@ -3335,9 +3340,53 @@ function connectGlobalWebSocket() {
             if (typeof window.updateUserNotificationsHeader === 'function') window.updateUserNotificationsHeader();
           }
           showToast(`🚨 Threat Detected: ${data.data?.summary || 'Malicious / bot activity detected'}`, 'error');
+          if (typeof window.appendThreatLiveFeedEvent === 'function') {
+            window.appendThreatLiveFeedEvent({
+              type: 'SECURITY_ALERT_FLAGGED',
+              userEmail: flagUser?.userEmail || data.data?.userEmail,
+              category: flagUser?.reason || data.data?.reason,
+              timestamp: new Date().toISOString(),
+              summary: data.data?.summary || 'Malicious activity detected',
+              riskScore: flagUser?.riskScore || 90
+            });
+          }
           if (state.user?.isSuperAdmin) {
             if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
             if (typeof loadUserManagement === 'function') loadUserManagement();
+            if (typeof window.loadThreatIntelligenceMatrix === 'function') window.loadThreatIntelligenceMatrix();
+          }
+        } else if (data.type === 'SECURITY_FLAG_RESOLVED') {
+          const userEmail = data.data?.userEmail;
+          if (state.user && (state.user.id === data.data?.userId || state.user.email === userEmail)) {
+            state.user.isFlagged = false;
+            state.user.flagged = false;
+            localStorage.setItem('aegis_user', JSON.stringify(state.user));
+            updateUserProfileUI();
+          }
+          if (typeof window.appendThreatLiveFeedEvent === 'function') {
+            window.appendThreatLiveFeedEvent({
+              type: 'SECURITY_FLAG_RESOLVED',
+              userEmail: userEmail,
+              timestamp: new Date().toISOString(),
+              summary: `Security flag resolved for ${userEmail || 'user'}`,
+              riskScore: 0
+            });
+          }
+          if (state.user?.isSuperAdmin) {
+            if (typeof window.loadThreatIntelligenceMatrix === 'function') window.loadThreatIntelligenceMatrix();
+            if (typeof loadUserManagement === 'function') loadUserManagement();
+          }
+        } else if (data.type === 'SECURITY_AUDIT_COMPLETED') {
+          if (typeof window.appendThreatLiveFeedEvent === 'function') {
+            window.appendThreatLiveFeedEvent({
+              type: 'SECURITY_AUDIT_COMPLETED',
+              timestamp: new Date().toISOString(),
+              summary: data.data?.summary || 'Security audit completed',
+              riskScore: 0
+            });
+          }
+          if (state.user?.isSuperAdmin && typeof window.loadThreatIntelligenceMatrix === 'function') {
+            window.loadThreatIntelligenceMatrix();
           }
         } else if (data.type === 'USER_NOTICE_ISSUED') {
           if (state.user && state.user.id === data.data?.userId) {
@@ -13313,3 +13362,738 @@ window.initUserFeaturesDashboard = function() {
   window.fetchUserNotifications();
   window.fetchUserSecurityLogs();
 };
+
+// ════════════════════════════════════════════════════════════════════════════════
+// ── 9. AUTO THREAT DETECTION & LIVE USER SECURITY MATRIX CONTROLLER ───────────
+// ════════════════════════════════════════════════════════════════════════════════
+
+window.threatIntelligenceState = {
+  users: [],
+  rawUsers: [],
+  stats: null,
+  feedPaused: false,
+  activeModalUser: null
+};
+
+window.formatThreatCategoryLabel = function(cat) {
+  const map = {
+    sql_nosql_injection: 'SQL / NoSQL Injection',
+    xss_malicious_payload: 'XSS & Script Payload',
+    path_traversal_probe: 'Path Traversal Probe',
+    rapid_burst_dos: 'Rapid DoS Burst',
+    bot_activity: 'Bot / Headless Client',
+    canonical_alias_flood: 'Canonical Alias Flood',
+    multi_account_device: 'Multi-Account Device',
+    malicious_traffic: 'Malicious Traffic',
+    compromised_account: 'Compromised Account',
+    illegal_content: 'Terms Violation',
+    high_threat: 'High Threat Level',
+    critical_threat: 'Critical Exploit Attempt',
+    spam: 'Spam / Multi-Account'
+  };
+  return map[cat] || (cat ? cat.replace(/_/g, ' ') : 'General Threat');
+};
+
+window.loadThreatIntelligenceMatrix = async function() {
+  if (!state.accessToken) return;
+  const tbody = document.getElementById('table-threat-matrix-body');
+
+  try {
+    const isDev = state.roleMode === 'developer' && state.activeProject?.id;
+    const url = isDev 
+      ? `/api/v1/projects/${state.activeProject.id}/threat-intelligence`
+      : `/api/v1/admin/threat-intelligence/matrix`;
+    const statsUrl = isDev 
+      ? null 
+      : `/api/v1/admin/threat-intelligence/stats`;
+
+    const [matrixRes, statsRes] = await Promise.all([
+      apiRequest(url, 'GET').catch(err => { console.warn('Threat matrix fetch error:', err); return null; }),
+      statsUrl ? apiRequest(statsUrl, 'GET').catch(() => null) : null
+    ]);
+
+    let users = [];
+    if (matrixRes) {
+      if (Array.isArray(matrixRes)) {
+        users = matrixRes;
+      } else if (matrixRes.data && Array.isArray(matrixRes.data.users)) {
+        users = matrixRes.data.users;
+      } else if (Array.isArray(matrixRes.data)) {
+        users = matrixRes.data;
+      } else if (Array.isArray(matrixRes.users)) {
+        users = matrixRes.users;
+      }
+    }
+
+    let stats = statsRes?.data || null;
+    const totalUsersCount = stats?.totalUsers ?? stats?.total ?? users.length;
+    const quarantinedCount = stats?.quarantinedUsers ?? stats?.flaggedUsersCount ?? users.filter(u => u.isFlagged).length;
+    const threatsBlockedCount = stats?.threatsBlocked ?? stats?.criticalThreatsIntercepted ?? 0;
+    const sharedWifiCount = stats?.sharedWifiSafeUsers ?? stats?.sharedNetworksCount ?? users.filter(u => u.sharedWifiSafe || u.sharedNetworkInfo?.isSharedNetwork).length;
+    const latencyValue = stats?.wafAvgLatencyMs ?? stats?.avgInspectionLatencyMs ?? 0.0011;
+
+    window.threatIntelligenceState.rawUsers = users;
+    window.threatIntelligenceState.stats = stats;
+
+    // Update 5 Metrics Cards
+    const totalUsersEl = document.getElementById('metric-threat-total-users');
+    const flaggedUsersEl = document.getElementById('metric-threat-flagged-users');
+    const criticalInterceptsEl = document.getElementById('metric-threat-critical-intercepts');
+    const sharedWifiEl = document.getElementById('metric-threat-shared-wifi');
+    const latencyEl = document.getElementById('metric-threat-latency');
+
+    if (totalUsersEl) totalUsersEl.textContent = totalUsersCount;
+    if (flaggedUsersEl) flaggedUsersEl.textContent = quarantinedCount;
+    if (criticalInterceptsEl) criticalInterceptsEl.textContent = threatsBlockedCount;
+    if (sharedWifiEl) sharedWifiEl.textContent = sharedWifiCount;
+    if (latencyEl) latencyEl.textContent = `${Number(latencyValue).toFixed(4)}ms`;
+
+    // Filter & Render Table
+    window.filterThreatMatrix();
+
+    // Populate Initial Live Feed if present and container is empty/waiting
+    const events = stats?.recentThreatEvents || stats?.recentThreatFeed || [];
+    if (events.length > 0) {
+      const feedContainer = document.getElementById('container-threat-live-feed');
+      if (feedContainer && (feedContainer.innerHTML.includes('[Waiting for real-time') || feedContainer.innerHTML.includes('[Event stream buffer cleared'))) {
+        feedContainer.innerHTML = '';
+        events.forEach(evt => window.appendThreatLiveFeedEvent(evt));
+      }
+    }
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="7" class="p-6 text-center text-rose-400 font-mono text-xs">Failed to load Threat Matrix: ${escapeHTML(err.message)}</td></tr>`;
+    }
+  }
+};
+
+window.renderThreatMatrixTable = function(users) {
+  const tbody = document.getElementById('table-threat-matrix-body');
+  const countLabel = document.getElementById('label-threat-showing-count');
+  if (!tbody) return;
+
+  const totalRaw = window.threatIntelligenceState.rawUsers?.length || 0;
+  if (countLabel) {
+    countLabel.textContent = `Showing ${users.length} of ${totalRaw} users`;
+  }
+
+  if (users.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="7" class="p-8 text-center text-slate-500 font-sans">
+          <div class="flex flex-col items-center justify-center space-y-2">
+            <i class="fa-solid fa-shield-check text-2xl text-emerald-400"></i>
+            <span class="text-slate-300 font-semibold text-xs">No users matching current threat filter criteria</span>
+            <span class="text-[11px] text-slate-500">All registered users are operating within normal security heuristics.</span>
+          </div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  tbody.innerHTML = users.map(u => {
+    const isQuarantined = Boolean(u.isFlagged || (u.activeFlags && u.activeFlags.length > 0));
+    const score = Number(u.riskScore) || 0;
+    
+    // Risk Score Gauge & Badge
+    let riskBadgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+    let riskGaugeClass = 'bg-emerald-500';
+    let riskLabel = 'Clean';
+    if (score >= 70) {
+      riskBadgeClass = 'bg-rose-500/20 text-rose-300 border-rose-500/40 animate-pulse';
+      riskGaugeClass = 'bg-rose-500';
+      riskLabel = 'Critical Risk';
+    } else if (score >= 40) {
+      riskBadgeClass = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+      riskGaugeClass = 'bg-amber-500';
+      riskLabel = 'Warning';
+    }
+
+    // Threat Badges
+    const rawCategories = Array.isArray(u.activeThreatCategories) && u.activeThreatCategories.length > 0 
+      ? u.activeThreatCategories 
+      : (Array.isArray(u.threatCategories) && u.threatCategories.length > 0 
+        ? u.threatCategories 
+        : (score > 0 && u.primaryThreatReason ? [u.primaryThreatReason] : []));
+    
+    const catBadgesHtml = rawCategories.length > 0 
+      ? rawCategories.map(c => `<span class="px-2 py-0.5 rounded-md text-[10px] font-mono bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold">${escapeHTML(window.formatThreatCategoryLabel(c))}</span>`).join(' ')
+      : `<span class="px-2 py-0.5 rounded-md text-[10px] font-mono bg-emerald-500/10 text-emerald-400/80 border border-emerald-500/20">No active threats</span>`;
+
+    const primaryReason = u.primaryThreatReason || (rawCategories.length > 0 ? rawCategories[0] : null);
+    const primaryReasonHtml = primaryReason && primaryReason !== 'Normal user activity'
+      ? `<div class="text-[10px] text-amber-400/90 font-mono mt-1 truncate max-w-[220px]" title="${escapeHTML(primaryReason)}"><i class="fa-solid fa-triangle-exclamation text-[9px] mr-1"></i>${escapeHTML(window.formatThreatCategoryLabel(primaryReason))}</div>`
+      : '';
+
+    // Device Fingerprint formatting
+    const dfp = u.deviceFingerprint || 'dfp_untracked';
+    const shortDfp = dfp.length > 14 ? dfp.substring(0, 12) + '…' : dfp;
+    const dfpCount = u.deviceFingerprintsCount || u.deviceAccountCount || 1;
+    const dfpCountBadge = dfpCount > 1 
+      ? `<span class="ml-1 px-1.5 py-0.2 rounded text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30" title="${dfpCount} distinct devices tracked">${dfpCount} devices</span>`
+      : '';
+
+    // Network / Shared Wi-Fi
+    const clientIp = u.clientIp || u.lastRegistrationIp || '127.0.0.1';
+    let wifiBadge = '';
+    const isShared = Boolean(u.sharedWifiSafe || u.sharedNetworkInfo?.isSharedNetwork || (u.sharedWifiConfidence && u.sharedWifiConfidence >= 50));
+    const confidence = u.sharedWifiConfidence || (u.sharedNetworkInfo ? Math.round((u.sharedNetworkInfo.uniquenessRatio || 1) * 100) : 100);
+
+    if (isShared) {
+      wifiBadge = `<div class="flex items-center space-x-1 text-[10px] text-cyan-300 font-mono mt-0.5">
+        <i class="fa-solid fa-wifi text-[9px]"></i>
+        <span title="Verified multi-device NAT subnet. Zero false-positive penalty applied.">Multi-Device NAT Safe (${confidence}%)</span>
+      </div>`;
+    } else if (u.isDatacenterOrVpn) {
+      wifiBadge = `<div class="flex items-center space-x-1 text-[10px] text-amber-400 font-mono mt-0.5">
+        <i class="fa-solid fa-server text-[9px]"></i>
+        <span>Datacenter / Proxy Subnet</span>
+      </div>`;
+    } else {
+      wifiBadge = `<div class="text-[10px] text-slate-500 font-mono mt-0.5">Standard IP Range</div>`;
+    }
+
+    // Role / Admin badge
+    const roleBadge = u.isSuperAdmin 
+      ? `<span class="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold uppercase">SuperAdmin</span>`
+      : `<span class="px-1.5 py-0.5 rounded text-[9px] bg-slate-800 text-slate-400 border border-white/10 font-medium">${escapeHTML(u.role || 'User')}</span>`;
+
+    return `
+      <tr class="hover:bg-white/[0.03] transition-colors border-b border-white/5 font-sans">
+        <!-- 1. User Identity -->
+        <td class="p-3">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl ${isQuarantined ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-slate-800 text-indigo-400 border border-white/10'} flex items-center justify-center font-bold text-xs shrink-0">
+              ${escapeHTML((u.name || u.email || 'U').charAt(0).toUpperCase())}
+            </div>
+            <div class="min-w-0 max-w-[180px]">
+              <div class="text-xs font-semibold text-white truncate flex items-center space-x-1.5">
+                <span class="truncate">${escapeHTML(u.name || 'Anonymous User')}</span>
+                ${roleBadge}
+              </div>
+              <div class="text-[11px] text-slate-400 font-mono truncate" title="${escapeHTML(u.email)}">${escapeHTML(u.email)}</div>
+              <div class="text-[9px] text-slate-500 font-mono">ID: ${escapeHTML(u.id.substring(0, 10))}…</div>
+            </div>
+          </div>
+        </td>
+
+        <!-- 2. Risk Score Gauge -->
+        <td class="p-3 text-center">
+          <div class="inline-flex flex-col items-center space-y-1">
+            <span class="px-2.5 py-1 rounded-xl text-xs font-mono font-bold border ${riskBadgeClass}">
+              ${score} / 100
+            </span>
+            <div class="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+              <div class="h-full ${riskGaugeClass} transition-all duration-500" style="width: ${Math.min(score, 100)}%"></div>
+            </div>
+            <span class="text-[9px] text-slate-400 font-mono uppercase tracking-wider">${riskLabel}</span>
+          </div>
+        </td>
+
+        <!-- 3. Threat Signals & Categories -->
+        <td class="p-3">
+          <div class="space-y-1">
+            <div class="flex flex-wrap gap-1">
+              ${catBadgesHtml}
+            </div>
+            ${primaryReasonHtml}
+          </div>
+        </td>
+
+        <!-- 4. Device Fingerprint -->
+        <td class="p-3 font-mono">
+          <div class="flex items-center space-x-1">
+            <code class="px-2 py-1 rounded bg-slate-950 border border-white/10 text-slate-300 text-[10px] truncate max-w-[110px]" title="${escapeHTML(dfp)}">
+              ${escapeHTML(shortDfp)}
+            </code>
+            <button type="button" onclick="window.copyToClipboard('${escapeHTML(dfp)}'); showToast('Hardware fingerprint copied to clipboard', 'info');" class="p-1 text-slate-500 hover:text-white transition rounded cursor-pointer" title="Copy Fingerprint">
+              <i class="fa-solid fa-copy text-[10px]"></i>
+            </button>
+            ${dfpCountBadge}
+          </div>
+        </td>
+
+        <!-- 5. Network / Shared Wi-Fi -->
+        <td class="p-3">
+          <div>
+            <div class="text-[11px] font-mono text-slate-300 font-semibold">${escapeHTML(clientIp)}</div>
+            ${wifiBadge}
+          </div>
+        </td>
+
+        <!-- 6. Status -->
+        <td class="p-3 text-center">
+          ${isQuarantined 
+            ? `<span class="px-2.5 py-1 rounded-xl text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center justify-center space-x-1 shadow-sm">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping inline-block"></span>
+                <span>Quarantined</span>
+              </span>`
+            : `<span class="px-2.5 py-1 rounded-xl text-[10px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center space-x-1">
+                <i class="fa-solid fa-check text-[9px]"></i>
+                <span>Active</span>
+              </span>`
+          }
+        </td>
+
+        <!-- 7. Security Actions -->
+        <td class="p-3 text-right">
+          <div class="flex items-center justify-end space-x-1.5 font-sans">
+            <button type="button" onclick="window.inspectUserThreatDetails('${escapeHTML(u.id)}')" class="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] font-medium border border-white/10 transition flex items-center space-x-1 cursor-pointer" title="Deep Payload & Signal Inspection">
+              <i class="fa-solid fa-eye text-[10px]"></i>
+              <span>Inspect</span>
+            </button>
+            
+            ${isQuarantined 
+              ? `<button type="button" onclick="window.quickUnflagUser('${escapeHTML(u.id)}', '${escapeHTML(u.email)}')" class="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-[11px] font-bold transition flex items-center space-x-1 cursor-pointer" title="Unflag and restore normal platform access">
+                  <i class="fa-solid fa-lock-open text-[10px]"></i>
+                  <span>Unflag</span>
+                </button>`
+              : `<button type="button" onclick="window.openQuarantineUserModal('${escapeHTML(u.id)}', '${escapeHTML(u.email)}')" class="px-2.5 py-1 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 text-[11px] font-bold transition flex items-center space-x-1 cursor-pointer" title="Quarantine account immediately">
+                  <i class="fa-solid fa-lock text-[10px]"></i>
+                  <span>Quarantine</span>
+                </button>`
+            }
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+};
+
+window.filterThreatMatrix = function() {
+  const raw = window.threatIntelligenceState.rawUsers || [];
+  const searchInput = document.getElementById('input-threat-search');
+  const catSelect = document.getElementById('select-threat-category');
+  const riskSelect = document.getElementById('select-threat-risk');
+  const statusSelect = document.getElementById('select-threat-status');
+
+  const q = searchInput?.value?.trim()?.toLowerCase() || '';
+  const cat = catSelect?.value || 'all';
+  const risk = riskSelect?.value || 'all';
+  const status = statusSelect?.value || 'all';
+
+  const filtered = raw.filter(u => {
+    // Search match
+    if (q) {
+      const matchEmail = (u.email || '').toLowerCase().includes(q);
+      const matchName = (u.name || '').toLowerCase().includes(q);
+      const matchId = (u.id || '').toLowerCase().includes(q);
+      const matchDfp = (u.deviceFingerprint || '').toLowerCase().includes(q);
+      const matchIp = (u.clientIp || u.lastRegistrationIp || '').toLowerCase().includes(q);
+      if (!matchEmail && !matchName && !matchId && !matchDfp && !matchIp) return false;
+    }
+
+    // Category match
+    if (cat !== 'all') {
+      const cats = Array.isArray(u.activeThreatCategories) 
+        ? u.activeThreatCategories 
+        : (Array.isArray(u.threatCategories) ? u.threatCategories : []);
+      if (!cats.includes(cat) && u.primaryThreatReason !== cat) return false;
+    }
+
+    // Risk level match
+    const score = Number(u.riskScore) || 0;
+    if (risk === 'critical' && score < 70) return false;
+    if (risk === 'warning' && (score < 40 || score >= 70)) return false;
+    if (risk === 'safe' && score >= 40) return false;
+
+    // Status match
+    if (status === 'quarantined' && !u.isFlagged) return false;
+    if (status === 'active' && u.isFlagged) return false;
+
+    return true;
+  });
+
+  window.threatIntelligenceState.users = filtered;
+  window.renderThreatMatrixTable(filtered);
+};
+
+window.resetThreatFilters = function() {
+  const searchInput = document.getElementById('input-threat-search');
+  const catSelect = document.getElementById('select-threat-category');
+  const riskSelect = document.getElementById('select-threat-risk');
+  const statusSelect = document.getElementById('select-threat-status');
+
+  if (searchInput) searchInput.value = '';
+  if (catSelect) catSelect.value = 'all';
+  if (riskSelect) riskSelect.value = 'all';
+  if (statusSelect) statusSelect.value = 'all';
+
+  window.filterThreatMatrix();
+};
+
+window.runThreatSecurityScan = async function() {
+  const btn = document.getElementById('btn-run-threat-scan');
+  const originalHtml = btn?.innerHTML;
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-xs"></i> <span>Running Scan...</span>';
+  }
+
+  try {
+    const res = await apiRequest('/api/v1/admin/threat-intelligence/run-scan', 'POST');
+    const result = res?.data;
+    const scanned = result?.scannedCount ?? result?.totalAudited ?? 0;
+    const quarantined = result?.quarantinedCount ?? result?.flaggedCount ?? 0;
+    const duration = result?.durationMs ?? 0;
+    showToast(`Security scan complete: ${scanned} accounts audited, ${quarantined} quarantined in ${duration}ms.`, 'info');
+    
+    // Append to live feed
+    window.appendThreatLiveFeedEvent({
+      id: 'scan_' + Date.now(),
+      type: 'SECURITY_AUDIT_COMPLETED',
+      timestamp: new Date().toISOString(),
+      summary: `Platform security scan completed across ${scanned} accounts.`,
+      riskScore: quarantined > 0 ? 80 : 0
+    });
+
+    await window.loadThreatIntelligenceMatrix();
+  } catch (err) {
+    showToast(`Security scan failed: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = originalHtml;
+    }
+  }
+};
+
+window.exportThreatIntelligenceLog = async function(format = 'json') {
+  try {
+    const isDev = state.roleMode === 'developer' && state.activeProject?.id;
+    if (isDev || !state.user?.isSuperAdmin) {
+      // Export current loaded matrix as client-generated file
+      const raw = window.threatIntelligenceState.rawUsers || [];
+      let content = '';
+      let mimeType = 'application/json';
+      let filename = `threat-intelligence-matrix-${Date.now()}.${format}`;
+
+      if (format === 'csv') {
+        mimeType = 'text/csv';
+        const headers = ['User ID', 'Email', 'Name', 'Role', 'Risk Score', 'Risk Level', 'Quarantined', 'Threat Categories', 'Device Fingerprint', 'IP Address', 'Shared WiFi Safe'];
+        const rows = raw.map(u => [
+          `"${u.id}"`,
+          `"${u.email}"`,
+          `"${(u.name || '').replace(/"/g, '""')}"`,
+          `"${u.role || (u.isSuperAdmin ? 'Super Admin' : 'User')}"`,
+          u.riskScore,
+          `"${u.riskLevel}"`,
+          u.isFlagged ? 'YES' : 'NO',
+          `"${(u.activeThreatCategories || []).join(', ')}"`,
+          `"${u.deviceFingerprint || ''}"`,
+          `"${u.clientIp || ''}"`,
+          u.sharedWifiSafe ? 'YES' : 'NO'
+        ]);
+        content = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      } else {
+        content = JSON.stringify(raw, null, 2);
+      }
+
+      const blob = new Blob([content], { type: mimeType });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      showToast(`Exported ${raw.length} records as ${format.toUpperCase()}`, 'info');
+      return;
+    }
+
+    // Direct superadmin download endpoint
+    const token = state.accessToken;
+    const response = await fetch(`/api/v1/admin/threat-intelligence/export?format=${format}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!response.ok) throw new Error('Failed to export threat report');
+
+    const blob = await response.blob();
+    const filename = `threat-intelligence-report-${Date.now()}.${format}`;
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast(`Threat intelligence report downloaded as ${format.toUpperCase()}`, 'info');
+  } catch (err) {
+    showToast(`Export error: ${err.message}`, 'error');
+  }
+};
+
+window.quickUnflagUser = async function(userId, email) {
+  try {
+    await apiRequest(`/api/v1/admin/threat-intelligence/unflag-user/${userId}`, 'POST');
+    showToast(`Account "${email}" unflagged and restored successfully.`, 'info');
+    
+    // Append to live feed
+    window.appendThreatLiveFeedEvent({
+      id: 'unflag_' + Date.now(),
+      type: 'SECURITY_FLAG_RESOLVED',
+      userEmail: email,
+      timestamp: new Date().toISOString(),
+      summary: `Admin unflagged and restored account: ${email}`,
+      riskScore: 0
+    });
+
+    await window.loadThreatIntelligenceMatrix();
+  } catch (err) {
+    showToast(`Failed to unflag account: ${err.message}`, 'error');
+  }
+};
+
+window.openQuarantineUserModal = function(userId, email) {
+  const inputUserId = document.getElementById('quarantine-target-user-id');
+  const labelUserEmail = document.getElementById('quarantine-target-user-email');
+  const inputNotes = document.getElementById('input-quarantine-notes');
+  const selectReason = document.getElementById('select-quarantine-reason');
+  const selectSeverity = document.getElementById('select-quarantine-severity');
+
+  if (inputUserId) inputUserId.value = userId;
+  if (labelUserEmail) labelUserEmail.textContent = email;
+  if (inputNotes) inputNotes.value = '';
+  if (selectReason) selectReason.value = 'malicious_traffic';
+  if (selectSeverity) selectSeverity.value = 'critical';
+
+  window.showModal('modal-quarantine-user-direct');
+};
+
+window.confirmQuarantineUserAction = async function() {
+  const userId = document.getElementById('quarantine-target-user-id')?.value;
+  const email = document.getElementById('quarantine-target-user-email')?.textContent;
+  const reason = document.getElementById('select-quarantine-reason')?.value || 'malicious_traffic';
+  const severity = document.getElementById('select-quarantine-severity')?.value || 'critical';
+  const notes = document.getElementById('input-quarantine-notes')?.value || '';
+
+  if (!userId) {
+    showToast('No user selected for quarantine.', 'error');
+    return;
+  }
+
+  try {
+    await apiRequest(`/api/v1/admin/threat-intelligence/quarantine-user/${userId}`, 'POST', {
+      reason,
+      severity,
+      notes
+    });
+
+    window.hideModal('modal-quarantine-user-direct');
+    showToast(`Account "${email}" successfully quarantined.`, 'info');
+
+    // Append to live feed
+    window.appendThreatLiveFeedEvent({
+      id: 'quar_' + Date.now(),
+      type: 'SECURITY_ALERT_FLAGGED',
+      userEmail: email,
+      category: reason,
+      timestamp: new Date().toISOString(),
+      summary: `Manual quarantine applied to ${email}: ${notes || reason}`,
+      riskScore: 90
+    });
+
+    await window.loadThreatIntelligenceMatrix();
+  } catch (err) {
+    showToast(`Quarantine action failed: ${err.message}`, 'error');
+  }
+};
+
+window.inspectUserThreatDetails = function(userId) {
+  const raw = window.threatIntelligenceState.rawUsers || [];
+  const user = raw.find(u => u.id === userId);
+  if (!user) {
+    showToast('User record not found in threat matrix.', 'error');
+    return;
+  }
+
+  window.threatIntelligenceState.activeModalUser = user;
+
+  const emailEl = document.getElementById('inspect-threat-user-email');
+  const riskScoreEl = document.getElementById('inspect-threat-risk-score');
+  const deviceEl = document.getElementById('inspect-threat-device');
+  const ipEl = document.getElementById('inspect-threat-ip');
+  const catsEl = document.getElementById('inspect-threat-categories');
+  const rawJsonEl = document.getElementById('inspect-threat-raw-json');
+  const statusBadgeEl = document.getElementById('inspect-threat-status-badge');
+  const btnToggle = document.getElementById('btn-modal-threat-toggle-quarantine');
+
+  if (emailEl) emailEl.textContent = user.email || user.name || 'Unknown User';
+  if (riskScoreEl) {
+    riskScoreEl.textContent = `${user.riskScore || 0} / 100 (${user.riskLevel?.toUpperCase() || 'SAFE'})`;
+    riskScoreEl.className = user.riskScore >= 70 ? 'text-rose-400 font-bold text-sm' : (user.riskScore >= 40 ? 'text-amber-400 font-bold text-sm' : 'text-emerald-400 font-bold text-sm');
+  }
+  if (deviceEl) deviceEl.textContent = user.deviceFingerprint || 'dfp_untracked_client';
+  if (ipEl) {
+    const wifiText = user.sharedWifiSafe ? ' (Verified Multi-Device Wi-Fi NAT)' : (user.isDatacenterOrVpn ? ' (Datacenter / VPN)' : '');
+    ipEl.textContent = `${user.clientIp || '127.0.0.1'}${wifiText}`;
+  }
+
+  if (catsEl) {
+    const cats = Array.isArray(user.activeThreatCategories) && user.activeThreatCategories.length > 0 
+      ? user.activeThreatCategories 
+      : (user.riskScore > 0 && user.primaryThreatReason ? [user.primaryThreatReason] : []);
+    
+    if (cats.length > 0) {
+      catsEl.innerHTML = cats.map(c => `
+        <span class="px-2.5 py-1 rounded-lg text-xs font-mono font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+          <i class="fa-solid fa-triangle-exclamation mr-1 text-[10px]"></i>${escapeHTML(window.formatThreatCategoryLabel(c))}
+        </span>
+      `).join('');
+    } else {
+      catsEl.innerHTML = `<span class="px-2.5 py-1 rounded-lg text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/20"><i class="fa-solid fa-shield-check mr-1"></i>Clean Heuristic Evaluation</span>`;
+    }
+  }
+
+  if (rawJsonEl) {
+    const payload = {
+      userId: user.id,
+      email: user.email,
+      role: user.role || (user.isSuperAdmin ? 'Super Admin' : 'User'),
+      riskScore: user.riskScore,
+      riskLevel: user.riskLevel,
+      isQuarantined: user.isFlagged,
+      primaryThreatReason: user.primaryThreatReason,
+      threatCategories: user.activeThreatCategories,
+      deviceFingerprint: user.deviceFingerprint,
+      deviceFingerprintsCount: user.deviceFingerprintsCount,
+      clientIp: user.clientIp,
+      sharedWifi: {
+        safe: user.sharedWifiSafe,
+        confidence: user.sharedWifiConfidence,
+        deviceCountOnIp: user.sharedWifiDeviceCount
+      },
+      flagDetails: user.flagDetails,
+      evaluatedAt: new Date().toISOString()
+    };
+    rawJsonEl.textContent = JSON.stringify(payload, null, 2);
+  }
+
+  if (statusBadgeEl) {
+    if (user.isFlagged) {
+      statusBadgeEl.className = 'px-2.5 py-1 rounded-xl text-xs font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30';
+      statusBadgeEl.innerHTML = '🔴 Quarantined';
+    } else {
+      statusBadgeEl.className = 'px-2.5 py-1 rounded-xl text-xs font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20';
+      statusBadgeEl.innerHTML = '🟢 Clean / Active';
+    }
+  }
+
+  if (btnToggle) {
+    if (user.isFlagged) {
+      btnToggle.textContent = 'Unflag & Restore Account';
+      btnToggle.className = 'px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition active:scale-95 cursor-pointer';
+    } else {
+      btnToggle.textContent = 'Quarantine Account';
+      btnToggle.className = 'px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-lg transition active:scale-95 cursor-pointer';
+    }
+  }
+
+  window.showModal('modal-threat-incident-detail');
+};
+
+window.toggleUserQuarantineFromModal = async function() {
+  const user = window.threatIntelligenceState.activeModalUser;
+  if (!user) return;
+
+  window.hideModal('modal-threat-incident-detail');
+
+  if (user.isFlagged) {
+    await window.quickUnflagUser(user.id, user.email);
+  } else {
+    window.openQuarantineUserModal(user.id, user.email);
+  }
+};
+
+window.purgeResolvedThreatIncidents = async function() {
+  try {
+    const res = await apiRequest('/api/v1/admin/threat-intelligence/purge-resolved', 'POST');
+    const count = res?.data?.purgedCount || 0;
+    showToast(`Purged ${count} resolved threat incident logs.`, 'info');
+    await window.loadThreatIntelligenceMatrix();
+  } catch (err) {
+    showToast(`Purge failed: ${err.message}`, 'error');
+  }
+};
+
+window.toggleThreatFeedPause = function() {
+  window.threatIntelligenceState.feedPaused = !window.threatIntelligenceState.feedPaused;
+  const isPaused = window.threatIntelligenceState.feedPaused;
+  
+  const icon = document.getElementById('icon-toggle-threat-stream');
+  const label = document.getElementById('label-toggle-threat-stream');
+  const badge = document.getElementById('badge-threat-stream-status');
+
+  if (isPaused) {
+    if (icon) icon.className = 'fa-solid fa-play text-[9px]';
+    if (label) label.textContent = 'Resume Stream';
+    if (badge) {
+      badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/30';
+      badge.textContent = 'Paused';
+    }
+  } else {
+    if (icon) icon.className = 'fa-solid fa-pause text-[9px]';
+    if (label) label.textContent = 'Pause Stream';
+    if (badge) {
+      badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-mono bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+      badge.textContent = 'Streaming';
+    }
+  }
+};
+
+window.clearThreatFeed = function() {
+  const feed = document.getElementById('container-threat-live-feed');
+  if (feed) {
+    feed.innerHTML = '<div class="text-slate-500 italic">[Event stream buffer cleared by admin. Active heuristic monitoring ongoing...]</div>';
+  }
+};
+
+window.appendThreatLiveFeedEvent = function(event) {
+  if (window.threatIntelligenceState.feedPaused) return;
+  const feed = document.getElementById('container-threat-live-feed');
+  if (!feed) return;
+
+  if (feed.innerHTML.includes('[Waiting for real-time') || feed.innerHTML.includes('[Event stream buffer cleared')) {
+    feed.innerHTML = '';
+  }
+
+  const timeStr = event.timestamp 
+    ? new Date(event.timestamp).toLocaleTimeString() 
+    : new Date().toLocaleTimeString();
+  
+  let typeColor = 'text-amber-400';
+  let icon = 'fa-shield-halved';
+  if (event.type === 'SECURITY_ALERT_FLAGGED' || event.riskScore >= 70) {
+    typeColor = 'text-rose-400';
+    icon = 'fa-triangle-exclamation';
+  } else if (event.type === 'SECURITY_FLAG_RESOLVED' || event.type === 'SECURITY_AUDIT_COMPLETED') {
+    typeColor = 'text-emerald-400';
+    icon = 'fa-circle-check';
+  }
+
+  const div = document.createElement('div');
+  div.className = 'p-2 rounded-lg bg-slate-900/60 border border-white/5 flex items-start justify-between space-x-2 animate-fadeIn text-[11px]';
+  div.innerHTML = `
+    <div class="flex items-start space-x-2 min-w-0">
+      <i class="fa-solid ${icon} ${typeColor} mt-0.5 text-[10px] shrink-0"></i>
+      <div class="min-w-0">
+        <div class="text-slate-200 font-semibold truncate">
+          <span class="${typeColor}">[${escapeHTML(event.type || 'THREAT_EVENT')}]</span>
+          ${event.userEmail ? `<span class="text-white font-mono ml-1">${escapeHTML(event.userEmail)}</span>` : ''}
+        </div>
+        <div class="text-slate-400 text-[10px] truncate">${escapeHTML(event.summary || event.category || 'Security signal detected')}</div>
+      </div>
+    </div>
+    <div class="text-right shrink-0">
+      <span class="text-slate-500 font-mono text-[9px]">${timeStr}</span>
+      ${event.riskScore !== undefined ? `<div class="text-[9px] font-mono font-bold ${event.riskScore >= 70 ? 'text-rose-400' : 'text-emerald-400'}">Risk: ${event.riskScore}</div>` : ''}
+    </div>
+  `;
+
+  feed.insertBefore(div, feed.firstChild);
+
+  // Trim to max 50 items
+  while (feed.children.length > 50) {
+    feed.removeChild(feed.lastChild);
+  }
+};
+
