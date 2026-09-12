@@ -21,7 +21,12 @@ import {
   listProjectCollaborators,
   addProjectCollaborator,
   removeProjectCollaborator,
-  getProjectThreatIntelligence
+  getProjectThreatIntelligence,
+  runProjectSecurityAudit,
+  unflagProjectUser,
+  quarantineProjectUser,
+  exportProjectThreatIntelligence,
+  purgeProjectResolvedIncidents
 } from './project.controller';
 
 const router = Router();
@@ -34,6 +39,11 @@ router.post('/', createProject);
 router.get('/', listProjects);
 router.get('/:id/stats', getProjectStats);
 router.get('/:id/threat-intelligence', getProjectThreatIntelligence);
+router.post('/:id/threat-intelligence/run-scan', runProjectSecurityAudit);
+router.post('/:id/threat-intelligence/unflag-user/:userId', unflagProjectUser);
+router.post('/:id/threat-intelligence/quarantine-user/:userId', quarantineProjectUser);
+router.get('/:id/threat-intelligence/export', exportProjectThreatIntelligence);
+router.post('/:id/threat-intelligence/purge-resolved', purgeProjectResolvedIncidents);
 router.get('/:id/webhook-logs', getWebhookLogs);
 router.patch('/:id', updateProject);
 router.delete('/:id', deleteProject);

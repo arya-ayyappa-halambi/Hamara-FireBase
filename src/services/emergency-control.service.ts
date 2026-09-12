@@ -226,6 +226,38 @@ class EmergencyControlService {
     const isLocalhost = normIp === '127.0.0.1' || normIp === '::1';
     const isAdminPath = params.path.startsWith('/api/v1/admin');
 
+    const p = (params.path || '').toLowerCase();
+    const isBypassPath = 
+      p === '/' ||
+      p === '/index.html' ||
+      p === '/admin-login' ||
+      p === '/admin-login.html' ||
+      p === '/admin/login' ||
+      p === '/recovery' ||
+      p === '/recovery.html' ||
+      p === '/system/recovery' ||
+      p === '/reset-password' ||
+      p === '/reset-password.html' ||
+      p.startsWith('/app.js') ||
+      p.startsWith('/flarebase.js') ||
+      p.startsWith('/aegis.js') ||
+      p.startsWith('/styles.css') ||
+      p.startsWith('/driver.css') ||
+      p.startsWith('/assets/') ||
+      p === '/favicon.ico' ||
+      p === '/health' ||
+      p === '/api/health' ||
+      p.startsWith('/api/v1/health') ||
+      p.startsWith('/api/v1/system/status') ||
+      p.startsWith('/api/v1/system/health') ||
+      p.startsWith('/api/v1/system/restore') ||
+      p.startsWith('/api/v1/system/verify-recovery-pin') ||
+      p.startsWith('/api/v1/auth/');
+
+    if (isBypassPath) {
+      return { allowed: true };
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // GUARANTEE: Super Admin from localhost (127.0.0.1) ALWAYS has access to Admin APIs
     // to manage, adjust, or disarm emergency levels and maintenance modes.

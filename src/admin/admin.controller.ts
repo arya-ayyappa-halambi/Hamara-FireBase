@@ -751,7 +751,8 @@ export async function runPlatformSecurityAuditHandler(req: Request, res: Respons
   try {
     const adminId = req.user?.sub || 'system';
     const adminEmail = req.user?.email || 'admin@aegisdb.dev';
-    const auditResult = threatDetectionService.runPlatformSecurityAudit(adminId, adminEmail);
+    const projectId = (req.body?.projectId || req.query?.projectId) as string | undefined;
+    const auditResult = threatDetectionService.runPlatformSecurityAudit(adminId, adminEmail, projectId);
     res.status(200).json({
       success: true,
       message: `Security audit completed on ${auditResult.scannedCount} accounts.`,

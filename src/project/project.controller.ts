@@ -372,3 +372,105 @@ export async function getProjectThreatIntelligence(req: Request, res: Response, 
   } catch (err) { next(err); }
 }
 
+export async function runProjectSecurityAudit(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const isSuperAdmin = Boolean(req.user?.isSuperAdmin);
+    const { id } = req.params;
+    const project = projectService.getProjectById(id, ownerId, isSuperAdmin);
+    if (!project || (project.ownerId !== ownerId && !req.user?.isSuperAdmin)) {
+      throw new AppError('Project not found or unauthorized', 404);
+    }
+    const { threatDetectionService } = await import('../services/threat-detection.service');
+    const result = threatDetectionService.runPlatformSecurityAudit(ownerId, req.user?.email || 'developer', id);
+    res.status(200).json({
+      success: true,
+      message: `Security audit completed on ${result.scannedCount} project accounts.`,
+      data: result
+    });
+  } catch (err) { next(err); }
+}
+
+export async function unflagProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const isSuperAdmin = Boolean(req.user?.isSuperAdmin);
+    const { id, userId } = req.params;
+    const project = projectService.getProjectById(id, ownerId, isSuperAdmin);
+    if (!project || (project.ownerId !== ownerId && !req.user?.isSuperAdmin)) {
+      throw new AppError('Project not found or unauthorized', 404);
+    }
+    const { threatDetectionService } = await import('../services/threat-detection.service');
+    const result = threatDetectionService.unflagUser(userId, ownerId, req.user?.email || 'developer');
+    res.status(200).json({
+      success: true,
+      message: 'Project user unflagged and restored.',
+      data: result
+    });
+  } catch (err) { next(err); }
+}
+
+export async function quarantineProjectUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const isSuperAdmin = Boolean(req.user?.isSuperAdmin);
+    const { id, userId } = req.params;
+    const { reason, severity, notes } = req.body;
+    const project = projectService.getProjectById(id, ownerId, isSuperAdmin);
+    if (!project || (project.ownerId !== ownerId && !req.user?.isSuperAdmin)) {
+      throw new AppError('Project not found or unauthorized', 404);
+    }
+    const { threatDetectionService } = await import('../services/threat-detection.service');
+    const flag = threatDetectionService.quarantineUser(
+      userId,
+      ownerId,
+      req.user?.email || 'developer',
+      reason || 'malicious_traffic',
+      severity || 'high',
+      notes
+    );
+    res.status(200).json({
+      success: true,
+      message: 'Project user quarantined.',
+      data: flag
+    });
+  } catch (err) { next(err); }
+}
+
+export async function exportProjectThreatIntelligence(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const isSuperAdmin = Boolean(req.user?.isSuperAdmin);
+    const { id } = req.params;
+    const project = projectService.getProjectById(id, ownerId, isSuperAdmin);
+    if (!project || (project.ownerId !== ownerId && !req.user?.isSuperAdmin)) {
+      throw new AppError('Project not found or unauthorized', 404);
+    }
+    const format = req.query.format === 'csv' ? 'csv' : 'json';
+    const { threatDetectionService } = await import('../services/threat-detection.service');
+    const report = threatDetectionService.exportThreatIntelligenceReport(format);
+    res.setHeader('Content-Type', report.contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${report.filename}"`);
+    res.status(200).send(report.data);
+  } catch (err) { next(err); }
+}
+
+export async function purgeProjectResolvedIncidents(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const ownerId = getOwnerId(req);
+    const isSuperAdmin = Boolean(req.user?.isSuperAdmin);
+    const { id } = req.params;
+    const project = projectService.getProjectById(id, ownerId, isSuperAdmin);
+    if (!project || (project.ownerId !== ownerId && !req.user?.isSuperAdmin)) {
+      throw new AppError('Project not found or unauthorized', 404);
+    }
+    const { threatDetectionService } = await import('../services/threat-detection.service');
+    const purgedCount = threatDetectionService.purgeResolvedIncidents(ownerId, req.user?.email || 'developer');
+    res.status(200).json({
+      success: true,
+      message: `Successfully purged ${purgedCount} resolved security incidents.`,
+      data: { purgedCount }
+    });
+  } catch (err) { next(err); }
+}
+

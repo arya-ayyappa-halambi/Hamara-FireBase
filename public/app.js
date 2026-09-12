@@ -13418,6 +13418,10 @@ window.loadThreatIntelligenceMatrix = async function() {
         users = matrixRes;
       } else if (matrixRes.data && Array.isArray(matrixRes.data.users)) {
         users = matrixRes.data.users;
+      } else if (matrixRes.data && matrixRes.data.matrix && Array.isArray(matrixRes.data.matrix.users)) {
+        users = matrixRes.data.matrix.users;
+      } else if (matrixRes.matrix && Array.isArray(matrixRes.matrix.users)) {
+        users = matrixRes.matrix.users;
       } else if (Array.isArray(matrixRes.data)) {
         users = matrixRes.data;
       } else if (Array.isArray(matrixRes.users)) {
@@ -13425,7 +13429,7 @@ window.loadThreatIntelligenceMatrix = async function() {
       }
     }
 
-    let stats = statsRes?.data || null;
+    let stats = statsRes?.data || matrixRes?.data?.stats || matrixRes?.stats || null;
     const totalUsersCount = stats?.totalUsers ?? stats?.total ?? users.length;
     const quarantinedCount = stats?.quarantinedUsers ?? stats?.flaggedUsersCount ?? users.filter(u => u.isFlagged).length;
     const threatsBlockedCount = stats?.threatsBlocked ?? stats?.criticalThreatsIntercepted ?? 0;
@@ -13731,7 +13735,11 @@ window.runThreatSecurityScan = async function() {
   }
 
   try {
-    const res = await apiRequest('/api/v1/admin/threat-intelligence/run-scan', 'POST');
+    const isDev = state.roleMode === 'developer' && state.activeProject?.id;
+    const url = isDev 
+      ? `/api/v1/projects/${state.activeProject.id}/threat-intelligence/run-scan`
+      : `/api/v1/admin/threat-intelligence/run-scan`;
+    const res = await apiRequest(url, 'POST');
     const result = res?.data;
     const scanned = result?.scannedCount ?? result?.totalAudited ?? 0;
     const quarantined = result?.quarantinedCount ?? result?.flaggedCount ?? 0;
@@ -13824,7 +13832,11 @@ window.exportThreatIntelligenceLog = async function(format = 'json') {
 
 window.quickUnflagUser = async function(userId, email) {
   try {
-    await apiRequest(`/api/v1/admin/threat-intelligence/unflag-user/${userId}`, 'POST');
+    const isDev = state.roleMode === 'developer' && state.activeProject?.id;
+    const url = isDev 
+      ? `/api/v1/projects/${state.activeProject.id}/threat-intelligence/unflag-user/${userId}`
+      : `/api/v1/admin/threat-intelligence/unflag-user/${userId}`;
+    await apiRequest(url, 'POST');
     showToast(`Account "${email}" unflagged and restored successfully.`, 'info');
     
     // Append to live feed
@@ -13872,7 +13884,11 @@ window.confirmQuarantineUserAction = async function() {
   }
 
   try {
-    await apiRequest(`/api/v1/admin/threat-intelligence/quarantine-user/${userId}`, 'POST', {
+    const isDev = state.roleMode === 'developer' && state.activeProject?.id;
+    const url = isDev 
+      ? `/api/v1/projects/${state.activeProject.id}/threat-intelligence/quarantine-user/${userId}`
+      : `/api/v1/admin/threat-intelligence/quarantine-user/${userId}`;
+    await apiRequest(url, 'POST', {
       reason,
       severity,
       notes
@@ -14006,7 +14022,11 @@ window.toggleUserQuarantineFromModal = async function() {
 
 window.purgeResolvedThreatIncidents = async function() {
   try {
-    const res = await apiRequest('/api/v1/admin/threat-intelligence/purge-resolved', 'POST');
+    const isDev = state.roleMode === 'developer' && state.activeProject?.id;
+    const url = isDev 
+      ? `/api/v1/projects/${state.activeProject.id}/threat-intelligence/purge-resolved`
+      : `/api/v1/admin/threat-intelligence/purge-resolved`;
+    const res = await apiRequest(url, 'POST');
     const count = res?.data?.purgedCount || 0;
     showToast(`Purged ${count} resolved threat incident logs.`, 'info');
     await window.loadThreatIntelligenceMatrix();

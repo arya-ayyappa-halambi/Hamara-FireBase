@@ -758,8 +758,16 @@ export class ThreatDetectionService {
     const now = new Date().toISOString();
 
     for (const u of users) {
+      let plainEmail = u.email || '';
+      if (typeof plainEmail === 'string' && plainEmail.startsWith('{')) {
+        try {
+          const { envelopeEncryptionService } = require('./envelope-encryption.service');
+          plainEmail = envelopeEncryptionService.decryptField(JSON.parse(plainEmail), u.projectId || 'SYSTEM') || plainEmail;
+        } catch (_) {}
+      }
+
       const evalResult = antiAbuseService.evaluateRegistrationRisk({
-        email: u.email,
+        email: plainEmail,
         clientIp: u.lastRegistrationIp || '127.0.0.1',
         deviceFingerprint: u.deviceFingerprint,
         excludeUserId: u.id,
@@ -770,12 +778,12 @@ export class ThreatDetectionService {
         try { db.prepare('UPDATE users SET isFlagged = 1, riskScore = ? WHERE id = ?').run(evalResult.riskScore, u.id); } catch {}
         try { db.prepare('UPDATE project_users SET isFlagged = 1, riskScore = ? WHERE id = ?').run(evalResult.riskScore, u.id); } catch {}
         flaggedCount++;
-        details.push(`High risk flagged for ${u.email} (Score: ${evalResult.riskScore}) - Reasons: ${evalResult.reasons.join('; ')}`);
+        details.push(`High risk flagged for ${plainEmail || u.id} (Score: ${evalResult.riskScore}) - Reasons: ${evalResult.reasons.join('; ')}`);
       } else if (evalResult.riskScore >= 40) {
         try { db.prepare('UPDATE users SET riskScore = ? WHERE id = ?').run(evalResult.riskScore, u.id); } catch {}
         try { db.prepare('UPDATE project_users SET riskScore = ? WHERE id = ?').run(evalResult.riskScore, u.id); } catch {}
         elevatedCount++;
-        details.push(`Moderate risk evaluated for ${u.email} (Score: ${evalResult.riskScore}) - Reasons: ${evalResult.reasons.join('; ')}`);
+        details.push(`Moderate risk evaluated for ${plainEmail || u.id} (Score: ${evalResult.riskScore}) - Reasons: ${evalResult.reasons.join('; ')}`);
       } else if (!u.isFlagged) {
         try { db.prepare('UPDATE users SET riskScore = ? WHERE id = ?').run(evalResult.riskScore, u.id); } catch {}
         try { db.prepare('UPDATE project_users SET riskScore = ? WHERE id = ?').run(evalResult.riskScore, u.id); } catch {}

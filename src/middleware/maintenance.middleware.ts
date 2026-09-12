@@ -5,20 +5,42 @@ import { extractBearerToken } from './auth.middleware';
 
 export function maintenanceModeMiddleware(req: Request, res: Response, next: NextFunction) {
   try {
-    // Skip checking database if it's the restore endpoint or basic static files
-    if (req.path === '/' || req.path.startsWith('/index.html') || req.path.startsWith('/admin-login.html') || req.path.startsWith('/recovery.html') || req.path.startsWith('/app.js') || req.path.startsWith('/styles.css') || req.path.startsWith('/assets/') || req.path.startsWith('/api/v1/system/restore') || req.path.startsWith('/api/v1/system/verify-recovery-pin')) {
+    // Skip checking database if it's the restore endpoint, status, or essential static files
+    const p = req.path.toLowerCase();
+    if (
+      p === '/' ||
+      p === '/index.html' ||
+      p === '/admin-login' ||
+      p === '/admin-login.html' ||
+      p === '/admin/login' ||
+      p === '/recovery' ||
+      p === '/recovery.html' ||
+      p === '/system/recovery' ||
+      p === '/reset-password' ||
+      p === '/reset-password.html' ||
+      p.startsWith('/app.js') ||
+      p.startsWith('/flarebase.js') ||
+      p.startsWith('/aegis.js') ||
+      p.startsWith('/styles.css') ||
+      p.startsWith('/driver.css') ||
+      p.startsWith('/assets/') ||
+      p === '/favicon.ico' ||
+      p === '/health' ||
+      p === '/api/health' ||
+      p.startsWith('/api/v1/health') ||
+      p.startsWith('/api/v1/system/status') ||
+      p.startsWith('/api/v1/system/health') ||
+      p.startsWith('/api/v1/system/restore') ||
+      p.startsWith('/api/v1/system/verify-recovery-pin') ||
+      p.startsWith('/api/v1/auth/')
+    ) {
       return next();
     }
 
     const db = getDb();
-    const config = db.prepare('SELECT maintenanceMode FROM platform_settings WHERE id = ?').get('default') as { maintenanceMode: number };
-    
-    if (config && config.maintenanceMode) {
-      // Allow auth routes so admins can log in
-      if (req.path.startsWith('/api/v1/auth/')) {
-        return next();
-      }
+    const config = db.prepare('SELECT maintenanceMode FROM platform_settings WHERE id = ?').get('default') as { maintenanceMode: number } | undefined;
 
+    if (config && config.maintenanceMode === 1) {
       // Check if user is an admin
       const token = extractBearerToken(req);
       if (token) {
@@ -39,7 +61,7 @@ export function maintenanceModeMiddleware(req: Request, res: Response, next: Nex
         message: 'The system is currently undergoing maintenance. Please try again later.'
       });
     }
-    
+
     next();
   } catch (error) {
     next(error);

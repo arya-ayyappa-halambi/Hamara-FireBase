@@ -171,7 +171,8 @@ function createApp(): Application {
   app.use(ipAccessControlMiddleware);
 
   // ── Static Files (Web Dashboard) ───────────────────────────────────────────
-  app.use(express.static('public', {
+  const publicDir = path.resolve(__dirname, '../public');
+  app.use(express.static(publicDir, {
     etag: false,
     lastModified: false,
     setHeaders: (res) => {
@@ -181,8 +182,16 @@ function createApp(): Application {
     }
   }));
 
-  app.get('/reset-password', (req, res) => {
-    res.sendFile(path.join(__dirname, '../public/reset-password.html'));
+  app.get(['/admin-login', '/admin-login.html', '/admin/login'], (_req, res) => {
+    res.sendFile(path.join(publicDir, 'admin-login.html'));
+  });
+
+  app.get(['/recovery', '/recovery.html', '/system/recovery'], (_req, res) => {
+    res.sendFile(path.join(publicDir, 'recovery.html'));
+  });
+
+  app.get(['/reset-password', '/reset-password.html'], (_req, res) => {
+    res.sendFile(path.join(publicDir, 'reset-password.html'));
   });
 
   // ── Public Well-Known & Metrics Endpoints ─────────────────────────────────
