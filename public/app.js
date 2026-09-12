@@ -3939,24 +3939,24 @@ function buildMigrationPrompt(baseUrl, isDual, dualUrl) {
   const dualNote = isDual ? ` (and for Wi-Fi / mobile devices: ${dualUrl})` : '';
   const effectiveApiKey = getEffectiveApiKey();
   return `You are an expert full-stack engineer and cloud architect.
-I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to AegisDB (a self-hosted, lightweight BaaS).
+I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to FlareBase (a self-hosted, lightweight BaaS).
 
-AegisDB Server Specifications:
+FlareBase Server Specifications:
 - Base URL: ${baseUrl}${dualNote}
-- Project API Key: Retrieve from localStorage ('aegisApiKey') or config constant (Active: '${effectiveApiKey}'). Pass in 'x-aegis-api-key' or 'x-api-key' header.
-- User Session: When users sign in, store their JWT token in localStorage ('aegisToken') and pass 'Authorization: Bearer <token>'.
+- Project API Key: Retrieve from localStorage ('flareApiKey' or 'aegisApiKey') or config constant (Active: '${effectiveApiKey}'). Pass in 'x-flare-api-key' (or 'x-aegis-api-key') header.
+- User Session: When users sign in, store their JWT token in localStorage ('flareToken' or 'aegisToken') and pass 'Authorization: Bearer <token>'.
 
 Please systematically migrate the application according to these specifications:
 
-1. AUTHENTICATION MIGRATION (Firebase/Supabase Auth -> AegisDB Project Auth):
-   - Auth Config Discovery: GET ${baseUrl}/api/v1/project-auth/config (Header: 'x-aegis-api-key') to dynamically inspect enabled OAuth providers and registration mode.
-   - User Sign-Up: POST ${baseUrl}/api/v1/project-auth/register with body { email, password, name } (Header: 'x-aegis-api-key').
-   - User Sign-In: POST ${baseUrl}/api/v1/project-auth/login with body { email, password } (Header: 'x-aegis-api-key'). Returns { token, user: { id, email, name, role } }.
-   - OAuth Sign-In: POST ${baseUrl}/api/v1/project-auth/oauth/<provider> (google | apple | github) with body { token: '<id_token_or_access_token>' } (Header: 'x-aegis-api-key').
+1. AUTHENTICATION MIGRATION (Firebase/Supabase Auth -> FlareBase Project Auth):
+   - Auth Config Discovery: GET ${baseUrl}/api/v1/project-auth/config (Header: 'x-flare-api-key') to dynamically inspect enabled OAuth providers and registration mode.
+   - User Sign-Up: POST ${baseUrl}/api/v1/project-auth/register with body { email, password, name } (Header: 'x-flare-api-key').
+   - User Sign-In: POST ${baseUrl}/api/v1/project-auth/login with body { email, password } (Header: 'x-flare-api-key'). Returns { token, user: { id, email, name, role } }.
+   - OAuth Sign-In: POST ${baseUrl}/api/v1/project-auth/oauth/<provider> (google | apple | github) with body { token: '<id_token_or_access_token>' } (Header: 'x-flare-api-key').
 
-2. DATABASE & DATA LAYER MIGRATION (Firestore/Postgres -> AegisDB Collections):
+2. DATABASE & DATA LAYER MIGRATION (Firestore/Postgres -> FlareBase Collections):
    - Insert Document: POST ${baseUrl}/api/v1/db/collections/<collection_name>/documents
-     Headers: { 'Content-Type': 'application/json', 'x-aegis-api-key': apiKey, 'Authorization': 'Bearer <token>' }
+     Headers: { 'Content-Type': 'application/json', 'x-flare-api-key': apiKey, 'Authorization': 'Bearer <token>' }
      Body: { data: { ...fields } }
    - Query & Filter Documents: GET ${baseUrl}/api/v1/db/collections/<collection_name>/documents?filter={"status":"active"}&limit=50&offset=0&sortBy=_createdAt&sortOrder=desc
      * Translate Firestore where() clauses to server-side JSON filters in query param 'filter'.
@@ -3986,20 +3986,20 @@ Please systematically migrate the application according to these specifications:
    - Responses follow: { success: boolean, message: string, data?: any }.
    - Extract data cleanly, handle 401/403 status codes, and show user-friendly notifications.
 
-Refactor all existing mock data, Firebase, and Supabase client calls to use these AegisDB endpoints cleanly.`;
+Refactor all existing mock data, Firebase, and Supabase client calls to use these FlareBase endpoints cleanly.`;
 }
 
 function buildNewAppPrompt(baseUrl, isDual, dualUrl) {
   const dualNote = isDual ? ` (and Wi-Fi Network host: ${dualUrl})` : '';
   return `You are an expert full-stack software engineer.
-Build a complete, modern, high-performance web application backed by AegisDB (a self-hosted Backend-as-a-Service running at ${baseUrl}${dualNote}).
+Build a complete, modern, high-performance web application backed by FlareBase (a self-hosted Backend-as-a-Service running at ${baseUrl}${dualNote}).
 
 ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
 
 1. CLIENT ARCHITECTURE & AUTHENTICATION:
-   - Create a clean API service layer (or use AegisClient) that automatically attaches:
-     * Header 'x-aegis-api-key': <PROJECT_API_KEY> (from localStorage 'aegisApiKey' or config)
-     * Header 'Authorization': 'Bearer ' + <USER_JWT_TOKEN> (from localStorage 'aegisToken')
+   - Create a clean API service layer (or use FlareClient) that automatically attaches:
+     * Header 'x-flare-api-key': <PROJECT_API_KEY> (from localStorage 'flareApiKey' or config)
+     * Header 'Authorization': 'Bearer ' + <USER_JWT_TOKEN> (from localStorage 'flareToken')
    - Implement complete user lifecycle UI (Register, Login, OAuth, Logout):
      * Check enabled auth options: GET ${baseUrl}/api/v1/project-auth/config
      * Register: POST ${baseUrl}/api/v1/project-auth/register with { email, password, name }
@@ -4037,33 +4037,44 @@ ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
 function buildAegisClientCode(baseUrl) {
   const effectiveApiKey = getEffectiveApiKey();
   return `/**
- * AegisClient — Official Universal Drop-in SDK for AegisDB
+ * FlareClient — Official Universal Drop-in SDK for FlareBase
  * Works in Browser (Vanilla JS, React, Vue, Svelte, Next.js) and Node.js
  */
-class AegisClient {
+class FlareClient {
   constructor(options = {}) {
     const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '${baseUrl}';
     this.baseUrl = (options.baseUrl || defaultOrigin).replace(/\\/+$/, '');
-    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') || '${effectiveApiKey}';
-    this.token = options.token || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisToken') : '') || '';
+    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareApiKey') || localStorage.getItem('aegisApiKey')) : '') || '${effectiveApiKey}';
+    this.token = options.token || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareToken') || localStorage.getItem('aegisToken')) : '') || '';
   }
 
   setApiKey(key) {
     this.apiKey = key;
-    if (typeof localStorage !== 'undefined') localStorage.setItem('aegisApiKey', key);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('flareApiKey', key);
+      localStorage.setItem('aegisApiKey', key);
+    }
   }
 
   setToken(token) {
     this.token = token;
     if (typeof localStorage !== 'undefined') {
-      if (token) localStorage.setItem('aegisToken', token);
-      else localStorage.removeItem('aegisToken');
+      if (token) {
+        localStorage.setItem('flareToken', token);
+        localStorage.setItem('aegisToken', token);
+      } else {
+        localStorage.removeItem('flareToken');
+        localStorage.removeItem('aegisToken');
+      }
     }
   }
 
   async request(endpoint, options = {}) {
     const headers = { ...(options.headers || {}) };
-    if (this.apiKey) headers['x-aegis-api-key'] = this.apiKey;
+    if (this.apiKey) {
+      headers['x-flare-api-key'] = this.apiKey;
+      headers['x-aegis-api-key'] = this.apiKey;
+    }
     if (this.token) headers['Authorization'] = \`Bearer \${this.token}\`;
 
     if (options.body && !(options.body instanceof FormData)) {
@@ -4074,7 +4085,7 @@ class AegisClient {
     const res = await fetch(\`\${this.baseUrl}\${endpoint}\`, { ...options, headers });
     const json = await res.json().catch(() => ({ success: false, message: 'Invalid server response' }));
     if (!res.ok || json.success === false) {
-      throw new Error(json.message || \`AegisDB request failed (\${res.status})\`);
+      throw new Error(json.message || \`FlareBase request failed (\${res.status})\`);
     }
     return json.data !== undefined ? json.data : json;
   }
@@ -4153,10 +4164,14 @@ class AegisClient {
   }
 }
 
+// Backwards compatibility alias
+const AegisClient = FlareClient;
+
 // Export for module systems or attach to window
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { AegisClient };
+  module.exports = { FlareClient, AegisClient };
 } else if (typeof window !== 'undefined') {
+  window.FlareClient = FlareClient;
   window.AegisClient = AegisClient;
 }`;
 }
@@ -4204,7 +4219,7 @@ function updatePromptUI() {
   }
   const prevQuickMig = document.getElementById('preview-quick-migration');
   if (prevQuickMig) {
-    prevQuickMig.textContent = `"You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to AegisDB (BaaS running at ${baseUrl})..."`;
+    prevQuickMig.textContent = `"You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to FlareBase (BaaS running at ${baseUrl})..."`;
   }
 
   // 4. Quick New App Prompt in About
@@ -4229,7 +4244,7 @@ function updatePromptUI() {
   }
   const prevQuickNew = document.getElementById('preview-quick-newapp');
   if (prevQuickNew) {
-    prevQuickNew.textContent = `"You are an expert full-stack engineer. Build a complete, modern web application backed by AegisDB (self-hosted BaaS running at ${baseUrl})..."`;
+    prevQuickNew.textContent = `"You are an expert full-stack engineer. Build a complete, modern web application backed by FlareBase (self-hosted BaaS running at ${baseUrl})..."`;
   }
 
   // 5. Modal Prompt Option 1
@@ -7138,7 +7153,7 @@ window.confirmServerShutdownAction = async function() {
         ov.style.setProperty('display', 'flex', 'important');
       }
     }
-    showToast(`🛑 AegisDB Server on port ${port} killed successfully & port freed.`, 'success');
+    showToast(`🛑 FlareBase Server on port ${port} killed successfully & port freed.`, 'success');
   } catch (err) {
     if (btn) {
       btn.disabled = false;
@@ -7276,7 +7291,7 @@ async function exportReport(format) {
 
   const projectName = state.activeProject.name;
   const dateStr = new Date().toISOString().split('T')[0];
-  const filename = `AegisDB_Report_${projectName.replace(/\\s+/g, '_')}_${dateStr}`;
+  const filename = `FlareBase_Report_${projectName.replace(/\\s+/g, '_')}_${dateStr}`;
 
   // Helper to trigger download
   const downloadFile = (content, fileName, mimeType) => {
@@ -7309,7 +7324,7 @@ async function exportReport(format) {
     showToast('Exported JSON successfully', 'success');
   } 
   else if (format === 'md') {
-    const mdContent = `# AegisDB Developer Metrics Report
+    const mdContent = `# FlareBase Developer Metrics Report
 **Project:** ${projectName}
 **Generated:** ${new Date().toLocaleString()}
 
@@ -7345,9 +7360,9 @@ Active WS Subscribers,${wsSubs}
   else if (format === 'doc') {
     const docHtml = `
       <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-      <head><meta charset='utf-8'><title>AegisDB Report</title></head>
+      <head><meta charset='utf-8'><title>FlareBase Report</title></head>
       <body style="font-family: Arial, sans-serif;">
-        <h1 style="color: #4f46e5;">AegisDB Developer Metrics Report</h1>
+        <h1 style="color: #4f46e5;">FlareBase Developer Metrics Report</h1>
         <p><strong>Project:</strong> ${projectName}</p>
         <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
         
@@ -7380,7 +7395,7 @@ Active WS Subscribers,${wsSubs}
     const container = document.createElement('div');
     container.innerHTML = `
       <div style="font-family: 'Inter', sans-serif; padding: 40px; color: #1e293b;">
-        <h1 style="color: #4f46e5; font-size: 28px; margin-bottom: 10px;">AegisDB Developer Metrics</h1>
+        <h1 style="color: #4f46e5; font-size: 28px; margin-bottom: 10px;">FlareBase Developer Metrics</h1>
         <div style="color: #64748b; font-size: 14px; margin-bottom: 40px;">
           Project: <strong>${projectName}</strong><br/>
           Generated: ${new Date().toLocaleString()}
@@ -7437,16 +7452,17 @@ Active WS Subscribers,${wsSubs}
 window.exportReport = exportReport;
 
 // --- Feature Modals ---
+// --- Feature Modals ---
 const featureDetails = {
   storage: {
     title: "High-Concurrency Storage",
     icon: "fa-bolt",
-    desc: "AegisDB uses SQLite configured in WAL (Write-Ahead Logging) mode, enabling massive read concurrency and non-blocking writes out of the box.",
+    desc: "FlareBase uses SQLite configured in WAL (Write-Ahead Logging) mode, enabling massive read concurrency and non-blocking writes out of the box with sub-10ms queries.",
     details: [
       "Zero configuration required for WAL mode.",
       "Supports thousands of concurrent readers.",
       "Atomic commits ensure data integrity.",
-      "Optimized for modern NVMe drives."
+      "Optimized for modern NVMe drives with sub-10ms response times."
     ]
   },
   encryption: {
@@ -7482,6 +7498,17 @@ const featureDetails = {
       "Session invalidation across all devices instantly."
     ]
   },
+  project_auth: {
+    title: "Project Auth Controls & Dynamic Discovery",
+    icon: "fa-users-gear",
+    desc: "Centrally toggle Email/Password, Google OAuth, GitHub, Apple, Magic Links, Passkeys, and Public Registration per project with automatic client discovery.",
+    details: [
+      "Zero client hardcoding: apps fetch enabled providers dynamically via /api/v1/project-auth/config.",
+      "Strict disabled lockout: rejected with HTTP 403 Forbidden even if credentials exist.",
+      "1-hour scoped access tokens with refresh token family rotation and replay detection.",
+      "Complete tenant user isolation from platform developer accounts."
+    ]
+  },
   telemetry: {
     title: "Real-Time Telemetry",
     icon: "fa-chart-pie",
@@ -7496,7 +7523,7 @@ const featureDetails = {
   isolation: {
     title: "Multi-Tenant Isolation",
     icon: "fa-cubes",
-    desc: "Deploy multiple independent projects on a single AegisDB instance without any cross-contamination.",
+    desc: "Deploy multiple independent projects on a single FlareBase instance without any cross-contamination.",
     details: [
       "Strict logical separation of databases.",
       "Independent schemas, rules, and users per project.",
@@ -7657,8 +7684,8 @@ window.startTutorial = function() {
       {
         element: 'header',
         popover: {
-          title: 'Top Navigation & Roles',
-          description: 'Switch between Super Admin and Developer roles, manage active projects, and see server status.',
+          title: 'FlareBase Navigation & Roles',
+          description: 'Switch between Developer and Super Admin modes, switch active tenant projects, manage profile settings, and monitor server status.',
           side: 'bottom',
           align: 'start'
         }
@@ -7666,8 +7693,8 @@ window.startTutorial = function() {
       {
         element: '#sidebar',
         popover: {
-          title: 'Sidebar Navigation',
-          description: 'This is your main navigation hub. From here you can access Project Management, Data Browser, and Security settings.',
+          title: 'FlareBase Navigation Hub',
+          description: 'This is your central control deck. Access multi-tenant projects, databases, auth providers, security rules, live streams, and developer tools.',
           side: 'right',
           align: 'start'
         }
@@ -7676,7 +7703,25 @@ window.startTutorial = function() {
         element: '[data-tab="tab-project-management"]',
         popover: {
           title: 'Project Management',
-          description: 'AegisDB supports multi-tenancy. Create projects here to isolate your databases, users, and rules.',
+          description: 'FlareBase provides complete multi-tenant isolation. Create and manage independent projects with isolated databases, API keys, storage, and rules.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-auth-config"]',
+        popover: {
+          title: 'Authentication & Identity Providers',
+          description: 'Configure Email/Password, Google OAuth, GitHub, Apple, Magic Links, and Passkeys. Connected apps discover enabled methods with zero hardcoding, while disabled providers are strictly locked down.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-organizations"]',
+        popover: {
+          title: 'Organizations & Teams',
+          description: 'Collaborate with GitHub-style workspaces, functional teams, role-based access control (RBAC), and centralized audit logs.',
           side: 'right',
           align: 'center'
         }
@@ -7684,8 +7729,8 @@ window.startTutorial = function() {
       {
         element: '[data-tab="tab-data-browser"]',
         popover: {
-          title: 'Data Browser',
-          description: 'Your Firebase-style database console. You can view collections, documents, and run ad-hoc queries here.',
+          title: 'Data & Collections Browser',
+          description: 'Your sub-10ms SQLite WAL document database. Create collections, view documents, run queries, and leverage transparent AES-256 envelope encryption.',
           side: 'right',
           align: 'center'
         }
@@ -7694,7 +7739,7 @@ window.startTutorial = function() {
         element: '[data-tab="tab-rules-sandbox"]',
         popover: {
           title: 'Security Rules Sandbox',
-          description: 'Define who can read and write your data using our advanced Node.js VM Security Rules.',
+          description: 'Define granular read/write access policies using our isolated Node.js VM rules engine with real-time test simulations.',
           side: 'right',
           align: 'center'
         }
@@ -7702,8 +7747,35 @@ window.startTutorial = function() {
       {
         element: '[data-tab="tab-developer-metrics"]',
         popover: {
-          title: 'Real-Time Metrics',
-          description: 'Monitor database query latency, websocket subscribers, and security rule evaluations live.',
+          title: 'Real-Time Metrics & Telemetry',
+          description: 'Monitor sub-10ms query execution times, traffic rates, active WebSocket streams, and system resource health live.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-ws-debugger"]',
+        popover: {
+          title: 'Live WebSocket Stream & CDC',
+          description: 'Inspect real-time Change Data Capture (CDC) events streamed across client connections with strict project channel isolation.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-api-playground"]',
+        popover: {
+          title: 'API Explorer & Code Generator',
+          description: 'Generate ready-to-use SDK code snippets (JavaScript, TypeScript, Python, cURL) and test API endpoints interactively.',
+          side: 'right',
+          align: 'center'
+        }
+      },
+      {
+        element: '[data-tab="tab-asset-vault"]',
+        popover: {
+          title: 'Media & Asset Vault',
+          description: 'Upload, manage, and deliver media files with automatic quota metering, MIME validation, and secure project-isolated storage.',
           side: 'right',
           align: 'center'
         }
@@ -7711,8 +7783,8 @@ window.startTutorial = function() {
       {
         element: '[data-tab="tab-about"]',
         popover: {
-          title: 'About AegisDB',
-          description: 'Learn more about the platform architecture, tech stack, and explore detailed feature cards.',
+          title: 'About FlareBase',
+          description: 'Explore the architecture, benchmarks, feature deep-dives, and learn more about the FlareBase ecosystem.',
           side: 'right',
           align: 'center'
         }
@@ -7720,8 +7792,8 @@ window.startTutorial = function() {
       {
         element: '#btn-tutorial',
         popover: {
-          title: 'Revisit Anytime',
-          description: 'You can restart this tutorial anytime from this button.',
+          title: 'Revisit Tour Anytime',
+          description: 'You can restart this interactive guided tour anytime from this button.',
           side: 'right',
           align: 'center'
         }
