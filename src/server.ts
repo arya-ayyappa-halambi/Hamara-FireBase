@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/server.ts
-//  AegisDB — Main application entry point.
+//  FlareBase — Main application entry point.
 //
 //  Responsibilities:
 //    1. Load environment variables
@@ -437,7 +437,7 @@ async function bootstrap(): Promise<void> {
   server.listen(PORT, hostToBind, () => {
     console.log('');
     console.log('┌────────────────────────────────────────────────────────────┐');
-    console.log('│                   AegisDB Server  🛡️                       │');
+    console.log('│                  FlareBase Server  🔥                      │');
     console.log('├────────────────────────────────────────────────────────────┤');
     console.log(`│  ➜  Local:    http://localhost:${PORT}`.padEnd(61) + '│');
     console.log(`│  ➜  Network:  http://${networkIp}:${PORT}`.padEnd(61) + '│');

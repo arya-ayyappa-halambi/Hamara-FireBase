@@ -48,7 +48,7 @@ async function runInteractivePrompt(): Promise<void> {
 
   console.log('\n');
   console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║             AegisDB Interactive Server Startup 🛡️          ║');
+  console.log('║             FlareBase Interactive Server Startup 🛡️          ║');
   console.log('╚════════════════════════════════════════════════════════════╝');
   console.log('  Detected Wi-Fi Network IP: \x1b[32m' + netIp + '\x1b[0m');
   console.log('  Currently Saved Defaults : \x1b[36m' + savedHost + ':' + savedPort + ' (' + savedMode + ')\x1b[0m');
@@ -96,7 +96,7 @@ async function runInteractivePrompt(): Promise<void> {
     `).run(targetHost, targetPort, targetMode);
   } catch (_) {}
 
-  console.log('\n🚀 Starting AegisDB on \x1b[32m' + targetHost + ':' + targetPort + '\x1b[0m (' + targetMode + ' mode)...\n');
+  console.log('\n🚀 Starting FlareBase on \x1b[32m' + targetHost + ':' + targetPort + '\x1b[0m (' + targetMode + ' mode)...\n');
 
   // Spawn ts-node src/server.ts with environment variables
   const child = spawn('npx', ['ts-node', 'src/server.ts'], {

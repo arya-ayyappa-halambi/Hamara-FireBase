@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  AegisDB 1-Click Linux / POSIX Launcher
+#  FlareBase 1-Click Linux / POSIX Launcher
 # ─────────────────────────────────────────────────────────────────────────────
 
 cd "$(dirname "$0")" || exit 1

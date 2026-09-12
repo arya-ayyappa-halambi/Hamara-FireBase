@@ -1,0 +1,9 @@
+#!/usr/bin/env node
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  bin/flarebase
+//  FlareBase CLI Executable
+// ─────────────────────────────────────────────────────────────────────────────
+
+const path = require('path');
+require(path.join(__dirname, '../scripts/serve.js'));

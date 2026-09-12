@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  AegisDB 1-Click Fast macOS Setup (Double-Clickable in Finder)
+#  FlareBase 1-Click Fast macOS Setup (Double-Clickable in Finder)
 # ─────────────────────────────────────────────────────────────────────────────
 
 cd "$(dirname "$0")" || exit 1
@@ -43,7 +43,7 @@ fi
 
 if ! command -v node &> /dev/null; then
   echo ""
-  echo "❌ Node.js is required to run AegisDB."
+  echo "❌ Node.js is required to run FlareBase."
   echo "   Please install it from https://nodejs.org and re-run setup.command."
   echo ""
   read -n 1 -s -r -p "Press any key to close this window..."

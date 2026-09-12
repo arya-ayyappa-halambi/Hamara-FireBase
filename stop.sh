@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  AegisDB 1-Click Linux / POSIX Server Stop Utility
+#  FlareBase 1-Click Linux / POSIX Server Stop Utility
 # ─────────────────────────────────────────────────────────────────────────────
 
 cd "$(dirname "$0")" || exit 1

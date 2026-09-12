@@ -2,7 +2,7 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  scripts/stop.js
-//  AegisDB 1-Click Cross-Platform Server Stop & Port Release Utility
+//  FlareBase 1-Click Cross-Platform Server Stop & Port Release Utility
 // ─────────────────────────────────────────────────────────────────────────────
 
 const { execSync } = require('child_process');
@@ -112,7 +112,7 @@ function killLingeringNodeProcesses() {
       );
     } catch (_) {}
     try {
-      execSync('taskkill /F /FI "WINDOWTITLE eq AegisDB Server Launcher*"', { stdio: 'ignore' });
+      execSync('taskkill /F /FI "WINDOWTITLE eq FlareBase Server Launcher*"', { stdio: 'ignore' });
     } catch (_) {}
   } else {
     try {
@@ -144,7 +144,7 @@ async function verifyPortFree(port) {
 async function main() {
   console.log('');
   console.log(`${C.rose}┌────────────────────────────────────────────────────────────┐${C.reset}`);
-  console.log(`${C.rose}│${C.reset}         ${C.bold}🛑 AegisDB Server Shutdown & Port Cleanup${C.reset}          ${C.rose}│${C.reset}`);
+  console.log(`${C.rose}│${C.reset}         ${C.bold}🛑 FlareBase Server Shutdown & Port Cleanup${C.reset}          ${C.rose}│${C.reset}`);
   console.log(`${C.rose}└────────────────────────────────────────────────────────────┘${C.reset}`);
   console.log('');
 
@@ -173,7 +173,7 @@ async function main() {
     console.log(`${C.emerald}✓ Terminated active server process(es):${C.reset} ${Array.from(killedPids).join(', ') || 'OK'}`);
     console.log(`${C.emerald}✓ Released active port(s):${C.reset} ${killedPorts.join(', ')}`);
   } else {
-    console.log(`${C.cyan}ℹ No active AegisDB server processes were found running.${C.reset}`);
+    console.log(`${C.cyan}ℹ No active FlareBase server processes were found running.${C.reset}`);
   }
 
   console.log('');
@@ -188,14 +188,14 @@ async function main() {
   }
 
   console.log('');
-  console.log(`${C.emerald}✅ AegisDB server successfully stopped. All ports are freed!${C.reset}\n`);
+  console.log(`${C.emerald}✅ FlareBase server successfully stopped. All ports are freed!${C.reset}\n`);
 
-  // On macOS, close any Terminal windows running the AegisDB start.command or serve.js
+  // On macOS, close any Terminal windows running the FlareBase start.command or serve.js
   if (process.platform === 'darwin') {
     try {
       execSync(`osascript -e 'tell application "Terminal"
         repeat with w in windows
-          if (name of w contains "start.command") or (name of w contains "serve.js") or (name of w contains "AegisDB") then
+          if (name of w contains "start.command") or (name of w contains "serve.js") or (name of w contains "FlareBase") then
             close w
           end if
         end repeat
@@ -203,7 +203,7 @@ async function main() {
     } catch (_) {}
   } else if (process.platform === 'win32') {
     try {
-      execSync('taskkill /F /FI "WINDOWTITLE eq AegisDB Server Launcher*"', { stdio: 'ignore' });
+      execSync('taskkill /F /FI "WINDOWTITLE eq FlareBase Server Launcher*"', { stdio: 'ignore' });
     } catch (_) {}
   }
 

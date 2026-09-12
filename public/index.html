@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AegisDB — Enterprise Glassmorphic Console</title>
+  <title>FlareBase — Enterprise Glassmorphic Console</title>
 
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -205,7 +205,7 @@
 
   <!-- BACKGROUND CAROUSEL (Spans Full Screen) -->
   <div id="aegis-carousel" class="absolute inset-0 hidden lg:block z-0 pointer-events-none">
-    <!-- Slide 0: Why AegisDB -->
+    <!-- Slide 0: Why FlareBase -->
     <div class="carousel-slide absolute inset-0 transition-opacity duration-1000 ease-in-out opacity-100 z-10">
       <img src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=2034&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 mix-blend-overlay" />
       <div class="absolute inset-0 bg-gradient-to-r from-[#090d16] via-[#090d16]/90 to-[#090d16]/30 pointer-events-none z-10"></div>
@@ -216,7 +216,7 @@
           <div class="flex justify-end w-full">
             <div class="inline-flex items-center space-x-2 bg-purple-500/20 border border-purple-500/30 backdrop-blur-md px-4 py-2 rounded-full shadow-lg">
               <i class="fa-solid fa-bolt text-purple-400"></i>
-              <span class="text-sm font-semibold text-purple-300 tracking-wide">Why AegisDB?</span>
+              <span class="text-sm font-semibold text-purple-300 tracking-wide">Why FlareBase?</span>
             </div>
           </div>
           
@@ -871,7 +871,7 @@
           <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-violet-500 text-white shadow-xl shadow-indigo-500/20 mb-2">
             <i class="fa-solid fa-shield-halved text-3xl"></i>
           </div>
-          <h1 class="text-3xl font-extrabold tracking-tight text-white">AegisDB</h1>
+          <h1 class="text-3xl font-extrabold tracking-tight text-white">FlareBase</h1>
           <p class="text-sm text-slate-400">Enterprise High-Performance Database Engine</p>
         </div>
 
@@ -1077,7 +1077,7 @@
           <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 shrink-0">
             <i class="fa-solid fa-shield-halved text-sm sm:text-base"></i>
           </div>
-          <span class="font-bold text-base sm:text-lg tracking-tight text-white hidden md:inline">AegisDB</span>
+          <span class="font-bold text-base sm:text-lg tracking-tight text-white hidden md:inline">FlareBase</span>
         </div>
 
         <!-- Role Context Switcher Badge -->
@@ -1283,7 +1283,7 @@
             <span id="label-migration-countdown" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">In 00:00:00</span>
           </div>
           <div class="flex items-center space-x-2 text-[11px] text-slate-300 mt-0.5">
-            <span id="label-migration-message">AegisDB is scheduled to migrate to a new hosting port/IP address.</span>
+            <span id="label-migration-message">FlareBase is scheduled to migrate to a new hosting port/IP address.</span>
             <span class="text-amber-400/60">•</span>
             <span class="text-amber-200 font-mono">Target: <strong id="label-migration-target-url" class="underline text-amber-300">http://localhost:3000</strong></span>
           </div>
@@ -1415,9 +1415,9 @@
               <i class="fa-solid fa-gear text-base text-slate-400 w-5"></i>
               <span class="nav-text">Account & Security</span>
             </button>
-            <button data-tab="tab-about" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition" title="About AegisDB">
+            <button data-tab="tab-about" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-white/5 transition" title="About FlareBase">
               <i class="fa-solid fa-circle-info text-base text-slate-400 w-5"></i>
-              <span class="nav-text">About AegisDB</span>
+              <span class="nav-text">About FlareBase</span>
             </button>
             <button type="button" onclick="event.preventDefault(); event.stopPropagation(); startTutorial()" id="btn-tutorial" class="nav-item w-full flex items-center space-x-3 px-3 py-2.5 rounded-xl text-xs font-medium text-indigo-300 hover:text-white hover:bg-indigo-500/10 transition mt-2" title="Interactive Guided Tour">
               <i class="fa-solid fa-lightbulb text-base text-indigo-400 w-5"></i>
@@ -1517,7 +1517,7 @@
               <span class="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md border border-emerald-500/20">LIVE TAIL</span>
             </div>
             <div id="server-log-stream" class="h-48 bg-slate-950 p-4 rounded-xl font-mono text-xs text-slate-300 custom-scrollbar overflow-y-auto space-y-1">
-              <div class="text-slate-500">[INFO] AegisDB telemetry pipeline initialized. Live log stream connected.</div>
+              <div class="text-slate-500">[INFO] FlareBase telemetry pipeline initialized. Live log stream connected.</div>
             </div>
           </div>
         </section>
@@ -2874,7 +2874,7 @@
                 </div>
                 <div>
                   <h3 class="text-sm font-bold text-white flex items-center space-x-2">
-                    <span>Live AegisDB Terminal & Log Streamer</span>
+                    <span>Live FlareBase Terminal & Log Streamer</span>
                     <span id="badge-terminal-live" class="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
                       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                       <span>STREAMING</span>
@@ -2925,7 +2925,7 @@
               </div>
 
               <div id="container-live-terminal-stream" class="h-64 overflow-y-auto p-4 space-y-1 text-slate-300 font-mono select-text custom-scrollbar">
-                <div class="text-slate-500 italic text-[11px]">Connecting to AegisDB live log stream...</div>
+                <div class="text-slate-500 italic text-[11px]">Connecting to FlareBase live log stream...</div>
               </div>
             </div>
           </div>
@@ -3027,7 +3027,7 @@
                       ⚪ Offline
                     </span>
                   </h4>
-                  <p class="text-[11px] text-slate-400">Expose AegisDB to the public internet securely over HTTPS with Cloudflare Quick Tunnels, Ngrok, or Localtunnel.</p>
+                  <p class="text-[11px] text-slate-400">Expose FlareBase to the public internet securely over HTTPS with Cloudflare Quick Tunnels, Ngrok, or Localtunnel.</p>
                 </div>
               </div>
 
@@ -3056,7 +3056,7 @@
                         Cloudflare Edge
                       </span>
                     </h5>
-                    <p class="text-[10px] text-slate-400">Your AegisDB backend is reachable globally from any mobile phone, web app, or client SDK.</p>
+                    <p class="text-[10px] text-slate-400">Your FlareBase backend is reachable globally from any mobile phone, web app, or client SDK.</p>
                   </div>
                 </div>
 
@@ -3257,7 +3257,7 @@
                         Interface: auto
                       </span>
                     </h5>
-                    <p class="text-[10px] text-slate-400">Your AegisDB backend is reachable privately by trusted mesh nodes over this private overlay IP.</p>
+                    <p class="text-[10px] text-slate-400">Your FlareBase backend is reachable privately by trusted mesh nodes over this private overlay IP.</p>
                   </div>
                 </div>
 
@@ -3416,7 +3416,7 @@
                 <pre class="p-3.5 rounded-xl bg-black/60 border border-white/10 text-[11px] font-mono text-slate-300 max-h-36 overflow-y-auto whitespace-pre-wrap" id="hosttab-text-ai-prompt"></pre>
               </div>
 
-              <!-- Dynamic AegisClient Initialization -->
+              <!-- Dynamic FlareBaseClient Initialization -->
               <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-3">
                 <div class="flex items-center justify-between">
                   <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-300 flex items-center space-x-2">
@@ -3428,7 +3428,7 @@
                     <span>Copy Snippet</span>
                   </button>
                 </div>
-                <p class="text-[11px] text-slate-400">Initialize `AegisClient` in your frontend or mobile app targeting this endpoint.</p>
+                <p class="text-[11px] text-slate-400">Initialize `FlareBaseClient` in your frontend or mobile app targeting this endpoint.</p>
                 <pre class="p-3.5 rounded-xl bg-black/60 border border-white/10 text-[11px] font-mono text-amber-200/90 max-h-36 overflow-y-auto whitespace-pre-wrap" id="hosttab-text-sdk-code"></pre>
               </div>
             </div>
@@ -4273,7 +4273,7 @@
                 <i class="fa-solid fa-folder-open text-indigo-400"></i>
                 <span>Project Management</span>
               </h2>
-              <p class="text-xs text-slate-400 mt-1">Create, configure, and manage your AegisDB projects</p>
+              <p class="text-xs text-slate-400 mt-1">Create, configure, and manage your FlareBase projects</p>
             </div>
             <button id="btn-open-create-project" class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white text-xs font-semibold shadow-lg shadow-indigo-500/20 transition active:scale-95 flex items-center space-x-2">
               <i class="fa-solid fa-plus"></i>
@@ -5051,9 +5051,9 @@
                 <i class="fa-regular fa-copy"></i>
                 <span>Copy Code</span>
               </button>
-              <pre class="bg-slate-950 p-6 rounded-xl overflow-x-auto text-xs font-mono border border-white/10"><code id="code-snippet-display" class="language-javascript">import { AegisDB } from 'aegisdb-sdk';
+              <pre class="bg-slate-950 p-6 rounded-xl overflow-x-auto text-xs font-mono border border-white/10"><code id="code-snippet-display" class="language-javascript">import { FlareBase } from 'aegisdb-sdk';
 
-const aegis = new AegisDB({ apiKey: 'aegis_pk_your_anon_key' });
+const aegis = new FlareBase({ apiKey: 'aegis_pk_your_anon_key' });
 const docs = await aegis.collection('todos').get();</code></pre>
             </div>
           </div>
@@ -5935,11 +5935,11 @@ const docs = await aegis.collection('todos').get();</code></pre>
                     <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                     <span>Enterprise Edition</span>
                   </div>
-                  <h2 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">AegisDB v2.5</h2>
+                  <h2 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 tracking-tight">FlareBase v2.5</h2>
                   <p class="text-lg text-slate-300 mt-2 font-medium">The High-Performance Dynamic Schema Database Engine</p>
                 </div>
                 <p class="text-sm text-slate-400 leading-relaxed max-w-2xl mx-auto md:mx-0">
-                  AegisDB is an enterprise-grade backend-as-a-service (BaaS) that bridges the gap between massive concurrency and uncompromising security. Engineered for modern web architectures, it combines SQLite WAL-mode performance with military-grade two-tier envelope encryption.
+                  FlareBase is an enterprise-grade backend-as-a-service (BaaS) that bridges the gap between massive concurrency and uncompromising security. Engineered for modern web architectures, it combines SQLite WAL-mode performance with military-grade two-tier envelope encryption.
                 </p>
                 <div class="flex flex-wrap gap-3 pt-2 justify-center md:justify-start">
                   <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:bg-white/10 hover:border-indigo-400/50 transition-colors cursor-default"><i class="fa-solid fa-code text-indigo-400 mr-1.5"></i>Node.js VM</span>
@@ -6156,7 +6156,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                     </button>
                   </div>
                   <p id="preview-quick-migration" class="text-xs text-slate-400 line-clamp-3 italic">
-                    "You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to AegisDB..."
+                    "You are an expert full-stack developer. I want to migrate my application backend from Firebase/Supabase/MongoDB to FlareBase..."
                   </p>
                 </div>
 
@@ -6173,7 +6173,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                     </button>
                   </div>
                   <p id="preview-quick-newapp" class="text-xs text-slate-400 line-clamp-3 italic">
-                    "You are an expert full-stack engineer. Build a complete, modern web application backed by AegisDB..."
+                    "You are an expert full-stack engineer. Build a complete, modern web application backed by FlareBase..."
                   </p>
                 </div>
               </div>
@@ -6188,7 +6188,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
               </div>
               <div>
                 <h4 class="text-sm font-semibold text-white">Production Ready</h4>
-                <p class="text-xs text-slate-400">AegisDB is designed to run anywhere with zero external dependencies.</p>
+                <p class="text-xs text-slate-400">FlareBase is designed to run anywhere with zero external dependencies.</p>
               </div>
             </div>
             <div class="flex flex-wrap gap-3 mt-4 md:mt-0">
@@ -6221,9 +6221,9 @@ const docs = await aegis.collection('todos').get();</code></pre>
                   <i class="fa-solid fa-database text-indigo-400"></i>
                   <span>Database Hosting & Integration Guide</span>
                 </div>
-                <h2 class="text-3xl font-extrabold text-white tracking-tight">Using AegisDB to Host Your Project's Database</h2>
+                <h2 class="text-3xl font-extrabold text-white tracking-tight">Using FlareBase to Host Your Project's Database</h2>
                 <p class="text-sm text-slate-300 max-w-2xl">
-                  AegisDB provides a multi-tenant backend-as-a-service engine. Reference <code class="text-amber-300 bg-black/40 px-1.5 py-0.5 rounded font-mono">@aegis/sdk</code> in your external projects to automatically manage collections, store documents, upload files, and trigger hoster deployments.
+                  FlareBase provides a multi-tenant backend-as-a-service engine. Reference <code class="text-amber-300 bg-black/40 px-1.5 py-0.5 rounded font-mono">@aegis/sdk</code> in your external projects to automatically manage collections, store documents, upload files, and trigger hoster deployments.
                 </p>
               </div>
               <div class="flex gap-3">
@@ -6273,7 +6273,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
             <!-- Styled Terminal Console -->
             <div class="rounded-xl bg-[#050811] border border-white/10 p-4 font-mono text-xs text-slate-300 h-64 overflow-y-auto custom-scrollbar shadow-inner" id="sdk-terminal-container">
               <div id="sdk-terminal-output" class="space-y-1">
-                <div class="text-slate-500">// AegisDB Interactive SDK Terminal</div>
+                <div class="text-slate-500">// FlareBase Interactive SDK Terminal</div>
                 <div class="text-slate-400">Ready. Click any button above or run `node test_database_sdk.js` in your terminal to test out the database integration.</div>
               </div>
             </div>
@@ -6292,7 +6292,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 Build the SDK inside this repository, then link it locally or list it in your external project's <code class="text-indigo-300 font-mono">package.json</code>.
               </p>
               <div class="bg-[#0b0f19] p-3.5 rounded-xl border border-white/10 text-xs font-mono text-amber-300 space-y-2">
-                <div><span class="text-slate-500"># 1. Build and link the SDK inside Aegis project:</span></div>
+                <div><span class="text-slate-500"># 1. Build and link the SDK inside FlareBase project:</span></div>
                 <div><span class="text-indigo-400">cd</span> sdk && npm run build && npm link</div>
                 <div class="pt-1"><span class="text-slate-500"># 2. In your external project directory:</span></div>
                 <div><span class="text-indigo-400">npm link</span> @aegis/sdk</div>
@@ -6311,7 +6311,7 @@ const docs = await aegis.collection('todos').get();</code></pre>
                 Run the provided integration test script directly from your terminal to verify database CRUD operations against the live host.
               </p>
               <div class="bg-[#0b0f19] p-3.5 rounded-xl border border-white/10 text-xs font-mono text-emerald-300 space-y-2">
-                <div><span class="text-slate-500"># Make sure Aegis server is running:</span></div>
+                <div><span class="text-slate-500"># Make sure FlareBase server is running:</span></div>
                 <div>npm run dev</div>
                 <div class="pt-1"><span class="text-slate-500"># Execute the automated database test script:</span></div>
                 <div>node test_database_sdk.js</div>
@@ -6331,10 +6331,10 @@ const docs = await aegis.collection('todos').get();</code></pre>
               <!-- Code Example 1: Client Initialization & Auth -->
               <div>
                 <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">1. Client Initialization & Authentication</h4>
-                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>import Aegis from '@aegis/sdk';
+                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>import FlareBase from '@aegis/sdk';
 
 // Initialize SDK pointing to your host server
-const aegis = new Aegis({ baseUrl: 'http://localhost:3000' });
+const aegis = new FlareBase({ baseUrl: 'http://localhost:3000' });
 
 // Authenticate developer or project user
 await aegis.auth.login('developer@example.com', 'Password123!');
@@ -6363,7 +6363,7 @@ console.log('Retrieved Orders:', orders);</code></pre>
               <!-- Code Example 3: Project Deployment -->
               <div>
                 <h4 class="text-xs font-bold text-emerald-300 uppercase tracking-wider mb-2">3. Hosting Project Deployments via HosterClient</h4>
-                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>// Upload project zip bundle and deploy via Aegis hoster engine
+                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>// Upload project zip bundle and deploy via FlareBase hoster engine
 const deployment = await aegis.hoster.deploy(zipBlob, {
   name: 'my-frontend-service',
   startCommand: 'npm start'
@@ -6445,7 +6445,7 @@ console.log('Deployment status:', deployment.status);</code></pre>
         <div class="bg-slate-900/60 p-5 rounded-2xl border border-white/10 space-y-3">
           <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
             <i class="fa-solid fa-brain text-emerald-400"></i>
-            <span>Core AegisDB Architecture for AI Agents & Developers</span>
+            <span>Core FlareBase Architecture for AI Agents & Developers</span>
           </h4>
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300">
             <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
@@ -6472,7 +6472,7 @@ console.log('Deployment status:', deployment.status);</code></pre>
           <div class="flex items-center justify-between">
             <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
               <i class="fa-solid fa-arrow-right-arrow-left text-indigo-400"></i>
-              <span>Prompt Option 1: Complete Application Migration to AegisDB</span>
+              <span>Prompt Option 1: Complete Application Migration to FlareBase</span>
             </h4>
             <span class="text-[10px] text-indigo-400 font-medium">Click to Copy</span>
           </div>
@@ -6482,22 +6482,22 @@ console.log('Deployment status:', deployment.status);</code></pre>
               <span>Copy Prompt</span>
             </button>
             <pre id="pre-prompt-migration" class="pr-24 text-xs font-mono text-indigo-200 whitespace-pre-wrap leading-relaxed">You are an expert full-stack engineer and cloud architect.
-I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to AegisDB (a self-hosted, lightweight BaaS).
+I want to migrate my application backend from my current stack (Firebase / Supabase / MongoDB / local state / REST) to FlareBase (a self-hosted, lightweight BaaS).
 
-AegisDB Server Specifications:
+FlareBase Server Specifications:
 - Base URL: http://localhost:3000 (or my configured host)
 - Project API Key: Retrieve from localStorage ('aegisApiKey') or config constant. Pass in 'x-aegis-api-key' header.
 - User Session: When users sign in, store their JWT token in localStorage ('aegisToken') and pass 'Authorization: Bearer &lt;token&gt;'.
 
 Please systematically migrate the application according to these specifications:
 
-1. AUTHENTICATION MIGRATION (Firebase/Supabase Auth -> AegisDB Project Auth):
+1. AUTHENTICATION MIGRATION (Firebase/Supabase Auth -> FlareBase Project Auth):
    - Auth Config Discovery: GET http://localhost:3000/api/v1/project-auth/config (Header: 'x-aegis-api-key') to dynamically inspect enabled OAuth providers and registration mode.
    - User Sign-Up: POST http://localhost:3000/api/v1/project-auth/register with body { email, password, name } (Header: 'x-aegis-api-key').
    - User Sign-In: POST http://localhost:3000/api/v1/project-auth/login with body { email, password } (Header: 'x-aegis-api-key'). Returns { token, user: { id, email, name, role } }.
    - OAuth Sign-In: POST http://localhost:3000/api/v1/project-auth/oauth/&lt;provider&gt; (google | apple | github) with body { token: '&lt;id_token_or_access_token&gt;' } (Header: 'x-aegis-api-key').
 
-2. DATABASE & DATA LAYER MIGRATION (Firestore/Postgres -> AegisDB Collections):
+2. DATABASE & DATA LAYER MIGRATION (Firestore/Postgres -> FlareBase Collections):
    - Insert Document: POST http://localhost:3000/api/v1/db/collections/&lt;collection_name&gt;/documents
      Headers: { 'Content-Type': 'application/json', 'x-aegis-api-key': apiKey, 'Authorization': 'Bearer &lt;token&gt;' }
      Body: { data: { ...fields } }
@@ -6529,7 +6529,7 @@ Please systematically migrate the application according to these specifications:
    - Responses follow: { success: boolean, message: string, data?: any }.
    - Extract data cleanly, handle 401/403 status codes, and show user-friendly notifications.
 
-Refactor all existing mock data, Firebase, and Supabase client calls to use these AegisDB endpoints cleanly.</pre>
+Refactor all existing mock data, Firebase, and Supabase client calls to use these FlareBase endpoints cleanly.</pre>
           </div>
         </div>
 
@@ -6538,7 +6538,7 @@ Refactor all existing mock data, Firebase, and Supabase client calls to use thes
           <div class="flex items-center justify-between">
             <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
               <i class="fa-solid fa-rocket text-emerald-400"></i>
-              <span>Prompt Option 2: Build New Application from Scratch with AegisDB</span>
+              <span>Prompt Option 2: Build New Application from Scratch with FlareBase</span>
             </h4>
             <span class="text-[10px] text-emerald-400 font-medium">Click to Copy</span>
           </div>
@@ -6551,12 +6551,12 @@ Refactor all existing mock data, Firebase, and Supabase client calls to use thes
           </div>
         </div>
 
-        <!-- Universal Drop-in AegisClient.js Helper -->
+        <!-- Universal Drop-in FlareBaseClient.js Helper -->
         <div class="space-y-2">
           <div class="flex items-center justify-between">
             <h4 class="text-white font-semibold text-sm flex items-center space-x-2">
               <i class="fa-solid fa-code text-amber-400"></i>
-              <span>Universal Drop-in AegisClient.js (Vanilla JS / React / Vue / Node.js)</span>
+              <span>Universal Drop-in FlareBaseClient.js (Vanilla JS / React / Vue / Node.js)</span>
             </h4>
             <span class="text-[10px] text-amber-400 font-medium">Ready to Drop into Any Project</span>
           </div>
@@ -6566,10 +6566,10 @@ Refactor all existing mock data, Firebase, and Supabase client calls to use thes
               <span>Copy Code</span>
             </button>
             <pre id="pre-prompt-client-sdk" class="pr-24 text-xs font-mono text-amber-300 overflow-x-auto whitespace-pre leading-relaxed"><code>/**
- * AegisClient — Official Universal Drop-in SDK for AegisDB
+ * FlareBaseClient — Official Universal Drop-in SDK for FlareBase
  * Works in Browser (Vanilla JS, React, Vue, Svelte, Next.js) and Node.js
  */
-class AegisClient {
+class FlareBaseClient {
   constructor(options = {}) {
     const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
     this.baseUrl = (options.baseUrl || defaultOrigin).replace(/\/+$/, '');
@@ -6603,7 +6603,7 @@ class AegisClient {
     const res = await fetch(`${this.baseUrl}${endpoint}`, { ...options, headers });
     const json = await res.json().catch(() => ({ success: false, message: 'Invalid server response' }));
     if (!res.ok || json.success === false) {
-      throw new Error(json.message || `AegisDB request failed (${res.status})`);
+      throw new Error(json.message || `FlareBase request failed (${res.status})`);
     }
     return json.data !== undefined ? json.data : json;
   }
@@ -6705,9 +6705,9 @@ class AegisClient {
 }
 
 // Export for ES modules, CommonJS, and Browser
-if (typeof window !== 'undefined') window.AegisClient = AegisClient;
-if (typeof module !== 'undefined' && module.exports) module.exports = { AegisClient };
-export default AegisClient;</code></pre>
+if (typeof window !== 'undefined') window.FlareBaseClient = FlareBaseClient;
+if (typeof module !== 'undefined' && module.exports) module.exports = { FlareBaseClient };
+export default FlareBaseClient;</code></pre>
           </div>
         </div>
 
@@ -6727,7 +6727,7 @@ export default AegisClient;</code></pre>
       <div class="flex justify-between items-center border-b border-white/10 pb-4">
         <h3 class="text-xl font-bold text-white flex items-center space-x-2">
           <i class="fa-solid fa-book-open text-indigo-400"></i>
-          <span>AegisDB Developer Documentation</span>
+          <span>FlareBase Developer Documentation</span>
         </h3>
         <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-documentation').classList.add('hidden')" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition">
           <i class="fa-solid fa-xmark text-lg"></i>
@@ -6737,10 +6737,10 @@ export default AegisClient;</code></pre>
         
         <div>
           <h4 class="text-white font-semibold text-base mb-2">1. Client Initialization (SDK or REST)</h4>
-          <p class="mb-3 text-slate-400">AegisDB can be integrated into any frontend or backend application using our lightweight SDK or standard fetch calls.</p>
-          <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>import { Aegis } from '@aegis/sdk';
+          <p class="mb-3 text-slate-400">FlareBase can be integrated into any frontend or backend application using our lightweight SDK or standard fetch calls.</p>
+          <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>import { FlareBase } from '@aegis/sdk';
 
-const aegis = new Aegis({
+const aegis = new FlareBase({
   baseUrl: 'http://localhost:3000',
   apiKey: 'aegis_pk_...' // Your Project API Key
 });
@@ -6768,7 +6768,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         
         <div>
           <h4 class="text-white font-semibold text-base mb-2">3. Node.js VM Security Rules</h4>
-          <p class="mb-3 text-slate-400">AegisDB uses a secure V8 isolate (Node.js VM sandbox) to evaluate read/write conditions safely without risking server stability.</p>
+          <p class="mb-3 text-slate-400">FlareBase uses a secure V8 isolate (Node.js VM sandbox) to evaluate read/write conditions safely without risking server stability.</p>
           <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-amber-300 font-mono text-xs overflow-x-auto"><code>// Collection Security Rule (JSON format)
 {
   "read": true,
@@ -6778,7 +6778,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         
         <div>
           <h4 class="text-white font-semibold text-base mb-2">4. Envelope Encryption (AES-256 GCM)</h4>
-          <p class="mb-3 text-slate-400">When storing sensitive data, AegisDB automatically encrypts fields at rest using AES-256 GCM based on project-specific Data Encryption Keys (DEKs).</p>
+          <p class="mb-3 text-slate-400">When storing sensitive data, FlareBase automatically encrypts fields at rest using AES-256 GCM based on project-specific Data Encryption Keys (DEKs).</p>
         </div>
 
       </div>
@@ -7403,7 +7403,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       </div>
       <h3 class="text-2xl font-bold text-white">Dual-Target Backups</h3>
       <p class="text-sm text-slate-300 leading-relaxed">
-        Never lose data with AegisDB's dual-target backup system. Backups are automatically scheduled and securely encrypted using AES-256 before being transmitted to both the Local File System and an external AWS S3-compatible cloud storage provider.
+        Never lose data with FlareBase's dual-target backup system. Backups are automatically scheduled and securely encrypted using AES-256 before being transmitted to both the Local File System and an external AWS S3-compatible cloud storage provider.
       </p>
       <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-feature-backup').classList.add('hidden')" class="w-full mt-4 px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium transition-colors">
         Close Details
@@ -7423,7 +7423,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
           </div>
           <div>
             <h3 class="text-xl font-bold text-white tracking-tight">Backup & Disaster Recovery Manual</h3>
-            <p class="text-xs text-slate-400">Comprehensive guide to configuring, monitoring, and restoring AegisDB backups.</p>
+            <p class="text-xs text-slate-400">Comprehensive guide to configuring, monitoring, and restoring FlareBase backups.</p>
           </div>
         </div>
         <button type="button" onclick="event.preventDefault(); event.stopPropagation(); document.getElementById('modal-backup-manual').classList.add('hidden')" class="text-slate-400 hover:text-white transition focus:outline-none">
@@ -7440,7 +7440,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
             <span>1. Local File System Backups</span>
           </h4>
           <p class="text-slate-300 leading-relaxed">
-            Local backups provide the fastest recovery time objective (RTO). AegisDB automatically takes atomic snapshots of the SQLite database and stores them in a highly compressed format.
+            Local backups provide the fastest recovery time objective (RTO). FlareBase automatically takes atomic snapshots of the SQLite database and stores them in a highly compressed format.
           </p>
           <div class="bg-slate-950 border border-white/5 rounded-xl p-5 space-y-3">
             <div class="flex items-start space-x-3">
@@ -7454,7 +7454,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
               <div class="w-6 h-6 rounded bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5"><i class="fa-solid fa-rotate-left text-xs"></i></div>
               <div>
                 <strong class="text-white block mb-1">Retrieval & Restoration</strong>
-                <p class="text-slate-400 text-xs">Local backups are stored as <code>.sqlite3.bak</code> files. To restore, stop the AegisDB service, replace the primary <code>aegis.db</code> file with the desired backup file, and restart the service.</p>
+                <p class="text-slate-400 text-xs">Local backups are stored as <code>.sqlite3.bak</code> files. To restore, stop the FlareBase service, replace the primary <code>aegis.db</code> file with the desired backup file, and restart the service.</p>
                 <code class="block mt-2 bg-black/50 text-emerald-300 p-2 rounded text-[11px] font-mono border border-white/10">cp /var/aegisdb/backups/aegis_20260812.sqlite3.bak ./aegis.db<br>npm run start</code>
               </div>
             </div>
@@ -7475,7 +7475,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
               <div class="w-6 h-6 rounded bg-[#FF9900]/20 flex items-center justify-center text-[#FF9900] shrink-0 mt-0.5"><i class="fa-solid fa-cloud text-xs"></i></div>
               <div>
                 <strong class="text-white block mb-1">Configuration</strong>
-                <p class="text-slate-400 text-xs">Enable the <code>S3 Setup</code> toggle. You must provide the <strong>Bucket Name</strong>, <strong>Region</strong>, <strong>Access Key ID</strong>, and <strong>Secret Access Key</strong>. AegisDB requires <code>s3:PutObject</code> and <code>s3:ListBucket</code> IAM permissions. Each upload receives a unique <strong>Generation ID</strong> in its object key to maintain a complete, organized snapshot history.</p>
+                <p class="text-slate-400 text-xs">Enable the <code>S3 Setup</code> toggle. You must provide the <strong>Bucket Name</strong>, <strong>Region</strong>, <strong>Access Key ID</strong>, and <strong>Secret Access Key</strong>. FlareBase requires <code>s3:PutObject</code> and <code>s3:ListBucket</code> IAM permissions. Each upload receives a unique <strong>Generation ID</strong> in its object key to maintain a complete, organized snapshot history.</p>
               </div>
             </div>
             <div class="flex items-start space-x-3">
@@ -7496,7 +7496,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
             <span>3. Automated Scheduling & Status</span>
           </h4>
           <p class="text-slate-300 leading-relaxed">
-            Use the <strong>Interval Dropdown</strong> to schedule automatic backups (e.g., Every 1 Hour, Daily, Weekly). AegisDB uses a built-in cron scheduler. 
+            Use the <strong>Interval Dropdown</strong> to schedule automatic backups (e.g., Every 1 Hour, Daily, Weekly). FlareBase uses a built-in cron scheduler. 
             You can verify the success of the last backup by checking the <strong>Last Backup Time</strong> and the individual target statuses (Local Status / S3 Status) in the Configuration panel.
           </p>
         </div>
@@ -7508,7 +7508,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
             <span>4. Emergency Disaster Recovery Portal</span>
           </h4>
           <p class="text-slate-300 leading-relaxed">
-            In the event of a catastrophic system failure or database corruption, AegisDB provides a dedicated, isolated Disaster Recovery portal located at <code>/recovery.html</code>.
+            In the event of a catastrophic system failure or database corruption, FlareBase provides a dedicated, isolated Disaster Recovery portal located at <code>/recovery.html</code>.
           </p>
           <div class="bg-slate-950 border border-white/5 rounded-xl p-5 space-y-3">
             <div class="flex items-start space-x-3">
@@ -7618,7 +7618,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       <div>
         <h2 class="text-4xl font-extrabold text-white tracking-tight mb-2">Under Maintenance</h2>
         <p class="text-slate-400 leading-relaxed">
-          AegisDB is currently undergoing scheduled maintenance to improve system stability and performance.
+          FlareBase is currently undergoing scheduled maintenance to improve system stability and performance.
         </p>
       </div>
       <div class="pt-2 flex justify-center">
@@ -7636,7 +7636,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       <div class="flex items-center justify-between border-b border-white/10 pb-3">
         <div class="flex items-center space-x-2">
           <i class="fa-solid fa-scale-balanced text-indigo-400 text-lg"></i>
-          <h3 class="text-base font-semibold text-white">AegisDB Platform Policies (<span id="pv-version" class="text-indigo-300 font-mono text-xs">v1.0.0</span>)</h3>
+          <h3 class="text-base font-semibold text-white">FlareBase Platform Policies (<span id="pv-version" class="text-indigo-300 font-mono text-xs">v1.0.0</span>)</h3>
         </div>
         <button type="button" onclick="event.preventDefault(); event.stopPropagation(); closePolicyViewerModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-white/10 transition">
           <i class="fa-solid fa-xmark text-lg"></i>
@@ -7670,7 +7670,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         </div>
         <div>
           <h3 class="text-lg font-bold text-white">Updated Platform Policies & Terms</h3>
-          <p class="text-xs text-slate-400">AegisDB has updated its Terms of Service, Security, and Backup Policies to version <strong id="gate-policy-version" class="text-amber-400 font-mono">v1.0.0</strong>.</p>
+          <p class="text-xs text-slate-400">FlareBase has updated its Terms of Service, Security, and Backup Policies to version <strong id="gate-policy-version" class="text-amber-400 font-mono">v1.0.0</strong>.</p>
         </div>
       </div>
 
@@ -7691,7 +7691,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       </div>
 
       <div id="gate-decline-options" class="hidden p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 space-y-3">
-        <p class="text-xs text-rose-300 font-semibold">You have chosen to decline the updated platform policies. Declining prevents access to AegisDB services. Please select your preferred next step:</p>
+        <p class="text-xs text-rose-300 font-semibold">You have chosen to decline the updated platform policies. Declining prevents access to FlareBase services. Please select your preferred next step:</p>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <button type="button" onclick="event.preventDefault(); event.stopPropagation(); window.downloadMyDataExport && window.downloadMyDataExport()" class="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-200 border border-indigo-500/30 text-xs font-semibold transition">
             <i class="fa-solid fa-download mr-1"></i> Export Data Bundle
@@ -7967,7 +7967,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
 
         <div class="space-y-1">
           <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Rollout Announcement Message to Users</label>
-          <textarea id="schedule-notice-message" rows="2" class="w-full p-3 rounded-xl glass-input text-xs resize-none" placeholder="AegisDB server endpoint will be migrated to the new URL. Please update your client configs."></textarea>
+          <textarea id="schedule-notice-message" rows="2" class="w-full p-3 rounded-xl glass-input text-xs resize-none" placeholder="FlareBase server endpoint will be migrated to the new URL. Please update your client configs."></textarea>
         </div>
 
         <!-- Detailed Migration Endpoint Preview -->
@@ -8334,7 +8334,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         </div>
         <div>
           <h3 class="text-base font-bold text-white tracking-tight flex items-center space-x-2">
-            <span>Stop AegisDB Server</span>
+            <span>Stop FlareBase Server</span>
             <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">SUPER ADMIN</span>
           </h3>
           <p class="text-xs text-slate-400">Gracefully stop backend processes & release TCP port.</p>
@@ -8373,7 +8373,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
         <i class="fa-solid fa-power-off"></i>
       </div>
       <div class="space-y-2">
-        <h2 class="text-xl font-bold text-white tracking-tight">AegisDB Server Stopped</h2>
+        <h2 class="text-xl font-bold text-white tracking-tight">FlareBase Server Stopped</h2>
         <p class="text-xs text-slate-400 leading-relaxed" id="overlay-stopped-message">
           The server process has been safely shut down by the Super Admin and <span id="overlay-stopped-port-badge" class="font-mono font-bold text-emerald-400">Port 3000</span> is now released.
         </p>
@@ -8381,7 +8381,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
       <div class="p-4 rounded-2xl bg-slate-900/80 border border-white/10 text-left text-xs text-slate-300 space-y-2">
         <div class="font-bold text-slate-200 flex items-center space-x-1.5">
           <i class="fa-solid fa-play text-emerald-400"></i>
-          <span>To restart AegisDB:</span>
+          <span>To restart FlareBase:</span>
         </div>
         <ul class="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
           <li>🍎 macOS: Double-click <code class="text-emerald-300 font-mono">start.command</code></li>

@@ -1,11 +1,11 @@
-# About AegisDB
+# About FlareBase
 
-![AegisDB](https://img.shields.io/badge/AegisDB-Engine-6366f1?style=flat-square&logo=shield&logoColor=white)
+![FlareBase](https://img.shields.io/badge/FlareBase-Engine-6366f1?style=flat-square&logo=shield&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=flat-square&logo=typescript&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 ![Platform](https://img.shields.io/badge/Platform-macOS_|_Windows_|_Linux-informational?style=flat-square)
 
-**AegisDB** is a lightweight, zero-configuration, production-grade **Backend-as-a-Service (BaaS)** and open-source alternative to Google Firebase, AWS DynamoDB, and Supabase.
+**FlareBase** is a lightweight, zero-configuration, production-grade **Backend-as-a-Service (BaaS)** and open-source alternative to Google Firebase, AWS DynamoDB, and Supabase.
 
 ---
 
@@ -13,7 +13,7 @@
 
 The modern web development landscape is fragmented by complex, expensive cloud backend services with unpredictable per-read/per-write billing models and heavy infrastructure setup requirements. 
 
-AegisDB was built to give developers, startups, and enterprise teams complete **backend sovereignty**:
+FlareBase was built to give developers, startups, and enterprise teams complete **backend sovereignty**:
 - **Zero Cloud Bills**: Run on your own laptop, private server, Raspberry Pi, or any cloud VM.
 - **Microsecond Speed**: Native SQLite Write-Ahead Logging (WAL) architecture with parallel lock-free reads.
 - **1-Click Execution**: Double-clickable launchers on Windows (`setup.bat` / `start.bat`), macOS (`setup.command` / `start.command`), and Linux (`setup.sh` / `start.sh`).
@@ -48,4 +48,4 @@ AegisDB was built to give developers, startups, and enterprise teams complete **
 
 - **License**: [MIT License](LICENSE) — Free for commercial and personal use.
 - **Repository**: [https://github.com/aryaayyappa/Hamara-FireBase](https://github.com/aryaayyappa/Hamara-FireBase)
-- **Safe Copy**: [https://github.com/aryaayyappa/AegisDB-Safe-Copy-](https://github.com/aryaayyappa/AegisDB-Safe-Copy-)
+- **Safe Copy**: [https://github.com/aryaayyappa/FlareBase-Safe-Copy-](https://github.com/aryaayyappa/FlareBase-Safe-Copy-)

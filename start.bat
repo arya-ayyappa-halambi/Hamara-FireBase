@@ -1,11 +1,11 @@
 @echo off
 setlocal EnableDelayedExpansion
 REM ─────────────────────────────────────────────────────────────────────────────
-REM  AegisDB 1-Click Windows Launcher (Double-Clickable in File Explorer)
+REM  FlareBase 1-Click Windows Launcher (Double-Clickable in File Explorer)
 REM ─────────────────────────────────────────────────────────────────────────────
 
 cd /d "%~dp0"
-title AegisDB Server Launcher
+title FlareBase Server Launcher
 
 REM Refresh PATH from common installation directories and Windows Registry
 set "PATH=%ProgramFiles%\nodejs;%ProgramFiles(x86)%\nodejs;%LOCALAPPDATA%\Programs\nodejs;%APPDATA%\npm;%PATH%"

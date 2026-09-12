@@ -1,8 +1,10 @@
-# AegisDB — Next-Generation Open-Source BaaS
+# FlareBase — Fast, Secure, Multi-Tenant Backend-as-a-Service
 
-AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, ultra-performant, and provides developers with a complete suite of cloud backend primitives straight out of the box—complete with a modern, glassmorphic developer console featuring a Mac-style collapsible sidebar.
+> **FlareBase** is a lightweight, zero-configuration, production-grade Firebase alternative built for indie hackers & teams.
 
-![AegisDB Engine](https://img.shields.io/badge/AegisDB-Engine-6366f1?style=flat-square&logo=shield&logoColor=white)
+FlareBase is a lightweight, zero-configuration, production-grade Firebase-like Backend-as-a-Service (BaaS) engine. It is fully self-hosted, ultra-performant, and provides developers with a complete suite of cloud backend primitives straight out of the box—complete with a modern, glassmorphic developer console featuring a Mac-style collapsible sidebar.
+
+![FlareBase Engine](https://img.shields.io/badge/FlareBase-Engine-6366f1?style=flat-square&logo=shield&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.3-3178c6?style=flat-square&logo=typescript&logoColor=white)
 ![SQLite WAL](https://img.shields.io/badge/SQLite-WAL_Mode-003b57?style=flat-square&logo=sqlite&logoColor=white)
 ![WebAuthn Passkeys](https://img.shields.io/badge/FIDO2-WebAuthn_Passkeys-8b5cf6?style=flat-square&logo=fido&logoColor=white)
@@ -15,7 +17,7 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 ---
 
 ## Table of Contents
-1. [About AegisDB, Vision & Value Proposition](#1-about-aegisdb-vision--core-value-proposition)
+1. [About FlareBase, Vision & Value Proposition](#1-about-flarebase-vision--core-value-proposition)
 2. [Quick Start, 1-Click Launchers & Zero-Config Setup](#2-quick-start-1-click-launchers--zero-config-setup)
 3. [Architecture & Storage Engine](#3-architecture--storage-engine)
 4. [GitHub-Grade Multi-Tenant Organizations & Functional Teams](#4-github-grade-multi-tenant-organizations--functional-teams)
@@ -41,24 +43,24 @@ AegisDB is a lightweight, zero-configuration, production-grade Firebase-like Bac
 
 ---
 
-## 1. About AegisDB, Vision & Core Value Proposition
+## 1. About FlareBase, Vision & Core Value Proposition
 
-### What is AegisDB?
-**AegisDB** is a lightweight, zero-configuration, production-ready **Backend-as-a-Service (BaaS)** and self-hosted Firebase alternative. Designed from first principles in TypeScript, AegisDB delivers complete cloud backend primitives—authentication, relational & JSON document databases, real-time reactive streams, granular row-level security (RLS), multi-tenant isolation, GitHub-grade organizations and teams, biometric passkeys, passwordless magic links, PATs, GDPR privacy compliance, S3 disaster recovery, and automated 1-click cross-platform hosting—without external cloud vendor lock-in or recurring monthly database bills.
+### What is FlareBase?
+**FlareBase** is a lightweight, zero-configuration, production-ready **Backend-as-a-Service (BaaS)** and self-hosted Firebase alternative. Designed from first principles in TypeScript, FlareBase delivers complete cloud backend primitives—authentication, relational & JSON document databases, real-time reactive streams, granular row-level security (RLS), multi-tenant isolation, GitHub-grade organizations and teams, biometric passkeys, passwordless magic links, PATs, GDPR privacy compliance, S3 disaster recovery, and automated 1-click cross-platform hosting—without external cloud vendor lock-in or recurring monthly database bills.
 
-### Why Was AegisDB Built?
+### Why Was FlareBase Built?
 Modern cloud databases (like Firebase Firestore, AWS DynamoDB, and Supabase) often introduce:
 1. **Unpredictable Billing & Vendor Lock-In**: Complex pricing tiers charging per-read, per-write, and per-GB egress.
 2. **Setup Overhead & Heavy Dependencies**: Requiring complex Docker orchestration, PostgreSQL server clusters, or dedicated cloud accounts just for simple application backends.
 3. **Data Sovereignty & Privacy Concerns**: Lack of native GDPR/DPDP cryptographic shredding, cooling-off windows, and offline local network capabilities.
 
-**AegisDB solves this** by packing an entire enterprise backend into a single zero-dependency Node.js engine backed by high-performance SQLite in WAL (Write-Ahead Logging) mode, providing microsecond write latency, lock-free parallel reads, and instant 1-click double-clickable launchers for macOS, Windows, and Linux.
+**FlareBase solves this** by packing an entire enterprise backend into a single zero-dependency Node.js engine backed by high-performance SQLite in WAL (Write-Ahead Logging) mode, providing microsecond write latency, lock-free parallel reads, and instant 1-click double-clickable launchers for macOS, Windows, and Linux.
 
 ---
 
-### AegisDB vs. Traditional Cloud & BaaS Solutions
+### FlareBase vs. Traditional Cloud & BaaS Solutions
 
-| Feature / Primitive | **AegisDB** | **Firebase Firestore** | **Supabase** | **PocketBase** |
+| Feature / Primitive | **FlareBase** | **Firebase Firestore** | **Supabase** | **PocketBase** |
 | :--- | :---: | :---: | :---: | :---: |
 | **Self-Hosting Complexity** | **Zero-Config (1-Click)** | — Proprietary Cloud | ⚠️ Complex (10+ Containers) | ✓ Single Go Binary |
 | **Storage Engine** | **SQLite WAL Mode** | Cloud NoSQL | PostgreSQL Cluster | SQLite |
@@ -79,14 +81,14 @@ Modern cloud databases (like Firebase Firestore, AWS DynamoDB, and Supabase) oft
 
 ## 2. Quick Start, 1-Click Launchers & Zero-Config Setup
 
-AegisDB includes a built-in pre-flight auto-bootstrapper. On a freshly cloned repository, launching AegisDB automatically:
+FlareBase includes a built-in pre-flight auto-bootstrapper. On a freshly cloned repository, launching FlareBase automatically:
 1. Detects missing dependencies and runs `npm install`.
 2. Generates a production-ready `.env` file populated with strong 64-character cryptographic keys (`JWT_SECRET`, `ENCRYPTION_KEY`, `EMAIL_HASH_PEPPER`, `RECOVERY_PIN`).
 3. Creates all required database and asset storage directories (`data/`, `uploads/`, `workspaces/`, `backups/`).
 
 ### 1-Click Universal First-Time Setup (New Machines & Fresh Clones)
 
-When setting up AegisDB on a brand-new computer for the first time, double-click the dedicated setup launcher for your operating system:
+When setting up FlareBase on a brand-new computer for the first time, double-click the dedicated setup launcher for your operating system:
 - **macOS** ![macOS](https://img.shields.io/badge/macOS-000000?style=flat-square&logo=apple&logoColor=white): Double-click **`setup.command`** in Finder (or run `./setup.command`).
 - **Windows** ![Windows](https://img.shields.io/badge/Windows-0078D6?style=flat-square&logo=windows&logoColor=white): Double-click **`setup.bat`** in File Explorer.
 - **Linux & POSIX** ![Linux](https://img.shields.io/badge/Linux-FCC624?style=flat-square&logo=linux&logoColor=black): Run `./setup.sh` or `npm run setup`.
@@ -124,11 +126,11 @@ To stop the server, terminate all background processes, and release all network 
 
 ## 3. Architecture & Storage Engine
 
-AegisDB uses a modular, layered architecture optimized for high concurrency, microsecond latency, and resource efficiency.
+FlareBase uses a modular, layered architecture optimized for high concurrency, microsecond latency, and resource efficiency.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│               AegisDB Glassmorphic Developer Console                   │
+│               FlareBase Glassmorphic Developer Console                   │
 │          (Vanilla JS SPA • Tailwind CSS • FontAwesome • Chart.js)      │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │ HTTP / REST / SSE / WSS
@@ -160,7 +162,7 @@ AegisDB uses a modular, layered architecture optimized for high concurrency, mic
 
 ## 4. GitHub-Grade Multi-Tenant Organizations & Functional Teams
 
-AegisDB delivers enterprise-grade organization architecture modeled after GitHub Workspaces and AWS Organizations:
+FlareBase delivers enterprise-grade organization architecture modeled after GitHub Workspaces and AWS Organizations:
 
 - **Dedicated Organizations Console (`#tab-organizations`)**: A top-level sidebar tab providing single-pane-of-glass management for organizations, member rosters, functional teams, invitations, and audit logs.
 - **Top Bar Workspace Isolation Switcher**:
@@ -185,7 +187,7 @@ AegisDB delivers enterprise-grade organization architecture modeled after GitHub
 
 ## 5. FIDO2 Biometric Passkeys (WebAuthn Level 3)
 
-AegisDB supports native passwordless biometric authentication following the W3C WebAuthn Level 3 standard:
+FlareBase supports native passwordless biometric authentication following the W3C WebAuthn Level 3 standard:
 
 - **Platform Biometrics**: Seamless 1-tap sign-in via Apple Touch ID, Apple Face ID, Windows Hello, and Android Biometrics.
 - **Hardware Security Keys**: Full compatibility with FIDO2 hardware tokens (YubiKey 5 Series, Google Titan, Feitian).
@@ -260,10 +262,10 @@ Transparent storage limits and byte-level metering to prevent disk exhaustion:
 
 ## 11. Document Database & Row-Level Security (RLS)
 
-AegisDB implements a schemaless NoSQL JSON document database backed by SQLite JSON1 primitives.
+FlareBase implements a schemaless NoSQL JSON document database backed by SQLite JSON1 primitives.
 
 ### Dual-Layer Declarative Rules Engine
-AegisDB evaluates security rules at two independent layers before allowing any query or mutation:
+FlareBase evaluates security rules at two independent layers before allowing any query or mutation:
 1. **Collection-Level Rules**: Define default baseline policies across the entire collection.
 2. **Document-Level Rules (Row-Level Security)**: Embed a reserved `_rules` object inside any individual JSON document to enforce fine-grained row ownership.
 
@@ -284,7 +286,7 @@ AegisDB evaluates security rules at two independent layers before allowing any q
 
 ## 12. Project-Isolated Authenticator & OAuth 2.0
 
-Every AegisDB project operates as an independent authentication realm:
+Every FlareBase project operates as an independent authentication realm:
 - **Isolated User Rosters**: Users in Project A cannot access Project B unless explicitly provisioned.
 - **Configurable Policies**: `open_saas` (public self-registration) vs `admin_only` (enterprise invite-only).
 - **OAuth 2.0 Providers**: Google Identity Services, Apple Sign-In, and GitHub OAuth.
@@ -520,7 +522,7 @@ Every AegisDB project operates as an independent authentication realm:
 
 ## 21. Performance Verification & Automated Test Suites
 
-AegisDB includes comprehensive integration test suites with over **200 automated verification checks** running with isolated in-memory SQLite instances (`DB_PATH=:memory:`):
+FlareBase includes comprehensive integration test suites with over **200 automated verification checks** running with isolated in-memory SQLite instances (`DB_PATH=:memory:`):
 
 ```bash
 # Run complete test suite (all 11 test suites passing 100%)
@@ -566,7 +568,7 @@ npx ts-node tests/storage-quota.test.ts
 
 ### Option 1: Reverse Proxy with Nginx (Recommended)
 ```nginx
-upstream aegisdb_nodes {
+upstream flarebase_nodes {
     least_conn;
     ip_hash; # Sticky sessions for WebSockets & SSE
     server 127.0.0.1:3000 max_fails=3 fail_timeout=10s;
@@ -582,7 +584,7 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/api.yourdomain.com/privkey.pem;
 
     location / {
-        proxy_pass http://aegisdb_nodes;
+        proxy_pass http://flarebase_nodes;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
@@ -601,10 +603,10 @@ server {
 npm run build
 
 # Start cluster across all CPU cores
-pm2 start dist/server.js -i max --name aegisdb
+pm2 start dist/server.js -i max --name flarebase
 
 # Perform zero-downtime rolling restart
-pm2 reload aegisdb
+pm2 reload flarebase
 ```
 
 ---
@@ -618,13 +620,13 @@ pm2 reload aegisdb
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>AegisDB App</title>
-  <!-- Load the AegisDB Client SDK directly from the server -->
+  <title>FlareBase App</title>
+  <!-- Load the FlareBase Client SDK directly from the server -->
   <script src="http://localhost:3000/aegis.js"></script>
 </head>
 <body>
   <script>
-    const aegis = new AegisClient({
+    const aegis = new FlareBaseClient({
       baseUrl: 'http://localhost:3000',
       apiKey: 'aegis_pk_your_project_key_here'
     });

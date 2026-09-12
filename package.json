@@ -1,8 +1,12 @@
 {
-  "name": "aegisdb",
+  "name": "flarebase",
   "version": "0.1.0",
-  "description": "AegisDB — Firebase-like Backend-as-a-Service platform",
+  "description": "FlareBase — Fast, secure, multi-tenant Backend-as-a-Service built for indie hackers & teams",
   "main": "dist/server.js",
+  "bin": {
+    "flarebase": "bin/flarebase",
+    "flare": "bin/flarebase"
+  },
   "scripts": {
     "dev": "nodemon --watch src --watch .env --ext ts --exec ts-node src/server.ts",
     "dev:interactive": "node scripts/serve.js",
@@ -21,12 +25,14 @@
     "reset-admin": "ts-node src/scripts/reset-admin.ts"
   },
   "keywords": [
+    "flarebase",
     "baas",
     "backend",
+    "firebase-alternative",
     "auth",
     "typescript"
   ],
-  "author": "AegisDB Contributors",
+  "author": "FlareBase Contributors",
   "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1108.0",

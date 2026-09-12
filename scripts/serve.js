@@ -2,7 +2,7 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  scripts/serve.js
-//  AegisDB Universal Interactive Startup Wizard & Hosting Center Launcher
+//  FlareBase Universal Interactive Startup Wizard & Hosting Center Launcher
 // ─────────────────────────────────────────────────────────────────────────────
 
 const readline = require('readline');
@@ -44,7 +44,7 @@ for (const arg of args) {
 
 if (flagMap.help || flagMap.h) {
   console.log(`
-${C.bold}AegisDB Interactive Startup Launcher${C.reset}
+${C.bold}FlareBase Interactive Startup Launcher${C.reset}
 
 Usage:
   npm start [options]
@@ -113,7 +113,7 @@ SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your_email@gmail.com
 SMTP_PASS=your_app_password
-SMTP_FROM="AegisDB" <your_email@gmail.com>
+SMTP_FROM="FlareBase" <your_email@gmail.com>
 FRONTEND_URL=http://localhost:3000
 `;
     }
@@ -372,7 +372,7 @@ async function main() {
   // Interactive Terminal Wizard
   console.log('');
   console.log(`${C.emerald}┌────────────────────────────────────────────────────────────┐${C.reset}`);
-  console.log(`${C.emerald}│${C.reset}       ${C.bold}🛡️  AegisDB Interactive Server Setup Launcher${C.reset}         ${C.emerald}│${C.reset}`);
+  console.log(`${C.emerald}│${C.reset}       ${C.bold}🛡️  FlareBase Interactive Server Setup Launcher${C.reset}         ${C.emerald}│${C.reset}`);
   console.log(`${C.emerald}├────────────────────────────────────────────────────────────┤${C.reset}`);
   console.log(`${C.emerald}│${C.reset}  ➜ Wi-Fi / LAN IP : ${C.cyan}${networkIp.padEnd(38)}${C.reset} ${C.emerald}│${C.reset}`);
   console.log(`${C.emerald}│${C.reset}  ➜ Saved Defaults : ${C.amber}${(savedSettings.host + ':' + savedSettings.port + ' (' + savedSettings.mode + ')').padEnd(38)}${C.reset} ${C.emerald}│${C.reset}`);
@@ -547,7 +547,7 @@ function startServer(targetHost, targetPort, targetMode, shouldOpen) {
   const hostingCenterUrl = `${targetMode === 'network' ? networkUrl : localUrl}/#tab-server-hosting`;
 
   console.log('');
-  console.log(`${C.emerald}🚀 Launching AegisDB on ${C.bold}${targetHost}:${targetPort}${C.reset} ${C.gray}(${targetMode} mode)${C.reset}...`);
+  console.log(`${C.emerald}🚀 Launching FlareBase on ${C.bold}${targetHost}:${targetPort}${C.reset} ${C.gray}(${targetMode} mode)${C.reset}...`);
   console.log(`  ➜ Local URL      : ${C.cyan}${localUrl}${C.reset}`);
   if (targetHost === '0.0.0.0' || targetHost === networkIp) {
     console.log(`  ➜ Wi-Fi / LAN URL: ${C.amber}${networkUrl}${C.reset}`);

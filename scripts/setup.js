@@ -2,7 +2,7 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  scripts/setup.js
-//  AegisDB 1-Click Fast Setup & Dependency Bootstrapper
+//  FlareBase 1-Click Fast Setup & Dependency Bootstrapper
 // ─────────────────────────────────────────────────────────────────────────────
 
 const fs = require('fs');
@@ -31,7 +31,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 function printBanner() {
   console.log('');
   console.log(`${C.cyan}╔════════════════════════════════════════════════════════════╗${C.reset}`);
-  console.log(`${C.cyan}║${C.reset}       ${C.bold}🛡️  AegisDB 1-Click Fast Setup & Auto-Installer${C.reset}       ${C.cyan}║${C.reset}`);
+  console.log(`${C.cyan}║${C.reset}       ${C.bold}🛡️  FlareBase 1-Click Fast Setup & Auto-Installer${C.reset}       ${C.cyan}║${C.reset}`);
   console.log(`${C.cyan}╚════════════════════════════════════════════════════════════╝${C.reset}`);
   console.log(`${C.gray}  Automated environment verification & zero-config onboarding${C.reset}\n`);
 }
@@ -53,7 +53,7 @@ function verifyNodeRuntime() {
   const currentVer = process.version;
   const major = parseInt(currentVer.replace(/^v/, '').split('.')[0], 10);
   if (major < 18) {
-    console.error(`\n${C.rose}❌ Node.js version ${currentVer} detected. AegisDB requires Node.js 18.0.0 or higher.${C.reset}`);
+    console.error(`\n${C.rose}❌ Node.js version ${currentVer} detected. FlareBase requires Node.js 18.0.0 or higher.${C.reset}`);
     console.error(`   Please update Node.js from https://nodejs.org\n`);
     process.exit(1);
   }
@@ -148,7 +148,7 @@ function verifyAndGenerateEnv() {
       .replace(/RECOVERY_PIN=.*/g, `RECOVERY_PIN=${randomPin()}`);
   } else {
     content = [
-      '# AegisDB Environment Configuration',
+      '# FlareBase Environment Configuration',
       'PORT=3000',
       'HOST=0.0.0.0',
       'HOST_MODE=both',
@@ -357,7 +357,7 @@ async function main() {
 
   console.log('');
   console.log(`${C.emerald}╔════════════════════════════════════════════════════════════╗${C.reset}`);
-  console.log(`${C.emerald}║${C.reset}       ${C.bold}🎉 AegisDB Setup Complete & Environment Ready!${C.reset}       ${C.emerald}║${C.reset}`);
+  console.log(`${C.emerald}║${C.reset}       ${C.bold}🎉 FlareBase Setup Complete & Environment Ready!${C.reset}       ${C.emerald}║${C.reset}`);
   console.log(`${C.emerald}╚════════════════════════════════════════════════════════════╝${C.reset}\n`);
 
   console.log(`${C.bold}Daily Usage Quick Guide:${C.reset}`);
@@ -374,13 +374,13 @@ async function main() {
   console.log('');
 
   const hostingCenterUrl = `http://localhost:${targetPort}/#tab-server-hosting`;
-  console.log(`${C.cyan}🚀 Starting AegisDB on ${targetHost}:${targetPort}...${C.reset}\n`);
+  console.log(`${C.cyan}🚀 Starting FlareBase on ${targetHost}:${targetPort}...${C.reset}\n`);
 
   // Active health probe to launch browser when live
   (async () => {
     const isReady = await waitUntilServerReady(targetPort);
     if (isReady) {
-      console.log(`\n${C.emerald}🌐 AegisDB is live! Opening browser to Server Hosting & Network Center...${C.reset}`);
+      console.log(`\n${C.emerald}🌐 FlareBase is live! Opening browser to Server Hosting & Network Center...${C.reset}`);
       console.log(`${C.cyan}👉 Access URL:${C.reset} ${C.bold}${hostingCenterUrl}${C.reset}\n`);
       openBrowser(hostingCenterUrl);
     }

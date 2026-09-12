@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  AegisDB 1-Click macOS Launcher (Double-Clickable in Finder)
+#  FlareBase 1-Click macOS Launcher (Double-Clickable in Finder)
 # ─────────────────────────────────────────────────────────────────────────────
 
 cd "$(dirname "$0")" || exit 1
