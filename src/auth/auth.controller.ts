@@ -44,24 +44,39 @@ export async function getConfig(req: Request, res: Response, next: NextFunction)
   } catch (err) { next(err); }
 }
 
+function extractProjectApiKey(req: Request): string | undefined {
+  return (req.headers['x-flare-api-key'] as string | undefined) ||
+    (req.headers['x-aegis-api-key'] as string | undefined) ||
+    (req.headers['x-api-key'] as string | undefined) ||
+    (req.headers['apikey'] as string | undefined) ||
+    (req.query?.apiKey as string | undefined) ||
+    (req.project as any)?.apiKey;
+}
+
+function extractProjectHeaderId(req: Request): string | undefined {
+  return (req.headers['x-flare-project-id'] as string | undefined) ||
+    (req.headers['x-aegis-project-id'] as string | undefined) ||
+    (req.headers['x-project-id'] as string | undefined);
+}
+
 export async function googleLogin(req: Request, res: Response, next: NextFunction): Promise<void> {
   const ip = networkAccessService.extractClientIp(req);
   try {
     const { token } = req.body;
     if (!token) throw new AppError('Google token is required.', 400);
 
-    const apiKey = (req.headers['x-aegis-api-key'] as string | undefined) || (req.project as any)?.apiKey;
-    const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+    const apiKey = extractProjectApiKey(req);
+    const headerProjId = extractProjectHeaderId(req);
     const bodyProjId = req.body.projectId as string | undefined;
 
     // If an API key or project header is present, route this to projectAuthService (project end-user)
     if (apiKey || headerProjId || bodyProjId || req.project?.id) {
       let projectId = req.project?.id || headerProjId || bodyProjId;
       if (!projectId && apiKey) {
-        const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
-        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ?').get(hash) as any;
+        const hash = crypto.createHash('sha256').update(apiKey.trim()).digest('hex');
+        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ? OR serviceKeyHash = ?').get(hash, hash) as any;
         if (!proj) {
-          throw new AppError('Invalid x-aegis-api-key provided.', 401);
+          throw new AppError('Invalid API key provided.', 401);
         }
         projectId = proj.id;
       }
@@ -108,18 +123,18 @@ export async function register(
       throw new AppError('Suspicious activity detected.', 403);
     }
 
-    const apiKey = (req.headers['x-aegis-api-key'] as string | undefined) || (req.project as any)?.apiKey;
-    const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+    const apiKey = extractProjectApiKey(req);
+    const headerProjId = extractProjectHeaderId(req);
     const bodyProjId = req.body.projectId as string | undefined;
 
     // If an API key or project header is present, route this to projectAuthService (project end-user)
     if (apiKey || headerProjId || bodyProjId || req.project?.id) {
       let projectId = req.project?.id || headerProjId || bodyProjId;
       if (!projectId && apiKey) {
-        const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
-        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ?').get(hash) as any;
+        const hash = crypto.createHash('sha256').update(apiKey.trim()).digest('hex');
+        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ? OR serviceKeyHash = ?').get(hash, hash) as any;
         if (!proj) {
-          throw new AppError('Invalid x-aegis-api-key provided.', 401);
+          throw new AppError('Invalid API key provided.', 401);
         }
         projectId = proj.id;
       }
@@ -170,18 +185,18 @@ export async function login(
   const email = req.body?.email || '';
 
   try {
-    const apiKey = (req.headers['x-aegis-api-key'] as string | undefined) || (req.project as any)?.apiKey;
-    const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+    const apiKey = extractProjectApiKey(req);
+    const headerProjId = extractProjectHeaderId(req);
     const bodyProjId = req.body.projectId as string | undefined;
 
     // If an API key or project header is present, route this to projectAuthService (project end-user)
     if (apiKey || headerProjId || bodyProjId || req.project?.id) {
       let projectId = req.project?.id || headerProjId || bodyProjId;
       if (!projectId && apiKey) {
-        const hash = crypto.createHash('sha256').update(apiKey).digest('hex');
-        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ?').get(hash) as any;
+        const hash = crypto.createHash('sha256').update(apiKey.trim()).digest('hex');
+        const proj = getDb().prepare('SELECT id FROM projects WHERE apiKeyHash = ? OR serviceKeyHash = ?').get(hash, hash) as any;
         if (!proj) {
-          throw new AppError('Invalid x-aegis-api-key provided.', 401);
+          throw new AppError('Invalid API key provided.', 401);
         }
         projectId = proj.id;
       }

@@ -260,6 +260,10 @@ export async function getPublicProjectAuthConfig(req: Request, res: Response, ne
     const githubId = (authConfig.github?.clientId || '').trim();
     publicConfig.github = { enabled: !!authConfig.github?.enabled && githubId.length > 0, clientId: githubId };
 
+    publicConfig.magicLink = { enabled: !!authConfig.magicLink?.enabled };
+    publicConfig.passkeys = { enabled: !!authConfig.passkeys?.enabled };
+    publicConfig.anonymous = { enabled: !!authConfig.anonymous?.enabled };
+
     res.status(200).json({ success: true, data: publicConfig });
   } catch (err) { next(err); }
 }

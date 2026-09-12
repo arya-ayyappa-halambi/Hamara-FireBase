@@ -29,6 +29,7 @@ function isBrowserContext(req: Request): boolean {
 
 export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextFunction): void {
   const apiKeyCandidate =
+    (req.headers['x-flare-api-key'] as string) ||
     (req.headers['x-aegis-api-key'] as string) ||
     (req.headers['x-api-key'] as string) ||
     (req.headers['apikey'] as string) ||
@@ -37,15 +38,18 @@ export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextF
 
   if (apiKeyCandidate && typeof apiKeyCandidate === 'string') {
     const rawApiKey = apiKeyCandidate.trim();
-    if (!rawApiKey.startsWith('aegis_pk_') && !rawApiKey.startsWith('aegis_sk_')) {
-      return next(new AppError('Invalid API Key format. API keys must start with "aegis_pk_" or "aegis_sk_".', 401));
+    const isAnonKey = rawApiKey.startsWith('flare_pk_') || rawApiKey.startsWith('aegis_pk_');
+    const isServiceKey = rawApiKey.startsWith('flare_sk_') || rawApiKey.startsWith('aegis_sk_');
+
+    if (!isAnonKey && !isServiceKey) {
+      return next(new AppError('Invalid API Key format. API keys must start with "flare_pk_", "flare_sk_", "aegis_pk_", or "aegis_sk_".', 401));
     }
 
     const apiKeyHash = crypto.createHash('sha256').update(rawApiKey).digest('hex');
     let project;
     let isServiceRole = false;
 
-    if (rawApiKey.startsWith('aegis_pk_')) {
+    if (isAnonKey) {
       project = projectService.getProjectByApiKeyHash(apiKeyHash);
     } else {
       // Service Role Key: check if from browser context

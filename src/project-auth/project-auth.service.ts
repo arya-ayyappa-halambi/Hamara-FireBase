@@ -257,7 +257,7 @@ export class ProjectAuthService {
     }
 
     if (!clientId) {
-      throw new AppError(`${provider} authentication is disabled because no Client ID is configured for this project in AegisDB.`, 403);
+      throw new AppError(`${provider} authentication is disabled because no Client ID is configured for this project in FlareBase.`, 403);
     }
     
     let email = '';
@@ -297,7 +297,7 @@ export class ProjectAuthService {
         const emailRes = await axios.get('https://api.github.com/user/emails', {
           headers: { 
             Authorization: token.startsWith('gh') || token.startsWith('Bearer') ? (token.startsWith('Bearer') ? token : `Bearer ${token}`) : `token ${token}`,
-            'User-Agent': 'AegisDB-Auth'
+            'User-Agent': 'FlareBase-Auth'
           }
         }).catch(() => null);
 
@@ -310,7 +310,7 @@ export class ProjectAuthService {
           const userRes = await axios.get('https://api.github.com/user', {
             headers: { 
               Authorization: token.startsWith('gh') || token.startsWith('Bearer') ? (token.startsWith('Bearer') ? token : `Bearer ${token}`) : `token ${token}`,
-              'User-Agent': 'AegisDB-Auth'
+              'User-Agent': 'FlareBase-Auth'
             }
           });
           email = userRes.data?.email || (userRes.data?.login ? `${userRes.data.login}@users.noreply.github.com` : '');
