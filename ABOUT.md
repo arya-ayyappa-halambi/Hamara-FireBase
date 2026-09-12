@@ -45,7 +45,8 @@ FlareBase was built to give developers, startups, and enterprise teams complete 
 ---
 
 ## License & Authorship
-
-- **License**: [MIT License](LICENSE) — Free for commercial and personal use.
+ 
+- **Author & Copyright Holder**: Arya Ayyappa Halambi (`aryaayyappahalambi@gmail.com`)
+- **License**: [Business Source License 1.1 (BSL 1.1)](LICENSE) — Free for personal, developer, and internal business self-hosting; commercial managed cloud services restricted to author.
 - **Repository**: [https://github.com/aryaayyappa/Hamara-FireBase](https://github.com/aryaayyappa/Hamara-FireBase)
 - **Safe Copy**: [https://github.com/aryaayyappa/FlareBase-Safe-Copy-](https://github.com/aryaayyappa/FlareBase-Safe-Copy-)

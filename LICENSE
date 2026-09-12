@@ -1,0 +1,48 @@
+Business Source License 1.1
+
+Parameters:
+
+Licensor:           Arya Ayyappa Halambi
+Licensed Work:      FlareBase (including all source code, SDKs, console assets, documentation, and tools)
+Additional Grant:   You may use the Licensed Work to develop, test, and run applications, self-host
+                    for your own personal projects, and deploy internal business backends. You may NOT
+                    provide the Licensed Work (or any modified or derivative version thereof) as a hosted
+                    or managed cloud service, platform, or Backend-as-a-Service (BaaS) to third parties
+                    in commercial competition with the Licensor without obtaining an express written
+                    Commercial Enterprise License from the Licensor.
+Change Date:        2030-01-01 (4 years from release)
+Change License:     Apache License, Version 2.0
+
+------------------------------------------------------------------------------------------------------
+
+Copyright (c) 2026 Arya Ayyappa Halambi <aryaayyappahalambi@gmail.com>. All Rights Reserved.
+
+Subject to the terms and conditions of this License, the Licensor hereby grants to you a worldwide,
+royalty-free, non-exclusive, non-transferable copyright license to use, copy, modify, and distribute
+the Licensed Work solely for the purposes permitted by the Additional Grant specified above.
+
+Notice:
+This Software is source-available and governed by the Business Source License 1.1.
+Redistributions of source code or binaries must retain the above copyright notice, this list of
+conditions, and the following disclaimer.
+
+Non-Compete / Managed Cloud Restriction:
+Making functionality of the Licensed Work available to third parties as a managed service, hosted
+cloud database, authentication engine, or Backend-as-a-Service (BaaS) is considered commercial
+competition and is strictly prohibited under this license without a separate commercial agreement.
+
+Change to Open Source:
+On the Change Date specified above, this License shall automatically convert to and be governed by the
+Change License (Apache License, Version 2.0).
+
+Commercial Licensing & Enterprise Inquiries:
+To obtain a commercial enterprise license, cloud hosting authorization, white-labeling rights, or
+custom proprietary terms, contact:
+Arya Ayyappa Halambi <aryaayyappahalambi@gmail.com>
+
+DISCLAIMER:
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE LICENSOR OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
