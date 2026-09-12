@@ -54,8 +54,8 @@
     "jsonwebtoken": "^9.0.2",
     "jwks-rsa": "^4.1.0",
     "localtunnel": "^2.0.2",
-    "multer": "^2.2.0",
-    "nodemailer": "^9.0.5",
+    "multer": "^2.3.0",
+    "nodemailer": "^10.0.9",
     "otplib": "^11.0.1",
     "puppeteer": "^25.7.0",
     "tar": "^7.5.22",
@@ -66,7 +66,10 @@
     "ws": "^8.21.1"
   },
   "overrides": {
-    "axios": "$axios"
+    "fast-uri": "^3.1.6",
+    "axios": "^1.19.0",
+    "qs": "^6.16.0",
+    "uuid": "^11.1.1"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
@@ -89,11 +92,6 @@
   },
   "directories": {
     "test": "tests"
-  },
-  "overrides": {
-    "fast-uri": "^3.1.6",
-    "axios": "^1.19.0",
-    "qs": "^6.16.0"
   },
   "repository": {
     "type": "git",
