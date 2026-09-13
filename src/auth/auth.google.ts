@@ -13,16 +13,26 @@ export async function verifyGoogleToken(idToken: string): Promise<{ email: strin
   
   const envGoogleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
   const dbGoogleClientId = (settings?.googleClientId || '').trim();
-  const effectiveClientId = envGoogleClientId || dbGoogleClientId;
+  const effectiveClientId = dbGoogleClientId || envGoogleClientId;
 
-  const isGoogleEnabled = Boolean(envGoogleClientId || (settings && settings.googleAuthEnabled === 1));
+  const isExplicitlyDisabled = settings && (settings.googleAuthEnabled === 0 || settings.googleAuthEnabled === false);
+  const isExplicitlyEnabled = settings && (settings.googleAuthEnabled === 1 || settings.googleAuthEnabled === true);
+
+  let isGoogleEnabled = false;
+  if (isExplicitlyEnabled) {
+    isGoogleEnabled = true;
+  } else if (isExplicitlyDisabled) {
+    isGoogleEnabled = settings?.googleClientId ? false : Boolean(envGoogleClientId);
+  } else if (envGoogleClientId.length > 0) {
+    isGoogleEnabled = true;
+  }
 
   if (!isGoogleEnabled) {
     throw new AppError('Google authentication is currently disabled by administrator.', 403);
   }
 
   if (!effectiveClientId) {
-    throw new AppError('Google Client ID is not configured on the server (set GOOGLE_CLIENT_ID in .env).', 500);
+    throw new AppError('Google Client ID is not configured on the server (set GOOGLE_CLIENT_ID in .env or in Platform Settings).', 500);
   }
 
   if (!client || lastConfiguredClientId !== effectiveClientId) {

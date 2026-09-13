@@ -3752,7 +3752,13 @@ async function initGoogleAuth() {
     const clientId = (data?.googleClientId || '').trim();
 
     if (googleContainer) {
-      googleContainer.classList.remove('hidden');
+      if (isGoogleEnabled) {
+        googleContainer.classList.remove('hidden');
+        googleContainer.style.display = 'block';
+      } else {
+        googleContainer.classList.add('hidden');
+        googleContainer.style.display = 'none';
+      }
     }
     
     if (googleBtn && isGoogleEnabled) {
@@ -3771,8 +3777,10 @@ async function initGoogleAuth() {
     if (passkeyContainer) {
       if (isPasskeyEnabled) {
         passkeyContainer.classList.remove('hidden');
+        passkeyContainer.style.display = 'block';
       } else {
         passkeyContainer.classList.add('hidden');
+        passkeyContainer.style.display = 'none';
       }
     }
 
@@ -3782,8 +3790,10 @@ async function initGoogleAuth() {
     if (magicLinkContainer) {
       if (isMagicLinkEnabled) {
         magicLinkContainer.classList.remove('hidden');
+        magicLinkContainer.style.display = 'block';
       } else {
         magicLinkContainer.classList.add('hidden');
+        magicLinkContainer.style.display = 'none';
       }
     }
 
@@ -3793,21 +3803,34 @@ async function initGoogleAuth() {
       if (isPasskeyEnabled && isMagicLinkEnabled) {
         methodsGrid.classList.remove('hidden', 'grid-cols-1');
         methodsGrid.classList.add('grid-cols-2');
+        methodsGrid.style.display = 'grid';
       } else if (isPasskeyEnabled || isMagicLinkEnabled) {
         methodsGrid.classList.remove('hidden', 'grid-cols-2');
         methodsGrid.classList.add('grid-cols-1');
+        methodsGrid.style.display = 'grid';
       } else {
         methodsGrid.classList.add('hidden');
+        methodsGrid.style.display = 'none';
       }
     }
 
+    const hasAnyAltAuth = isGoogleEnabled || isPasskeyEnabled || isMagicLinkEnabled;
     const altAuthSection = document.getElementById('alt-auth-section');
     if (altAuthSection) {
-      altAuthSection.classList.remove('hidden');
+      if (hasAnyAltAuth) {
+        altAuthSection.classList.remove('hidden');
+        altAuthSection.style.display = 'flex';
+      } else {
+        altAuthSection.classList.add('hidden');
+        altAuthSection.style.display = 'none';
+      }
     }
   } catch (err) {
     const altAuthSection = document.getElementById('alt-auth-section');
-    if (altAuthSection) altAuthSection.classList.add('hidden');
+    if (altAuthSection) {
+      altAuthSection.classList.add('hidden');
+      altAuthSection.style.display = 'none';
+    }
   }
 }
 

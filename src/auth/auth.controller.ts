@@ -27,14 +27,29 @@ export async function getConfig(req: Request, res: Response, next: NextFunction)
     const settings = db.prepare('SELECT googleAuthEnabled, googleClientId, demoLoginEnabled, magicLinkAuthEnabled, passkeyAuthEnabled FROM platform_settings WHERE id = ?').get('default') as any;
     
     const envGoogleClientId = process.env.GOOGLE_CLIENT_ID?.trim() || '';
-    const googleClientId = envGoogleClientId || (settings?.googleClientId ? settings.googleClientId : '');
-    const googleAuthEnabled = Boolean(envGoogleClientId || (settings && settings.googleAuthEnabled === 1));
+    const dbGoogleClientId = (settings?.googleClientId || '').trim();
+    const googleClientId = dbGoogleClientId || envGoogleClientId;
+    
+    // Explicit platform settings toggle takes precedence over default env fallback
+    const isExplicitlyDisabled = settings && (settings.googleAuthEnabled === 0 || settings.googleAuthEnabled === false);
+    const isExplicitlyEnabled = settings && (settings.googleAuthEnabled === 1 || settings.googleAuthEnabled === true);
+    
+    let googleAuthEnabled = false;
+    if (isExplicitlyEnabled) {
+      googleAuthEnabled = true;
+    } else if (isExplicitlyDisabled) {
+      googleAuthEnabled = false;
+    } else if (envGoogleClientId.length > 0) {
+      googleAuthEnabled = true;
+    }
+
+    const isGoogleActive = Boolean(googleAuthEnabled && googleClientId.length > 0);
 
     res.status(200).json({
       success: true,
       message: 'Auth config retrieved',
       data: {
-        googleAuthEnabled,
+        googleAuthEnabled: isGoogleActive,
         googleClientId,
         demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true,
         magicLinkAuthEnabled: settings ? (settings.magicLinkAuthEnabled === 1 || settings.magicLinkAuthEnabled === true) : false,
