@@ -656,6 +656,10 @@ window.switchTab = window.switchWorkspace = function switchTab(tabId) {
     } else if (typeof loadPlatformPolicies === 'function') {
       loadPlatformPolicies();
     }
+    if (typeof window.updateLivePolicyEffectiveDate === 'function') {
+      window.updateLivePolicyEffectiveDate();
+      state.telemetryTimer = setInterval(window.updateLivePolicyEffectiveDate, 1000);
+    }
   } else if (tabId === 'tab-settings') {
     loadPlatformSettings();
   } else if (tabId === 'tab-threat-radar') {
@@ -9055,6 +9059,24 @@ window.executeReviewDecision = async function(noticeId, decision) {
 
 // ── Super Admin Platform Policies Workspace ─────────────────────────────────
 
+window.formatLiveEffectiveDate = function(targetDate = new Date()) {
+  const d = (targetDate instanceof Date && !isNaN(targetDate.getTime())) ? targetDate : new Date();
+  const day = d.getDate();
+  const month = d.toLocaleString('en-US', { month: 'short' });
+  const year = d.getFullYear();
+  return `${day} ${month} ${year}`;
+};
+
+window.updateLivePolicyEffectiveDate = function() {
+  const dateInput = document.getElementById('input-policy-effective-date');
+  if (dateInput) {
+    const formatted = window.formatLiveEffectiveDate(new Date());
+    if (dateInput.value !== formatted) {
+      dateInput.value = formatted;
+    }
+  }
+};
+
 window.loadPlatformPolicies = async function() {
   try {
     const policy = await apiRequest('/api/v1/policies/current', 'GET');
@@ -9063,15 +9085,14 @@ window.loadPlatformPolicies = async function() {
     const verLabel = document.getElementById('label-active-policy-version');
     if (verLabel) verLabel.textContent = policy.version || 'v1.0.0';
 
-    const dateInput = document.getElementById('input-policy-effective-date');
-    if (dateInput) {
-      if (policy.effectiveDate) {
-        const d = new Date(policy.effectiveDate);
-        dateInput.value = isNaN(d.getTime()) ? policy.effectiveDate : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-      } else {
-        dateInput.value = 'Active (v1.0.0)';
-      }
+    const dateBadge = document.getElementById('label-active-policy-date');
+    if (dateBadge && policy.effectiveDate) {
+      const d = new Date(policy.effectiveDate);
+      const activeDateStr = isNaN(d.getTime()) ? policy.effectiveDate : window.formatLiveEffectiveDate(d);
+      dateBadge.textContent = `(Active since ${activeDateStr})`;
     }
+
+    window.updateLivePolicyEffectiveDate();
 
     const termsArea = document.getElementById('textarea-policy-terms');
     if (termsArea) termsArea.value = policy.termsAndConditions || '';
@@ -14228,4 +14249,25 @@ window.appendThreatLiveFeedEvent = function(event) {
     feed.removeChild(feed.lastChild);
   }
 };
+
+// ── Global Real-Time Date & Time Clock Synchronizer ────────────────────────────
+setInterval(() => {
+  if (typeof window.updateLivePolicyEffectiveDate === 'function') {
+    window.updateLivePolicyEffectiveDate();
+  }
+}, 1000);
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && typeof window.updateLivePolicyEffectiveDate === 'function') {
+      window.updateLivePolicyEffectiveDate();
+    }
+  });
+  window.addEventListener('focus', () => {
+    if (typeof window.updateLivePolicyEffectiveDate === 'function') {
+      window.updateLivePolicyEffectiveDate();
+    }
+  });
+}
+
 

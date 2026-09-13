@@ -1938,7 +1938,7 @@
               <p class="text-xs text-slate-400 mt-1">Manage Terms & Conditions, Security, and Backup policies. Roll out updates to trigger mandatory consent gates for all users.</p>
             </div>
             <div class="flex items-center space-x-3">
-              <span class="text-xs text-slate-400">Active Version: <strong id="label-active-policy-version" class="text-amber-400 font-mono">v1.0.0</strong></span>
+              <span class="text-xs text-slate-400">Active Version: <strong id="label-active-policy-version" class="text-amber-400 font-mono">v1.0.0</strong> <span id="label-active-policy-date" class="text-[10px] text-slate-500 font-mono"></span></span>
               <button id="btn-save-and-rollout-policy" onclick="saveAndRolloutPolicies()" class="px-4 py-2 rounded-xl text-xs font-semibold bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white shadow-lg transition active:scale-95 flex items-center space-x-2">
                 <i class="fa-solid fa-bullhorn"></i>
                 <span>Publish & Rollout to Users</span>
@@ -1953,8 +1953,14 @@
                 <input type="text" id="input-policy-version" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="v1.1.0">
               </div>
               <div class="space-y-1">
-                <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Effective Date</label>
-                <input type="text" id="input-policy-effective-date" readonly class="w-full px-4 py-2.5 rounded-xl glass-input text-xs text-slate-400">
+                <div class="flex items-center justify-between">
+                  <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Effective Date</label>
+                  <span class="text-[9px] font-mono text-emerald-400 flex items-center space-x-1" title="Live dynamic current date">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span>Live</span>
+                  </span>
+                </div>
+                <input type="text" id="input-policy-effective-date" readonly class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-slate-200 bg-slate-900/60 border border-white/10" placeholder="Live Date">
               </div>
             </div>
 
