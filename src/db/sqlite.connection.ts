@@ -1199,23 +1199,31 @@ export function cleanupDemoAccounts(db: Database.Database): void {
 function seedSuperAdminSync(db: Database.Database): void {
   const seedAccounts = [
     { email: 'admin@flarebase.dev', pass: 'Admin@123' },
-    { email: 'admin@flarebase.dev', pass: 'AdminPass123!' },
-    { email: 'admin@flarebase.dev', pass: 'Admin@123' },
   ];
 
+  const { envelopeEncryptionService } = require('../services/envelope-encryption.service');
+
   for (const acc of seedAccounts) {
-    const pepper = process.env.EMAIL_HASH_PEPPER || 'default_pepper';
-    const emailHash = crypto.createHmac('sha256', pepper).update(acc.email).digest('hex');
-    const existing = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash);
-    if (!existing) {
-      const adminId = uuidv4();
+    const emailHash = envelopeEncryptionService.hashBlindIndex(acc.email);
+    const existing = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash) as any;
+    
+    argon2.hash(acc.pass).then((hash) => {
+      const encEmail = JSON.stringify(envelopeEncryptionService.encryptField(acc.email, 'SYSTEM'));
+      const encName = JSON.stringify(envelopeEncryptionService.encryptField('Super Admin', 'SYSTEM'));
       const now = new Date().toISOString();
-      // Synchronously hash admin password
-      argon2.hash(acc.pass).then((hash) => {
+
+      if (existing) {
+        db.prepare(`
+          UPDATE users 
+          SET passwordHash = ?, isSuperAdmin = 1, email = ?, emailHash = ?, name = ?, updatedAt = ?
+          WHERE id = ?
+        `).run(hash, encEmail, emailHash, encName, now, existing.id);
+      } else {
+        const adminId = uuidv4();
         db.prepare(`
           INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
           VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-        `).run(adminId, acc.email, emailHash, 'Super Admin', hash, now, now);
+        `).run(adminId, encEmail, emailHash, encName, hash, now, now);
 
         // Auto-create Default Project for Super Admin
         const keys = generateProjectKeys();
@@ -1228,7 +1236,7 @@ function seedSuperAdminSync(db: Database.Database): void {
         console.log(`👑 Super Admin account seeded: ${acc.email}`);
         console.log(`🔑 Anon Key: ${keys.anonKey}`);
         console.log(`🔑 Service Key: ${keys.serviceKey}`);
-      }).catch(() => { /* silent */ });
-    }
+      }
+    }).catch(() => { /* silent */ });
   }
 }

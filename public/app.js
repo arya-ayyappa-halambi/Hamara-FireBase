@@ -3726,11 +3726,7 @@ async function initGoogleAuth() {
     const clientId = (data?.googleClientId || '').trim();
 
     if (googleContainer) {
-      if (isGoogleEnabled) {
-        googleContainer.classList.remove('hidden');
-      } else {
-        googleContainer.classList.add('hidden');
-      }
+      googleContainer.classList.remove('hidden');
     }
     
     if (googleBtn && isGoogleEnabled) {
@@ -3781,11 +3777,7 @@ async function initGoogleAuth() {
 
     const altAuthSection = document.getElementById('alt-auth-section');
     if (altAuthSection) {
-      if (isGoogleEnabled || isPasskeyEnabled || isMagicLinkEnabled) {
-        altAuthSection.classList.remove('hidden');
-      } else {
-        altAuthSection.classList.add('hidden');
-      }
+      altAuthSection.classList.remove('hidden');
     }
   } catch (err) {
     const altAuthSection = document.getElementById('alt-auth-section');
