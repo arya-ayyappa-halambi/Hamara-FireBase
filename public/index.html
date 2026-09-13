@@ -3280,7 +3280,7 @@
                 <!-- Left: Live QR Code for Mesh Devices -->
                 <div class="flex flex-col items-center space-y-2 shrink-0">
                   <div class="p-2.5 bg-white rounded-2xl shadow-xl shadow-purple-950/50 border-2 border-purple-400">
-                    <img id="img-mesh-qr-code" src="" alt="Mesh VPN QR Code" class="w-36 h-36 object-contain rounded-lg">
+                    <img id="img-mesh-qr-code" src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=http%3A%2F%2F127.0.0.1%3A3000" alt="Mesh VPN QR Code" class="w-36 h-36 object-contain rounded-lg">
                   </div>
                   <span class="text-[10px] text-purple-300 font-mono flex items-center space-x-1">
                     <i class="fa-solid fa-mobile-screen-button text-[9px]"></i>
@@ -3301,7 +3301,7 @@
                         <span>Copy Mesh URL</span>
                       </button>
                     </div>
-                    <input type="text" id="input-mesh-direct-url" readonly class="w-full px-3 py-2 rounded-xl bg-black/70 border border-purple-500/40 text-xs font-mono text-purple-200 select-all shadow-inner">
+                    <input type="text" id="input-mesh-direct-url" value="http://127.0.0.1:3000" readonly class="w-full px-3 py-2 rounded-xl bg-black/70 border border-purple-500/40 text-xs font-mono text-purple-200 select-all shadow-inner">
                   </div>
 
                   <!-- Peer Ping & Diagnostic Tool -->

@@ -59,6 +59,32 @@ window.copyToClipboard = async function(text) {
   }
 };
 
+// Universal Robust QR Code Generator with Multi-CDN / Offline Resilient Fallbacks
+window.setRobustQrCode = function(imgOrId, text, size = 220) {
+  const el = typeof imgOrId === 'string' ? document.getElementById(imgOrId) : imgOrId;
+  if (!el) return;
+  if (!text) {
+    el.src = '';
+    return;
+  }
+  const encoded = encodeURIComponent(String(text).trim());
+  const primary = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}`;
+  const fallback1 = `https://quickchart.io/qr?text=${encoded}&size=${size}`;
+  const fallback2 = `https://chart.googleapis.com/chart?chs=${size}x${size}&cht=qr&chl=${encoded}`;
+  
+  el.onerror = function() {
+    if (this.dataset.qrStage === '1') {
+      this.dataset.qrStage = '2';
+      this.src = fallback2;
+    } else if (!this.dataset.qrStage || this.dataset.qrStage === '0') {
+      this.dataset.qrStage = '1';
+      this.src = fallback1;
+    }
+  };
+  el.dataset.qrStage = '0';
+  el.src = primary;
+};
+
 const state = {
   baseUrl: window.location.origin,
   wsUrl: window.location.origin.replace(/^http/, 'ws'),
@@ -5357,6 +5383,17 @@ function initServerHostingTab() {
       labelAutoScroll.className = isTerminalAutoScroll ? 'text-emerald-400 cursor-pointer hover:underline' : 'text-slate-500 cursor-pointer hover:underline';
     };
   }
+
+  // Initialize default Mesh VPN QR & UI immediately
+  if (typeof window.renderMeshVpnUI === 'function') {
+    window.renderMeshVpnUI({
+      status: 'standby',
+      meshPort: window.location.port || 3000,
+      protocol: 'auto',
+      protocolDisplayName: 'Mesh VPN',
+      autoWhitelistEnabled: true
+    });
+  }
 }
 
 // ── Live Server Terminal Console Streamer ─────────────────────────────────────
@@ -5864,7 +5901,8 @@ async function openMfaSetupModal() {
     const modal = document.getElementById('modal-mfa-setup');
 
     if (qrContainer) {
-      qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(data.otpAuthUrl)}" alt="TOTP QR Code" class="w-44 h-44">`;
+      qrContainer.innerHTML = `<img id="img-mfa-qr-code" alt="TOTP QR Code" class="w-44 h-44 object-contain">`;
+      window.setRobustQrCode('img-mfa-qr-code', data.otpAuthUrl, 180);
     }
     if (secretDisplay) secretDisplay.textContent = `Secret Key: ${data.secret}`;
     if (modal) modal.classList.remove('hidden');
@@ -10456,7 +10494,7 @@ window.generateOneTimeToken = async function() {
     if (linkOpen) linkOpen.href = networkUrl;
 
     if (imgQr) {
-      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(networkUrl)}`;
+      window.setRobustQrCode(imgQr, networkUrl, 220);
     }
 
     if (box) {
@@ -10480,7 +10518,7 @@ window.switchOttQrTarget = function(type) {
   if (!targetUrl) return;
 
   if (imgQr) {
-    imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(targetUrl)}`;
+    window.setRobustQrCode(imgQr, targetUrl, 220);
   }
   if (linkOpen) linkOpen.href = targetUrl;
 
@@ -10929,7 +10967,7 @@ window.renderTunnelUI = function(data) {
     if (linkOpen) linkOpen.href = data.publicUrl;
 
     if (imgQr) {
-      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data.publicUrl)}`;
+      window.setRobustQrCode(imgQr, data.publicUrl, 220);
     }
 
     if (badgeCountdown) {
@@ -11174,10 +11212,10 @@ window.renderMeshVpnUI = function(data) {
     }
     if (textProto) textProto.textContent = `${data.protocolDisplayName} Live`;
     if (badgeAdapter) badgeAdapter.textContent = `Interface: ${data.interfaceName || 'overlay'}`;
-    if (inputUrl) inputUrl.value = data.meshDirectUrl || `http://${data.meshIp}:${data.meshPort}`;
+    const targetUrl = data.meshDirectUrl || (data.meshIp ? `http://${data.meshIp}:${data.meshPort || window.location.port || 3000}` : window.location.origin);
+    if (inputUrl) inputUrl.value = targetUrl;
     if (imgQr) {
-      const targetUrl = data.meshDirectUrl || `http://${data.meshIp}:${data.meshPort}`;
-      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(targetUrl)}`;
+      window.setRobustQrCode(imgQr, targetUrl, 220);
     }
     if (card) card.classList.remove('hidden');
   } else {
@@ -11188,9 +11226,12 @@ window.renderMeshVpnUI = function(data) {
     if (card) card.classList.remove('hidden');
     if (textProto) textProto.textContent = 'Mesh VPN (Standby)';
     if (badgeAdapter) badgeAdapter.textContent = 'No Virtual Adapter Found';
-    if (inputUrl) inputUrl.value = data.customIpConfigured ? `http://${data.customIpConfigured}:${data.meshPort}` : 'Configure or connect n2n/Tailscale to activate';
-    if (imgQr && data.customIpConfigured) {
-      imgQr.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`http://${data.customIpConfigured}:${data.meshPort}`)}`;
+    const fallbackEndpoint = data.customIpConfigured
+      ? `http://${data.customIpConfigured}:${data.meshPort || window.location.port || 3000}`
+      : (window.location.origin || `http://${window.location.hostname || '127.0.0.1'}:${data.meshPort || window.location.port || 3000}`);
+    if (inputUrl) inputUrl.value = fallbackEndpoint;
+    if (imgQr) {
+      window.setRobustQrCode(imgQr, fallbackEndpoint, 220);
     }
   }
 
