@@ -273,6 +273,10 @@ function updateUserProfileUI() {
     if (secSuper) secSuper.classList.add('hidden');
     if (btnSuper) btnSuper.classList.add('hidden');
     state.roleMode = 'developer';
+    const activeTab = document.querySelector('.workspace-panel:not(.hidden)')?.id;
+    if (activeTab === 'tab-threat-radar') {
+      switchWorkspace('tab-developer-metrics');
+    }
   }
 
   // MFA Status Badge & Settings Buttons
@@ -546,7 +550,7 @@ window.setRoleMode = function setRoleMode(mode) {
     const targetHashTab = (window.location.hash && window.location.hash.startsWith('#tab-'))
       ? window.location.hash.substring(1).split('&')[0].split('?')[0]
       : null;
-    if (targetHashTab && document.getElementById(targetHashTab)) {
+    if (targetHashTab && targetHashTab !== 'tab-threat-radar' && document.getElementById(targetHashTab)) {
       switchWorkspace(targetHashTab);
     } else {
       switchWorkspace('tab-developer-metrics');
@@ -655,6 +659,11 @@ window.switchTab = window.switchWorkspace = function switchTab(tabId) {
   } else if (tabId === 'tab-settings') {
     loadPlatformSettings();
   } else if (tabId === 'tab-threat-radar') {
+    if (!state.user?.isSuperAdmin) {
+      showToast('Threat Detection is restricted exclusively to Super Administrators.', 'warning');
+      switchWorkspace('tab-developer-metrics');
+      return;
+    }
     if (typeof window.loadThreatIntelligenceMatrix === 'function') {
       window.loadThreatIntelligenceMatrix();
       state.telemetryTimer = setInterval(window.loadThreatIntelligenceMatrix, 3000);
@@ -2474,6 +2483,17 @@ window.promoteUserToAdmin = async function(userId, email) {
       adminPermissions: ['*']
     });
     showToast(`User ${email} promoted to Administrator successfully!`, 'success');
+
+    // Dynamic transition if current user was promoted
+    if (state.user && (String(state.user.id) === String(userId) || state.user.email === email)) {
+      state.user.isSuperAdmin = true;
+      state.user.role = 'admin';
+      state.user.adminPermissions = ['*'];
+      localStorage.setItem('flarebase_user', JSON.stringify(state.user));
+      updateUserProfileUI();
+      setRoleMode('superadmin');
+    }
+
     loadUserManagement();
   } catch (err) {
     showToast(err.message || 'Failed to promote user to administrator.', 'error');
@@ -2486,6 +2506,17 @@ window.demoteAdmin = async function(userId, email) {
   try {
     await apiRequest(`/api/v1/admin/users/${userId}/demote`, 'PATCH');
     showToast(`Administrator privileges revoked for ${email}.`, 'success');
+
+    // Dynamic transition if current user was demoted
+    if (state.user && (String(state.user.id) === String(userId) || state.user.email === email)) {
+      state.user.isSuperAdmin = false;
+      state.user.role = 'developer';
+      state.user.adminPermissions = [];
+      localStorage.setItem('flarebase_user', JSON.stringify(state.user));
+      updateUserProfileUI();
+      setRoleMode('developer');
+    }
+
     loadUserManagement();
   } catch (err) {
     showToast(err.message || 'Failed to revoke administrator privileges.', 'error');
@@ -3355,28 +3386,51 @@ function connectGlobalWebSocket() {
           wsLogStream.scrollTop = wsLogStream.scrollHeight;
         }
 
-        // Trust & Safety Real-time Broadcasts
+        // User Role Change Broadcasts (Dynamic Promotion/Demotion)
+        if (data.type === 'USER_ROLE_CHANGED') {
+          const roleData = data.data;
+          if (state.user && (String(state.user.id) === String(roleData?.userId) || state.user.email === roleData?.email)) {
+            const becameSuperAdmin = !!roleData.isSuperAdmin;
+            state.user.isSuperAdmin = becameSuperAdmin;
+            state.user.role = roleData.role || (becameSuperAdmin ? 'admin' : 'developer');
+            state.user.adminPermissions = roleData.adminPermissions || [];
+            localStorage.setItem('flarebase_user', JSON.stringify(state.user));
+            updateUserProfileUI();
+            setRoleMode(becameSuperAdmin ? 'superadmin' : 'developer');
+            showToast(
+              becameSuperAdmin
+                ? '🎉 Your account has been promoted to Administrator!'
+                : 'ℹ️ Your Administrator access has been revoked.',
+              becameSuperAdmin ? 'success' : 'warning'
+            );
+          }
+          if (typeof loadUserManagement === 'function' && state.user?.isSuperAdmin) {
+            loadUserManagement();
+          }
+        }
+
+        // Trust & Safety Real-time Broadcasts (Restricted to Super Admins)
         if (data.type === 'SECURITY_ALERT_FLAGGED') {
           const flagUser = data.data?.flag;
           if (state.user && (state.user.id === flagUser?.userId || state.user.email === flagUser?.userEmail)) {
             state.user.isFlagged = true;
             state.user.flagged = true;
-            localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
+            localStorage.setItem('flarebase_user', JSON.stringify(state.user));
             updateUserProfileUI();
             if (typeof window.updateUserNotificationsHeader === 'function') window.updateUserNotificationsHeader();
           }
-          showToast(`🚨 Threat Detected: ${data.data?.summary || 'Malicious / bot activity detected'}`, 'error');
-          if (typeof window.appendThreatLiveFeedEvent === 'function') {
-            window.appendThreatLiveFeedEvent({
-              type: 'SECURITY_ALERT_FLAGGED',
-              userEmail: flagUser?.userEmail || data.data?.userEmail,
-              category: flagUser?.reason || data.data?.reason,
-              timestamp: new Date().toISOString(),
-              summary: data.data?.summary || 'Malicious activity detected',
-              riskScore: flagUser?.riskScore || 90
-            });
-          }
           if (state.user?.isSuperAdmin) {
+            showToast(`🚨 Threat Detected: ${data.data?.summary || 'Malicious / bot activity detected'}`, 'error');
+            if (typeof window.appendThreatLiveFeedEvent === 'function') {
+              window.appendThreatLiveFeedEvent({
+                type: 'SECURITY_ALERT_FLAGGED',
+                userEmail: flagUser?.userEmail || data.data?.userEmail,
+                category: flagUser?.reason || data.data?.reason,
+                timestamp: new Date().toISOString(),
+                summary: data.data?.summary || 'Malicious activity detected',
+                riskScore: flagUser?.riskScore || 90
+              });
+            }
             if (typeof window.loadSecurityThreatAlerts === 'function') window.loadSecurityThreatAlerts();
             if (typeof loadUserManagement === 'function') loadUserManagement();
             if (typeof window.loadThreatIntelligenceMatrix === 'function') window.loadThreatIntelligenceMatrix();
@@ -3386,33 +3440,35 @@ function connectGlobalWebSocket() {
           if (state.user && (state.user.id === data.data?.userId || state.user.email === userEmail)) {
             state.user.isFlagged = false;
             state.user.flagged = false;
-            localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
+            localStorage.setItem('flarebase_user', JSON.stringify(state.user));
             updateUserProfileUI();
           }
-          if (typeof window.appendThreatLiveFeedEvent === 'function') {
-            window.appendThreatLiveFeedEvent({
-              type: 'SECURITY_FLAG_RESOLVED',
-              userEmail: userEmail,
-              timestamp: new Date().toISOString(),
-              summary: `Security flag resolved for ${userEmail || 'user'}`,
-              riskScore: 0
-            });
-          }
           if (state.user?.isSuperAdmin) {
+            if (typeof window.appendThreatLiveFeedEvent === 'function') {
+              window.appendThreatLiveFeedEvent({
+                type: 'SECURITY_FLAG_RESOLVED',
+                userEmail: userEmail,
+                timestamp: new Date().toISOString(),
+                summary: `Security flag resolved for ${userEmail || 'user'}`,
+                riskScore: 0
+              });
+            }
             if (typeof window.loadThreatIntelligenceMatrix === 'function') window.loadThreatIntelligenceMatrix();
             if (typeof loadUserManagement === 'function') loadUserManagement();
           }
         } else if (data.type === 'SECURITY_AUDIT_COMPLETED') {
-          if (typeof window.appendThreatLiveFeedEvent === 'function') {
-            window.appendThreatLiveFeedEvent({
-              type: 'SECURITY_AUDIT_COMPLETED',
-              timestamp: new Date().toISOString(),
-              summary: data.data?.summary || 'Security audit completed',
-              riskScore: 0
-            });
-          }
-          if (state.user?.isSuperAdmin && typeof window.loadThreatIntelligenceMatrix === 'function') {
-            window.loadThreatIntelligenceMatrix();
+          if (state.user?.isSuperAdmin) {
+            if (typeof window.appendThreatLiveFeedEvent === 'function') {
+              window.appendThreatLiveFeedEvent({
+                type: 'SECURITY_AUDIT_COMPLETED',
+                timestamp: new Date().toISOString(),
+                summary: data.data?.summary || 'Security audit completed',
+                riskScore: 0
+              });
+            }
+            if (typeof window.loadThreatIntelligenceMatrix === 'function') {
+              window.loadThreatIntelligenceMatrix();
+            }
           }
         } else if (data.type === 'USER_NOTICE_ISSUED') {
           if (state.user && state.user.id === data.data?.userId) {
@@ -13451,7 +13507,7 @@ window.formatThreatCategoryLabel = function(cat) {
 };
 
 window.loadThreatIntelligenceMatrix = async function() {
-  if (!state.accessToken) return;
+  if (!state.accessToken || !state.user?.isSuperAdmin) return;
   const tbody = document.getElementById('table-threat-matrix-body');
 
   try {

@@ -313,11 +313,9 @@ Every FlareBase project operates as an independent authentication realm:
 - **Automated Threat Detection & IP Quarantine Jail**: Sliding 60-second threat window with automatic 15-minute jailing after 5 failed attempts.
 - **Super Admin Endpoint Perimeter Lock**: Restricts `/api/v1/admin/*` strictly to `127.0.0.1` and authorized management subnets.
 
----
-
 ## 14. Auto Threat Detection & Live User Security Intelligence Matrix
 
-FlareBase introduces a dedicated, real-time **Threat Intelligence & User Security Radar** workspace tab (`#tab-threat-radar`) available across both Super Admin and Developer consoles. Every control, filter, inspector modal, and live stream operates with **zero dead buttons** and sub-millisecond WAF inspection.
+FlareBase introduces a dedicated, real-time **Threat Intelligence & User Security Radar** workspace tab (`#tab-threat-radar`) restricted exclusively to **Super Administrators**. Every control, filter, inspector modal, and live stream operates with **zero dead buttons** and sub-millisecond WAF inspection. Regular developers and users are restricted from viewing or accessing threat telemetry.
 
 ```
    ┌────────────────────────────────────────────────────────────┐

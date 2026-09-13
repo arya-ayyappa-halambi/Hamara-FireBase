@@ -393,6 +393,16 @@ export async function promoteUserToAdminHandler(req: Request, res: Response, nex
       details: `Promoted user "${id}" (${updated?.email}) to Administrator with permissions: ${JSON.stringify(adminPermissions || ['*'])}.`
     });
 
+    try {
+      wsService.broadcast('USER_ROLE_CHANGED', {
+        userId: id,
+        email: updated?.email,
+        isSuperAdmin: true,
+        role: 'admin',
+        adminPermissions: updated?.adminPermissions || ['*']
+      });
+    } catch { /* ignore WS broadcast failure */ }
+
     res.status(200).json({
       success: true,
       message: `User promoted to Administrator successfully.`,
@@ -415,6 +425,16 @@ export async function demoteAdminHandler(req: Request, res: Response, next: Next
       status: 'success',
       details: `Revoked Administrator privileges from user "${id}" (${updated?.email}). Account converted to regular Developer.`
     });
+
+    try {
+      wsService.broadcast('USER_ROLE_CHANGED', {
+        userId: id,
+        email: updated?.email,
+        isSuperAdmin: false,
+        role: 'developer',
+        adminPermissions: []
+      });
+    } catch { /* ignore WS broadcast failure */ }
 
     res.status(200).json({
       success: true,
@@ -445,6 +465,17 @@ export async function updateAdminSecurityConfigHandler(req: Request, res: Respon
       status: 'success',
       details: `Updated security configuration for Administrator "${id}" (${updated?.email}): Status=${adminStatus || 'active'}, IP Lock="${adminAllowedIpSubnet || 'None'}", Permissions=${JSON.stringify(adminPermissions || ['*'])}.`
     });
+
+    try {
+      wsService.broadcast('USER_ROLE_CHANGED', {
+        userId: id,
+        email: updated?.email,
+        isSuperAdmin: updated?.isSuperAdmin ?? true,
+        role: (updated?.isSuperAdmin ?? true) ? 'admin' : 'developer',
+        adminPermissions: updated?.adminPermissions || [],
+        adminStatus: updated?.adminStatus
+      });
+    } catch { /* ignore WS broadcast failure */ }
 
     res.status(200).json({
       success: true,
