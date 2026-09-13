@@ -1,7 +1,7 @@
 {
-  "name": "@aegis/sdk",
+  "name": "@flarebase/sdk",
   "version": "1.0.0",
-  "description": "Official TypeScript Client SDK for AegisDB BaaS Platform",
+  "description": "Official TypeScript Client SDK for FlareBase BaaS Platform",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {

@@ -38,7 +38,7 @@ async function runIsolationTests(): Promise<void> {
 
   // 1. Create a Test Project with API Key
   console.log('--- 1. Seed Dedicated Test Project & Platform Developer ---');
-  const devEmail = `developer_${Date.now()}@aegisdb.dev`;
+  const devEmail = `developer_${Date.now()}@flarebase.dev`;
   const regResult = await registerUser({
     email: devEmail,
     password: 'Password123!',
@@ -49,7 +49,7 @@ async function runIsolationTests(): Promise<void> {
   assert(!!devUser && !!regResult.user, 'Platform developer registered in users table');
 
   const projectId = 'proj-iso-' + Date.now();
-  const apiKey = 'aegis_pk_iso_' + crypto.randomBytes(16).toString('hex');
+  const apiKey = 'flare_pk_iso_' + crypto.randomBytes(16).toString('hex');
   const apiKeyHash = crypto.createHash('sha256').update(apiKey).digest('hex');
 
   db.prepare(`

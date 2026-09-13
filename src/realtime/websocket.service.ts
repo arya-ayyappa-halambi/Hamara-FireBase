@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/realtime/websocket.service.ts
-//  AegisDB — Real-Time WebSocket Server & Database Change Streams.
+//  FlareBase — Real-Time WebSocket Server & Database Change Streams.
 //
 //  Responsibilities:
 //    1. Attach WebSocketServer to HTTP server.

@@ -5,8 +5,8 @@ import { envelopeEncryptionService } from '../services/envelope-encryption.servi
 import fs from 'fs';
 
 // Force environment variables for migration if missing
-process.env.JWT_SECRET = process.env.JWT_SECRET || 'aegisdb_default_master_encryption_key_32_chars';
-process.env.EMAIL_HASH_PEPPER = process.env.EMAIL_HASH_PEPPER || 'aegisdb_default_email_hash_pepper_32_chars';
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'flarebase_default_master_encryption_key_32_chars';
+process.env.EMAIL_HASH_PEPPER = process.env.EMAIL_HASH_PEPPER || 'flarebase_default_email_hash_pepper_32_chars';
 
 function runMigration() {
   console.log('🚀 Starting Schema & Encryption Migration...');

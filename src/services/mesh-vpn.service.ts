@@ -247,7 +247,7 @@ export class MeshVpnService {
       customIpConfigured: customIp,
       detectedInterfaces: detected,
       commandsGuide: {
-        n2n: `edge -d edge0 -a 10.1.0.5 -c aegis_mesh -k aegis_secret_key -l supernode.ntop.org:7777`,
+        n2n: `edge -d edge0 -a 10.1.0.5 -c flare_mesh -k flare_secret_key -l supernode.ntop.org:7777`,
         tailscale: `tailscale up && tailscale ip -4`,
         wireguard: `wg-quick up wg0`,
         zerotier: `zerotier-cli join <your-network-id>`

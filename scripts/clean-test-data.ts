@@ -1,13 +1,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  scripts/clean-test-data.ts
 //  Surgical cleanup of automated test data, duplicate test projects, test PATs,
-//  test device requests, and test notifications from SQLite aegis.db.
+//  test device requests, and test notifications from SQLite flarebase.db.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'aegis.db');
+const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'flarebase.db');
 
 function cleanTestData() {
   console.log(`🧹 Connecting to SQLite database at: ${DB_PATH}`);

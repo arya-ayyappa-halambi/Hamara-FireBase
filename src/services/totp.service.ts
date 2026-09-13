@@ -79,7 +79,7 @@ export class TotpService {
   /**
    * Generates standard OTPAuth URI for QR code generation
    */
-  generateOtpAuthUrl(email: string, secret: string, issuer: string = 'AegisDB'): string {
+  generateOtpAuthUrl(email: string, secret: string, issuer: string = 'FlareBase'): string {
     return authenticator.keyuri(email, issuer, secret);
   }
 

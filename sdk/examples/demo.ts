@@ -1,19 +1,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/examples/demo.ts
-//  End-to-End demonstration script for @aegis/sdk.
+//  End-to-End demonstration script for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { Aegis } from '../dist/index.js';
+import { FlareBase } from '../dist/index.js';
 
 async function main() {
-  console.log('🚀 Initializing Aegis Client SDK...');
-  const aegis = new Aegis({ baseUrl: 'http://localhost:3000' });
+  console.log('🚀 Initializing FlareBase Client SDK...');
+  const flare = new FlareBase({ baseUrl: 'http://localhost:3000' });
 
   try {
     // 1. Authentication
     console.log('\n--- 1. Auth Module ---');
-    const authData = await aegis.auth.register(
-      `sdk-user-${Date.now()}@aegis.dev`,
+    const authData = await flare.auth.register(
+      `sdk-user-${Date.now()}@flarebase.dev`,
       'SdkPassword123!',
       'SDK Test User',
     );
@@ -22,51 +22,51 @@ async function main() {
 
     // 2. Real-Time WebSockets
     console.log('\n--- 2. Realtime WebSockets Module ---');
-    await aegis.realtime.subscribe('telemetry', (frame) => {
+    await flare.realtime.subscribe('telemetry', (frame) => {
       console.log('⚡ Real-time Change Stream Event Received:', frame.event, frame.data);
     });
     console.log('✅ Subscribed to "telemetry" change stream over WebSocket.');
 
     // 3. Dynamic Schema DB Engine
     console.log('\n--- 3. Dynamic Database Engine Module ---');
-    const col = await aegis.db.createCollection('telemetry', 'SDK telemetry collection');
+    const col = await flare.db.createCollection('telemetry', 'SDK telemetry collection');
     console.log('📁 Created Collection :', col.name);
 
-    const doc1 = await aegis.db.insertDocument('telemetry', {
+    const doc1 = await flare.db.insertDocument('telemetry', {
       device: 'sensor-01',
       reading: 42.8,
       status: 'active',
     });
     console.log('📄 Inserted Document  :', doc1._id, doc1);
 
-    const doc2 = await aegis.db.updateDocument('telemetry', doc1._id, {
+    const doc2 = await flare.db.updateDocument('telemetry', doc1._id, {
       reading: 45.2,
       updatedBy: 'sdk-client',
     });
     console.log('✏️  Updated Document   :', doc2._id, doc2);
 
-    const queryResult = await aegis.db.queryDocuments('telemetry', {
+    const queryResult = await flare.db.queryDocuments('telemetry', {
       filter: { status: 'active' },
       sortBy: '_createdAt',
       sortOrder: 'desc',
     });
     console.log('🔍 Query Result Total :', queryResult.total, 'documents found.');
 
-    await aegis.db.deleteDocument('telemetry', doc1._id);
+    await flare.db.deleteDocument('telemetry', doc1._id);
     console.log('🗑️  Deleted Document   :', doc1._id);
 
     // 4. Hoster Deployments
     console.log('\n--- 4. Hoster Module ---');
-    const deployments = await aegis.hoster.listDeployments();
+    const deployments = await flare.hoster.listDeployments();
     console.log('🐳 Total Deployments  :', deployments.length);
 
     // 5. Token Refresh & Logout
     console.log('\n--- 5. Token Refresh & Clean Logout ---');
-    const refreshed = await aegis.auth.refresh();
+    const refreshed = await flare.auth.refresh();
     console.log('🔄 Refreshed Token    :', refreshed.token.substring(0, 25) + '...');
 
-    aegis.realtime.disconnect();
-    await aegis.auth.logout();
+    flare.realtime.disconnect();
+    await flare.auth.logout();
     console.log('👋 Logged out cleanly.\n');
     console.log('🎉 All SDK End-to-End Operations Passed!');
 

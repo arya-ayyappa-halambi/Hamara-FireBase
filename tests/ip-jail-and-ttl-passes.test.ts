@@ -57,7 +57,7 @@ function runIpJailAndTtlTests(): void {
   // ── 2. Localhost & Host Interface Protection Invariant ───────────────────
   console.log('\n--- 2. Localhost & Host Interface Anti-Lockout Invariant ---');
 
-  const localRes = networkAccessService.recordFailedAuthAttempt('127.0.0.1', 'admin@aegisdb.dev');
+  const localRes = networkAccessService.recordFailedAuthAttempt('127.0.0.1', 'admin@flarebase.dev');
   assert(localRes.jailed === false, 'Localhost 127.0.0.1 can NEVER be jailed');
 
   let localJailError = false;

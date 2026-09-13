@@ -107,8 +107,8 @@ function createApp(): Application {
   app.use((req, res, next) => {
     res.on('finish', () => {
       let projectId: string | undefined = req.project?.id;
-      if (!projectId && typeof req.headers['x-aegis-project-id'] === 'string') {
-        projectId = req.headers['x-aegis-project-id'];
+      if (!projectId && typeof (req.headers['x-flarebase-project-id'] || req.headers['x-flare-project-id'] || req.headers['x-flarebase-project-id']) === 'string') {
+        projectId = (req.headers['x-flarebase-project-id'] || req.headers['x-flare-project-id'] || req.headers['x-flarebase-project-id']) as string;
       }
       if (!projectId && req.user && (req.user as any).isProjectUser) {
         projectId = (req.user as any).projectId;
@@ -207,7 +207,7 @@ function createApp(): Application {
     res.setHeader('Expires', '0');
     res.status(200).json({
       success: true,
-      message: 'AegisDB is running.',
+      message: 'FlareBase is running.',
       data: {
         status: 'ok',
         port: activePort,
@@ -225,7 +225,7 @@ function createApp(): Application {
   app.use('/api/v1', (req, res, next) => {
     if (req.method !== 'GET' || (req.query && Object.keys(req.query).length > 0)) {
       const clientIp = networkAccessService.extractClientIp(req);
-      const projectId = (req as any).project?.id || (req.headers['x-flare-project-id'] as string) || (req.headers['x-aegis-project-id'] as string);
+      const projectId = (req as any).project?.id || (req.headers['x-flarebase-project-id'] as string) || (req.headers['x-flare-project-id'] as string) || (req.headers['x-flarebase-project-id'] as string);
       const userId = (req as any).user?.sub || (req as any).projectUser?.id;
       const userEmail = (req as any).user?.email || (req as any).projectUser?.email;
 
@@ -272,7 +272,7 @@ function createApp(): Application {
   // ── Multi-Region Logical Sync Replication Route ──────────────────────────────────
   app.post('/api/v1/replication/sync', (req, res, next) => {
     try {
-      const replicationKey = req.headers['x-aegis-replication-key'] as string | undefined;
+      const replicationKey = (req.headers['x-flarebase-replication-key'] || req.headers['x-flare-replication-key'] || req.headers['x-flarebase-replication-key']) as string | undefined;
       const expectedKey = replicationService.getReplicationSecret();
 
       if (!replicationKey || replicationKey !== expectedKey) {
@@ -359,7 +359,7 @@ export function rebindServer(newPort: number, newHost: string = '0.0.0.0'): Prom
 
         console.log('');
         console.log('┌────────────────────────────────────────────────────────────┐');
-        console.log('│        AegisDB Server Live Port Switch (Rebound) 🛡️        │');
+        console.log('│        FlareBase Server Live Port Switch (Rebound) 🛡️        │');
         console.log('├────────────────────────────────────────────────────────────┤');
         console.log(`│  ➜  Local:    http://localhost:${newPort}`.padEnd(61) + '│');
         console.log(`│  ➜  Network:  http://${netIp}:${newPort}`.padEnd(61) + '│');

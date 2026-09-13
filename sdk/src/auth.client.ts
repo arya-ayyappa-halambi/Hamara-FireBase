@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/auth.client.ts
-//  Authentication client module for @aegis/sdk.
+//  Authentication client module for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { ApiResponse, AuthResponseData, User } from './types.js';

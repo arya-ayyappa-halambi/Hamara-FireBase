@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/waf-shield.test.ts
-//  AegisDB — Layer-7 Web Application Firewall (WAF) & Payload Shield Test Suite
+//  FlareBase — Layer-7 Web Application Firewall (WAF) & Payload Shield Test Suite
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'dotenv/config';
@@ -75,7 +75,7 @@ async function runWafTests() {
   const tautologySqli = wafShieldService.inspectRequest({
     method: 'POST',
     path: '/api/v1/auth/login',
-    body: { email: "admin@aegisdb.dev' OR '1'='1", password: 'test' },
+    body: { email: "admin@flarebase.dev' OR '1'='1", password: 'test' },
     clientIp: '198.51.100.23'
   });
   assert(tautologySqli.blocked === true, 'Tautology SQL injection (OR 1=1) blocked');

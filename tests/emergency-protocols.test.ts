@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/emergency-protocols.test.ts
-//  AegisDB — Emergency Protocols, Panic Mode & Maintenance Windows Test Suite
+//  FlareBase — Emergency Protocols, Panic Mode & Maintenance Windows Test Suite
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'dotenv/config';

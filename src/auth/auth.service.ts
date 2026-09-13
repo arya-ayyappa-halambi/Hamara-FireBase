@@ -709,14 +709,14 @@ export async function requestPasswordReset(email: string): Promise<void> {
 
   try {
     await transporter.sendMail({
-      from: SMTP_FROM || '"AegisDB" <noreply@aegisdb.dev>',
+      from: SMTP_FROM || '"FlareBase" <noreply@flarebase.dev>',
       to: email,
-      subject: 'Password Reset Request - AegisDB',
+      subject: 'Password Reset Request - FlareBase',
       text: `You requested a password reset. Click the link below to set a new password.\n\n${resetLink}\n\nIf you did not request this, please ignore this email. This link will expire in 15 minutes.`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2>Password Reset Request</h2>
-          <p>You requested a password reset for your AegisDB account.</p>
+          <p>You requested a password reset for your FlareBase account.</p>
           <p>Click the button below to set a new password. This link will expire in 15 minutes.</p>
           <a href="${resetLink}" style="display: inline-block; padding: 10px 20px; color: white; background-color: #007bff; text-decoration: none; border-radius: 5px;">Reset Password</a>
           <p>If you did not request this, please safely ignore this email.</p>
@@ -973,7 +973,7 @@ export async function purgeDeveloperAccountPermanent(userId: string): Promise<{ 
     db.prepare('DELETE FROM users WHERE id = ?').run(userId);
 
     // Anonymized audit tombstone
-    const anonymizedActorHash = crypto.createHash('sha256').update(userId + (process.env.JWT_SECRET || 'aegis-salt')).digest('hex');
+    const anonymizedActorHash = crypto.createHash('sha256').update(userId + (process.env.JWT_SECRET || 'flarebase-salt')).digest('hex');
     db.prepare(`
       INSERT INTO audit_logs (id, timestamp, actorId, actorEmail, actorEmailHash, actionType, projectId, ipAddress, status, details)
       VALUES (?, ?, ?, ?, ?, 'DEVELOPER_ACCOUNT_ERASED', NULL, '127.0.0.1', 'SUCCESS', ?)

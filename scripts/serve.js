@@ -178,8 +178,8 @@ function getNetworkIp() {
 const networkIp = getNetworkIp();
 
 function getDbPath() {
-  const rootPath = path.resolve(__dirname, '../aegis.db');
-  const dataPath = path.resolve(__dirname, '../data/aegis.db');
+  const rootPath = path.resolve(__dirname, '../flarebase.db');
+  const dataPath = path.resolve(__dirname, '../data/flarebase.db');
   if (fs.existsSync(rootPath)) return rootPath;
   if (fs.existsSync(dataPath)) return dataPath;
   return rootPath;

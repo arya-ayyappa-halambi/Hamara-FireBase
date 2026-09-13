@@ -23,9 +23,9 @@ async function main() {
   );
 
   // 2. Create a test project
-  const rawApiKey = `aegis_pk_test_${Date.now()}`;
+  const rawApiKey = `flare_pk_test_${Date.now()}`;
   const apiKeyHash = crypto.createHash('sha256').update(rawApiKey).digest('hex');
-  const rawServiceKey = `aegis_sk_test_${Date.now()}`;
+  const rawServiceKey = `flare_sk_test_${Date.now()}`;
   const serviceKeyHash = crypto.createHash('sha256').update(rawServiceKey).digest('hex');
   const projId = `proj_rules_${Date.now()}`;
 
@@ -83,7 +83,7 @@ async function main() {
     {
       headers: {
         Authorization: `Bearer ${devToken}`,
-        'x-aegis-project-id': projId,
+        'x-flarebase-project-id': projId,
       },
     }
   );
@@ -96,7 +96,7 @@ async function main() {
     await axios.post(
       `${BASE_URL}/api/v1/db/collections/${colName}/documents`,
       { data: { title: 'Anon post' } },
-      { headers: { 'x-aegis-api-key': rawApiKey } }
+      { headers: { 'x-flarebase-api-key': rawApiKey } }
     );
     assert.fail('Should have failed with 403');
   } catch (err: any) {
@@ -120,7 +120,7 @@ async function main() {
     },
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${aliceToken}`,
       },
     }
@@ -142,7 +142,7 @@ async function main() {
     },
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${bobToken}`,
       },
     }
@@ -157,7 +157,7 @@ async function main() {
     `${BASE_URL}/api/v1/db/collections/${colName}/documents/${aliceDocId}`,
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${aliceToken}`,
       },
     }
@@ -173,7 +173,7 @@ async function main() {
       `${BASE_URL}/api/v1/db/collections/${colName}/documents/${aliceDocId}`,
       {
         headers: {
-          'x-aegis-api-key': rawApiKey,
+          'x-flarebase-api-key': rawApiKey,
           Authorization: `Bearer ${bobToken}`,
         },
       }
@@ -191,7 +191,7 @@ async function main() {
     `${BASE_URL}/api/v1/db/collections/${colName}/documents`,
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${bobToken}`,
       },
     }
@@ -208,7 +208,7 @@ async function main() {
     `${BASE_URL}/api/v1/db/collections/${colName}/documents`,
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${aliceToken}`,
       },
     }
@@ -233,7 +233,7 @@ async function main() {
     },
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${aliceToken}`,
       },
     }
@@ -247,7 +247,7 @@ async function main() {
     `${BASE_URL}/api/v1/db/collections/${colName}/documents/${aliceDocId}`,
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${bobToken}`,
       },
     }
@@ -263,7 +263,7 @@ async function main() {
       `${BASE_URL}/api/v1/db/collections/${colName}/documents/${bobDocId}`,
       {
         headers: {
-          'x-aegis-api-key': rawApiKey,
+          'x-flarebase-api-key': rawApiKey,
           Authorization: `Bearer ${aliceToken}`, // Alice is non-admin
         },
       }
@@ -279,7 +279,7 @@ async function main() {
     `${BASE_URL}/api/v1/db/collections/${colName}/documents/${bobDocId}`,
     {
       headers: {
-        'x-aegis-api-key': rawApiKey,
+        'x-flarebase-api-key': rawApiKey,
         Authorization: `Bearer ${bobToken}`, // Bob is admin
       },
     }

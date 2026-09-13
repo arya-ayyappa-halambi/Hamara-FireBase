@@ -52,13 +52,13 @@ async function runTunnelManagerTests(): Promise<void> {
   tunnelManagerService.updateSettings({
     provider: 'ngrok',
     authToken: 'test_ngrok_token_1234567890',
-    customDomain: 'test-aegis-domain',
+    customDomain: 'test-flarebase-domain',
     autoCloseMinutes: 120
   });
 
   const updated = tunnelManagerService.getTunnelStatus();
   assert(updated.provider === 'ngrok', 'Provider updated to ngrok');
-  assert(updated.customDomain === 'test-aegis-domain', 'Custom domain preserved');
+  assert(updated.customDomain === 'test-flarebase-domain', 'Custom domain preserved');
   assert(updated.autoCloseMinutes === 120, 'autoCloseMinutes updated to 120');
   assert(updated.authTokenConfigured === true, 'authTokenConfigured is true');
   assert(updated.maskedAuthToken.includes('••••'), 'Auth token is masked for security');
@@ -171,7 +171,7 @@ async function runTunnelManagerTests(): Promise<void> {
   if (!testUser) {
     db.prepare(`
       INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
-      VALUES ('tunnel-owner-id', 'tunnel@aegisdb.dev', 'thash', 'Tunnel User', 'pass', 0, datetime('now'), datetime('now'))
+      VALUES ('tunnel-owner-id', 'tunnel@flarebase.dev', 'thash', 'Tunnel User', 'pass', 0, datetime('now'), datetime('now'))
     `).run();
     testUser = { id: 'tunnel-owner-id' };
   }

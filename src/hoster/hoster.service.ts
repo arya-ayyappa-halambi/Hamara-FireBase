@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/hoster/hoster.service.ts
-//  AegisDB — Hoster orchestration layer.
+//  FlareBase — Hoster orchestration layer.
 //
 //  Responsibilities:
 //    1. Auto-detect Docker vs Process runtime at startup

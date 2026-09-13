@@ -27,7 +27,7 @@ async function runMagicLinkTests(): Promise<void> {
 
   initSqlite();
 
-  const testEmail = 'magic.tester@aegisdb.dev';
+  const testEmail = 'magic.tester@flarebase.dev';
 
   // ─────────────────────────────────────────────────────────────────────────
   // TEST 1: Generate Magic Link Token & OTP Code

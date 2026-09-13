@@ -2,7 +2,7 @@ const { envelopeEncryptionService } = require('./dist/services/envelope-encrypti
 const Database = require('better-sqlite3');
 require('dotenv').config();
 
-const db = new Database('aegis.db', { readonly: true });
+const db = new Database('flarebase.db', { readonly: true });
 const users = db.prepare('SELECT id, email, name FROM users').all();
 
 console.log(`Verifying ${users.length} users...`);

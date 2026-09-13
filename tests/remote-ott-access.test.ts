@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/remote-ott-access.test.ts
-//  AegisDB — Ephemeral One-Time Tokens (OTT) & Zero-Trust Device Approvals Tests
+//  FlareBase — Ephemeral One-Time Tokens (OTT) & Zero-Trust Device Approvals Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'dotenv/config';
@@ -58,7 +58,7 @@ async function runRemoteOttTests() {
 
   // Verify JWT claims
   if (redeem1.jwtToken) {
-    const jwtSecret = process.env.JWT_SECRET || 'aegisdb_super_secret_jwt_key_2026';
+    const jwtSecret = process.env.JWT_SECRET || 'flarebase_super_secret_jwt_key_2026';
     const verified = jwt.verify(redeem1.jwtToken, jwtSecret) as any;
     assert(verified?.isSuperAdmin === true, 'JWT payload has isSuperAdmin claim');
     assert(verified?.isOttLogin === true, 'JWT payload has isOttLogin flag');

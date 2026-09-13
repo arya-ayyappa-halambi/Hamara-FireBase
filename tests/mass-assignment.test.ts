@@ -46,7 +46,7 @@ async function runMassAssignmentTests() {
   };
 
   const inputWithExtraFields = {
-    title: 'AegisDB Security',
+    title: 'FlareBase Security',
     content: 'Advanced protection against mass assignment',
     tags: ['security', 'api'],
     unauthorizedField: 'hacker_data',
@@ -54,7 +54,7 @@ async function runMassAssignmentTests() {
   };
 
   const sanitized2 = sanitizePayload(inputWithExtraFields, userSchema);
-  assert.strictEqual(sanitized2.title, 'AegisDB Security');
+  assert.strictEqual(sanitized2.title, 'FlareBase Security');
   assert.strictEqual(sanitized2.content, 'Advanced protection against mass assignment');
   assert.deepStrictEqual(sanitized2.tags, ['security', 'api']);
   assert.strictEqual((sanitized2 as any).unauthorizedField, undefined, 'Unlisted field must be stripped');

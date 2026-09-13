@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/utils/ssrf-guard.ts
-//  AegisDB — Webhook SSRF Protection Guard.
+//  FlareBase — Webhook SSRF Protection Guard.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import dns from 'dns';

@@ -117,8 +117,8 @@ export class WebhookService {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'x-aegis-signature': signature,
-              'x-aegis-event': event,
+              'x-flarebase-signature': signature,
+              'x-flarebase-event': event
             },
             body: payloadString,
             signal: AbortSignal.timeout(5000), // 5s timeout
@@ -151,7 +151,7 @@ export class WebhookService {
   /**
    * Dispatches a single test payload to an n8n or custom webhook endpoint.
    */
-  async testDispatch(targetUrl: string, event: string = 'test.ping', payload: any = { message: 'AegisDB n8n Webhook Test Event', timestamp: new Date().toISOString() }): Promise<{ success: boolean; statusCode?: number; responseTimeMs: number; error?: string }> {
+  async testDispatch(targetUrl: string, event: string = 'test.ping', payload: any = { message: 'FlareBase n8n Webhook Test Event', timestamp: new Date().toISOString() }): Promise<{ success: boolean; statusCode?: number; responseTimeMs: number; error?: string }> {
     const startTime = Date.now();
     try {
       const ssrfCheck = await validateSsrfUrl(targetUrl);
@@ -167,7 +167,7 @@ export class WebhookService {
         id: uuidv4(),
         event,
         timestamp: new Date().toISOString(),
-        source: 'AegisDB n8n Automation Engine',
+        source: 'FlareBase n8n Automation Engine',
         data: payload
       });
       const dummySecret = 'whsec_test_secret';
@@ -177,8 +177,8 @@ export class WebhookService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-aegis-signature': signature,
-          'x-aegis-event': event
+          'x-flarebase-signature': signature,
+          'x-flarebase-event': event
         },
         body: payloadString,
         signal: AbortSignal.timeout(5000)

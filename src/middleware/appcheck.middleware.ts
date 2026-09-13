@@ -24,19 +24,19 @@ export function enforceAppCheck(req: Request, res: Response, next: NextFunction)
   if (!appCheckEnforced) return next();
 
   // Enforce App Check
-  const appCheckHeader = req.headers['x-aegis-app-check'];
+  const appCheckHeader = req.headers['x-flarebase-app-check'];
   if (!appCheckHeader || typeof appCheckHeader !== 'string') {
-    return next(new AppError('Unauthorized: Aegis App Check token is missing.', 403));
+    return next(new AppError('Unauthorized: FlareBase App Check token is missing.', 403));
   }
 
   try {
     const secret = `${process.env.JWT_SECRET}::${project.id}`;
     const decoded = jwt.verify(appCheckHeader, secret) as any;
     if (decoded.projectId !== project.id) {
-      return next(new AppError('Unauthorized: Aegis App Check token is invalid for this project.', 403));
+      return next(new AppError('Unauthorized: FlareBase App Check token is invalid for this project.', 403));
     }
     next();
   } catch (err) {
-    return next(new AppError('Unauthorized: Aegis App Check token is invalid or expired.', 403));
+    return next(new AppError('Unauthorized: FlareBase App Check token is invalid or expired.', 403));
   }
 }

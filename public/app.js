@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  public/app.js
-//  AegisDB High-End Enterprise Dashboard Controller.
+//  FlareBase High-End Enterprise Dashboard Controller.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Global error handler - catches ALL uncaught JS errors
@@ -62,9 +62,9 @@ window.copyToClipboard = async function(text) {
 const state = {
   baseUrl: window.location.origin,
   wsUrl: window.location.origin.replace(/^http/, 'ws'),
-  accessToken: localStorage.getItem('aegis_access_token') || null,
-  refreshToken: localStorage.getItem('aegis_refresh_token') || null,
-  user: JSON.parse(localStorage.getItem('aegis_user') || 'null'),
+  accessToken: (localStorage.getItem('flarebase_access_token') || localStorage.getItem('flarebase_access_token')) || null,
+  refreshToken: (localStorage.getItem('flarebase_refresh_token') || localStorage.getItem('flarebase_refresh_token')) || null,
+  user: JSON.parse((localStorage.getItem('flarebase_user') || localStorage.getItem('flarebase_user')) || 'null'),
   roleMode: 'developer', // 'superadmin' or 'developer'
   projects: [],
   activeProject: null,
@@ -78,7 +78,7 @@ const state = {
   telemetryChartCpuMemory: null,
   telemetryChartLatency: null,
   idleTimer: null,
-  timeoutMinutes: parseInt(localStorage.getItem('aegis_session_timeout') || '15', 10),
+  timeoutMinutes: parseInt((localStorage.getItem('flarebase_session_timeout') || localStorage.getItem('flarebase_session_timeout')) || '15', 10),
 };
 
 // ── Modal Helper Service ───────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
     headers['Authorization'] = `Bearer ${state.accessToken}`;
   }
   if (state.activeProject) {
-    headers['x-aegis-project-id'] = state.activeProject.id;
+    headers['x-flarebase-project-id'] = state.activeProject.id; headers['x-flare-project-id'] = state.activeProject.id;
   }
   if (body && !isFormData) {
     headers['Content-Type'] = 'application/json';
@@ -185,10 +185,10 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
         const refreshData = await refreshRes.json();
         if (refreshData?.accessToken) {
           state.accessToken = refreshData.accessToken;
-          localStorage.setItem('aegis_access_token', refreshData.accessToken);
+          localStorage.setItem('flarebase_access_token', refreshData.accessToken); localStorage.setItem('flarebase_access_token', refreshData.accessToken);
           if (refreshData.refreshToken) {
             state.refreshToken = refreshData.refreshToken;
-            localStorage.setItem('aegis_refresh_token', refreshData.refreshToken);
+            localStorage.setItem('flarebase_refresh_token', refreshData.refreshToken); localStorage.setItem('flarebase_refresh_token', refreshData.refreshToken);
           }
           headers['Authorization'] = `Bearer ${state.accessToken}`;
           res = await fetch(`${state.baseUrl}${endpoint}`, config);
@@ -206,9 +206,9 @@ async function apiRequest(endpoint, method = 'GET', body = null, isFormData = fa
       state.accessToken = null;
       state.refreshToken = null;
       state.user = null;
-      localStorage.removeItem('aegis_access_token');
-      localStorage.removeItem('aegis_refresh_token');
-      localStorage.removeItem('aegis_user');
+      localStorage.removeItem('flarebase_access_token'); localStorage.removeItem('flarebase_access_token');
+      localStorage.removeItem('flarebase_refresh_token'); localStorage.removeItem('flarebase_refresh_token');
+      localStorage.removeItem('flarebase_user'); localStorage.removeItem('flarebase_user');
       updateWsBadge('offline');
     }
   }
@@ -3335,7 +3335,7 @@ function connectGlobalWebSocket() {
           if (state.user && (state.user.id === flagUser?.userId || state.user.email === flagUser?.userEmail)) {
             state.user.isFlagged = true;
             state.user.flagged = true;
-            localStorage.setItem('aegis_user', JSON.stringify(state.user));
+            localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
             updateUserProfileUI();
             if (typeof window.updateUserNotificationsHeader === 'function') window.updateUserNotificationsHeader();
           }
@@ -3360,7 +3360,7 @@ function connectGlobalWebSocket() {
           if (state.user && (state.user.id === data.data?.userId || state.user.email === userEmail)) {
             state.user.isFlagged = false;
             state.user.flagged = false;
-            localStorage.setItem('aegis_user', JSON.stringify(state.user));
+            localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
             updateUserProfileUI();
           }
           if (typeof window.appendThreatLiveFeedEvent === 'function') {
@@ -3612,18 +3612,18 @@ function renderCodeSnippet(lang) {
   const display = document.getElementById('code-snippet-display');
   if (!display) return;
 
-  const apiKey = state.activeProject?.apiKeyHash ? 'aegis_pk_demo_key' : 'aegis_pk_demo_key';
+  const apiKey = state.activeProject?.apiKeyHash ? 'flare_pk_demo_key' : 'flare_pk_demo_key';
 
   const snippets = {
-    js: `import { AegisDB } from 'aegisdb-sdk';
+    js: `import { FlareBase } from '@flarebase/sdk';
 
-const aegis = new AegisDB({
+const flare = new FlareBase({
   apiKey: '${apiKey}',
   endpoint: '${state.baseUrl}'
 });
 
 // Fetch documents from collection
-const docs = await aegis.collection('todos').get();
+const docs = await flare.collection('todos').get();
 console.log(docs);`,
 
     firebase: `import { initializeApp } from 'firebase/app';
@@ -3637,13 +3637,13 @@ const snapshot = await getDocs(collection(db, 'todos'));
 snapshot.forEach(doc => console.log(doc.id, doc.data()));`,
 
     react: `import { useState, useEffect } from 'react';
-import { aegis } from './aegisClient';
+import { flare } from './flarebaseClient';
 
 export function TodoList() {
   const [todos, setTodos] = useState([]);
 
   useEffect(() => {
-    aegis.collection('todos').get().then(setTodos);
+    flare.collection('todos').get().then(setTodos);
   }, []);
 
   return <ul>{todos.map(t => <li key={t._id}>{t.title}</li>)}</ul>;
@@ -3799,9 +3799,9 @@ async function handleGoogleCredentialResponse(response) {
     state.accessToken = data.token;
     state.refreshToken = data.refreshToken;
     state.user = data.user;
-    localStorage.setItem('aegis_access_token', data.token);
-    localStorage.setItem('aegis_refresh_token', data.refreshToken);
-    localStorage.setItem('aegis_user', JSON.stringify(data.user));
+    localStorage.setItem('flarebase_access_token', data.token); localStorage.setItem('flarebase_access_token', data.token);
+    localStorage.setItem('flarebase_refresh_token', data.refreshToken); localStorage.setItem('flarebase_refresh_token', data.refreshToken);
+    localStorage.setItem('flarebase_user', JSON.stringify(data.user)); localStorage.setItem('flarebase_user', JSON.stringify(data.user));
 
     document.getElementById('auth-screen')?.classList.add('hidden');
     document.getElementById('main-app')?.classList.remove('hidden');
@@ -3835,7 +3835,7 @@ window.executeGoogleLogin = async function() {
 window.executeDemoAdminLogin = async function() {
   const inputEmail = document.getElementById('input-email');
   const inputPassword = document.getElementById('input-password');
-  if (inputEmail) inputEmail.value = 'admin@aegisdb.dev';
+  if (inputEmail) inputEmail.value = 'admin@flarebase.dev';
   if (inputPassword) inputPassword.value = 'Admin@123';
   
   const tabLogin = document.getElementById('tab-btn-login');
@@ -3845,13 +3845,13 @@ window.executeDemoAdminLogin = async function() {
   if (btn) btn.disabled = true;
 
   try {
-    const data = await apiRequest('/api/v1/auth/login', 'POST', { email: 'admin@aegisdb.dev', password: 'Admin@123' });
+    const data = await apiRequest('/api/v1/auth/login', 'POST', { email: 'admin@flarebase.dev', password: 'Admin@123' });
     state.accessToken = data.token;
     state.refreshToken = data.refreshToken;
     state.user = data.user;
-    localStorage.setItem('aegis_access_token', data.token);
-    localStorage.setItem('aegis_refresh_token', data.refreshToken);
-    localStorage.setItem('aegis_user', JSON.stringify(data.user));
+    localStorage.setItem('flarebase_access_token', data.token); localStorage.setItem('flarebase_access_token', data.token);
+    localStorage.setItem('flarebase_refresh_token', data.refreshToken); localStorage.setItem('flarebase_refresh_token', data.refreshToken);
+    localStorage.setItem('flarebase_user', JSON.stringify(data.user)); localStorage.setItem('flarebase_user', JSON.stringify(data.user));
 
     document.getElementById('auth-screen')?.classList.add('hidden');
     document.getElementById('main-app')?.classList.remove('hidden');
@@ -3869,8 +3869,8 @@ window.executeDemoAdminLogin = async function() {
 
 window.logout = async function() {
   try {
-    const refreshToken = localStorage.getItem('aegis_refresh_token') || '';
-    const accessToken = localStorage.getItem('aegis_access_token') || '';
+    const refreshToken = (localStorage.getItem('flarebase_refresh_token') || localStorage.getItem('flarebase_refresh_token')) || '';
+    const accessToken = (localStorage.getItem('flarebase_access_token') || localStorage.getItem('flarebase_access_token')) || '';
     if (refreshToken || accessToken) {
       await fetch('/api/v1/auth/logout', {
         method: 'POST',
@@ -3890,10 +3890,10 @@ window.logout = async function() {
       state.ws = null;
     }
   } catch (_) {}
-  localStorage.removeItem('aegis_access_token');
-  localStorage.removeItem('aegis_token');
-  localStorage.removeItem('aegis_refresh_token');
-  localStorage.removeItem('aegis_user');
+  localStorage.removeItem('flarebase_access_token'); localStorage.removeItem('flarebase_access_token');
+  localStorage.removeItem('flarebase_token'); localStorage.removeItem('flarebase_token');
+  localStorage.removeItem('flarebase_refresh_token'); localStorage.removeItem('flarebase_refresh_token');
+  localStorage.removeItem('flarebase_user'); localStorage.removeItem('flarebase_user');
   state.accessToken = null;
   state.refreshToken = null;
   state.user = null;
@@ -3915,8 +3915,8 @@ function getEffectiveApiKey() {
   return (
     state.currentProject?.apiKey ||
     state.currentProject?.anonKey ||
-    (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') : '') ||
-    'aegis_pk_live_sample123'
+    (typeof localStorage !== 'undefined' ? (localStorage.getItem('flarebaseApiKey') || localStorage.getItem('flareApiKey')) : '') ||
+    'flare_pk_live_sample123'
   );
 }
 
@@ -3992,8 +3992,8 @@ I want to migrate my application backend from my current stack (Firebase / Supab
 
 FlareBase Server Specifications:
 - Base URL: ${baseUrl}${dualNote}
-- Project API Key: Retrieve from localStorage ('flareApiKey' or 'aegisApiKey') or config constant (Active: '${effectiveApiKey}'). Pass in 'x-flare-api-key' (or 'x-aegis-api-key') header.
-- User Session: When users sign in, store their JWT token in localStorage ('flareToken' or 'aegisToken') and pass 'Authorization: Bearer <token>'.
+- Project API Key: Retrieve from localStorage ('flareApiKey' or 'flarebaseApiKey') or config constant (Active: '${effectiveApiKey}'). Pass in 'x-flare-api-key' (or 'x-flarebase-api-key') header.
+- User Session: When users sign in, store their JWT token in localStorage ('flareToken' or 'flarebaseToken') and pass 'Authorization: Bearer <token>'.
 
 Please systematically migrate the application according to these specifications:
 
@@ -4083,7 +4083,7 @@ ARCHITECTURAL SPECIFICATIONS & INTEGRATION REQUIREMENTS:
    - Deliver a responsive, polished UI with loading skeletons, optimistic UI updates, error toasts, and clean empty states.`;
 }
 
-function buildAegisClientCode(baseUrl) {
+function buildFlareBaseClientCode(baseUrl) {
   const effectiveApiKey = getEffectiveApiKey();
   return `/**
  * FlareClient — Official Universal Drop-in SDK for FlareBase
@@ -4093,15 +4093,15 @@ class FlareClient {
   constructor(options = {}) {
     const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '${baseUrl}';
     this.baseUrl = (options.baseUrl || defaultOrigin).replace(/\\/+$/, '');
-    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareApiKey') || localStorage.getItem('aegisApiKey')) : '') || '${effectiveApiKey}';
-    this.token = options.token || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareToken') || localStorage.getItem('aegisToken')) : '') || '';
+    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareApiKey') || (localStorage.getItem('flarebaseApiKey') || localStorage.getItem('flareApiKey'))) : '') || '${effectiveApiKey}';
+    this.token = options.token || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareToken') || (localStorage.getItem('flarebaseToken') || localStorage.getItem('flareToken'))) : '') || '';
   }
 
   setApiKey(key) {
     this.apiKey = key;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('flareApiKey', key);
-      localStorage.setItem('aegisApiKey', key);
+      localStorage.setItem('flarebaseApiKey', key);
     }
   }
 
@@ -4110,10 +4110,10 @@ class FlareClient {
     if (typeof localStorage !== 'undefined') {
       if (token) {
         localStorage.setItem('flareToken', token);
-        localStorage.setItem('aegisToken', token);
+        localStorage.setItem('flarebaseToken', token);
       } else {
         localStorage.removeItem('flareToken');
-        localStorage.removeItem('aegisToken');
+        localStorage.removeItem('flarebaseToken');
       }
     }
   }
@@ -4122,7 +4122,7 @@ class FlareClient {
     const headers = { ...(options.headers || {}) };
     if (this.apiKey) {
       headers['x-flare-api-key'] = this.apiKey;
-      headers['x-aegis-api-key'] = this.apiKey;
+      headers['x-flarebase-api-key'] = this.apiKey;
     }
     if (this.token) headers['Authorization'] = \`Bearer \${this.token}\`;
 
@@ -4214,14 +4214,14 @@ class FlareClient {
 }
 
 // Backwards compatibility alias
-const AegisClient = FlareClient;
+const FlareBaseClient = FlareClient;
 
 // Export for module systems or attach to window
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { FlareClient, AegisClient };
+  module.exports = { FlareClient, FlareBaseClient };
 } else if (typeof window !== 'undefined') {
   window.FlareClient = FlareClient;
-  window.AegisClient = AegisClient;
+  window.FlareBaseClient = FlareBaseClient;
 }`;
 }
 
@@ -4232,7 +4232,7 @@ function updatePromptUI() {
 
   const migrationText = buildMigrationPrompt(baseUrl, isDual, dualUrl);
   const newAppText = buildNewAppPrompt(baseUrl, isDual, dualUrl);
-  const sdkText = buildAegisClientCode(baseUrl);
+  const sdkText = buildFlareBaseClientCode(baseUrl);
 
   // 1. Update Pill Badges
   const pills = document.querySelectorAll('.label-prompt-endpoint-pill');
@@ -4361,7 +4361,7 @@ function updatePromptUI() {
           icon.classList.add('fa-copy');
         }, 2000);
       }
-      showToast(`Copied Drop-in AegisClient.js for ${baseUrl}!`, 'success');
+      showToast(`Copied Drop-in FlareBase.js for ${baseUrl}!`, 'success');
     };
   }
 
@@ -4428,7 +4428,7 @@ function updatePromptUI() {
 
   // Save Config in LocalStorage
   try {
-    localStorage.setItem('aegis_prompt_config', JSON.stringify(promptEndpointConfig));
+    localStorage.setItem('flarebase_prompt_config', JSON.stringify(promptEndpointConfig));
   } catch (_) {}
 }
 
@@ -4695,7 +4695,7 @@ function startScheduledMigrationCountdown(migration) {
       const countEl = document.getElementById('label-migration-countdown');
       if (countEl) countEl.textContent = `In ${timeStr}`;
       const msgEl = document.getElementById('label-migration-message');
-      if (msgEl) msgEl.textContent = migration.noticeMessage || 'AegisDB is scheduled to migrate to a new hosting port/IP address.';
+      if (msgEl) msgEl.textContent = migration.noticeMessage || 'FlareBase is scheduled to migrate to a new hosting port/IP address.';
       const urlEl = document.getElementById('label-migration-target-url');
       if (urlEl) urlEl.textContent = migration.newBaseUrl;
     }
@@ -5033,7 +5033,7 @@ function renderServerHostingTab(data) {
   const aiPromptEl = document.getElementById('hosttab-text-ai-prompt');
   if (aiPromptEl) aiPromptEl.textContent = buildMigrationPrompt(canonicalUrl, false, '');
   const sdkCodeEl = document.getElementById('hosttab-text-sdk-code');
-  if (sdkCodeEl) sdkCodeEl.textContent = buildAegisClientCode(canonicalUrl);
+  if (sdkCodeEl) sdkCodeEl.textContent = buildFlareBaseClientCode(canonicalUrl);
 
   // Check pending migration inside tab
   const tabPendingBox = document.getElementById('hosttab-box-pending-migration');
@@ -5083,7 +5083,7 @@ function initServerHostingTab() {
     const aiPromptEl = document.getElementById('hosttab-text-ai-prompt');
     if (aiPromptEl) aiPromptEl.textContent = buildMigrationPrompt(canonical, false, '');
     const sdkCodeEl = document.getElementById('hosttab-text-sdk-code');
-    if (sdkCodeEl) sdkCodeEl.textContent = buildAegisClientCode(canonical);
+    if (sdkCodeEl) sdkCodeEl.textContent = buildFlareBaseClientCode(canonical);
   };
 
   // Copy CLI commands
@@ -5189,7 +5189,7 @@ function initServerHostingTab() {
       // Verify port availability live before executing switch
       try {
         const checkRes = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: serverPort, host: serverHost });
-        if (checkRes && !checkRes.available && checkRes.status !== 'active_aegis') {
+        if (checkRes && !checkRes.available && checkRes.status !== 'active_flarebase') {
           const reasonText = checkRes.status === 'scheduled_reserved' ? 'is already reserved for a pending scheduled migration' : (checkRes.reason || 'appears to be occupied by another application');
           const confirmProceed = confirm(`⚠️ Port Conflict Warning:\n\nPort ${serverPort} ${reasonText}.\n\nBinding to an occupied or reserved port may cause server socket collision. Do you still want to proceed with the immediate switch?`);
           if (!confirmProceed) return;
@@ -5482,7 +5482,7 @@ async function checkCustomPortLive(port, host = '0.0.0.0') {
 
   try {
     const res = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: p, host });
-    if (res?.status === 'active_aegis') {
+    if (res?.status === 'active_flarebase') {
       badge.className = 'text-[10px] font-mono text-emerald-400 font-semibold';
       badge.textContent = `✓ Port ${p} is Current Active Server`;
     } else if (res?.status === 'scheduled_reserved') {
@@ -5528,7 +5528,7 @@ async function loadPortDiagnostics() {
       res.candidatePorts.forEach((cp) => {
         const btn = document.createElement('button');
         btn.type = 'button';
-        if (cp.status === 'active_aegis') {
+        if (cp.status === 'active_flarebase') {
           btn.className = 'px-3 py-1.5 rounded-xl text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-2 transition cursor-default shadow';
           btn.innerHTML = `<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span><span>${cp.port}</span><span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/30 text-emerald-200 uppercase font-semibold">Active Server</span>`;
         } else if (cp.status === 'scheduled_reserved') {
@@ -5989,10 +5989,10 @@ document.addEventListener('DOMContentLoaded', async () => {
           state.accessToken = decoded.accessToken;
           state.refreshToken = decoded.refreshToken || decoded.accessToken;
           state.user = decoded.user;
-          localStorage.setItem('aegis_access_token', decoded.accessToken);
-          localStorage.setItem('aegis_token', decoded.accessToken);
-          localStorage.setItem('aegis_refresh_token', decoded.refreshToken || decoded.accessToken);
-          localStorage.setItem('aegis_user', JSON.stringify(decoded.user));
+          localStorage.setItem('flarebase_access_token', decoded.accessToken);
+          localStorage.setItem('flarebase_token', decoded.accessToken);
+          localStorage.setItem('flarebase_refresh_token', decoded.refreshToken || decoded.accessToken);
+          localStorage.setItem('flarebase_user', JSON.stringify(decoded.user));
           window.history.replaceState(null, '', window.location.pathname + window.location.search);
         }
       }
@@ -6073,8 +6073,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const data = await apiRequest('/api/v1/auth/google', 'POST', { token: idToken });
         state.accessToken = data.token;
         state.user = data.user;
-        localStorage.setItem('aegis_access_token', data.token);
-        localStorage.setItem('aegis_user', JSON.stringify(data.user));
+        localStorage.setItem('flarebase_access_token', data.token); localStorage.setItem('flarebase_access_token', data.token);
+        localStorage.setItem('flarebase_user', JSON.stringify(data.user)); localStorage.setItem('flarebase_user', JSON.stringify(data.user));
         showToast('Successfully signed in with Google!', 'success');
         
         if (data.requiresPasswordSetup) {
@@ -6100,7 +6100,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const meRes = await apiRequest('/api/v1/auth/me', 'GET');
         if (meRes?.user) {
           state.user = { ...state.user, ...meRes.user };
-          localStorage.setItem('aegis_user', JSON.stringify(state.user));
+          localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
           updateUserProfileUI();
           if (typeof window.updateUserNotificationsHeader === 'function') {
             window.updateUserNotificationsHeader();
@@ -6169,9 +6169,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.accessToken = data.token;
         state.refreshToken = data.refreshToken;
         state.user = data.user;
-        localStorage.setItem('aegis_access_token', data.token);
-        localStorage.setItem('aegis_refresh_token', data.refreshToken);
-        localStorage.setItem('aegis_user', JSON.stringify(data.user));
+        localStorage.setItem('flarebase_access_token', data.token); localStorage.setItem('flarebase_access_token', data.token);
+        localStorage.setItem('flarebase_refresh_token', data.refreshToken); localStorage.setItem('flarebase_refresh_token', data.refreshToken);
+        localStorage.setItem('flarebase_user', JSON.stringify(data.user)); localStorage.setItem('flarebase_user', JSON.stringify(data.user));
 
         // Before proceeding, check if system is in maintenance mode and user is not superadmin
         try {
@@ -6179,9 +6179,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         } catch (statusErr) {
           if (statusErr.message === 'System is under maintenance' || statusErr.message.includes('maintenance')) {
             // Re-hide main app and clear session since they are not allowed
-            localStorage.removeItem('aegis_access_token');
-            localStorage.removeItem('aegis_refresh_token');
-            localStorage.removeItem('aegis_user');
+            localStorage.removeItem('flarebase_access_token'); localStorage.removeItem('flarebase_access_token');
+            localStorage.removeItem('flarebase_refresh_token'); localStorage.removeItem('flarebase_refresh_token');
+            localStorage.removeItem('flarebase_user'); localStorage.removeItem('flarebase_user');
             state.accessToken = null;
             state.user = null;
             document.getElementById('auth-screen').classList.remove('hidden');
@@ -6302,7 +6302,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         await apiRequest('/api/v1/auth/mfa/verify', 'POST', { totpCode: code });
         state.user.mfaEnabled = true;
-        localStorage.setItem('aegis_user', JSON.stringify(state.user));
+        localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
         document.getElementById('modal-mfa-setup').classList.add('hidden');
         updateUserProfileUI();
         showToast('TOTP MFA successfully enabled on your account! 🔐', 'success');
@@ -6324,7 +6324,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         await apiRequest('/api/v1/auth/mfa/disable', 'POST', { password, totpCode });
         state.user.mfaEnabled = false;
-        localStorage.setItem('aegis_user', JSON.stringify(state.user));
+        localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
         document.getElementById('modal-mfa-disable').classList.add('hidden');
         updateUserProfileUI();
         showToast('MFA disabled successfully.', 'warning');
@@ -6376,7 +6376,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSaveTimeout.onclick = () => {
       const val = parseInt(document.getElementById('select-session-timeout')?.value || '15', 10);
       state.timeoutMinutes = val;
-      localStorage.setItem('aegis_session_timeout', val.toString());
+      localStorage.setItem('flarebase_session_timeout', val.toString());
       resetInactivityTracker();
       showToast(`Inactivity timeout set to ${val === 0 ? 'Disabled' : val + ' minutes'}.`, 'success');
     };
@@ -6399,7 +6399,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           state.user.name = name;
           if (email) state.user.email = email;
         }
-        localStorage.setItem('aegis_user', JSON.stringify(state.user));
+        localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
         
         // clear password field
         const pwdField = document.getElementById('setting-profile-current-pwd');
@@ -6494,7 +6494,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Verify port availability live before executing switch
       try {
         const checkRes = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: serverPort, host: serverHost });
-        if (checkRes && !checkRes.available && checkRes.status !== 'active_aegis') {
+        if (checkRes && !checkRes.available && checkRes.status !== 'active_flarebase') {
           const reasonText = checkRes.status === 'scheduled_reserved' ? 'is already reserved for a pending scheduled migration' : (checkRes.reason || 'appears to be occupied by another application');
           const confirmProceed = confirm(`⚠️ Port Conflict Warning:\n\nPort ${serverPort} ${reasonText}.\n\nBinding to an occupied or reserved port may cause server socket collision. Do you still want to proceed with the immediate switch?`);
           if (!confirmProceed) return;
@@ -6582,7 +6582,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       // Check port availability before scheduling
       try {
         const checkRes = await apiRequest('/api/v1/admin/platform-settings/check-port', 'POST', { port: targetPort, host: targetHost });
-        if (checkRes && !checkRes.available && checkRes.status !== 'active_aegis') {
+        if (checkRes && !checkRes.available && checkRes.status !== 'active_flarebase') {
           const reasonText = checkRes.status === 'scheduled_reserved' ? 'is already reserved for another pending scheduled migration' : (checkRes.reason || 'appears to be occupied by an active process');
           const confirmProceed = confirm(`⚠️ Port Conflict Notice:\n\nTarget Port ${targetPort} ${reasonText}.\n\nDo you still want to schedule this endpoint migration?`);
           if (!confirmProceed) return;
@@ -6837,7 +6837,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
-            'x-aegis-project-id': projectId
+            'x-flarebase-project-id': projectId
           }
         });
         
@@ -7898,14 +7898,14 @@ window.runSdkTest = async function(action) {
   const projectId = state.activeProject?.id;
   
   if (!token) {
-    printSdkLog('⚠️ Authentication token missing. Please sign in to AegisDB first.', 'warning');
+    printSdkLog('⚠️ Authentication token missing. Please sign in to FlareBase first.', 'warning');
     return;
   }
 
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${token}`,
-    ...(projectId ? { 'x-aegis-project-id': projectId } : {})
+    ...(projectId ? { 'x-flarebase-project-id': projectId } : {})
   };
 
   try {
@@ -7941,7 +7941,7 @@ window.runSdkTest = async function(action) {
         body: JSON.stringify({
           name: 'Alice Johnson',
           role: 'Lead Security Engineer',
-          tags: ['admin', 'security', 'aegis']
+          tags: ['admin', 'security', 'flare']
         })
       });
       const json = await res.json();
@@ -8009,7 +8009,7 @@ window.editDocumentRules = async function(docId, collName) {
 window.exportMyData = async function() {
   try {
     showToast('Generating data export bundle...', 'info');
-    const token = state.accessToken || localStorage.getItem('aegis_access_token');
+    const token = state.accessToken || (localStorage.getItem('flarebase_access_token') || localStorage.getItem('flarebase_access_token'));
     const res = await fetch('/api/v1/auth/export-data', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -8023,7 +8023,7 @@ window.exportMyData = async function() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `aegisdb_data_export_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `flarebase_data_export_${new Date().toISOString().split('T')[0]}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -8068,7 +8068,7 @@ window.executeAccountDeletion = async function() {
   try {
     if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scheduling...'; }
 
-    const token = state.accessToken || localStorage.getItem('aegis_access_token');
+    const token = state.accessToken || (localStorage.getItem('flarebase_access_token') || localStorage.getItem('flarebase_access_token'));
     const res = await fetch('/api/v1/auth/account', {
       method: 'DELETE',
       headers: {
@@ -8091,7 +8091,7 @@ window.executeAccountDeletion = async function() {
       state.user.status = 'pending_deletion';
       state.user.isPendingDeletion = true;
       state.user.scheduledDeletionAt = data.data?.scheduledDeletionAt;
-      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+      localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
     }
 
     updateUserProfileUI();
@@ -8105,7 +8105,7 @@ window.executeAccountDeletion = async function() {
 
 window.cancelMyAccountDeletion = async function() {
   try {
-    const token = state.accessToken || localStorage.getItem('aegis_access_token');
+    const token = state.accessToken || (localStorage.getItem('flarebase_access_token') || localStorage.getItem('flarebase_access_token'));
     const res = await fetch('/api/v1/auth/cancel-deletion', {
       method: 'POST',
       headers: {
@@ -8123,7 +8123,7 @@ window.cancelMyAccountDeletion = async function() {
       state.user.status = 'active';
       state.user.isPendingDeletion = false;
       delete state.user.scheduledDeletionAt;
-      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+      localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
     }
 
     updateUserProfileUI();
@@ -8241,7 +8241,7 @@ window.acceptCurrentPolicyGate = async function() {
     await apiRequest('/api/v1/auth/accept-policy', 'POST', { version });
     if (state.user) {
       state.user.acceptedTermsVersion = version;
-      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+      localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
     }
     const modal = document.getElementById('modal-mandatory-policy-gate');
     if (modal) {
@@ -8267,7 +8267,7 @@ window.downloadMyDataExport = async function() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `aegisdb_data_export_${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `flarebase_data_export_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -9081,16 +9081,16 @@ window.openAdminLoginFromMaintenance = function() {
 
 window.logout = async function() {
   try {
-    const refreshToken = localStorage.getItem('aegis_refresh_token');
+    const refreshToken = (localStorage.getItem('flarebase_refresh_token') || localStorage.getItem('flarebase_refresh_token'));
     if (refreshToken) {
       await apiRequest('/api/v1/auth/logout', 'POST', { refreshToken });
     }
   } catch (err) {
     console.error('Logout API error:', err);
   } finally {
-    localStorage.removeItem('aegis_access_token');
-    localStorage.removeItem('aegis_refresh_token');
-    localStorage.removeItem('aegis_user');
+    localStorage.removeItem('flarebase_access_token'); localStorage.removeItem('flarebase_access_token');
+    localStorage.removeItem('flarebase_refresh_token'); localStorage.removeItem('flarebase_refresh_token');
+    localStorage.removeItem('flarebase_user'); localStorage.removeItem('flarebase_user');
     window.location.reload();
   }
 };
@@ -10032,13 +10032,13 @@ window.inspectGeoIpThreat = async function() {
 //  EMERGENCY PROTOCOLS, PANIC MODE & MAINTENANCE WINDOWS
 // ─────────────────────────────────────────────────────────────────────────────
 
-function getAegisAuthToken() {
-  return state.accessToken || state.token || localStorage.getItem('aegis_access_token') || localStorage.getItem('token') || '';
+function getFlareBaseAuthToken() {
+  return state.accessToken || state.token || (localStorage.getItem('flarebase_access_token') || localStorage.getItem('flarebase_access_token')) || localStorage.getItem('token') || '';
 }
 
 window.loadEmergencyStatus = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/emergency/status', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -10127,7 +10127,7 @@ window.setEmergencyLockdownLevel = async function(level) {
   }
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/emergency/lockdown', {
       method: 'POST',
       headers: {
@@ -10155,7 +10155,7 @@ window.saveMaintenanceWindowSettings = async function() {
   const retryAfterSeconds = Number(document.getElementById('input-maintenance-retry-after')?.value || 300);
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/emergency/maintenance', {
       method: 'POST',
       headers: {
@@ -10185,7 +10185,7 @@ window.triggerEmergencyPanicSnapshot = async function() {
   const reasonNote = document.getElementById('input-emergency-reason')?.value?.trim() || 'Manual emergency admin snapshot';
   try {
     showToast('📸 Creating encrypted emergency snapshot...', 'info');
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/emergency/panic-snapshot', {
       method: 'POST',
       headers: {
@@ -10210,7 +10210,7 @@ window.triggerEmergencyPanicSnapshot = async function() {
 
 window.loadWafSettings = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/waf/settings', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -10262,7 +10262,7 @@ window.saveWafSettings = async function() {
   const blockScanners = document.getElementById('toggle-waf-scanners')?.checked || false;
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/waf/settings', {
       method: 'PATCH',
       headers: {
@@ -10291,7 +10291,7 @@ window.saveWafSettings = async function() {
 
 window.loadWafStats = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/waf/stats', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -10360,7 +10360,7 @@ window.loadOttAndDeviceData = function() {
 
 window.loadOttTokensTable = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/ott/list', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -10428,7 +10428,7 @@ window.generateOneTimeToken = async function() {
   const ipRestriction = document.getElementById('input-ott-ip-lock')?.value?.trim() || undefined;
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/ott/generate', {
       method: 'POST',
       headers: {
@@ -10526,7 +10526,7 @@ window.revokeOneTimeToken = async function(id) {
     return;
   }
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch(`/api/v1/admin/ott/${id}`, {
       method: 'DELETE',
       headers: {
@@ -10545,7 +10545,7 @@ window.revokeOneTimeToken = async function(id) {
 
 window.loadDeviceRequestsTable = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/device-requests', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -10610,7 +10610,7 @@ window.approveDeviceRequest = async function(id) {
     return;
   }
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch(`/api/v1/admin/device-requests/${id}/approve`, {
       method: 'POST',
       headers: {
@@ -10636,7 +10636,7 @@ window.rejectDeviceRequest = async function(id) {
     return;
   }
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch(`/api/v1/admin/device-requests/${id}/reject`, {
       method: 'POST',
       headers: {
@@ -10671,9 +10671,9 @@ window.rejectDeviceRequest = async function(id) {
         state.accessToken = json.token;
         state.user = json.user;
         localStorage.setItem('token', json.token);
-        localStorage.setItem('aegis_access_token', json.token);
+        localStorage.setItem('flarebase_access_token', json.token);
         localStorage.setItem('user', JSON.stringify(json.user));
-        localStorage.setItem('aegis_user', JSON.stringify(json.user));
+        localStorage.setItem('flarebase_user', JSON.stringify(json.user));
         // Clean URL without refresh
         window.history.replaceState({}, document.title, window.location.pathname);
         showToast('🎉 Authenticated via One-Time Super Admin Token!', 'success');
@@ -10711,7 +10711,7 @@ window.loadClusterDiagnosticsReport = async function() {
   }
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/server/cluster-diagnostics', {
       headers: {
         'Authorization': `Bearer ${token}`
@@ -10755,7 +10755,7 @@ window.renderClusterDiagnosticsReport = function(data) {
   }
 
   tbody.innerHTML = data.portMatrix.map(pm => {
-    const isActive = pm.status === 'active_aegis';
+    const isActive = pm.status === 'active_flarebase';
     const isFree = pm.status === 'free';
     const statusBadge = isActive
       ? '<span class="px-2.5 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 animate-pulse font-bold">🟢 Active Master</span>'
@@ -10794,11 +10794,11 @@ window.switchServerToPort = async function(targetPort) {
   const port = parseInt(targetPort, 10);
   if (!port || isNaN(port)) return;
 
-  const confirmed = confirm(`⚡ Switch AegisDB server binding to Port ${port}?\n\nThis will update the server port configuration and reconnect your dashboard to http://${window.location.hostname}:${port}.`);
+  const confirmed = confirm(`⚡ Switch FlareBase server binding to Port ${port}?\n\nThis will update the server port configuration and reconnect your dashboard to http://${window.location.hostname}:${port}.`);
   if (!confirmed) return;
 
   try {
-    showToast(`⚡ Switching AegisDB port to ${port}...`, 'info');
+    showToast(`⚡ Switching FlareBase port to ${port}...`, 'info');
     const res = await apiRequest('/api/v1/admin/platform-settings', 'PATCH', {
       serverPort: port
     });
@@ -10828,7 +10828,7 @@ window.triggerZeroDowntimeHotRestart = async function() {
 
   try {
     showToast('⚡ Initiating zero-downtime hot restart...', 'info');
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/server/hot-restart', {
       method: 'POST',
       headers: {
@@ -10859,7 +10859,7 @@ let currentTunnelState = {
 
 window.loadTunnelStatus = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/tunnel/status', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -10991,7 +10991,7 @@ window.toggleGlobalTunnel = async function() {
 
   try {
     showToast(isOnline ? '⏳ Stopping global tunnel...' : '🚀 Establishing global public HTTPS tunnel...', 'info');
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
 
     const provider = document.getElementById('select-tunnel-provider')?.value || 'cloudflare';
     const authToken = document.getElementById('input-tunnel-authtoken')?.value?.trim() || '';
@@ -11030,7 +11030,7 @@ window.saveTunnelSettings = async function() {
   const autoCloseMinutes = parseInt(document.getElementById('select-tunnel-ttl')?.value || '60', 10);
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/tunnel/settings', {
       method: 'PATCH',
       headers: {
@@ -11057,7 +11057,7 @@ window.clearTunnelSettings = async function() {
   }
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/tunnel/settings', {
       method: 'DELETE',
       headers: {
@@ -11097,7 +11097,7 @@ window.attachLiveTunnelUrl = async function() {
   }
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/tunnel/attach', {
       method: 'POST',
       headers: {
@@ -11139,7 +11139,7 @@ let currentMeshState = {
 
 window.loadMeshVpnStatus = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const port = promptEndpointConfig.port || window.location.port || '3000';
     const res = await fetch(`/api/v1/admin/mesh/status?port=${port}`, {
       headers: { 'Authorization': `Bearer ${token}` }
@@ -11228,7 +11228,7 @@ window.saveMeshVpnSettings = async function() {
   const autoWhitelist = Boolean(document.getElementById('check-mesh-autowhitelist')?.checked);
 
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/mesh/settings', {
       method: 'PATCH',
       headers: {
@@ -11261,7 +11261,7 @@ window.pingMeshPeerProbe = async function() {
       badge.className = 'text-[10px] font-mono text-purple-300 animate-pulse';
       badge.textContent = 'Probing peer...';
     }
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const port = promptEndpointConfig.port || window.location.port || 3000;
     const res = await fetch('/api/v1/admin/mesh/ping', {
       method: 'POST',
@@ -11353,7 +11353,7 @@ window.dispatchN8nTestPing = async function() {
 
   try {
     showToast('⏳ Dispatching test ping to n8n Webhook node...', 'info');
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch(`/api/v1/projects/${projectId}/webhooks/test`, {
       method: 'POST',
       headers: {
@@ -11364,8 +11364,8 @@ window.dispatchN8nTestPing = async function() {
         url,
         event: 'test.n8n_ping',
         payload: {
-          platform: 'AegisDB',
-          message: 'Hello from AegisDB n8n Automation Engine!',
+          platform: 'FlareBase',
+          message: 'Hello from FlareBase n8n Automation Engine!',
           timestamp: new Date().toISOString()
         }
       })
@@ -11452,7 +11452,7 @@ window.handleTunnelProviderChange = function() {
 
 window.loadTrafficTopologyMetrics = async function() {
   try {
-    const token = getAegisAuthToken();
+    const token = getFlareBaseAuthToken();
     const res = await fetch('/api/v1/admin/traffic/topology', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
@@ -11562,7 +11562,7 @@ window.renderTrafficTopologyUI = function(snapshot) {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  AEGISDB USER FEATURE SUITE (Passkeys, Magic Links, Sessions, PATs, Teams, Quota)
+//  FLAREBASE USER FEATURE SUITE (Passkeys, Magic Links, Sessions, PATs, Teams, Quota)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── WebAuthn Base64URL Helpers ───────────────────────────────────────────────
@@ -11697,10 +11697,10 @@ window.executePasskeyLogin = async function() {
       state.accessToken = authData.token;
       state.refreshToken = authData.refreshToken;
       state.user = authData.user;
-      localStorage.setItem('aegis_access_token', state.accessToken);
-      localStorage.setItem('aegis_token', state.accessToken);
-      localStorage.setItem('aegis_refresh_token', state.refreshToken);
-      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+      localStorage.setItem('flarebase_access_token', state.accessToken);
+      localStorage.setItem('flarebase_token', state.accessToken);
+      localStorage.setItem('flarebase_refresh_token', state.refreshToken);
+      localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
 
       showToast(`Welcome back, ${state.user.name || state.user.email}!`, 'success');
       document.getElementById('auth-screen')?.classList.add('hidden');
@@ -11887,10 +11887,10 @@ window.verifyMagicAuthOtp = async function() {
       state.accessToken = authData.token;
       state.refreshToken = authData.refreshToken;
       state.user = authData.user;
-      localStorage.setItem('aegis_access_token', state.accessToken);
-      localStorage.setItem('aegis_token', state.accessToken);
-      localStorage.setItem('aegis_refresh_token', state.refreshToken);
-      localStorage.setItem('aegis_user', JSON.stringify(state.user));
+      localStorage.setItem('flarebase_access_token', state.accessToken);
+      localStorage.setItem('flarebase_token', state.accessToken);
+      localStorage.setItem('flarebase_refresh_token', state.refreshToken);
+      localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
 
       window.hideModal('modal-magic-link');
       showToast(`Welcome back, ${state.user.name || state.user.email}!`, 'success');
@@ -11920,10 +11920,10 @@ window.verifyMagicAuthOtp = async function() {
         state.accessToken = authData.token;
         state.refreshToken = authData.refreshToken;
         state.user = authData.user;
-        localStorage.setItem('aegis_access_token', state.accessToken);
-        localStorage.setItem('aegis_token', state.accessToken);
-        localStorage.setItem('aegis_refresh_token', state.refreshToken);
-        localStorage.setItem('aegis_user', JSON.stringify(state.user));
+        localStorage.setItem('flarebase_access_token', state.accessToken);
+        localStorage.setItem('flarebase_token', state.accessToken);
+        localStorage.setItem('flarebase_refresh_token', state.refreshToken);
+        localStorage.setItem('flarebase_user', JSON.stringify(state.user)); localStorage.setItem('flarebase_user', JSON.stringify(state.user));
         window.history.replaceState(null, '', window.location.pathname);
 
         showToast('Logged in via Magic Link!', 'success');
@@ -11948,7 +11948,7 @@ window.fetchUserSessions = async function() {
   if (!container || !state.accessToken) return;
 
   try {
-    const refreshToken = localStorage.getItem('aegis_refresh_token') || state.refreshToken || '';
+    const refreshToken = (localStorage.getItem('flarebase_refresh_token') || localStorage.getItem('flarebase_refresh_token')) || state.refreshToken || '';
     const res = await fetch('/api/v1/auth/sessions', {
       headers: {
         'Authorization': `Bearer ${state.accessToken}`,
@@ -12009,7 +12009,7 @@ window.revokeUserSession = async function(sessionId) {
 window.logoutAllOtherSessions = async function() {
   if (!confirm('Are you sure you want to log out of all other devices except this one?')) return;
   try {
-    const refreshToken = localStorage.getItem('aegis_refresh_token') || state.refreshToken || '';
+    const refreshToken = (localStorage.getItem('flarebase_refresh_token') || localStorage.getItem('flarebase_refresh_token')) || state.refreshToken || '';
     const res = await fetch('/api/v1/auth/sessions/other', {
       method: 'DELETE',
       headers: {

@@ -125,6 +125,13 @@ To stop the server, terminate all background processes, and release all network 
 - **Linux & POSIX**: Run `./stop.sh` or `npm run stop` / `npm run kill`.
 - **Developer Console**: Open **Server Hosting & Network Center** (`/#tab-server-hosting`) and click **"Stop Server"**.
 
+### Pre-Seeded Super Admin & 1-Click Demo Login
+
+FlareBase enforces strict administrative isolation out of the box. Rather than promoting the first arbitrary registering user to Super Admin, FlareBase automatically provisions a dedicated, pre-seeded **Super Admin account** during initial database setup:
+- **Default Super Admin**: `admin@flarebase.dev` (Password: `Admin@123`) or `admin@flarebase.dev` (Password: `AdminPass123!`).
+- **1-Click Demo Access**: Click the amber **Demo Login (`admin@flarebase.dev`)** quick-fill button on the main login screen (`/`) or the dedicated Super Admin Portal (`/admin-login.html`) for instant administrative access.
+- **Role Isolation**: User registration via `/api/v1/auth/register` provisions standard developer accounts with zero privilege escalation risk.
+
 ---
 
 ## 3. Architecture & Storage Engine
@@ -156,7 +163,7 @@ FlareBase uses a modular, layered architecture optimized for high concurrency, m
 ┌────────────────────────────────────────────────────────────────────────┐
 │               SQLite Embedded Engine (WAL Mode Enabled)                │
 │  ┌──────────────────────┬──────────────────────┬─────────────────────┐ │
-│  │  aegis.db (Core DB)  │ aegis.db-wal (Log)   │ aegis.db-shm (Index)│ │
+│  │  flarebase.db (Core DB)  │ flarebase.db-wal (Log)   │ flarebase.db-shm (Index)│ │
 │  └──────────────────────┴──────────────────────┴─────────────────────┘ │
 └────────────────────────────────────────────────────────────────────────┘
 ```
@@ -235,7 +242,7 @@ Secure automation credentials designed for CI/CD pipelines, CLI tools, and backg
   - `full_access`: Unrestricted administrative programmatic access.
 - **Cryptographic Hashing & One-Time Reveal**: PATs are formatted as `pat_...` and hashed with SHA-256 before database storage. The raw secret is revealed exactly once upon creation in a copyable modal drawer.
 - **Custom TTL & Expiration**: Set expiration periods (`7d`, `30d`, `90d`, `1y`, or `Never Expire`).
-- **Native Header Support**: Authenticate API requests using `Authorization: Bearer pat_...` or `x-aegis-pat: pat_...`.
+- **Native Header Support**: Authenticate API requests using `Authorization: Bearer pat_...` or `x-flarebase-pat: pat_...`.
 
 ---
 
@@ -475,7 +482,7 @@ FlareBase provides dedicated disaster recovery and emergency administrative gate
 ### User Authentication & Security (`/api/v1/auth`)
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/v1/auth/register` | Register new account (first user becomes Super Admin) |
+| `POST` | `/api/v1/auth/register` | Register new developer/user account (Super Admin is pre-seeded during setup) |
 | `POST` | `/api/v1/auth/login` | Authenticate user; returns JWT access & refresh tokens |
 | `POST` | `/api/v1/auth/refresh` | Rotate refresh token and issue new JWT |
 | `POST` | `/api/v1/auth/logout` | Revoke active refresh token |
@@ -558,7 +565,7 @@ FlareBase provides dedicated disaster recovery and emergency administrative gate
 | `PATCH` | `/api/v1/notifications/read-all` | Mark all user notifications as read |
 
 ### Project User Auth & OAuth (`/api/v1/project-auth`)
-*Requires `x-aegis-api-key` header.*
+*Requires `x-flarebase-api-key` header.*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/project-auth/config` | Fetch public auth config (enabled providers & client IDs) |
@@ -567,7 +574,7 @@ FlareBase provides dedicated disaster recovery and emergency administrative gate
 | `POST` | `/api/v1/project-auth/oauth/:provider` | Authenticate via OAuth (`google`, `apple`, `github`) |
 
 ### Database Services (`/api/v1/db`)
-*Requires `x-aegis-api-key`, `x-api-key`, `apikey`, `?apiKey=...`, `Authorization: Bearer <JWT>`, or `x-aegis-pat` header.*
+*Requires `x-flarebase-api-key`, `x-api-key`, `apikey`, `?apiKey=...`, `Authorization: Bearer <JWT>`, or `x-flarebase-pat` header.*
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/db/collections` | List all collections in project |
@@ -776,7 +783,7 @@ pm2 reload flarebase
 
 ## 26. Official SDKs, Browser Drops & AI Agent Integration
 
-### Drop-In Browser Script (`/aegis.js`)
+### Drop-In Browser Script (`/flarebase.js`)
 
 ```html
 <!DOCTYPE html>
@@ -785,22 +792,22 @@ pm2 reload flarebase
   <meta charset="UTF-8">
   <title>FlareBase App</title>
   <!-- Load the FlareBase Client SDK directly from the server -->
-  <script src="http://localhost:3000/aegis.js"></script>
+  <script src="http://localhost:3000/flarebase.js"></script>
 </head>
 <body>
   <script>
-    const aegis = new FlareBaseClient({
+    const flarebase = new FlareBaseClient({
       baseUrl: 'http://localhost:3000',
-      apiKey: 'aegis_pk_your_project_key_here'
+      apiKey: 'flare_pk_your_project_key_here'
     });
 
     async function startApp() {
       // 1. Fetch documents from 'todos' collection
-      const todos = await aegis.collection('todos').query();
+      const todos = await flarebase.collection('todos').query();
       console.log('Todos:', todos);
 
       // 2. Real-time live update listener (SSE CDC)
-      const unsubscribe = aegis.collection('todos').onSnapshot((change) => {
+      const unsubscribe = flarebase.collection('todos').onSnapshot((change) => {
         console.log('Real-time event:', change.type, change.document);
       });
     }

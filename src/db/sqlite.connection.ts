@@ -1,15 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/db/sqlite.connection.ts
-//  AegisDB — SQLite Database Connection & Migration Manager.
+//  FlareBase — SQLite Database Connection & Migration Manager.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import path from 'path';
+import fs from 'fs';
 import Database from 'better-sqlite3';
 import argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import crypto from 'crypto';
 
-const DB_PATH = process.env.DB_PATH || path.resolve(process.cwd(), 'aegis.db');
+const DB_PATH = process.env.DB_PATH || (fs.existsSync(path.resolve(process.cwd(), 'flarebase.db')) ? path.resolve(process.cwd(), 'flarebase.db') : path.resolve(process.cwd(), 'flarebase.db'));
 
 let dbInstance: Database.Database | null = null;
 let readerDbPool: Database.Database[] = [];
@@ -60,11 +61,11 @@ export function generateProjectKeys(): {
   serviceKeyHash: string;
 } {
   const anonHex = crypto.randomBytes(16).toString('hex');
-  const anonKey = `aegis_pk_${anonHex}`;
+  const anonKey = `flare_pk_${anonHex}`;
   const anonKeyHash = crypto.createHash('sha256').update(anonKey).digest('hex');
 
   const serviceHex = crypto.randomBytes(16).toString('hex');
-  const serviceKey = `aegis_sk_${serviceHex}`;
+  const serviceKey = `flare_sk_${serviceHex}`;
   const serviceKeyHash = crypto.createHash('sha256').update(serviceKey).digest('hex');
 
   return { anonKey, anonKeyHash, serviceKey, serviceKeyHash };
@@ -798,7 +799,7 @@ export function initSqlite(): void {
     const projects = db.prepare('SELECT id FROM projects WHERE serviceKeyHash IS NULL').all() as { id: string }[];
     for (const p of projects) {
       const hexService = crypto.randomBytes(16).toString('hex');
-      const serviceKey = `aegis_sk_${hexService}`;
+      const serviceKey = `flare_sk_${hexService}`;
       const serviceKeyHash = crypto.createHash('sha256').update(serviceKey).digest('hex');
       db.prepare('UPDATE projects SET serviceKeyHash = ? WHERE id = ?').run(serviceKeyHash, p.id);
       console.log(`ℹ️ Generated service role key for existing project ${p.id}.`);
@@ -826,11 +827,11 @@ export function initSqlite(): void {
     const existingPolicy = db.prepare('SELECT id FROM platform_policies WHERE id = ?').get('default');
     if (!existingPolicy) {
       const now = new Date().toISOString();
-      const defaultTerms = `# AegisDB Platform Terms & Conditions (v1.0.0)\n\n### 1. Acceptance of Terms\nBy creating an account, connecting client applications, or utilizing AegisDB APIs, SDKs, and storage services, you agree to comply with these terms. You agree not to engage in malicious scraping, DDoS, credential harvesting, unlawful payload transmission, or unauthorized multi-tenant tampering.\n\n### 2. Trust, Safety & Automated Moderation\nAegisDB continuously monitors incoming requests for abusive, bot, or malicious activity. Accounts exhibiting high-risk behavioral anomalies may be flagged, issued formal compliance violation notices, or subjected to permanent automated erasure.\n\n### 3. Data Ownership & Portability\nYou retain ownership of all data stored within your projects. Under GDPR Article 20, you may export your data bundle at any time.`;
+      const defaultTerms = `# FlareBase Platform Terms & Conditions (v1.0.0)\n\n### 1. Acceptance of Terms\nBy creating an account, connecting client applications, or utilizing FlareBase APIs, SDKs, and storage services, you agree to comply with these terms. You agree not to engage in malicious scraping, DDoS, credential harvesting, unlawful payload transmission, or unauthorized multi-tenant tampering.\n\n### 2. Trust, Safety & Automated Moderation\nFlareBase continuously monitors incoming requests for abusive, bot, or malicious activity. Accounts exhibiting high-risk behavioral anomalies may be flagged, issued formal compliance violation notices, or subjected to permanent automated erasure.\n\n### 3. Data Ownership & Portability\nYou retain ownership of all data stored within your projects. Under GDPR Article 20, you may export your data bundle at any time.`;
 
-      const defaultSecurity = `# AegisDB Security & Cryptographic Policy (v1.0.0)\n\n### 1. Zero-Trust Architecture\nAll data at rest is protected with two-tier envelope encryption (AES-256-GCM) with hardware-isolated HKDF Master Key Derivation. All traffic requires TLS 1.3 / HTTPS.\n\n### 2. Credential Protection\nDevelopers and users are responsible for safeguarding API keys, JWT access tokens, and RFC 6238 TOTP authenticator devices. Compromised credentials or accounts with excessive lockout velocity will be flagged for investigation.`;
+      const defaultSecurity = `# FlareBase Security & Cryptographic Policy (v1.0.0)\n\n### 1. Zero-Trust Architecture\nAll data at rest is protected with two-tier envelope encryption (AES-256-GCM) with hardware-isolated HKDF Master Key Derivation. All traffic requires TLS 1.3 / HTTPS.\n\n### 2. Credential Protection\nDevelopers and users are responsible for safeguarding API keys, JWT access tokens, and RFC 6238 TOTP authenticator devices. Compromised credentials or accounts with excessive lockout velocity will be flagged for investigation.`;
 
-      const defaultBackup = `# AegisDB Backup & Disaster Recovery Policy (v1.0.0)\n\n### 1. Automated Snapshotting\nAegisDB provides localized snapshotting and automated S3-compatible remote backup mechanisms.\n\n### 2. Right to Erasure & Grace Period\nIn accordance with GDPR Article 17, account deletion enforces a 7-day cooling-off grace period before permanent, irreversible cascading erasure.`;
+      const defaultBackup = `# FlareBase Backup & Disaster Recovery Policy (v1.0.0)\n\n### 1. Automated Snapshotting\nFlareBase provides localized snapshotting and automated S3-compatible remote backup mechanisms.\n\n### 2. Right to Erasure & Grace Period\nIn accordance with GDPR Article 17, account deletion enforces a 7-day cooling-off grace period before permanent, irreversible cascading erasure.`;
 
       db.prepare(`
         INSERT INTO platform_policies (id, version, termsAndConditions, securityPolicy, backupPolicy, effectiveDate, updatedAt, updatedBy)
@@ -1162,8 +1163,9 @@ export function initSqlite(): void {
 
 export function cleanupDemoAccounts(db: Database.Database): void {
   const PRESERVED_EMAILS = new Set([
-    'admin@aegis.dev',
-    'admin@aegisdb.dev',
+    'admin@flarebase.dev',
+    'admin@flarebase.dev',
+    'admin@flarebase.dev',
     'aryaayyappahalambi@gmail.com'
   ]);
 
@@ -1196,8 +1198,9 @@ export function cleanupDemoAccounts(db: Database.Database): void {
 
 function seedSuperAdminSync(db: Database.Database): void {
   const seedAccounts = [
-    { email: 'admin@aegis.dev', pass: 'AdminPass123!' },
-    { email: 'admin@aegisdb.dev', pass: 'Admin@123' },
+    { email: 'admin@flarebase.dev', pass: 'Admin@123' },
+    { email: 'admin@flarebase.dev', pass: 'AdminPass123!' },
+    { email: 'admin@flarebase.dev', pass: 'Admin@123' },
   ];
 
   for (const acc of seedAccounts) {

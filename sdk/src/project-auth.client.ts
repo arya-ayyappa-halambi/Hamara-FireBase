@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/project-auth.client.ts
-//  Project End-User Authentication Module for @aegis/sdk.
+//  Project End-User Authentication Module for @flarebase/sdk.
 //  Provides zero-bypass client authentication, dynamic OAuth Client ID sync,
 //  and public user registration policy enforcement.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -76,7 +76,7 @@ export class ProjectAuthClient {
   }
 
   /**
-   * Discover real-time Auth Configuration and OAuth Client IDs from AegisDB.
+   * Discover real-time Auth Configuration and OAuth Client IDs from FlareBase.
    * GET /api/v1/project-auth/config
    */
   async getConfig(forceFresh = false): Promise<ProjectAuthConfig> {
@@ -87,7 +87,8 @@ export class ProjectAuthClient {
     const res = await fetch(`${this.baseUrl}/api/v1/project-auth/config?_t=${Date.now()}`, {
       method: 'GET',
       headers: {
-        'x-aegis-api-key': this.apiKey,
+        'x-flarebase-api-key': this.apiKey,
+        'x-flare-api-key': this.apiKey,
         'Content-Type': 'application/json'
       }
     });
@@ -110,7 +111,7 @@ export class ProjectAuthClient {
 
     if (norm === 'email' || norm === 'password') {
       if (cfg.email && cfg.email.enabled === false) {
-        throw new Error('AegisDB Security Violation: Email & Password authentication is disabled for this project.');
+        throw new Error('FlareBase Security Violation: Email & Password authentication is disabled for this project.');
       }
       return cfg;
     }
@@ -118,10 +119,10 @@ export class ProjectAuthClient {
     if (['google', 'github', 'apple'].includes(norm)) {
       const pCfg = (cfg as any)[norm];
       if (!pCfg || pCfg.enabled === false) {
-        throw new Error(`AegisDB Security Violation: ${norm.toUpperCase()} authentication is disabled for this project.`);
+        throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled for this project.`);
       }
       if (!pCfg.clientId || !pCfg.clientId.trim()) {
-        throw new Error(`AegisDB Configuration Error: ${norm.toUpperCase()} Client ID is not configured in AegisDB dashboard.`);
+        throw new Error(`FlareBase Configuration Error: ${norm.toUpperCase()} Client ID is not configured in FlareBase dashboard.`);
       }
       return cfg;
     }
@@ -139,7 +140,8 @@ export class ProjectAuthClient {
     const res = await fetch(`${this.baseUrl}/api/v1/project-auth/register`, {
       method: 'POST',
       headers: {
-        'x-aegis-api-key': this.apiKey,
+        'x-flarebase-api-key': this.apiKey,
+        'x-flare-api-key': this.apiKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(params)
@@ -166,7 +168,8 @@ export class ProjectAuthClient {
     const res = await fetch(`${this.baseUrl}/api/v1/project-auth/login`, {
       method: 'POST',
       headers: {
-        'x-aegis-api-key': this.apiKey,
+        'x-flarebase-api-key': this.apiKey,
+        'x-flare-api-key': this.apiKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify(params)
@@ -193,7 +196,8 @@ export class ProjectAuthClient {
     const res = await fetch(`${this.baseUrl}/api/v1/project-auth/oauth/${encodeURIComponent(provider)}`, {
       method: 'POST',
       headers: {
-        'x-aegis-api-key': this.apiKey,
+        'x-flarebase-api-key': this.apiKey,
+        'x-flare-api-key': this.apiKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ token })
@@ -212,7 +216,7 @@ export class ProjectAuthClient {
 
   /**
    * Helper: Automatically initialize Google Identity Services on a web page using
-   * the Client ID configured directly in the AegisDB dashboard.
+   * the Client ID configured directly in the FlareBase dashboard.
    */
   async initGoogleAuth(options: {
     callback: (authResponse: ProjectAuthResponse) => void;
@@ -222,7 +226,7 @@ export class ProjectAuthClient {
   }): Promise<string | null> {
     const cfg = await this.getConfig();
     if (!cfg.google || !cfg.google.enabled || !cfg.google.clientId) {
-      console.warn('[AegisDB] Google auth is disabled or missing Client ID in AegisDB project settings.');
+      console.warn('[FlareBase] Google auth is disabled or missing Client ID in FlareBase project settings.');
       return null;
     }
 
@@ -238,7 +242,7 @@ export class ProjectAuthClient {
               options.callback(authRes);
             } catch (err: any) {
               if (options.onError) options.onError(err);
-              else console.error('[AegisDB Google Auth]', err);
+              else console.error('[FlareBase Google Auth]', err);
             }
           }
         }

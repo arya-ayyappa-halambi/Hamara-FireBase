@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/remote-ott-access.service.ts
-//  AegisDB — Ephemeral One-Time Tokens (OTT) & Zero-Trust Remote Device Approvals
+//  FlareBase — Ephemeral One-Time Tokens (OTT) & Zero-Trust Remote Device Approvals
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';
@@ -143,7 +143,7 @@ export class RemoteOttAccessService {
     if (!user) {
       user = {
         id: row.createdByUserId || 'super-admin-ott-recovery',
-        email: 'admin@aegisdb.dev',
+        email: 'admin@flarebase.dev',
         name: 'Super Admin (OTT)',
         isSuperAdmin: 1
       };
@@ -160,7 +160,7 @@ export class RemoteOttAccessService {
       ottId: row.id
     };
 
-    const jwtSecret = process.env.JWT_SECRET || 'aegisdb_super_secret_jwt_key_2026';
+    const jwtSecret = process.env.JWT_SECRET || 'flarebase_super_secret_jwt_key_2026';
     const jwtToken = jwt.sign(jwtPayload, jwtSecret, { expiresIn: '4h', algorithm: 'HS256' });
 
     // Notify Super Admin Dashboard in real time

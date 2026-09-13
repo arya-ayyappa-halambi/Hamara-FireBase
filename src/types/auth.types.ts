@@ -7,7 +7,7 @@ declare global {
     interface Request {
       /** Populated by authenticateJwt or authenticateApiKey after verification. */
       user?: import('./auth.types').JwtPayload;
-      /** Populated when authenticated via x-aegis-api-key */
+      /** Populated when authenticated via x-flarebase-api-key */
       project?: import('./project.types').Project;
       /** Populated when both API key and user JWT are present */
       projectUser?: any;
@@ -149,7 +149,7 @@ export type PublicUser = Omit<User, 'passwordHash'>;
 
 // ── JWT ───────────────────────────────────────────────────────────────────────
 
-/** Shape of the JWT payload AegisDB signs and verifies. */
+/** Shape of the JWT payload FlareBase signs and verifies. */
 export interface JwtPayload {
   sub: string;   // Subject — the user's UUID
   email: string;

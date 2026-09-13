@@ -1,6 +1,6 @@
 /**
  * =========================================================
- * AegisDB JavaScript Client SDK (v1.0.0)
+ * FlareBase JavaScript Client SDK (v1.0.0)
  * Lightweight, self-hosted BaaS Client
  * Supports: Auth, Collections CRUD, Row-Level Security Rules,
  * Real-Time SSE sync, File/Biometric Storage, and Error Interceptors.
@@ -10,25 +10,25 @@
 (function (global) {
   'use strict';
 
-  class AegisClient {
+  class FlareBaseClient {
     constructor(options = {}) {
       const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
-      this.baseUrl = (options.baseUrl || localStorage.getItem('aegisBaseUrl') || defaultOrigin).replace(/\/+$/, '');
-      this.apiKey = options.apiKey || localStorage.getItem('aegisApiKey') || 'aegis_pk_a85e45e984ca9724ca01019954cf2f17';
-      this._token = localStorage.getItem('aegisToken') || null;
+      this.baseUrl = (options.baseUrl || localStorage.getItem('flarebaseBaseUrl') || defaultOrigin).replace(/\/+$/, '');
+      this.apiKey = options.apiKey || localStorage.getItem('flarebaseApiKey') || 'flarebase_pk_a85e45e984ca9724ca01019954cf2f17';
+      this._token = localStorage.getItem('flarebaseToken') || null;
       this._user = this._loadStoredUser();
       this._eventSources = new Map();
       this._listeners = new Map();
 
       // Submodules
-      this.auth = new AegisAuthModule(this);
-      this.db = new AegisDatabaseModule(this);
-      this.storage = new AegisStorageModule(this);
+      this.auth = new FlareBaseAuthModule(this);
+      this.db = new FlareBaseDatabaseModule(this);
+      this.storage = new FlareBaseStorageModule(this);
     }
 
     _loadStoredUser() {
       try {
-        const raw = localStorage.getItem('aegisUser');
+        const raw = localStorage.getItem('flarebaseUser');
         return raw ? JSON.parse(raw) : null;
       } catch (e) {
         return null;
@@ -42,30 +42,30 @@
     setBaseUrl(url) {
       const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
       this.baseUrl = (url || defaultOrigin).replace(/\/+$/, '');
-      localStorage.setItem('aegisBaseUrl', this.baseUrl);
+      localStorage.setItem('flarebaseBaseUrl', this.baseUrl);
       this._emit('configChange', { baseUrl: this.baseUrl, apiKey: this.apiKey });
     }
 
     getApiKey() {
-      return this.apiKey || localStorage.getItem('aegisApiKey') || 'aegis_pk_a85e45e984ca9724ca01019954cf2f17';
+      return this.apiKey || localStorage.getItem('flarebaseApiKey') || 'flarebase_pk_a85e45e984ca9724ca01019954cf2f17';
     }
 
     setApiKey(key) {
       this.apiKey = (key || '').trim();
-      localStorage.setItem('aegisApiKey', this.apiKey);
+      localStorage.setItem('flarebaseApiKey', this.apiKey);
       this._emit('configChange', { baseUrl: this.baseUrl, apiKey: this.apiKey });
     }
 
     getToken() {
-      return this._token || localStorage.getItem('aegisToken') || null;
+      return this._token || localStorage.getItem('flarebaseToken') || null;
     }
 
     setToken(token) {
       this._token = token;
       if (token) {
-        localStorage.setItem('aegisToken', token);
+        localStorage.setItem('flarebaseToken', token);
       } else {
-        localStorage.removeItem('aegisToken');
+        localStorage.removeItem('flarebaseToken');
       }
       this._emit('authChange', { token: this._token, user: this._user });
     }
@@ -77,9 +77,9 @@
     setUser(user) {
       this._user = user;
       if (user) {
-        localStorage.setItem('aegisUser', JSON.stringify(user));
+        localStorage.setItem('flarebaseUser', JSON.stringify(user));
       } else {
-        localStorage.removeItem('aegisUser');
+        localStorage.removeItem('flarebaseUser');
       }
       this._emit('authChange', { token: this._token, user: this._user });
     }
@@ -87,13 +87,62 @@
     clearAuth() {
       this._token = null;
       this._user = null;
-      localStorage.removeItem('aegisToken');
-      localStorage.removeItem('aegisUser');
+      localStorage.removeItem('flarebaseToken');
+      localStorage.removeItem('flarebaseUser');
       this._emit('authChange', { token: null, user: null });
     }
 
     /**
-     * Helper to prepare standard headers for AegisDB API calls
+     * Helper to prepare standard headers for FlareBase API calls
+     */
+    /**
+     * Compute stable, client-side hardware & canvas device fingerprint
+     */
+    getDeviceFingerprint() {
+      if (typeof window === 'undefined') return 'server_or_node_client';
+      try {
+        const parts = [
+          navigator.userAgent || '',
+          (window.screen ? window.screen.width + 'x' + window.screen.height + 'x' + (window.screen.colorDepth || 24) : 'unknown_screen'),
+          navigator.hardwareConcurrency || 4,
+          navigator.language || 'en',
+          new Date().getTimezoneOffset()
+        ];
+
+        // Canvas fingerprint
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = 200;
+          canvas.height = 50;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.textBaseline = 'top';
+            ctx.font = '14px Arial';
+            ctx.fillStyle = '#f60';
+            ctx.fillRect(125, 1, 62, 20);
+            ctx.fillStyle = '#069';
+            ctx.fillText('FlareBase,did:1.0', 2, 15);
+            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+            ctx.fillText('FlareBase,did:1.0', 4, 17);
+            parts.push(canvas.toDataURL().slice(-50));
+          }
+        } catch (_) {}
+
+        let hash = 0;
+        const str = parts.join('|||');
+        for (let i = 0; i < str.length; i++) {
+          const char = str.charCodeAt(i);
+          hash = ((hash << 5) - hash) + char;
+          hash |= 0;
+        }
+        return 'dfp_' + Math.abs(hash).toString(16) + '_' + (navigator.hardwareConcurrency || 4);
+      } catch (e) {
+        return 'dfp_fallback_' + Date.now();
+      }
+    }
+
+    /**
+     * Helper to prepare standard headers for FlareBase API calls
      */
     getHeaders(customHeaders = {}, includeAuth = true) {
       const headers = {
@@ -103,7 +152,13 @@
 
       const apiKey = this.getApiKey();
       if (apiKey) {
-        headers['x-aegis-api-key'] = apiKey;
+        headers['x-flare-api-key'] = apiKey;
+        headers['x-flarebase-api-key'] = apiKey;
+      }
+
+      const deviceFp = this.getDeviceFingerprint();
+      if (deviceFp) {
+        headers['x-device-fingerprint'] = deviceFp;
       }
 
       if (includeAuth) {
@@ -117,7 +172,7 @@
     }
 
     /**
-     * Standardized HTTP Request wrapper with AegisDB response parsing & error handling
+     * Standardized HTTP Request wrapper with FlareBase response parsing & error handling
      */
     async request(endpoint, options = {}) {
       const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
@@ -141,11 +196,11 @@
       try {
         response = await fetch(url, fetchOptions);
       } catch (networkError) {
-        console.warn(`[AegisDB Network Error] ${method} ${url}:`, networkError);
+        console.warn(`[FlareBase Network Error] ${method} ${url}:`, networkError);
         const errObj = {
           success: false,
           status: 0,
-          message: `Network error or AegisDB server unreachable at ${this.baseUrl}. Please check server status.`,
+          message: `Network error or FlareBase server unreachable at ${this.baseUrl}. Please check server status.`,
           isNetworkError: true,
           originalError: networkError
         };
@@ -177,10 +232,10 @@
         };
 
         if (response.status === 401) {
-          console.warn('[AegisDB] Unauthorized (401). Session may have expired.');
+          console.warn('[FlareBase] Unauthorized (401). Session may have expired.');
           this._emit('unauthorized', errorObj);
         } else if (response.status === 403) {
-          console.warn('[AegisDB] Forbidden (403). Insufficient row or role permissions.');
+          console.warn('[FlareBase] Forbidden (403). Insufficient row or role permissions.');
           this._emit('forbidden', errorObj);
         }
 
@@ -193,10 +248,10 @@
 
     _notifyError(err) {
       if (typeof window !== 'undefined' && window.CampusUtils && typeof window.CampusUtils.showToast === 'function') {
-        const msg = err.message || 'An error occurred connecting to AegisDB';
+        const msg = err.message || 'An error occurred connecting to FlareBase';
         // Avoid spamming duplicate connection warnings
-        if (!window._lastAegisToast || Date.now() - window._lastAegisToast > 3000) {
-          window._lastAegisToast = Date.now();
+        if (!window._lastFlareBaseToast || Date.now() - window._lastFlareBaseToast > 3000) {
+          window._lastFlareBaseToast = Date.now();
           window.CampusUtils.showToast(msg, err.status === 401 || err.status === 403 ? 'warning' : 'error');
         }
       }
@@ -219,7 +274,7 @@
     _emit(event, payload) {
       if (this._listeners.has(event)) {
         this._listeners.get(event).forEach(cb => {
-          try { cb(payload); } catch (e) { console.error(`Error in Aegis event listener [${event}]:`, e); }
+          try { cb(payload); } catch (e) { console.error(`Error in FlareBase event listener [${event}]:`, e); }
         });
       }
     }
@@ -227,10 +282,10 @@
 
   /**
    * =========================================================
-   * 1. Aegis Auth Module (Project Auth)
+   * 1. FlareBase Auth Module (Project Auth)
    * =========================================================
    */
-  class AegisAuthModule {
+  class FlareBaseAuthModule {
     constructor(client) {
       this.client = client;
     }
@@ -248,7 +303,7 @@
 
     /**
      * Strict Provider Security Guard:
-     * Verifies that the requested authentication provider is actively enabled on AegisDB.
+     * Verifies that the requested authentication provider is actively enabled on FlareBase.
      * Throws an error immediately if disabled, preventing any frontend bypass or hardcoded execution.
      */
     async verifyProviderEnabled(provider) {
@@ -256,18 +311,18 @@
       const configRes = await this.getConfig();
       const cfg = configRes.data || configRes;
       if (!cfg) {
-        throw new Error('AegisDB project authentication policies could not be loaded.');
+        throw new Error('FlareBase project authentication policies could not be loaded.');
       }
 
       if (norm === 'email' || norm === 'password' || norm === 'email_password') {
         if (cfg.email && typeof cfg.email === 'object' && cfg.email.enabled === false) {
-          throw new Error('AegisDB Security Violation: Email & Password authentication is disabled on the AegisDB server for this project.');
+          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
         }
         if (cfg.emailAuth === false || cfg.emailPassword === false || cfg.allowEmailAuth === false || cfg.emailPasswordEnabled === false) {
-          throw new Error('AegisDB Security Violation: Email & Password authentication is disabled on the AegisDB server for this project.');
+          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
         }
         if (Array.isArray(cfg.enabledProviders) && !cfg.enabledProviders.some(p => ['email', 'password', 'email_password'].includes(String(p).toLowerCase()))) {
-          throw new Error('AegisDB Security Violation: Email & Password authentication is disabled on the AegisDB server for this project.');
+          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
         }
         return true;
       }
@@ -275,16 +330,16 @@
       if (['google', 'github', 'apple'].includes(norm)) {
         const pCfg = cfg[norm];
         if (pCfg && typeof pCfg === 'object' && pCfg.enabled === false) {
-          throw new Error(`AegisDB Security Violation: ${norm.toUpperCase()} authentication is disabled on the AegisDB server for this project.`);
+          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
         }
         if (pCfg && typeof pCfg === 'object' && pCfg.enabled !== true && !cfg.enabledProviders?.includes(norm)) {
-          throw new Error(`AegisDB Security Violation: ${norm.toUpperCase()} authentication is disabled on the AegisDB server for this project.`);
+          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
         }
         if (cfg.oauth && typeof cfg.oauth === 'object' && cfg.oauth[norm] === false) {
-          throw new Error(`AegisDB Security Violation: ${norm.toUpperCase()} authentication is disabled on the AegisDB server for this project.`);
+          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
         }
         if (Array.isArray(cfg.enabledProviders) && !cfg.enabledProviders.includes(norm)) {
-          throw new Error(`AegisDB Security Violation: ${norm.toUpperCase()} authentication is disabled on the AegisDB server for this project.`);
+          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
         }
         return true;
       }
@@ -377,20 +432,20 @@
 
   /**
    * =========================================================
-   * 2 & 3. Aegis Database Module (Collections, CRUD, RLS & SSE)
+   * 2 & 3. FlareBase Database Module (Collections, CRUD, RLS & SSE)
    * =========================================================
    */
-  class AegisDatabaseModule {
+  class FlareBaseDatabaseModule {
     constructor(client) {
       this.client = client;
     }
 
     collection(collectionName) {
-      return new AegisCollectionReference(this.client, collectionName);
+      return new FlareBaseCollectionReference(this.client, collectionName);
     }
   }
 
-  class AegisCollectionReference {
+  class FlareBaseCollectionReference {
     constructor(client, collectionName) {
       this.client = client;
       this.name = collectionName;
@@ -483,7 +538,7 @@
         const sse = new EventSource(sseUrl);
 
         sse.onopen = () => {
-          console.log(`[AegisDB SSE] Connected to collection: ${this.name}`);
+          console.log(`[FlareBase SSE] Connected to collection: ${this.name}`);
         };
 
         sse.onmessage = (event) => {
@@ -494,12 +549,12 @@
               onMessageCallback(change);
             }
           } catch (err) {
-            console.error(`[AegisDB SSE] Error parsing realtime event for ${this.name}:`, err);
+            console.error(`[FlareBase SSE] Error parsing realtime event for ${this.name}:`, err);
           }
         };
 
         sse.onerror = (err) => {
-          console.warn(`[AegisDB SSE] Realtime connection warning for ${this.name}:`, err);
+          console.warn(`[FlareBase SSE] Realtime connection warning for ${this.name}:`, err);
           if (typeof onErrorCallback === 'function') {
             onErrorCallback(err);
           }
@@ -508,10 +563,10 @@
         // Return unsubscribe function
         return () => {
           sse.close();
-          console.log(`[AegisDB SSE] Closed connection to collection: ${this.name}`);
+          console.log(`[FlareBase SSE] Closed connection to collection: ${this.name}`);
         };
       } catch (err) {
-        console.error(`[AegisDB SSE] Failed to initialize EventSource for ${this.name}:`, err);
+        console.error(`[FlareBase SSE] Failed to initialize EventSource for ${this.name}:`, err);
         return () => {};
       }
     }
@@ -519,10 +574,10 @@
 
   /**
    * =========================================================
-   * 4. Aegis File & Biometric Storage Module
+   * 4. FlareBase File & Biometric Storage Module
    * =========================================================
    */
-  class AegisStorageModule {
+  class FlareBaseStorageModule {
     constructor(client) {
       this.client = client;
     }
@@ -560,37 +615,37 @@
   }
 
   // Create singleton instance
-  const Aegis = new AegisClient();
+  const FlareBase = new FlareBaseClient();
 
   // Export to global / window scope and module.exports
   if (typeof globalThis !== 'undefined') {
-    globalThis.AegisClient = AegisClient;
-    globalThis.Aegis = Aegis;
+    globalThis.FlareBaseClient = FlareBaseClient;
+    globalThis.FlareBase = FlareBase;
   }
   if (typeof global !== 'undefined') {
-    global.AegisClient = AegisClient;
-    global.Aegis = Aegis;
+    global.FlareBaseClient = FlareBaseClient;
+    global.FlareBase = FlareBase;
   }
   if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { AegisClient, Aegis };
+    module.exports = { FlareBaseClient, FlareBase };
   }
 
-  // ─── Floating AegisDB Status & Settings Widget ─────────────────
-  function initAegisWidget() {
-    if (typeof document === 'undefined' || document.getElementById('aegis-status-widget')) return;
+  // ─── Floating FlareBase Status & Settings Widget ─────────────────
+  function initFlareBaseWidget() {
+    if (typeof document === 'undefined' || document.getElementById('flarebase-status-widget')) return;
 
     const widget = document.createElement('div');
-    widget.id = 'aegis-status-widget';
+    widget.id = 'flarebase-status-widget';
     widget.innerHTML = `
       <style>
-        #aegis-status-widget {
+        #flarebase-status-widget {
           position: fixed;
           bottom: 16px;
           right: 16px;
           z-index: 9999;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         }
-        .aegis-badge {
+        .flarebase-badge {
           display: flex;
           align-items: center;
           gap: 8px;
@@ -606,12 +661,12 @@
           transition: all 0.2s ease;
           user-select: none;
         }
-        .aegis-badge:hover {
+        .flarebase-badge:hover {
           background: #1e293b;
           transform: translateY(-2px);
           box-shadow: 0 6px 20px rgba(0,0,0,0.35);
         }
-        .aegis-dot {
+        .flarebase-dot {
           width: 8px;
           height: 8px;
           border-radius: 50%;
@@ -619,15 +674,15 @@
           box-shadow: 0 0 8px #10b981;
           display: inline-block;
         }
-        .aegis-dot.offline {
+        .flarebase-dot.offline {
           background: #ef4444;
           box-shadow: 0 0 8px #ef4444;
         }
-        .aegis-dot.warning {
+        .flarebase-dot.warning {
           background: #f59e0b;
           box-shadow: 0 0 8px #f59e0b;
         }
-        .aegis-modal {
+        .flarebase-modal {
           position: fixed;
           inset: 0;
           background: rgba(0,0,0,0.6);
@@ -637,8 +692,8 @@
           justify-content: center;
           z-index: 10000;
         }
-        .aegis-modal.hidden { display: none; }
-        .aegis-card {
+        .flarebase-modal.hidden { display: none; }
+        .flarebase-card {
           background: #0f172a;
           color: #f8fafc;
           border: 1px solid #334155;
@@ -648,7 +703,7 @@
           max-width: 440px;
           box-shadow: 0 20px 40px rgba(0,0,0,0.5);
         }
-        .aegis-card h3 {
+        .flarebase-card h3 {
           margin: 0 0 8px 0;
           font-size: 18px;
           font-weight: 600;
@@ -657,23 +712,23 @@
           gap: 8px;
           color: #38bdf8;
         }
-        .aegis-card p {
+        .flarebase-card p {
           margin: 0 0 16px 0;
           font-size: 13px;
           color: #94a3b8;
           line-height: 1.4;
         }
-        .aegis-form-group {
+        .flarebase-form-group {
           margin-bottom: 14px;
         }
-        .aegis-form-group label {
+        .flarebase-form-group label {
           display: block;
           font-size: 12px;
           font-weight: 500;
           color: #cbd5e1;
           margin-bottom: 6px;
         }
-        .aegis-input {
+        .flarebase-input {
           width: 100%;
           box-sizing: border-box;
           padding: 9px 12px;
@@ -684,16 +739,16 @@
           font-size: 13px;
           outline: none;
         }
-        .aegis-input:focus {
+        .flarebase-input:focus {
           border-color: #38bdf8;
         }
-        .aegis-actions {
+        .flarebase-actions {
           display: flex;
           justify-content: flex-end;
           gap: 10px;
           margin-top: 20px;
         }
-        .aegis-btn {
+        .flarebase-btn {
           padding: 8px 16px;
           border-radius: 8px;
           font-size: 13px;
@@ -702,50 +757,50 @@
           border: none;
           transition: 0.2s;
         }
-        .aegis-btn-primary {
+        .flarebase-btn-primary {
           background: #0284c7;
           color: white;
         }
-        .aegis-btn-primary:hover {
+        .flarebase-btn-primary:hover {
           background: #0369a1;
         }
-        .aegis-btn-secondary {
+        .flarebase-btn-secondary {
           background: #334155;
           color: #cbd5e1;
         }
-        .aegis-btn-secondary:hover {
+        .flarebase-btn-secondary:hover {
           background: #475569;
         }
       </style>
-      <div class="aegis-badge" id="aegis-toggle-badge" title="Click to configure AegisDB Connection">
-        <span class="aegis-dot" id="aegis-status-dot"></span>
-        <span id="aegis-badge-text">AegisDB: Ready</span>
+      <div class="flarebase-badge" id="flarebase-toggle-badge" title="Click to configure FlareBase Connection">
+        <span class="flarebase-dot" id="flarebase-status-dot"></span>
+        <span id="flarebase-badge-text">FlareBase: Ready</span>
       </div>
-      <div class="aegis-modal hidden" id="aegis-settings-modal">
-        <div class="aegis-card">
+      <div class="flarebase-modal hidden" id="flarebase-settings-modal">
+        <div class="flarebase-card">
           <h3>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            AegisDB BaaS Settings
+            FlareBase BaaS Settings
           </h3>
-          <p>Configure self-hosted AegisDB host URL and project API key.</p>
-          <div class="aegis-form-group">
+          <p>Configure self-hosted FlareBase host URL and project API key.</p>
+          <div class="flarebase-form-group">
             <label>Server Base URL</label>
-            <input type="text" class="aegis-input" id="aegis-cfg-url" value="${Aegis.getBaseUrl()}" placeholder="http://localhost:3000">
+            <input type="text" class="flarebase-input" id="flarebase-cfg-url" value="${FlareBase.getBaseUrl()}" placeholder="http://localhost:3000">
           </div>
-          <div class="aegis-form-group">
-            <label>Project API Key (x-aegis-api-key)</label>
-            <input type="text" class="aegis-input" id="aegis-cfg-key" value="${Aegis.getApiKey()}" placeholder="Enter AegisDB Project API Key">
+          <div class="flarebase-form-group">
+            <label>Project API Key (x-flarebase-api-key)</label>
+            <input type="text" class="flarebase-input" id="flarebase-cfg-key" value="${FlareBase.getApiKey()}" placeholder="Enter FlareBase Project API Key">
           </div>
-          <div class="aegis-form-group">
+          <div class="flarebase-form-group">
             <label>Current User JWT Session</label>
             <div style="font-size: 11px; color:#94a3b8; word-break:break-all; max-height:60px; overflow-y:auto; background:#1e293b; padding:8px; border-radius:6px;">
-              ${Aegis.getToken() ? `Authenticated (${Aegis.getUser()?.email || 'Active User'})` : 'No active session (Guest)'}
+              ${FlareBase.getToken() ? `Authenticated (${FlareBase.getUser()?.email || 'Active User'})` : 'No active session (Guest)'}
             </div>
           </div>
-          <div class="aegis-actions">
-            <button class="aegis-btn aegis-btn-secondary" id="aegis-cfg-test">Test Connection</button>
-            <button class="aegis-btn aegis-btn-secondary" id="aegis-cfg-close">Cancel</button>
-            <button class="aegis-btn aegis-btn-primary" id="aegis-cfg-save">Save Settings</button>
+          <div class="flarebase-actions">
+            <button class="flarebase-btn flarebase-btn-secondary" id="flarebase-cfg-test">Test Connection</button>
+            <button class="flarebase-btn flarebase-btn-secondary" id="flarebase-cfg-close">Cancel</button>
+            <button class="flarebase-btn flarebase-btn-primary" id="flarebase-cfg-save">Save Settings</button>
           </div>
         </div>
       </div>
@@ -753,17 +808,17 @@
 
     document.body.appendChild(widget);
 
-    const badge = document.getElementById('aegis-toggle-badge');
-    const modal = document.getElementById('aegis-settings-modal');
-    const closeBtn = document.getElementById('aegis-cfg-close');
-    const saveBtn = document.getElementById('aegis-cfg-save');
-    const testBtn = document.getElementById('aegis-cfg-test');
-    const dot = document.getElementById('aegis-status-dot');
-    const badgeText = document.getElementById('aegis-badge-text');
+    const badge = document.getElementById('flarebase-toggle-badge');
+    const modal = document.getElementById('flarebase-settings-modal');
+    const closeBtn = document.getElementById('flarebase-cfg-close');
+    const saveBtn = document.getElementById('flarebase-cfg-save');
+    const testBtn = document.getElementById('flarebase-cfg-test');
+    const dot = document.getElementById('flarebase-status-dot');
+    const badgeText = document.getElementById('flarebase-badge-text');
 
     badge.addEventListener('click', () => {
-      document.getElementById('aegis-cfg-url').value = Aegis.getBaseUrl();
-      document.getElementById('aegis-cfg-key').value = Aegis.getApiKey();
+      document.getElementById('flarebase-cfg-url').value = FlareBase.getBaseUrl();
+      document.getElementById('flarebase-cfg-key').value = FlareBase.getApiKey();
       modal.classList.remove('hidden');
     });
 
@@ -773,30 +828,30 @@
     });
 
     saveBtn.addEventListener('click', () => {
-      const newUrl = document.getElementById('aegis-cfg-url').value;
-      const newKey = document.getElementById('aegis-cfg-key').value;
-      Aegis.setBaseUrl(newUrl);
-      Aegis.setApiKey(newKey);
+      const newUrl = document.getElementById('flarebase-cfg-url').value;
+      const newKey = document.getElementById('flarebase-cfg-key').value;
+      FlareBase.setBaseUrl(newUrl);
+      FlareBase.setApiKey(newKey);
       modal.classList.add('hidden');
       if (window.CampusUtils && window.CampusUtils.showToast) {
-        window.CampusUtils.showToast('AegisDB settings saved!', 'success');
+        window.CampusUtils.showToast('FlareBase settings saved!', 'success');
       }
       checkStatus();
     });
 
     async function checkStatus() {
       try {
-        const config = await Aegis.auth.getConfig();
-        dot.className = 'aegis-dot';
-        badgeText.textContent = 'AegisDB: Online';
+        const config = await FlareBase.auth.getConfig();
+        dot.className = 'flarebase-dot';
+        badgeText.textContent = 'FlareBase: Online';
         return true;
       } catch (err) {
-        if (!Aegis.getApiKey()) {
-          dot.className = 'aegis-dot warning';
-          badgeText.textContent = 'AegisDB: Set API Key';
+        if (!FlareBase.getApiKey()) {
+          dot.className = 'flarebase-dot warning';
+          badgeText.textContent = 'FlareBase: Set API Key';
         } else {
-          dot.className = 'aegis-dot offline';
-          badgeText.textContent = 'AegisDB: Offline';
+          dot.className = 'flarebase-dot offline';
+          badgeText.textContent = 'FlareBase: Offline';
         }
         return false;
       }
@@ -809,7 +864,7 @@
       testBtn.disabled = false;
       testBtn.textContent = 'Test Connection';
       if (window.CampusUtils && window.CampusUtils.showToast) {
-        window.CampusUtils.showToast(ok ? 'Connected to AegisDB successfully!' : 'Could not reach AegisDB. Ensure server is running on configured host.', ok ? 'success' : 'error');
+        window.CampusUtils.showToast(ok ? 'Connected to FlareBase successfully!' : 'Could not reach FlareBase. Ensure server is running on configured host.', ok ? 'success' : 'error');
       }
     });
 
@@ -819,9 +874,9 @@
 
   if (typeof document !== 'undefined') {
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initAegisWidget);
+      document.addEventListener('DOMContentLoaded', initFlareBaseWidget);
     } else {
-      initAegisWidget();
+      initFlareBaseWidget();
     }
   }
 

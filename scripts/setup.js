@@ -157,7 +157,7 @@ function verifyAndGenerateEnv() {
       `ENCRYPTION_KEY=${randomSecret(32)}`,
       `EMAIL_HASH_PEPPER=${randomSecret(32)}`,
       `RECOVERY_PIN=${randomPin()}`,
-      'DB_PATH=./data/aegis.db',
+      'DB_PATH=./data/flarebase.db',
       'STORAGE_DIR=./uploads',
       'STORAGE_MAX_FILE_SIZE_MB=50',
       'STORAGE_MAX_PROJECT_QUOTA_MB=1024',

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/network-access.service.ts
-//  AegisDB — Network Access Control & Real-Time Device Tracking Service
+//  FlareBase — Network Access Control & Real-Time Device Tracking Service
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { getDb, getReaderDb } from '../db/sqlite.connection';

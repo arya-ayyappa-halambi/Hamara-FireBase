@@ -1,9 +1,9 @@
 require('dotenv').config();
 const { envelopeEncryptionService } = require('./dist/services/envelope-encryption.service');
-const db = require('better-sqlite3')('aegis.db');
+const db = require('better-sqlite3')('flarebase.db');
 
 // Test 1: Verify emailHash lookup and decryption
-const targetEmail = 'admin@aegisdb.dev';
+const targetEmail = 'admin@flarebase.dev';
 const targetEmailHash = envelopeEncryptionService.hashBlindIndex(targetEmail);
 console.log(`Computed emailHash for ${targetEmail}: ${targetEmailHash}`);
 

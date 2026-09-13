@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/magic-link.service.ts
-//  AegisDB — Passwordless Magic Link & 6-Digit Email OTP Login Service
+//  FlareBase — Passwordless Magic Link & 6-Digit Email OTP Login Service
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';

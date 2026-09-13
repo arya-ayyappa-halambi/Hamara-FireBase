@@ -31,7 +31,7 @@ FlareBase was built to give developers, startups, and enterprise teams complete 
 | **Security & Auth** | Argon2id, RFC 6238 TOTP MFA, AES-256-GCM Envelope Encryption, JWT | ![Security](https://img.shields.io/badge/Security-AES_256_GCM-10b981?style=flat-square) |
 | **Frontend Console** | Glassmorphic Vanilla JS SPA, Tailwind CSS, FontAwesome 6, Chart.js | ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white) |
 | **Disaster Recovery** | AWS SDK S3 client (`@aws-sdk/client-s3`), SQLite snapshotting | ![AWS S3](https://img.shields.io/badge/Amazon_S3-Backup-569A31?style=flat-square&logo=amazons3&logoColor=white) |
-| **Client SDKs** | TypeScript/JavaScript SDK (`@aegis/sdk`), Drop-in Browser Client (`aegis.js`) | ![NPM](https://img.shields.io/badge/NPM-SDK-CB3837?style=flat-square&logo=npm&logoColor=white) |
+| **Client SDKs** | TypeScript/JavaScript SDK (`@flarebase/sdk`), Drop-in Browser Client (`flarebase.js`) | ![NPM](https://img.shields.io/badge/NPM-SDK-CB3837?style=flat-square&logo=npm&logoColor=white) |
 
 ---
 

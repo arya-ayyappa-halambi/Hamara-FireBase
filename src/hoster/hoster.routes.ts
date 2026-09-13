@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/hoster/hoster.routes.ts
-//  AegisDB — Hoster API route definitions.
+//  FlareBase — Hoster API route definitions.
 //
 //  All routes require a valid JWT (applied at router level via authenticateJwt).
 //  Mounted at /api/v1/hoster in server.ts.

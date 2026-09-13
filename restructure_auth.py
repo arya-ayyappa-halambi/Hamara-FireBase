@@ -1,6 +1,6 @@
 import sys
 
-with open('/Users/aryaayyappahalambi/Desktop/aegisdb/public/index.html', 'r') as f:
+with open('/Users/aryaayyappahalambi/Desktop/flarebase/public/index.html', 'r') as f:
     content = f.read()
 
 # Grab the whole auth-screen block
@@ -27,7 +27,7 @@ for i in range(5):
 new_auth_block = f'''<div id="auth-screen" class="fixed inset-0 z-50 w-full h-screen bg-[#090d16] overflow-hidden">
 
   <!-- BACKGROUND CAROUSEL (Spans Full Screen) -->
-  <div id="aegis-carousel" class="absolute inset-0 hidden lg:block z-0 pointer-events-none">
+  <div id="flarebase-carousel" class="absolute inset-0 hidden lg:block z-0 pointer-events-none">
 '''
 
 for idx, slide in enumerate(slides):
@@ -86,7 +86,7 @@ new_auth_block += auth_block[script_start:]
 
 new_content = content[:start_idx] + new_auth_block + content[end_idx:]
 
-with open('/Users/aryaayyappahalambi/Desktop/aegisdb/public/index.html', 'w') as f:
+with open('/Users/aryaayyappahalambi/Desktop/flarebase/public/index.html', 'w') as f:
     f.write(new_content)
     
 print("Successfully updated index.html")

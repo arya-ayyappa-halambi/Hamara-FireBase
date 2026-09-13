@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/realtime.client.ts
-//  Real-Time WebSocket Change Streams client module for @aegis/sdk.
+//  Real-Time WebSocket Change Streams client module for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import WebSocket from 'ws';
@@ -23,7 +23,7 @@ export class RealtimeClient {
   }
 
   /**
-   * Connect to the AegisDB WebSocket server.
+   * Connect to the FlareBase WebSocket server.
    */
   async connect(): Promise<void> {
     const token = this.auth.getAccessToken();

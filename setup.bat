@@ -1,15 +1,15 @@
 @echo off
 setlocal EnableDelayedExpansion
 REM ─────────────────────────────────────────────────────────────────────────────
-REM  AegisDB 1-Click Fast Setup (Double-Clickable in Windows File Explorer)
+REM  FlareBase 1-Click Fast Setup (Double-Clickable in Windows File Explorer)
 REM ─────────────────────────────────────────────────────────────────────────────
 
 cd /d "%~dp0"
-title AegisDB 1-Click Fast Universal Setup
+title FlareBase 1-Click Fast Universal Setup
 
 echo.
 echo ============================================================================
-echo         [AegisDB] 1-Click Fast Universal Device Setup ^& Auto-Installer
+echo         [FlareBase] 1-Click Fast Universal Device Setup ^& Auto-Installer
 echo ============================================================================
 echo.
 
@@ -116,7 +116,7 @@ echo ---------------------------------------------------------------------------
 echo.
 
 echo ----------------------------------------------------------------------------
-echo  [3/3] Fast-installing dependencies and booting AegisDB...
+echo  [3/3] Fast-installing dependencies and booting FlareBase...
 echo ----------------------------------------------------------------------------
 echo.
 

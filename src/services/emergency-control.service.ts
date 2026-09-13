@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/emergency-control.service.ts
-//  AegisDB — Emergency Protocols, Panic Mode & Maintenance Windows Service
+//  FlareBase — Emergency Protocols, Panic Mode & Maintenance Windows Service
 //
 //  Provides 3-Tier Emergency Lockdown:
 //    - Level 1: Read-Only Shield (Mutations frozen, reads allowed)
@@ -240,7 +240,6 @@ class EmergencyControlService {
       p === '/reset-password.html' ||
       p.startsWith('/app.js') ||
       p.startsWith('/flarebase.js') ||
-      p.startsWith('/aegis.js') ||
       p.startsWith('/styles.css') ||
       p.startsWith('/driver.css') ||
       p.startsWith('/assets/') ||

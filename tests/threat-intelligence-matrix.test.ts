@@ -112,7 +112,7 @@ async function runThreatIntelligenceMatrixTests(): Promise<void> {
   // ───────────────────────────────────────────────────────────────────────────
   console.log('\n--- 4. Instant Unflag & Account Restoration ---');
 
-  const unflagResult = threatDetectionService.unflagUser(badUser.user.id, 'admin_super', 'admin@aegisdb.dev');
+  const unflagResult = threatDetectionService.unflagUser(badUser.user.id, 'admin_super', 'admin@flarebase.dev');
   assert(unflagResult.success === true, 'User unflagged successfully');
 
   const postUnflagMatrix = threatDetectionService.getUserSecurityMatrix();
@@ -129,7 +129,7 @@ async function runThreatIntelligenceMatrixTests(): Promise<void> {
   const manualFlag = threatDetectionService.quarantineUser(
     cleanUser.user.id,
     'admin_super',
-    'admin@aegisdb.dev',
+    'admin@flarebase.dev',
     'spam',
     'high',
     'Investigating suspicious alias churn'
@@ -143,14 +143,14 @@ async function runThreatIntelligenceMatrixTests(): Promise<void> {
   assert(quarantinedClean?.riskScore >= 70, 'Quarantined account risk score elevated');
 
   // Restore clean user
-  threatDetectionService.unflagUser(cleanUser.user.id, 'admin_super', 'admin@aegisdb.dev');
+  threatDetectionService.unflagUser(cleanUser.user.id, 'admin_super', 'admin@flarebase.dev');
 
   // ───────────────────────────────────────────────────────────────────────────
   //  TEST 6: Platform Security Audit Execution
   // ───────────────────────────────────────────────────────────────────────────
   console.log('\n--- 6. On-Demand Platform Security Audit ---');
 
-  const auditResult = threatDetectionService.runPlatformSecurityAudit('admin_super', 'admin@aegisdb.dev');
+  const auditResult = threatDetectionService.runPlatformSecurityAudit('admin_super', 'admin@flarebase.dev');
   assert(auditResult.scannedCount >= 2, `Scanned all registered accounts (${auditResult.scannedCount})`);
   assert(!!auditResult.auditTimestamp, 'Audit timestamp recorded');
 
@@ -172,7 +172,7 @@ async function runThreatIntelligenceMatrixTests(): Promise<void> {
   // ───────────────────────────────────────────────────────────────────────────
   console.log('\n--- 8. Purge Resolved Historical Incident Flags ---');
 
-  const purgeRes = threatDetectionService.purgeResolvedIncidents('admin_super', 'admin@aegisdb.dev');
+  const purgeRes = threatDetectionService.purgeResolvedIncidents('admin_super', 'admin@flarebase.dev');
   assert(purgeRes.purgedCount >= 1, `Successfully purged resolved incident records (${purgeRes.purgedCount})`);
 
   // ───────────────────────────────────────────────────────────────────────────

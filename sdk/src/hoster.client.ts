@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/hoster.client.ts
-//  Hoster Project Deployment client module for @aegis/sdk.
+//  Hoster Project Deployment client module for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { AuthClient } from './auth.client.js';

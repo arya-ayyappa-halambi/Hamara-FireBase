@@ -21,7 +21,7 @@ export class ReplicationService {
   private readonly nodeId = process.env.NODE_ID || `node-${Math.random().toString(36).substring(2, 9)}`;
 
   public getReplicationSecret(): string {
-    return process.env.REPLICATION_SECRET || process.env.JWT_SECRET || 'aegisdb_replication_secret_key';
+    return process.env.REPLICATION_SECRET || process.env.JWT_SECRET || 'flarebase_replication_secret_key';
   }
 
   private getPeers(): string[] {
@@ -47,7 +47,7 @@ export class ReplicationService {
             mutations: [mutation],
           }, {
             headers: {
-              'x-aegis-replication-key': this.getReplicationSecret(),
+              'x-flarebase-replication-key': this.getReplicationSecret(),
             },
             timeout: 5000,
           });

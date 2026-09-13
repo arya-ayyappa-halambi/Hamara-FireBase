@@ -4,7 +4,7 @@ import { getDb } from '../db/sqlite.connection';
 
 export interface PortDiagnosticResult {
   port: number;
-  status: 'active_aegis' | 'free' | 'occupied' | 'scheduled_reserved' | 'privileged';
+  status: 'active_flarebase' | 'active_flarebase' | 'free' | 'occupied' | 'scheduled_reserved' | 'privileged';
   label: string;
   available: boolean;
   reason?: string;
@@ -34,7 +34,7 @@ export class NetworkDiagnosticsService {
    * 2. Multi-Host Bind Probe (0.0.0.0 & 127.0.0.1) to detect active socket listeners.
    * 3. Pending Migration Reservation check in SQLite.
    */
-  public async checkPortAvailability(port: number, host: string = '0.0.0.0'): Promise<{ available: boolean; status: 'active_aegis' | 'free' | 'occupied' | 'scheduled_reserved' | 'privileged'; reason: string }> {
+  public async checkPortAvailability(port: number, host: string = '0.0.0.0'): Promise<{ available: boolean; status: 'active_flarebase' | 'active_flarebase' | 'free' | 'occupied' | 'scheduled_reserved' | 'privileged'; reason: string }> {
     if (isNaN(port) || port < 1 || port > 65535) {
       return { available: false, status: 'occupied', reason: 'Invalid port number (must be between 1 and 65535)' };
     }
@@ -200,10 +200,10 @@ export class NetworkDiagnosticsService {
         if (p === currentPort) {
           return {
             port: p,
-            status: 'active_aegis',
-            label: 'Active AegisDB Server',
+            status: 'active_flarebase',
+            label: 'Active FlareBase Server',
             available: true,
-            reason: `Port ${p} is the currently running active AegisDB server`
+            reason: `Port ${p} is the currently running active FlareBase server`
           };
         }
 
@@ -258,9 +258,9 @@ export class NetworkDiagnosticsService {
           const latencyMs = Math.round((performance.now() - start) * 100) / 100;
           return {
             port,
-            status: 'active_aegis' as const,
+            status: 'active_flarebase' as const,
             latencyMs,
-            description: 'Active AegisDB Master Instance',
+            description: 'Active FlareBase Master Instance',
             recommended: false
           };
         }

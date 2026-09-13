@@ -33,7 +33,7 @@ async function runPasskeyTests(): Promise<void> {
   let rawUser = db.prepare('SELECT id FROM users LIMIT 1').get() as any;
   if (!rawUser) {
     const { envelopeEncryptionService } = require('../src/services/envelope-encryption.service');
-    const testEmail = 'passkey.tester@aegisdb.dev';
+    const testEmail = 'passkey.tester@flarebase.dev';
     const emailHash = envelopeEncryptionService.hashBlindIndex(testEmail);
     db.prepare(`
       INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
@@ -54,7 +54,7 @@ async function runPasskeyTests(): Promise<void> {
   const regOptions = passkeyService.generateRegistrationOptions(userId, email, name, 'localhost:3000');
 
   assert(typeof regOptions.challenge === 'string', 'Challenge is generated');
-  assert(regOptions.rp.name.includes('AegisDB'), 'RP name contains AegisDB');
+  assert(regOptions.rp.name.includes('FlareBase'), 'RP name contains FlareBase');
   assert(regOptions.rp.id === 'localhost', 'RP ID matches hostname');
   assert(regOptions.user?.name === email, 'User email preserved in registration challenge');
   assert(Array.isArray(regOptions.pubKeyCredParams), 'pubKeyCredParams array defined');

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/subnet-rate-limiter.service.ts
-//  AegisDB — Adaptive Subnet-Level Rate Limiting & Bandwidth Throttling Engine
+//  FlareBase — Adaptive Subnet-Level Rate Limiting & Bandwidth Throttling Engine
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { getDb, getReaderDb } from '../db/sqlite.connection';

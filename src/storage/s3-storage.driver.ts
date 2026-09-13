@@ -10,7 +10,7 @@ export class S3StorageDriver implements StorageDriver {
   private fallbackLocal: LocalStorageDriver;
 
   constructor() {
-    this.bucket = process.env.LITESTREAM_S3_BUCKET || process.env.S3_BUCKET || 'aegisdb-storage-bucket';
+    this.bucket = process.env.LITESTREAM_S3_BUCKET || process.env.S3_BUCKET || 'flarebase-storage-bucket';
     this.region = process.env.AWS_REGION || 'us-east-1';
     this.fallbackLocal = new LocalStorageDriver();
   }

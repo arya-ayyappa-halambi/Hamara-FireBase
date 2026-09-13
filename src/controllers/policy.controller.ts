@@ -23,7 +23,7 @@ export async function getCurrentPolicy(req: Request, res: Response, next: NextFu
 export async function updatePolicy(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
     const { termsAndConditions, securityPolicy, backupPolicy, newVersion } = req.body;
 
     const updated = policyService.updatePolicy(adminId, adminEmail, {

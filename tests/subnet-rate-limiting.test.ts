@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/subnet-rate-limiting.test.ts
-//  AegisDB — Phase 4: Adaptive Subnet Rate Limiting & Throttling Test Suite
+//  FlareBase — Phase 4: Adaptive Subnet Rate Limiting & Throttling Test Suite
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { subnetRateLimiterService } from '../src/services/subnet-rate-limiter.service';

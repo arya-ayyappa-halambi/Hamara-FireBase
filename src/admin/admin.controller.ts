@@ -640,7 +640,7 @@ export async function dismissSecurityAlert(req: Request, res: Response, next: Ne
   try {
     const { id } = req.params;
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
     threatDetectionService.dismissFlag(id, adminId, adminEmail);
     res.status(200).json({
       success: true,
@@ -655,7 +655,7 @@ export async function manualFlagUser(req: Request, res: Response, next: NextFunc
     const { id } = req.params;
     const { reason, severity, notes } = req.body;
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
 
     const user = await userStore.findById(id);
     if (!user) {
@@ -715,7 +715,7 @@ export async function unflagUserHandler(req: Request, res: Response, next: NextF
   try {
     const { id } = req.params;
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
     const result = threatDetectionService.unflagUser(id, adminId, adminEmail);
     res.status(200).json({
       success: true,
@@ -730,7 +730,7 @@ export async function quarantineUserHandler(req: Request, res: Response, next: N
     const { id } = req.params;
     const { reason, severity, notes } = req.body;
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
     const flag = threatDetectionService.quarantineUser(
       id,
       adminId,
@@ -750,7 +750,7 @@ export async function quarantineUserHandler(req: Request, res: Response, next: N
 export async function runPlatformSecurityAuditHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
     const projectId = (req.body?.projectId || req.query?.projectId) as string | undefined;
     const auditResult = threatDetectionService.runPlatformSecurityAudit(adminId, adminEmail, projectId);
     res.status(200).json({
@@ -774,7 +774,7 @@ export async function exportThreatIntelligenceHandler(req: Request, res: Respons
 export async function purgeResolvedIncidentsHandler(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
     const result = threatDetectionService.purgeResolvedIncidents(adminId, adminEmail);
     res.status(200).json({
       success: true,
@@ -789,7 +789,7 @@ export async function issueComplianceNotice(req: Request, res: Response, next: N
     const { id } = req.params;
     const { category, title, details, deadlineDays } = req.body;
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
 
     const notice = accountModerationService.issueNotice(adminId, adminEmail, id, {
       category,
@@ -823,7 +823,7 @@ export async function reviewComplianceNotice(req: Request, res: Response, next: 
     const { id } = req.params;
     const { decision, decisionNotes } = req.body;
     const adminId = req.user?.sub || 'system';
-    const adminEmail = req.user?.email || 'admin@aegisdb.dev';
+    const adminEmail = req.user?.email || 'admin@flarebase.dev';
 
     if (decision !== 'accepted' && decision !== 'rejected') {
       res.status(400).json({ success: false, message: 'Decision must be "accepted" or "rejected".' });
@@ -892,11 +892,11 @@ export async function checkSinglePort(req: Request, res: Response, next: NextFun
     if (portNum === currentPort) {
       res.status(200).json({
         success: true,
-        message: `Port ${portNum} is the currently running active AegisDB server.`,
+        message: `Port ${portNum} is the currently running active FlareBase server.`,
         data: {
           available: true,
-          status: 'active_aegis',
-          reason: `Port ${portNum} is the currently active AegisDB server`
+          status: 'active_flarebase',
+          reason: `Port ${portNum} is the currently active FlareBase server`
         }
       });
       return;
@@ -945,7 +945,7 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
 
     // Broadcast WebSocket event to all connected clients
     wsService.broadcast('SERVER_SHUTDOWN', {
-      message: `AegisDB Server on port ${port} was stopped by Super Admin (${user?.email || 'admin'}).`,
+      message: `FlareBase Server on port ${port} was stopped by Super Admin (${user?.email || 'admin'}).`,
       port,
       stoppedBy: user?.email || 'Super Admin',
       stoppedAt: new Date().toISOString()
@@ -960,7 +960,7 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
     // Execute platform-specific detached stop worker after 400ms so HTTP response finishes sending
     setTimeout(() => {
       console.log(`\n🛑 [Server] Super Admin (${user?.email || 'admin'}) initiated shutdown.`);
-      console.log(`✅ AegisDB Server on port ${port} successfully killed. Port is now freed!\n`);
+      console.log(`✅ FlareBase Server on port ${port} successfully killed. Port is now freed!\n`);
 
       try {
         const { spawn, exec } = require('child_process');
@@ -979,7 +979,7 @@ export async function shutdownServerHandler(req: Request, res: Response, next: N
         if (process.platform === 'darwin') {
           exec(`osascript -e 'tell application "Terminal"
             repeat with w in windows
-              if (name of w contains "start.command") or (name of w contains "serve.js") or (name of w contains "AegisDB") then
+              if (name of w contains "start.command") or (name of w contains "serve.js") or (name of w contains "FlareBase") then
                 close w
               end if
             end repeat

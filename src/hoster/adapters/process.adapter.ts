@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/hoster/adapters/process.adapter.ts
-//  AegisDB — Local child-process runtime adapter.
+//  FlareBase — Local child-process runtime adapter.
 //
 //  Active when Docker is unavailable. Each deployment is a supervised
 //  `child_process.spawn` inside its extracted workspace directory.
@@ -93,7 +93,7 @@ export class ProcessAdapter implements RuntimeAdapter {
     logBuffer.push(
       `[SYS] ${stamp()} ─────────────────────────────────────────────`,
     );
-    logBuffer.push(`[SYS] ${stamp()} AegisDB ProcessAdapter starting deployment`);
+    logBuffer.push(`[SYS] ${stamp()} FlareBase ProcessAdapter starting deployment`);
     logBuffer.push(`[SYS] ${stamp()} Command : sh -c "${command}"`);
     logBuffer.push(`[SYS] ${stamp()} CWD     : ${workspaceDir}`);
     logBuffer.push(`[SYS] ${stamp()} Port    : ${allocatedPort}`);
@@ -159,7 +159,7 @@ export class ProcessAdapter implements RuntimeAdapter {
     if (!record) return;
 
     record.logBuffer.push(
-      `[SYS] ${new Date().toISOString()} Stop requested by AegisDB.`,
+      `[SYS] ${new Date().toISOString()} Stop requested by FlareBase.`,
     );
     await this.killPid(record.pid);
   }

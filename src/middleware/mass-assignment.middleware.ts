@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/middleware/mass-assignment.middleware.ts
-//  AegisDB — Schema Mass Assignment Sanitizer Middleware.
+//  FlareBase — Schema Mass Assignment Sanitizer Middleware.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';

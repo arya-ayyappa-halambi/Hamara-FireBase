@@ -52,8 +52,8 @@ async function runMultiAccountDeviceScoringTests(): Promise<void> {
   // Insert super admin accounts
   db.prepare(`
     INSERT OR REPLACE INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
-    VALUES ('admin_1_id', 'admin@aegis.dev', 'hash_admin1', 'Super Admin 1', 'hash', 1, datetime('now'), datetime('now')),
-           ('admin_2_id', 'admin@aegisdb.dev', 'hash_admin2', 'Super Admin 2', 'hash', 1, datetime('now'), datetime('now'))
+    VALUES ('admin_1_id', 'admin@flarebase.dev', 'hash_admin1', 'Super Admin 1', 'hash', 1, datetime('now'), datetime('now')),
+           ('admin_2_id', 'admin@flarebase.dev', 'hash_admin2', 'Super Admin 2', 'hash', 1, datetime('now'), datetime('now'))
   `).run();
 
   // Insert arya account
@@ -69,11 +69,11 @@ async function runMultiAccountDeviceScoringTests(): Promise<void> {
   const demoUser = db.prepare('SELECT id FROM users WHERE email = ?').get('demo_tester@mock.com');
   assert(!demoUser, 'Demo account purged from database');
 
-  const admin1 = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@aegis.dev');
-  assert(!!admin1, 'Super Admin 1 (admin@aegis.dev) preserved in database');
+  const admin1 = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@flarebase.dev');
+  assert(!!admin1, 'Super Admin 1 (admin@flarebase.dev) preserved in database');
 
-  const admin2 = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@aegisdb.dev');
-  assert(!!admin2, 'Super Admin 2 (admin@aegisdb.dev) preserved in database');
+  const admin2 = db.prepare('SELECT id FROM users WHERE email = ?').get('admin@flarebase.dev');
+  assert(!!admin2, 'Super Admin 2 (admin@flarebase.dev) preserved in database');
 
   const arya = db.prepare('SELECT id FROM users WHERE email = ?').get('aryaayyappahalambi@gmail.com');
   assert(!!arya, 'Target owner (aryaayyappahalambi@gmail.com) preserved in database');

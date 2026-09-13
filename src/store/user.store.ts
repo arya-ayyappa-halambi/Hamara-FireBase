@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/store/user.store.ts
-//  SQLite-backed user store for AegisDB.
+//  SQLite-backed user store for FlareBase.
 //
 //  Implements the UserStore interface backed by SQLite database.
 // ─────────────────────────────────────────────────────────────────────────────

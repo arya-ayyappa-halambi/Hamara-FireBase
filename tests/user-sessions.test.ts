@@ -29,7 +29,7 @@ async function runSessionTests(): Promise<void> {
 
   const db = getDb();
   const userId = `usr_sess_test_${Date.now()}`;
-  const sessEmail = `sess.tester.${Date.now()}@aegisdb.dev`;
+  const sessEmail = `sess.tester.${Date.now()}@flarebase.dev`;
   const sessHash = require('crypto').createHash('sha256').update(sessEmail).digest('hex');
   db.prepare(`
     INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)

@@ -7,7 +7,7 @@ export class EnvelopeEncryptionService {
     if (!masterSecret || masterSecret.length < 32) {
       throw new Error('ENCRYPTION_KEY or JWT_SECRET must be configured in environment and at least 32 characters.');
     }
-    return Buffer.from(crypto.hkdfSync('sha256', masterSecret, Buffer.from('aegis-kek-salt'), Buffer.from('aegis-kek-info'), 32));
+    return Buffer.from(crypto.hkdfSync('sha256', masterSecret, Buffer.from('flarebase-kek-salt'), Buffer.from('flarebase-kek-info'), 32));
   }
 
   // Encrypt DEK using Master KEK
@@ -106,7 +106,7 @@ export class EnvelopeEncryptionService {
   // Deterministic Blind Index for lookups (e.g. Email)
   hashBlindIndex(value: string): string {
     if (!value) return '';
-    const pepper = process.env.EMAIL_HASH_PEPPER || 'aegisdb_default_email_pepper_64_bytes_deterministic_key';
+    const pepper = process.env.EMAIL_HASH_PEPPER || 'flarebase_default_email_pepper_64_bytes_deterministic_key';
     return crypto.createHmac('sha256', pepper).update(value.trim().toLowerCase()).digest('hex');
   }
 

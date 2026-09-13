@@ -3,7 +3,7 @@ const { getDb, initSqlite } = require('./dist/db/sqlite.connection');
 const Database = require('better-sqlite3');
 require('dotenv').config();
 
-const dbBak = new Database('aegis.db.bak', { readonly: true });
+const dbBak = new Database('flarebase.db.bak', { readonly: true });
 initSqlite();
 const dbMain = getDb();
 
@@ -37,4 +37,4 @@ const restore = dbMain.transaction(() => {
 });
 restore();
 
-console.log(`✅ Restored and encrypted ${count} project_users from aegis.db.bak`);
+console.log(`✅ Restored and encrypted ${count} project_users from flarebase.db.bak`);

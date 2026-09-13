@@ -36,8 +36,8 @@ RUN mkdir -p /app/data /app/uploads
 # Set environment variables
 ENV NODE_ENV=production
 ENV PORT=3000
-# Tell AegisDB to store the SQLite database inside the mounted volume
-ENV DB_PATH=/app/data/aegis.db
+# Tell FlareBase to store the SQLite database inside the mounted volume
+ENV DB_PATH=/app/data/flarebase.db
 
 # Expose the application port
 EXPOSE 3000

@@ -472,7 +472,7 @@ export class TunnelManagerService {
           timeout: 8000,
           headers: {
             'bypass-tunnel-reminder': 'true',
-            'User-Agent': 'AegisDB-Watchdog/1.0'
+            'User-Agent': 'FlareBase-Watchdog/1.0'
           },
           validateStatus: () => true
         });

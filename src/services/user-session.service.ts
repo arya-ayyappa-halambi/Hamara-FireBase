@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/user-session.service.ts
-//  AegisDB — User Active Session Management & Security Audit Log Service
+//  FlareBase — User Active Session Management & Security Audit Log Service
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { v4 as uuidv4 } from 'uuid';

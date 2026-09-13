@@ -27,7 +27,7 @@ async function run() {
   }
 
   try {
-    const dbPath = process.env.DB_PATH || path.resolve(process.cwd(), 'aegis.db');
+    const dbPath = process.env.DB_PATH || path.resolve(process.cwd(), 'flarebase.db');
     const sqlite = require('better-sqlite3');
     const db = new sqlite(dbPath);
 

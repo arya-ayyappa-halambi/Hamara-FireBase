@@ -40,7 +40,7 @@ function getOwnerId(req: Request): string {
 }
 
 function getProjectId(req: Request): string {
-  const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+  const headerProjId = req.headers['x-flarebase-project-id'] as string | undefined;
 
   // 1. If using API key, req.project is set securely by api-key middleware.
   if (req.project?.id) {
@@ -51,7 +51,7 @@ function getProjectId(req: Request): string {
     }
     // Also enforce header consistency if explicitly passed
     if (headerProjId && headerProjId !== req.project.id) {
-      throw new AppError('Access denied: x-aegis-project-id header does not match the authenticated project API key.', 403);
+      throw new AppError('Access denied: x-flarebase-project-id header does not match the authenticated project API key.', 403);
     }
     return req.project.id;
   }
@@ -66,7 +66,7 @@ function getProjectId(req: Request): string {
   }
 
   if (!headerProjId || typeof headerProjId !== 'string') {
-    throw new AppError('Project context missing. Ensure API key or x-aegis-project-id header is provided.', 400);
+    throw new AppError('Project context missing. Ensure API key or x-flarebase-project-id header is provided.', 400);
   }
 
   // 3. If it's a super admin user, allow access to any project.

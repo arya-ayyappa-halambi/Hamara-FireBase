@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/principal-security-audit.test.ts
-//  AegisDB — Isolated & Comprehensive Principal Security Audit Suite.
+//  FlareBase — Isolated & Comprehensive Principal Security Audit Suite.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import assert from 'assert';
@@ -56,7 +56,7 @@ function recordResult(
 
 async function executeAudit() {
   console.log('═══════════════════════════════════════════════════════════════════');
-  console.log('🔒 AEGISDB BACKEND ENGINE — COMPREHENSIVE SECURITY AUDIT SUITE');
+  console.log('🔒 FLAREBASE BACKEND ENGINE — COMPREHENSIVE SECURITY AUDIT SUITE');
   console.log('═══════════════════════════════════════════════════════════════════\n');
 
   process.env.JWT_SECRET = 'super_secret_jwt_key_for_testing_123456789';
@@ -64,7 +64,7 @@ async function executeAudit() {
   const db = getDb();
 
   // Create isolated audit user
-  const auditUserEmail = `sec_audit_${Date.now()}@aegisdb.internal`;
+  const auditUserEmail = `sec_audit_${Date.now()}@flarebase.internal`;
   const auditUser = await userStore.create({
     id: testOwnerId,
     email: auditUserEmail,
@@ -168,7 +168,7 @@ async function executeAudit() {
 
   // Step 2.2: Account Lockout after 5 failed login attempts
   const testIp = '192.0.2.45';
-  const targetEmail = `lockout_target_${Date.now()}@aegisdb.dev`;
+  const targetEmail = `lockout_target_${Date.now()}@flarebase.dev`;
 
   for (let i = 1; i <= 4; i++) {
     const res = failedLoginService.recordFailedAttempt(testIp, targetEmail);
@@ -315,7 +315,7 @@ async function executeAudit() {
   const mfaPasswordHash = await hashPassword('Password123!');
   const mfaSetupUser = await userStore.create({
     id: `mfa_user_${Date.now()}`,
-    email: `mfa_audit_${Date.now()}@aegis.dev`,
+    email: `mfa_audit_${Date.now()}@flarebase.dev`,
     name: 'MFA Audit User',
     passwordHash: mfaPasswordHash,
     isSuperAdmin: false,
@@ -425,7 +425,7 @@ async function executeAudit() {
   // Step 8.1: Issue initial refresh token
   const tokenUser = await userStore.create({
     id: `token_user_${Date.now()}`,
-    email: `token_audit_${Date.now()}@aegis.dev`,
+    email: `token_audit_${Date.now()}@flarebase.dev`,
     name: 'Token Family User',
     passwordHash: '$argon2id$v=19$m=65536,t=3,p=4$dGVzdHNhbHQ$dGVzdHhhc2g',
     isSuperAdmin: false,
@@ -576,7 +576,7 @@ async function executeAudit() {
   db.prepare('DELETE FROM projects WHERE id = ?').run(testProjectId);
 
   // 3. Purge ephemeral audit users
-  db.prepare("DELETE FROM users WHERE email LIKE '%@aegisdb.internal' OR email LIKE '%@aegis.dev' OR email LIKE '%@aegisdb.dev'").run();
+  db.prepare("DELETE FROM users WHERE email LIKE '%@flarebase.internal' OR email LIKE '%@flarebase.dev' OR email LIKE '%@flarebase.dev'").run();
 
   // 4. Verify database state
   const remainingAuditCols = db.prepare('SELECT COUNT(*) as count FROM collections WHERE name = ?').get(TEST_COLLECTION) as any;

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
-#  AegisDB 1-Click Fast Linux Universal Setup
+#  FlareBase 1-Click Fast Linux Universal Setup
 # ─────────────────────────────────────────────────────────────────────────────
 
 cd "$(dirname "$0")" || exit 1
@@ -32,7 +32,7 @@ fi
 
 if ! command -v node &> /dev/null; then
   echo ""
-  echo "❌ Node.js is required to run AegisDB."
+  echo "❌ Node.js is required to run FlareBase."
   echo "   Please install Node.js 18+ from https://nodejs.org and re-run ./setup.sh."
   echo ""
   exit 1

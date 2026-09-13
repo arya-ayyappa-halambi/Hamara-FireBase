@@ -480,7 +480,7 @@ export class ProjectAuthService {
       if (!isPasswordValid) throw new AppError('Invalid account password.', 401);
     }
 
-    let decryptedEmail = 'project_user@aegis.dev';
+    let decryptedEmail = 'project_user@flarebase.dev';
     try {
       decryptedEmail = envelopeEncryptionService.decryptField(JSON.parse(user.email), projectId);
     } catch (_) {}
@@ -544,7 +544,7 @@ export class ProjectAuthService {
       throw new AppError('This account does not have an active deletion request.', 400);
     }
 
-    let decryptedEmail = 'project_user@aegis.dev';
+    let decryptedEmail = 'project_user@flarebase.dev';
     try {
       decryptedEmail = envelopeEncryptionService.decryptField(JSON.parse(user.email), projectId);
     } catch (_) {}

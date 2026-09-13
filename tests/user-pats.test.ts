@@ -33,7 +33,7 @@ async function runPatTests(): Promise<void> {
     db.prepare(`
       INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
       VALUES (?, ?, ?, 'PAT Tester', 'fake_hash', 0, datetime('now'), datetime('now'))
-    `).run('pat-test-user-id', 'pat.tester@aegisdb.dev', 'pat_hash');
+    `).run('pat-test-user-id', 'pat.tester@flarebase.dev', 'pat_hash');
     testUser = { id: 'pat-test-user-id' };
   }
   const userId = testUser.id;

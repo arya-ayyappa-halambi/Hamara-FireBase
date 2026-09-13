@@ -1,14 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/types.ts
-//  Type definitions for @aegis/sdk.
+//  Type definitions for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface AegisConfig {
-  /** AegisDB server HTTP base URL (e.g. 'http://localhost:3000'). Default: 'http://localhost:3000' */
+export interface FlareBaseConfig {
+  /** FlareBase server HTTP base URL (e.g. 'http://localhost:3000'). Default: 'http://localhost:3000' */
   baseUrl?: string;
-  /** AegisDB server WebSocket URL (e.g. 'ws://localhost:3000'). Default derived from baseUrl. */
+  /** FlareBase server WebSocket URL (e.g. 'ws://localhost:3000'). Default derived from baseUrl. */
   wsUrl?: string;
-  /** Project API Key (e.g. 'aegis_pk_...' or service key 'aegis_sk_...'). */
+  /** Project API Key (e.g. 'flare_pk_...' or service key 'flare_sk_...'). */
   apiKey?: string;
   /** Specific Project ID context (optional). */
   projectId?: string;
@@ -19,6 +19,7 @@ export interface AegisConfig {
   /** Auto-refresh expired access tokens before requests (default: true). */
   autoRefresh?: boolean;
 }
+
 
 export interface ApiResponse<T = unknown> {
   success: boolean;

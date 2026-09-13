@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/waf-shield.service.ts
-//  AegisDB — Layer-7 Web Application Firewall (WAF) & Payload Shield
+//  FlareBase — Layer-7 Web Application Firewall (WAF) & Payload Shield
 //
 //  In-memory, zero-dependency deep packet inspection engine detecting:
 //    - SQL Injection (SQLi)

@@ -33,7 +33,7 @@ function getOwnerId(req: Request): string {
 }
 
 function getResolvedProjectId(req: Request): string | undefined {
-  const headerProjId = req.headers['x-aegis-project-id'] as string | undefined;
+  const headerProjId = req.headers['x-flarebase-project-id'] as string | undefined;
 
   if (req.project?.id) {
     const projectUser = req.projectUser || (req.user as any)?.isProjectUser ? (req.user as any) : undefined;
@@ -41,7 +41,7 @@ function getResolvedProjectId(req: Request): string | undefined {
       throw new AppError('Access denied: Authentication token does not match the project API key.', 403);
     }
     if (headerProjId && headerProjId !== req.project.id) {
-      throw new AppError('Access denied: x-aegis-project-id header does not match the authenticated project API key.', 403);
+      throw new AppError('Access denied: x-flarebase-project-id header does not match the authenticated project API key.', 403);
     }
     return req.project.id;
   }

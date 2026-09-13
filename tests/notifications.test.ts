@@ -33,7 +33,7 @@ async function runNotificationTests(): Promise<void> {
     db.prepare(`
       INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
       VALUES (?, ?, ?, 'Notif User', 'fake_pass', 0, datetime('now'), datetime('now'))
-    `).run('notif-user-id', 'notif@aegisdb.dev', 'notif_hash');
+    `).run('notif-user-id', 'notif@flarebase.dev', 'notif_hash');
     testUser = { id: 'notif-user-id' };
   }
   const userId = testUser.id;

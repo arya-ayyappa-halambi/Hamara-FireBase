@@ -41,8 +41,8 @@ async function runCrossProjectTests(): Promise<void> {
 
   // 1. Setup Two Distinct Developers and Projects
   console.log("--- 1. Provision Two Distinct Projects ---");
-  const devEmail1 = `dev1_${Date.now()}@aegis.dev`;
-  const devEmail2 = `dev2_${Date.now()}@aegis.dev`;
+  const devEmail1 = `dev1_${Date.now()}@flarebase.dev`;
+  const devEmail2 = `dev2_${Date.now()}@flarebase.dev`;
 
   await registerUser({ email: devEmail1, password: "Password123!", name: "Dev Alpha" });
   await registerUser({ email: devEmail2, password: "Password123!", name: "Dev Beta" });
@@ -166,7 +166,7 @@ async function runCrossProjectTests(): Promise<void> {
   // Test root register with API Key (Ingress Interception)
   const clientUserEmail = `client_${Date.now()}@test.com`;
   const mockRegisterReq: any = {
-    headers: { 'x-aegis-api-key': projResultA.rawApiKey },
+    headers: { 'x-flarebase-api-key': projResultA.rawApiKey },
     body: { email: clientUserEmail, password: "ClientPassword123!" }
   };
   let registerResData: any = null;
@@ -197,7 +197,7 @@ async function runCrossProjectTests(): Promise<void> {
 
   // Test root login with API Key (Ingress Interception)
   const mockLoginReq: any = {
-    headers: { 'x-aegis-api-key': projResultA.rawApiKey },
+    headers: { 'x-flarebase-api-key': projResultA.rawApiKey },
     body: { email: clientUserEmail, password: "ClientPassword123!" },
     ip: "127.0.0.1"
   };

@@ -204,7 +204,7 @@
   <div id="auth-screen" class="fixed inset-0 z-50 w-full h-screen bg-[#090d16] overflow-hidden">
 
   <!-- BACKGROUND CAROUSEL (Spans Full Screen) -->
-  <div id="aegis-carousel" class="absolute inset-0 hidden lg:block z-0 pointer-events-none">
+  <div id="flarebase-carousel" class="absolute inset-0 hidden lg:block z-0 pointer-events-none">
     <!-- Slide 0: Why FlareBase -->
     <div class="carousel-slide absolute inset-0 transition-opacity duration-1000 ease-in-out opacity-100 z-10">
       <img src="https://images.unsplash.com/photo-1558494949-ef010cbdcc31?q=80&w=2034&auto=format&fit=crop" class="w-full h-full object-cover opacity-60 mix-blend-overlay" />
@@ -936,7 +936,7 @@
                     <span>1-Click Admin Login (Demo)</span>
                   </span>
                 </div>
-                <span class="font-mono text-[10px] text-amber-400/90 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 group-hover:bg-amber-500/30 transition">admin@aegisdb.dev</span>
+                <span class="font-mono text-[10px] text-amber-400/90 bg-amber-500/20 px-2 py-0.5 rounded border border-amber-500/30 group-hover:bg-amber-500/30 transition">admin@flarebase.dev</span>
               </button>
             </div>
 
@@ -2695,7 +2695,7 @@
                   <p class="text-[11px] text-slate-400 leading-relaxed">Custom domain, reverse-proxy hostname, or static IP address.</p>
                 </div>
                 <div class="text-[10px] font-mono text-purple-300/80 bg-black/40 p-2 rounded-xl border border-white/5">
-                  ➜ Custom: api.aegisdb.dev
+                  ➜ Custom: api.flarebase.dev
                 </div>
               </div>
             </div>
@@ -2785,7 +2785,7 @@
                   <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Custom Domain / FQDN</label>
                   <span class="text-[10px] text-slate-500">Optional</span>
                 </div>
-                <input type="text" id="hosttab-input-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-white" placeholder="api.aegisdb.dev">
+                <input type="text" id="hosttab-input-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono text-white" placeholder="api.flarebase.dev">
                 <p class="text-[10px] text-slate-500 pt-1">If specified, AI prompts and client snippets will use this domain.</p>
               </div>
             </div>
@@ -2923,7 +2923,7 @@
                   <span class="w-3 h-3 rounded-full bg-red-500/80 inline-block"></span>
                   <span class="w-3 h-3 rounded-full bg-yellow-500/80 inline-block"></span>
                   <span class="w-3 h-3 rounded-full bg-green-500/80 inline-block"></span>
-                  <span class="text-[11px] text-slate-400 pl-2">aegis-server-process (live stdout)</span>
+                  <span class="text-[11px] text-slate-400 pl-2">flarebase-server-process (live stdout)</span>
                 </div>
                 <div class="flex items-center space-x-3 text-[10px] text-slate-500">
                   <span id="label-terminal-entry-count">0 entries</span>
@@ -3155,7 +3155,7 @@
 
               <div class="space-y-1">
                 <label class="text-[10px] font-semibold text-slate-400">Custom Subdomain (Optional)</label>
-                <input type="text" id="input-tunnel-domain" placeholder="e.g. my-company-aegis" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
+                <input type="text" id="input-tunnel-domain" placeholder="e.g. my-company-flarebase" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs font-mono text-white bg-slate-900 border border-white/10">
               </div>
 
               <div class="space-y-1">
@@ -3358,7 +3358,7 @@
               <div class="col-span-full flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1 border-t border-white/5">
                 <div class="text-[11px] text-purple-300 flex items-center space-x-1.5">
                   <i class="fa-solid fa-terminal text-xs"></i>
-                  <span>Quick n2n Command: <code class="px-1.5 py-0.5 rounded bg-black/60 font-mono text-[10px] text-purple-200">edge -d edge0 -a 10.1.0.5 -c aegis_mesh -k aegis_key -l supernode.ntop.org:7777</code></span>
+                  <span>Quick n2n Command: <code class="px-1.5 py-0.5 rounded bg-black/60 font-mono text-[10px] text-purple-200">edge -d edge0 -a 10.1.0.5 -c flare_mesh -k flare_key -l supernode.ntop.org:7777</code></span>
                 </div>
                 <div class="flex items-center space-x-2 shrink-0">
                   <button type="button" onclick="window.saveMeshVpnSettings()" class="px-3.5 py-1.5 rounded-lg bg-purple-600/40 hover:bg-purple-600/60 text-purple-200 border border-purple-500/40 text-xs font-semibold transition flex items-center space-x-1">
@@ -4074,7 +4074,7 @@
                 </div>
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">S3 Bucket Name</label>
-                  <input type="text" id="setting-s3-bucket" class="w-full px-3 py-2 rounded-xl glass-input text-xs" placeholder="my-aegis-backups">
+                  <input type="text" id="setting-s3-bucket" class="w-full px-3 py-2 rounded-xl glass-input text-xs" placeholder="my-flarebase-backups">
                 </div>
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">S3 Region</label>
@@ -5122,7 +5122,7 @@
                     <i class="fa-solid fa-link text-indigo-400 text-[10px]"></i>
                     <span>n8n Webhook Trigger URL:</span>
                   </label>
-                  <input type="text" id="input-n8n-webhook-url" placeholder="http://localhost:5678/webhook/aegis-events" class="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/10 text-xs font-mono text-white placeholder-slate-600 focus:border-indigo-500">
+                  <input type="text" id="input-n8n-webhook-url" placeholder="http://localhost:5678/webhook/flarebase-events" class="w-full px-3 py-2 rounded-xl bg-black/60 border border-white/10 text-xs font-mono text-white placeholder-slate-600 focus:border-indigo-500">
                 </div>
 
                 <div class="space-y-1.5">
@@ -5201,7 +5201,7 @@
                       <span class="text-xs font-mono text-slate-300">document.created</span>
                       <span class="text-[10px] text-rose-400">HTTP 500</span>
                     </div>
-                    <div class="text-[10px] text-slate-500 break-all">https://api.example.com/hooks/aegis</div>
+                    <div class="text-[10px] text-slate-500 break-all">https://api.example.com/hooks/flarebase</div>
                     <button class="w-full py-1 mt-1 bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 rounded text-[10px] transition border border-indigo-500/30">
                       Replay Event
                     </button>
@@ -5830,7 +5830,7 @@ const docs = await flare.collection('todos').get();</code></pre>
 
                 <div class="space-y-1">
                   <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Custom Domain / IP Override (Optional)</label>
-                  <input type="text" id="setting-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="e.g. api.aegisdb.dev or 192.168.1.50">
+                  <input type="text" id="setting-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="e.g. api.flarebase.dev or 192.168.1.50">
                 </div>
 
                 <!-- Detailed Target Endpoint Display -->
@@ -6460,7 +6460,7 @@ const docs = await flare.collection('todos').get();</code></pre>
                 </div>
                 <h2 class="text-3xl font-extrabold text-white tracking-tight">Using FlareBase to Host Your Project's Database</h2>
                 <p class="text-sm text-slate-300 max-w-2xl">
-                  FlareBase provides a multi-tenant backend-as-a-service engine. Reference <code class="text-amber-300 bg-black/40 px-1.5 py-0.5 rounded font-mono">@aegis/sdk</code> in your external projects to automatically manage collections, store documents, upload files, and trigger hoster deployments.
+                  FlareBase provides a multi-tenant backend-as-a-service engine. Reference <code class="text-amber-300 bg-black/40 px-1.5 py-0.5 rounded font-mono">@flarebase/sdk</code> in your external projects to automatically manage collections, store documents, upload files, and trigger hoster deployments.
                 </p>
               </div>
               <div class="flex gap-3">
@@ -6523,7 +6523,7 @@ const docs = await flare.collection('todos').get();</code></pre>
             <div class="glass-panel p-6 rounded-2xl border border-white/10 space-y-4">
               <div class="flex items-center space-x-3">
                 <span class="w-7 h-7 rounded-lg bg-indigo-500 text-white font-bold text-xs flex items-center justify-center">1</span>
-                <h3 class="text-base font-bold text-white">Installing & Linking `@aegis/sdk`</h3>
+                <h3 class="text-base font-bold text-white">Installing & Linking `@flarebase/sdk`</h3>
               </div>
               <p class="text-xs text-slate-400 leading-relaxed">
                 Build the SDK inside this repository, then link it locally or list it in your external project's <code class="text-indigo-300 font-mono">package.json</code>.
@@ -6532,9 +6532,9 @@ const docs = await flare.collection('todos').get();</code></pre>
                 <div><span class="text-slate-500"># 1. Build and link the SDK inside FlareBase project:</span></div>
                 <div><span class="text-indigo-400">cd</span> sdk && npm run build && npm link</div>
                 <div class="pt-1"><span class="text-slate-500"># 2. In your external project directory:</span></div>
-                <div><span class="text-indigo-400">npm link</span> @aegis/sdk</div>
+                <div><span class="text-indigo-400">npm link</span> @flarebase/sdk</div>
                 <div class="pt-1"><span class="text-slate-500"># Or add direct file reference in package.json:</span></div>
-                <div class="text-slate-300">"@aegis/sdk": "file:../Hamara-FireBase-main 2/sdk"</div>
+                <div class="text-slate-300">"@flarebase/sdk": "file:../Hamara-FireBase-main 2/sdk"</div>
               </div>
             </div>
 
@@ -6568,24 +6568,24 @@ const docs = await flare.collection('todos').get();</code></pre>
               <!-- Code Example 1: Client Initialization & Auth -->
               <div>
                 <h4 class="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-2">1. Client Initialization & Authentication</h4>
-                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>import FlareBase from '@aegis/sdk';
+                <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>import FlareBase from '@flarebase/sdk';
 
 // Initialize SDK pointing to your host server
-const aegis = new FlareBase({ baseUrl: 'http://localhost:3000' });
+const flare = new FlareBase({ baseUrl: 'http://localhost:3000' });
 
 // Authenticate developer or project user
-await aegis.auth.login('developer@example.com', 'Password123!');
-console.log('Authenticated User ID:', aegis.auth.getUser()?.id);</code></pre>
+await flare.auth.login('developer@example.com', 'Password123!');
+console.log('Authenticated User ID:', flare.auth.getUser()?.id);</code></pre>
               </div>
 
               <!-- Code Example 2: Database Operations -->
               <div>
                 <h4 class="text-xs font-bold text-amber-300 uppercase tracking-wider mb-2">2. Collection Creation & Document CRUD</h4>
                 <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>// 1. Create a dynamic collection
-await aegis.db.createCollection('app_orders', 'Customer purchases');
+await flare.db.createCollection('app_orders', 'Customer purchases');
 
 // 2. Insert a document into 'app_orders'
-const newOrder = await aegis.db.createDocument('app_orders', {
+const newOrder = await flare.db.createDocument('app_orders', {
   customer: 'Alice',
   totalAmount: 149.99,
   status: 'completed',
@@ -6593,7 +6593,7 @@ const newOrder = await aegis.db.createDocument('app_orders', {
 });
 
 // 3. Query documents from 'app_orders'
-const orders = await aegis.db.queryDocuments('app_orders');
+const orders = await flare.db.queryDocuments('app_orders');
 console.log('Retrieved Orders:', orders);</code></pre>
               </div>
 
@@ -6601,7 +6601,7 @@ console.log('Retrieved Orders:', orders);</code></pre>
               <div>
                 <h4 class="text-xs font-bold text-emerald-300 uppercase tracking-wider mb-2">3. Hosting Project Deployments via HosterClient</h4>
                 <pre class="bg-[#050811] p-4 rounded-xl border border-white/10 text-xs font-mono text-slate-300 overflow-x-auto"><code>// Upload project zip bundle and deploy via FlareBase hoster engine
-const deployment = await aegis.hoster.deploy(zipBlob, {
+const deployment = await flare.hoster.deploy(zipBlob, {
   name: 'my-frontend-service',
   startCommand: 'npm start'
 });
@@ -6691,7 +6691,7 @@ console.log('Deployment status:', deployment.status);</code></pre>
             </div>
             <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
               <span class="text-emerald-400 font-semibold block">🔑 Headers</span>
-              <span class="font-mono text-slate-400">x-aegis-api-key: aegis_pk_...<br>Authorization: Bearer &lt;JWT&gt;</span>
+              <span class="font-mono text-slate-400">x-flarebase-api-key: flare_pk_...<br>Authorization: Bearer &lt;JWT&gt;</span>
             </div>
             <div class="p-3 rounded-xl bg-black/40 border border-white/5 space-y-1">
               <span class="text-emerald-400 font-semibold block">📦 Document CRUD & Rules</span>
@@ -6723,8 +6723,8 @@ I want to migrate my application backend from my current stack (Firebase / Supab
 
 FlareBase Server Specifications:
 - Base URL: http://localhost:3000 (or my configured host)
-- Project API Key: Retrieve from localStorage ('flareApiKey' or 'aegisApiKey') or config constant. Pass in 'x-flare-api-key' (or 'x-aegis-api-key') header.
-- User Session: When users sign in, store their JWT token in localStorage ('flareToken' or 'aegisToken') and pass 'Authorization: Bearer &lt;token&gt;'.
+- Project API Key: Retrieve from localStorage ('flarebaseApiKey' or 'flareApiKey') or config constant. Pass in 'x-flare-api-key' (or 'x-flarebase-api-key') header.
+- User Session: When users sign in, store their JWT token in localStorage ('flarebaseToken' or 'flareToken') and pass 'Authorization: Bearer &lt;token&gt;'.
 
 Please systematically migrate the application according to these specifications:
 
@@ -6810,15 +6810,15 @@ class FlareBaseClient {
   constructor(options = {}) {
     const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
     this.baseUrl = (options.baseUrl || defaultOrigin).replace(/\/+$/, '');
-    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareApiKey') || localStorage.getItem('aegisApiKey')) : '') || '';
-    this.token = options.token || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareToken') || localStorage.getItem('aegisToken')) : '') || '';
+    this.apiKey = options.apiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareApiKey') || localStorage.getItem('flarebaseApiKey')) : '') || '';
+    this.token = options.token || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareToken') || localStorage.getItem('flarebaseToken')) : '') || '';
   }
 
   setApiKey(key) {
     this.apiKey = key;
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('flareApiKey', key);
-      localStorage.setItem('aegisApiKey', key);
+      localStorage.setItem('flarebaseApiKey', key);
     }
   }
 
@@ -6827,10 +6827,10 @@ class FlareBaseClient {
     if (typeof localStorage !== 'undefined') {
       if (token) {
         localStorage.setItem('flareToken', token);
-        localStorage.setItem('aegisToken', token);
+        localStorage.setItem('flarebaseToken', token);
       } else {
         localStorage.removeItem('flareToken');
-        localStorage.removeItem('aegisToken');
+        localStorage.removeItem('flarebaseToken');
       }
     }
   }
@@ -6839,7 +6839,7 @@ class FlareBaseClient {
     const headers = { ...(options.headers || {}) };
     if (this.apiKey) {
       headers['x-flare-api-key'] = this.apiKey;
-      headers['x-aegis-api-key'] = this.apiKey;
+      headers['x-flarebase-api-key'] = this.apiKey;
     }
     if (this.token) headers['Authorization'] = `Bearer ${this.token}`;
 
@@ -6986,29 +6986,29 @@ export default FlareBaseClient;</code></pre>
         <div>
           <h4 class="text-white font-semibold text-base mb-2">1. Client Initialization (SDK or REST)</h4>
           <p class="mb-3 text-slate-400">FlareBase can be integrated into any frontend or backend application using our lightweight SDK or standard fetch calls.</p>
-          <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>import { FlareBase } from '@aegis/sdk';
+          <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>import { FlareBase } from '@flarebase/sdk';
 
-const aegis = new FlareBase({
+const flare = new FlareBase({
   baseUrl: 'http://localhost:3000',
-  apiKey: 'aegis_pk_...' // Your Project API Key
+  apiKey: 'flare_pk_...' // Your Project API Key
 });
 
 // Or use standard fetch():
-// headers: { 'x-aegis-api-key': 'aegis_pk_...' }</code></pre>
+// headers: { 'x-flarebase-api-key': 'flare_pk_...' }</code></pre>
         </div>
         
         <div>
           <h4 class="text-white font-semibold text-base mb-2">2. Document CRUD & Real-Time Sync</h4>
           <p class="mb-3 text-slate-400">Perform database operations directly on dynamic collections with zero-friction schema validation and transparent field encryption.</p>
           <pre class="bg-slate-900/90 p-4 rounded-xl border border-white/10 text-emerald-400 font-mono text-xs overflow-x-auto"><code>// Insert a document
-const userDoc = await aegis.db.insertDocument('users', {
+const userDoc = await flare.db.insertDocument('users', {
   name: 'Ada Lovelace',
   email: 'ada@example.com',
   role: 'admin'
 });
 
 // Query documents
-const activeUsers = await aegis.db.queryDocuments('users', {
+const activeUsers = await flare.db.queryDocuments('users', {
   filter: { role: 'admin' },
   limit: 20
 });</code></pre>
@@ -7695,15 +7695,15 @@ const activeUsers = await aegis.db.queryDocuments('users', {
               <div class="w-6 h-6 rounded bg-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0 mt-0.5"><i class="fa-solid fa-gear text-xs"></i></div>
               <div>
                 <strong class="text-white block mb-1">Configuration</strong>
-                <p class="text-slate-400 text-xs">Enable the <code>Local Drive Setup</code> toggle in the Backup Configuration panel. Specify the absolute directory path where backups should be stored (e.g., <code>/var/aegisdb/backups</code>). Ensure the Node.js process has write permissions to this directory. A unique <strong>Generation ID</strong> will be automatically appended to each backup file to track snapshot versions and prevent overwriting.</p>
+                <p class="text-slate-400 text-xs">Enable the <code>Local Drive Setup</code> toggle in the Backup Configuration panel. Specify the absolute directory path where backups should be stored (e.g., <code>/var/flarebase/backups</code>). Ensure the Node.js process has write permissions to this directory. A unique <strong>Generation ID</strong> will be automatically appended to each backup file to track snapshot versions and prevent overwriting.</p>
               </div>
             </div>
             <div class="flex items-start space-x-3">
               <div class="w-6 h-6 rounded bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5"><i class="fa-solid fa-rotate-left text-xs"></i></div>
               <div>
                 <strong class="text-white block mb-1">Retrieval & Restoration</strong>
-                <p class="text-slate-400 text-xs">Local backups are stored as <code>.sqlite3.bak</code> files. To restore, stop the FlareBase service, replace the primary <code>aegis.db</code> file with the desired backup file, and restart the service.</p>
-                <code class="block mt-2 bg-black/50 text-emerald-300 p-2 rounded text-[11px] font-mono border border-white/10">cp /var/aegisdb/backups/aegis_20260812.sqlite3.bak ./aegis.db<br>npm run start</code>
+                <p class="text-slate-400 text-xs">Local backups are stored as <code>.sqlite3.bak</code> files. To restore, stop the FlareBase service, replace the primary <code>flarebase.db</code> file with the desired backup file, and restart the service.</p>
+                <code class="block mt-2 bg-black/50 text-emerald-300 p-2 rounded text-[11px] font-mono border border-white/10">cp /var/flarebase/backups/flarebase_20260812.sqlite3.bak ./flarebase.db<br>npm run start</code>
               </div>
             </div>
           </div>
@@ -7731,7 +7731,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
               <div>
                 <strong class="text-white block mb-1">Retrieval & Restoration</strong>
                 <p class="text-slate-400 text-xs">To restore from S3, use the AWS CLI to download the backup file to your server, then replace the primary database file.</p>
-                <code class="block mt-2 bg-black/50 text-emerald-300 p-2 rounded text-[11px] font-mono border border-white/10">aws s3 cp s3://your-bucket-name/aegis_backup.sqlite3.bak ./aegis.db<br>npm run start</code>
+                <code class="block mt-2 bg-black/50 text-emerald-300 p-2 rounded text-[11px] font-mono border border-white/10">aws s3 cp s3://your-bucket-name/flarebase_backup.sqlite3.bak ./flarebase.db<br>npm run start</code>
               </div>
             </div>
           </div>
@@ -8323,7 +8323,7 @@ const activeUsers = await aegis.db.queryDocuments('users', {
 
         <div class="space-y-1">
           <label class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Custom Domain / IP Override (Optional)</label>
-          <input type="text" id="schedule-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="api.aegisdb.dev or 192.168.1.50">
+          <input type="text" id="schedule-custom-domain" class="w-full px-4 py-2.5 rounded-xl glass-input text-xs font-mono" placeholder="api.flarebase.dev or 192.168.1.50">
         </div>
 
         <div class="space-y-1">

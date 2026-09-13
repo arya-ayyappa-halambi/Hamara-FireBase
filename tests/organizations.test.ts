@@ -36,14 +36,14 @@ async function runOrgTests(): Promise<void> {
     db.prepare(`
       INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
       VALUES (?, ?, ?, 'Org Owner', 'fake_pass', 1, datetime('now'), datetime('now'))
-    `).run('org-owner-id', 'owner@aegisdb.dev', 'owner_hash');
-    testUser = { id: 'org-owner-id', email: 'owner@aegisdb.dev' };
+    `).run('org-owner-id', 'owner@flarebase.dev', 'owner_hash');
+    testUser = { id: 'org-owner-id', email: 'owner@flarebase.dev' };
   }
   const ownerId = testUser.id;
 
   // Create two extra test users for RBAC testing
   const aliceId = `usr_${uuidv4()}`;
-  const aliceEmail = `alice_${Date.now()}@aegisdb.dev`;
+  const aliceEmail = `alice_${Date.now()}@flarebase.dev`;
   const aliceHash = crypto.createHash('sha256').update(aliceEmail).digest('hex');
   db.prepare(`
     INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
@@ -51,7 +51,7 @@ async function runOrgTests(): Promise<void> {
   `).run(aliceId, aliceEmail, aliceHash, new Date().toISOString(), new Date().toISOString());
 
   const bobId = `usr_${uuidv4()}`;
-  const bobEmail = `bob_${Date.now()}@aegisdb.dev`;
+  const bobEmail = `bob_${Date.now()}@flarebase.dev`;
   const bobHash = crypto.createHash('sha256').update(bobEmail).digest('hex');
   db.prepare(`
     INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)

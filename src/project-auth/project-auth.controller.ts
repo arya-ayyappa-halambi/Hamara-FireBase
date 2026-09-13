@@ -17,7 +17,7 @@ function getResolvedProjectId(req: Request): string {
   }
   
   // 2. Used by Dashboard (Admin JWT) or Project User Token
-  const headerProjId = req.headers['x-aegis-project-id'] as string;
+  const headerProjId = (req.headers['x-flarebase-project-id'] || req.headers['x-flare-project-id'] || req.headers['x-project-id'] || req.headers['x-flarebase-project-id']) as string;
   const bodyProjId = req.body.projectId as string;
   const user = req.user as any;
 
@@ -31,7 +31,7 @@ function getResolvedProjectId(req: Request): string {
   const projectId = headerProjId || bodyProjId;
   
   if (!projectId) {
-    throw new AppError('Project ID is missing. Provide x-aegis-api-key header or x-aegis-project-id header.', 400);
+    throw new AppError('Project ID is missing. Provide x-flarebase-api-key header or x-flarebase-project-id header.', 400);
   }
 
   if (user && !user.isProjectUser) {

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/storage.client.ts
-//  Biometric & Asset Storage client module for @aegis/sdk.
+//  Biometric & Asset Storage client module for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { AuthClient } from './auth.client.js';
@@ -29,10 +29,14 @@ export class StorageClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
     if (this.apiKey) {
-      headers['x-aegis-api-key'] = this.apiKey;
+      headers['x-flarebase-api-key'] = this.apiKey;
+      headers['x-flare-api-key'] = this.apiKey;
+      headers['x-flarebase-api-key'] = this.apiKey;
     }
     if (this.projectId) {
-      headers['x-aegis-project-id'] = this.projectId;
+      headers['x-flarebase-project-id'] = this.projectId;
+      headers['x-flare-project-id'] = this.projectId;
+      headers['x-flarebase-project-id'] = this.projectId;
     }
 
     if (!token && !this.apiKey) {

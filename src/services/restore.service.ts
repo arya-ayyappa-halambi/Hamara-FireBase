@@ -50,7 +50,7 @@ export class RestoreService {
 
       if (systemKeyRow) {
         // Attempt decryption
-        const kek = Buffer.from(crypto.hkdfSync('sha256', passkey, Buffer.from('aegis-kek-salt'), Buffer.from('aegis-kek-info'), 32));
+        const kek = Buffer.from(crypto.hkdfSync('sha256', passkey, Buffer.from('flarebase-kek-salt'), Buffer.from('flarebase-kek-info'), 32));
         try {
           const decipher = crypto.createDecipheriv('aes-256-gcm', kek, Buffer.from(systemKeyRow.dekIv, 'hex'));
           decipher.setAuthTag(Buffer.from(systemKeyRow.dekTag, 'hex'));
@@ -66,7 +66,7 @@ export class RestoreService {
       const activeDb = getDb();
       activeDb.close();
 
-      const activeDbPath = process.env.DB_PATH || path.resolve(process.cwd(), 'aegis.db');
+      const activeDbPath = process.env.DB_PATH || path.resolve(process.cwd(), 'flarebase.db');
       fs.copyFileSync(extractPath, activeDbPath);
       
       this.updateEnvVariable('ENCRYPTION_KEY', passkey);

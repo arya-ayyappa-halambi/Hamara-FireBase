@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/notification.service.ts
-//  AegisDB — Real-Time User Notification Center Service (WebSockets + DB)
+//  FlareBase — Real-Time User Notification Center Service (WebSockets + DB)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { v4 as uuidv4 } from 'uuid';

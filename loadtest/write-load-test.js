@@ -26,7 +26,7 @@ async function runWriteLoadTest() {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${TOKEN}`,
-      'x-aegis-project-id': PROJECT_ID,
+      'x-flarebase-project-id': PROJECT_ID,
       'Content-Type': 'application/json'
     },
     body: payload

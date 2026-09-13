@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/hoster/port.manager.ts
-//  AegisDB — Dynamic port allocator for hosted deployments.
+//  FlareBase — Dynamic port allocator for hosted deployments.
 //
 //  Manages a fixed pool of host ports (8100–8299).
 //  Each active deployment holds exactly one port; it is released on removal.

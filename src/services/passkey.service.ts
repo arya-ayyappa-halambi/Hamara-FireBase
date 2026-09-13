@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/passkey.service.ts
-//  AegisDB — WebAuthn / Passkeys (FIDO2) Biometric Authentication Service
+//  FlareBase — WebAuthn / Passkeys (FIDO2) Biometric Authentication Service
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';
@@ -86,7 +86,7 @@ class PasskeyService {
     return {
       challenge,
       rp: {
-        name: 'AegisDB Security BaaS',
+        name: 'FlareBase Security BaaS',
         id: cleanHost || 'localhost'
       },
       user: {
@@ -195,7 +195,7 @@ class PasskeyService {
     return {
       challenge,
       rp: {
-        name: 'AegisDB Security BaaS',
+        name: 'FlareBase Security BaaS',
         id: cleanHost || 'localhost'
       },
       pubKeyCredParams: [

@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/db.client.ts
-//  Dynamic Database Engine client module for @aegis/sdk.
+//  Dynamic Database Engine client module for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { AuthClient } from './auth.client.js';
@@ -30,14 +30,18 @@ export class DbClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
     if (this.apiKey) {
-      headers['x-aegis-api-key'] = this.apiKey;
+      headers['x-flarebase-api-key'] = this.apiKey;
+      headers['x-flare-api-key'] = this.apiKey;
+      headers['x-flarebase-api-key'] = this.apiKey;
     }
     if (this.projectId) {
-      headers['x-aegis-project-id'] = this.projectId;
+      headers['x-flarebase-project-id'] = this.projectId;
+      headers['x-flare-project-id'] = this.projectId;
+      headers['x-flarebase-project-id'] = this.projectId;
     }
 
     if (!token && !this.apiKey) {
-      throw new Error('Authentication required. Provide an apiKey in config or call Aegis.auth.login() first.');
+      throw new Error('Authentication required. Provide an apiKey in config or call FlareBase.auth.login() first.');
     }
 
     let res = await fetch(`${this.baseUrl}${path}`, { ...options, headers });

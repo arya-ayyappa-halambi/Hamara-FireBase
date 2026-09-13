@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/endpoint-scoping-and-tenant-ip.test.ts
-//  AegisDB — Phase 2: Endpoint-Level IP Scoping & Tenant Isolation Test Suite
+//  FlareBase — Phase 2: Endpoint-Level IP Scoping & Tenant Isolation Test Suite
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { networkAccessService } from '../src/services/network-access.service';

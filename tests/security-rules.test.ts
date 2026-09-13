@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/security-rules.test.ts
-//  Comprehensive test suite for AegisDB Collection-Wise and Document-Wise Security Rules.
+//  Comprehensive test suite for FlareBase Collection-Wise and Document-Wise Security Rules.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'dotenv/config';
@@ -18,7 +18,7 @@ import { Collection, Document } from '../src/types/db.types';
 
 async function runTests() {
   console.log('═══════════════════════════════════════════════════════════════════');
-  console.log('🛡️  AEGISDB SECURITY RULES SUITE — COLLECTION & DOCUMENT ACCESS');
+  console.log('🛡️  FLAREBASE SECURITY RULES SUITE — COLLECTION & DOCUMENT ACCESS');
   console.log('═══════════════════════════════════════════════════════════════════\n');
 
   process.env.JWT_SECRET = 'super_secret_jwt_key_for_testing_123456789';

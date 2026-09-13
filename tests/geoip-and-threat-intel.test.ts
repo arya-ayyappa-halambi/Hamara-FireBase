@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/geoip-and-threat-intel.test.ts
-//  AegisDB — Phase 3: Real-Time Geo-IP & Threat Intelligence Test Suite
+//  FlareBase — Phase 3: Real-Time Geo-IP & Threat Intelligence Test Suite
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { geoipThreatIntelService } from '../src/services/geoip-threat-intel.service';

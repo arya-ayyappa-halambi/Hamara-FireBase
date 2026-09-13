@@ -1,11 +1,11 @@
 version: '3.8'
 
 services:
-  aegisdb:
+  flarebase:
     build:
       context: .
       dockerfile: Dockerfile.production
-    container_name: aegisdb_app
+    container_name: flarebase_app
     restart: always
     ports:
       - "3000:3000"
@@ -16,26 +16,26 @@ services:
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - AWS_REGION=us-east-1
-      - LITESTREAM_S3_BUCKET=aegisdb-backups-prod
+      - LITESTREAM_S3_BUCKET=flarebase-backups-prod
     volumes:
-      - aegis_data:/data
+      - flarebase_data:/data
 
   # Uncomment the following block to enable automatic HTTPS via Caddy
   # caddy:
   #   image: caddy:2-alpine
-  #   container_name: aegisdb_caddy
+  #   container_name: flarebase_caddy
   #   restart: always
   #   ports:
   #     - "80:80"
   #     - "443:443"
-  #   command: caddy reverse-proxy --from https://yourdomain.com --to http://aegisdb:3000
+  #   command: caddy reverse-proxy --from https://yourdomain.com --to http://flarebase:3000
   #   depends_on:
-  #     - aegisdb
+  #     - flarebase
   #   volumes:
   #     - caddy_data:/data
   #     - caddy_config:/config
 
 volumes:
-  aegis_data:
+  flarebase_data:
   # caddy_data:
   # caddy_config:

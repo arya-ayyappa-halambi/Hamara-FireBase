@@ -52,5 +52,5 @@ const req = http.request(options, (res) => {
   });
 });
 
-req.write(JSON.stringify({ email: 'admin@aegis.dev', password: 'AdminPass123!' }));
+req.write(JSON.stringify({ email: 'admin@flarebase.dev', password: 'AdminPass123!' }));
 req.end();

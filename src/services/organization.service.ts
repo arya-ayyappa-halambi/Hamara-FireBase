@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/organization.service.ts
-//  AegisDB — GitHub-Grade Multi-Tenant Organizations, Teams & Project Isolation
+//  FlareBase — GitHub-Grade Multi-Tenant Organizations, Teams & Project Isolation
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';

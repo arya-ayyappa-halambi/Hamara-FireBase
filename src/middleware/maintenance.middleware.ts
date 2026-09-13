@@ -20,7 +20,6 @@ export function maintenanceModeMiddleware(req: Request, res: Response, next: Nex
       p === '/reset-password.html' ||
       p.startsWith('/app.js') ||
       p.startsWith('/flarebase.js') ||
-      p.startsWith('/aegis.js') ||
       p.startsWith('/styles.css') ||
       p.startsWith('/driver.css') ||
       p.startsWith('/assets/') ||

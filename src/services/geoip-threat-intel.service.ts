@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/geoip-threat-intel.service.ts
-//  AegisDB — Real-Time Geo-IP, Threat Intelligence & Geo-Fencing Engine
+//  FlareBase — Real-Time Geo-IP, Threat Intelligence & Geo-Fencing Engine
 // ─────────────────────────────────────────────────────────────────────────────
 
 import axios from 'axios';

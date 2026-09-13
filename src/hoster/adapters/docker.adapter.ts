@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/hoster/adapters/docker.adapter.ts
-//  AegisDB — Docker runtime adapter (uses the Docker Engine API via dockerode).
+//  FlareBase — Docker runtime adapter (uses the Docker Engine API via dockerode).
 //
 //  Active when Docker daemon is reachable at /var/run/docker.sock.
 //  Falls back to ProcessAdapter automatically if Docker is unavailable.
@@ -37,7 +37,7 @@ export class DockerAdapter implements RuntimeAdapter {
 
   private containerName(deployment: Deployment): string {
     // Deterministic name — used for stop/remove without needing the container ID
-    return `aegisdb-${deployment.id}`;
+    return `flarebase-${deployment.id}`;
   }
 
   /**
@@ -86,8 +86,8 @@ export class DockerAdapter implements RuntimeAdapter {
       Env: env,
       ExposedPorts: { [`${CONTAINER_PORT}/tcp`]: {} },
       Labels: {
-        'aegisdb.deployment.id': id,
-        'aegisdb.deployment.owner': ownerId,
+        'flarebase.deployment.id': id,
+        'flarebase.deployment.owner': ownerId,
       },
       HostConfig: {
         // Workspace mounted read-only so the container cannot tamper with sources

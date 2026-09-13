@@ -1,9 +1,0 @@
-#!/usr/bin/env node
-
-// ─────────────────────────────────────────────────────────────────────────────
-//  bin/aegis
-//  AegisDB CLI Executable
-// ─────────────────────────────────────────────────────────────────────────────
-
-const path = require('path');
-require(path.join(__dirname, '../scripts/serve.js'));

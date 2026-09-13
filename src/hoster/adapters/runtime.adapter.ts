@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/hoster/adapters/runtime.adapter.ts
-//  AegisDB — Runtime adapter interface.
+//  FlareBase — Runtime adapter interface.
 //
 //  Both DockerAdapter and ProcessAdapter implement this contract.
 //  HosterService only ever interacts with RuntimeAdapter, enabling

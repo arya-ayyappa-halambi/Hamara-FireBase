@@ -17,7 +17,7 @@ async function runTokenFamilyTests() {
   initSqlite();
 
   // Create a test user in database
-  const email = `token_family_test_${Date.now()}@aegis.dev`;
+  const email = `token_family_test_${Date.now()}@flarebase.dev`;
   const userId = `user_tf_${Date.now()}`;
   const user = await userStore.create({
     id: userId,

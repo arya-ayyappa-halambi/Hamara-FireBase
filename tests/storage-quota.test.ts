@@ -33,7 +33,7 @@ async function runStorageQuotaTests(): Promise<void> {
     db.prepare(`
       INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
       VALUES (?, ?, ?, 'Storage User', 'fake_pass', 0, datetime('now'), datetime('now'))
-    `).run('storage-user-id', 'storage@aegisdb.dev', 'storage_hash');
+    `).run('storage-user-id', 'storage@flarebase.dev', 'storage_hash');
     testUser = { id: 'storage-user-id' };
   }
   const userId = testUser.id;

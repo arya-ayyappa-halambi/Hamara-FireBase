@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/hoster/hoster.controller.ts
-//  AegisDB — Hoster HTTP adapter layer.
+//  FlareBase — Hoster HTTP adapter layer.
 //
 //  Reads ownerId from req.user.sub (set by authenticateJwt middleware).
 //  All business logic is delegated to hoster.service.ts.

@@ -5,11 +5,11 @@
 
 const axios = require('axios');
 
-const BASE_URL = process.env.AEGIS_BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.FLAREBASE_BASE_URL || 'http://localhost:3000';
 
 async function runTest() {
-  console.log('\n🚀 Starting AegisDB Database SDK Integration Test...\n');
-  console.log(`Connecting to AegisDB Backend at: ${BASE_URL}\n`);
+  console.log('\n🚀 Starting FlareBase Database SDK Integration Test...\n');
+  console.log(`Connecting to FlareBase Backend at: ${BASE_URL}\n`);
 
   try {
     // 1. Authenticate / Login
@@ -17,13 +17,13 @@ async function runTest() {
     let authRes;
     try {
       authRes = await axios.post(`${BASE_URL}/api/v1/auth/login`, {
-        email: 'demo_developer@aegis.dev',
+        email: 'demo_developer@flarebase.dev',
         password: 'Password123!',
       });
     } catch (err) {
       if (err.response && err.response.status === 401) {
         authRes = await axios.post(`${BASE_URL}/api/v1/auth/register`, {
-          email: 'demo_developer@aegis.dev',
+          email: 'demo_developer@flarebase.dev',
           password: 'Password123!',
           name: 'Demo Developer',
         });
@@ -47,7 +47,7 @@ async function runTest() {
     if (!project) {
       const createProjRes = await axios.post(
         `${BASE_URL}/api/v1/projects`,
-        { name: 'External Database Host App', description: 'Database hosted via AegisDB SDK' },
+        { name: 'External Database Host App', description: 'Database hosted via FlareBase SDK' },
         { headers: authHeaders }
       );
       project = createProjRes.data.data;
@@ -61,8 +61,8 @@ async function runTest() {
     // Headers with Project Context (API Key or Project ID)
     const dbHeaders = {
       Authorization: `Bearer ${token}`,
-      'x-aegis-project-id': project.id,
-      ...(project.apiKey ? { 'x-aegis-api-key': project.apiKey } : {}),
+      'x-flarebase-project-id': project.id,
+      ...(project.apiKey ? { 'x-flarebase-api-key': project.apiKey } : {}),
     };
 
     // 3. Create Collection
@@ -92,7 +92,7 @@ async function runTest() {
       name: 'Sharanya',
       email: 'sharanya@example.com',
       role: 'Project Owner',
-      database: 'AegisDB-Host-v2',
+      database: 'FlareBase-Host-v2',
       createdAt: new Date().toISOString(),
     };
 
@@ -122,7 +122,7 @@ async function runTest() {
       console.error('Response Data:', JSON.stringify(error.response.data, null, 2));
     } else {
       console.error(error.message);
-      console.error('Make sure AegisDB server is running (`npm run dev`) at http://localhost:3000');
+      console.error('Make sure FlareBase server is running (`npm run dev`) at http://localhost:3000');
     }
   }
 }

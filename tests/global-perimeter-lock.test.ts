@@ -34,7 +34,7 @@ async function runGlobalPerimeterTests(): Promise<void> {
     db.prepare(`
       INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
       VALUES (?, ?, ?, ?, ?, 1, datetime('now'), datetime('now'))
-    `).run('test-superadmin-uuid', 'admin@aegisdb.dev', 'admin_hash', 'Super Admin', 'hashed_pw');
+    `).run('test-superadmin-uuid', 'admin@flarebase.dev', 'admin_hash', 'Super Admin', 'hashed_pw');
   }
 
   // ─────────────────────────────────────────────────────────────────────────

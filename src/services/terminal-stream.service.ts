@@ -57,7 +57,7 @@ class TerminalStreamService {
           level = 'error';
         } else if (line.includes('⚠️') || line.includes('warn') || line.includes('Warning:')) {
           level = 'warn';
-        } else if (line.includes('┌') || line.includes('├') || line.includes('└') || line.includes('│') || line.includes('AegisDB')) {
+        } else if (line.includes('┌') || line.includes('├') || line.includes('└') || line.includes('│') || line.includes('FlareBase')) {
           level = 'system';
         }
 

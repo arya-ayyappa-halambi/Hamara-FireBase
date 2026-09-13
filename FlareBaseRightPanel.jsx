@@ -4,7 +4,7 @@ import { Zap, ShieldCheck, Server, ChevronLeft, ChevronRight } from 'lucide-reac
 const SLIDES = [
   {
     id: 1,
-    tag: "Why AegisDB?",
+    tag: "Why FlareBase?",
     title: "Bring your data to life with zero friction.",
     description: "A self-hosted, lightweight BaaS engine delivering NoSQL document storage backed by SQLite WAL-mode performance, real-time WebSockets, and object storage out-of-the-box.",
     icon: Zap,
@@ -28,7 +28,7 @@ const SLIDES = [
   }
 ];
 
-export default function AegisRightPanel() {
+export default function FlareBaseRightPanel() {
   const [currentIdx, setCurrentIdx] = useState(0);
 
   // Auto-scroll every 5 seconds

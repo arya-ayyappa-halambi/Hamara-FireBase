@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/pat.service.ts
-//  AegisDB — Scoped Personal Access Tokens (PATs) for Developers & CI/CD
+//  FlareBase — Scoped Personal Access Tokens (PATs) for Developers & CI/CD
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';

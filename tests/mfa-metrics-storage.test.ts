@@ -32,8 +32,8 @@ async function runMfaMetricsStorageTests(): Promise<void> {
     const secret = totpService.generateSecret();
     assert(typeof secret === 'string' && secret.length >= 16, 'Generates valid 160-bit Base32 secret');
 
-    const otpUrl = totpService.generateOtpAuthUrl('alice@aegis.dev', secret);
-    assert(otpUrl.startsWith('otpauth://totp/AegisDB%3Aalice%40aegis.dev?secret='), 'Generates valid OTPAuth URI');
+    const otpUrl = totpService.generateOtpAuthUrl('alice@flarebase.dev', secret);
+    assert(otpUrl.startsWith('otpauth://totp/FlareBase%3Aalice%40flarebase.dev?secret='), 'Generates valid OTPAuth URI');
 
     const currentCode = totpService.generateCode(secret);
     assert(currentCode.length === 6 && /^\d{6}$/.test(currentCode), 'Generates valid 6-digit TOTP code');
@@ -57,7 +57,7 @@ async function runMfaMetricsStorageTests(): Promise<void> {
 
     // --- Test Suite 3: Storage Driver Abstraction ---
     console.log('\n--- Test Suite 3: Multi-Driver Storage Abstraction ---');
-    const dummyBuffer = Buffer.from('AegisDB Test File Content 12345');
+    const dummyBuffer = Buffer.from('FlareBase Test File Content 12345');
     const uploadRes = await storageDriver.uploadFile(dummyBuffer, 'test_media.txt', 'text/plain');
 
     assert(!!uploadRes.storedName, 'Storage driver returns stored filename');

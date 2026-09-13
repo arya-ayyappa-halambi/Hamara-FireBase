@@ -27,10 +27,10 @@ async function run() {
   const passwordHash = await argon2.hash('Admin@123');
 
   // Ensure super admin user exists
-  if (!await userStore.findByEmail('admin@aegisdb.dev')) {
+  if (!await userStore.findByEmail('admin@flarebase.dev')) {
     await userStore.create({
       id: 'admin-test-id',
-      email: 'admin@aegisdb.dev',
+      email: 'admin@flarebase.dev',
       name: 'Super Admin',
       passwordHash,
       isSuperAdmin: true,
@@ -40,10 +40,10 @@ async function run() {
   }
 
   // Ensure regular non-admin user exists
-  if (!await userStore.findByEmail('dev@aegisdb.dev')) {
+  if (!await userStore.findByEmail('dev@flarebase.dev')) {
     await userStore.create({
       id: 'regular-test-id',
-      email: 'dev@aegisdb.dev',
+      email: 'dev@flarebase.dev',
       name: 'Dev User',
       passwordHash,
       isSuperAdmin: false,
@@ -85,7 +85,7 @@ async function run() {
   let blocked = false;
   try {
     await loginUser({
-      email: 'admin@aegisdb.dev',
+      email: 'admin@flarebase.dev',
       password: 'Admin@123',
       clientIp: '192.168.31.18'
     });
@@ -102,7 +102,7 @@ async function run() {
   let regularAllowed = false;
   try {
     const regRes = await loginUser({
-      email: 'dev@aegisdb.dev',
+      email: 'dev@flarebase.dev',
       password: 'Admin@123',
       clientIp: '192.168.31.18'
     });
@@ -116,7 +116,7 @@ async function run() {
   let adminHostAllowed = false;
   try {
     const adminRes = await loginUser({
-      email: 'admin@aegisdb.dev',
+      email: 'admin@flarebase.dev',
       password: 'Admin@123',
       clientIp: '127.0.0.1'
     });

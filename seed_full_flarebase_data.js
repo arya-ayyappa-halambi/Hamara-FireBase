@@ -73,7 +73,7 @@ function _att(seq) {
 
 async function runSeed() {
   console.log('Connecting to database...');
-  const db = sqlite('./aegis.db');
+  const db = sqlite('./flarebase.db');
 
   const argon2Options = {
     type: argon2.argon2id,
@@ -265,7 +265,7 @@ async function runSeed() {
 
   console.log('Seeding completed successfully!');
   console.log('Total accounts created in project_users:', usersToInsert.length);
-  console.log('Total collection documents created in AegisDB:', docsToInsert.length);
+  console.log('Total collection documents created in FlareBase:', docsToInsert.length);
 }
 
 runSeed().catch(err => {

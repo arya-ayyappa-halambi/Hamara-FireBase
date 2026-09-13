@@ -1,11 +1,11 @@
 const crypto = require('crypto');
-const db = require('better-sqlite3')('aegis.db.bak');
+const db = require('better-sqlite3')('flarebase.db.bak');
 
 function getKekBuffer(secret) {
-  return Buffer.from(crypto.hkdfSync('sha256', secret, Buffer.from('aegis-kek-salt'), Buffer.from('aegis-kek-info'), 32));
+  return Buffer.from(crypto.hkdfSync('sha256', secret, Buffer.from('flarebase-kek-salt'), Buffer.from('flarebase-kek-info'), 32));
 }
 
-const targetKekSecret = process.env.JWT_SECRET || 'aegisdb_dev_secret_for_testing_only_must_be_at_least_32_chars_long_abc123';
+const targetKekSecret = process.env.JWT_SECRET || 'flarebase_dev_secret_for_testing_only_must_be_at_least_32_chars_long_abc123';
 const targetKek = getKekBuffer(targetKekSecret);
 
 const rows = db.prepare('SELECT projectId, dekEncrypted, dekIv, dekTag FROM project_keys').all();

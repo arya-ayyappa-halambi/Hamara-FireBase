@@ -1,6 +1,6 @@
 require('dotenv').config();
 const { envelopeEncryptionService } = require('./dist/services/envelope-encryption.service');
-const db = require('better-sqlite3')('aegis.db');
+const db = require('better-sqlite3')('flarebase.db');
 
 const email = 'aryaayyappahalambi@gmail.com';
 const hash = envelopeEncryptionService.hashBlindIndex(email);

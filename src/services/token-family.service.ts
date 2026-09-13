@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/services/token-family.service.ts
-//  AegisDB — Refresh Token Family Rotation & Reuse Detection Service.
+//  FlareBase — Refresh Token Family Rotation & Reuse Detection Service.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import crypto from 'crypto';

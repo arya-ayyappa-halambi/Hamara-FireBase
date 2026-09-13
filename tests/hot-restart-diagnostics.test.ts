@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  tests/hot-restart-diagnostics.test.ts
-//  AegisDB — Zero-Downtime Hot Restart & Cluster Port Diagnostics Matrix Tests
+//  FlareBase — Zero-Downtime Hot Restart & Cluster Port Diagnostics Matrix Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
 import 'dotenv/config';
@@ -50,7 +50,7 @@ async function runHotRestartDiagnosticsTests() {
 
   const activeMaster = report.portMatrix.find(p => p.port === 3000);
   assert(activeMaster !== undefined, 'Current port (3000) included in matrix');
-  assert(activeMaster?.status === 'active_aegis', 'Current port marked as active_aegis');
+  assert(activeMaster?.status === 'active_flarebase', 'Current port marked as active_flarebase');
   assert(typeof activeMaster?.latencyMs === 'number', 'Probe latency computed in milliseconds');
 
   const otherPort = report.portMatrix.find(p => p.port === 3002);
@@ -75,7 +75,7 @@ async function runHotRestartDiagnosticsTests() {
   networkAccessService.recordDeviceActivity({
     ipAddress: '192.168.31.222',
     userAgent: 'Mozilla/5.0 Hot-Restart Test Client',
-    userEmail: 'admin@aegisdb.dev'
+    userEmail: 'admin@flarebase.dev'
   });
 
   // Flush buffer

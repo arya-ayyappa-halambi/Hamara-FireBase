@@ -46,7 +46,7 @@ export async function getConfig(req: Request, res: Response, next: NextFunction)
 
 function extractProjectApiKey(req: Request): string | undefined {
   return (req.headers['x-flare-api-key'] as string | undefined) ||
-    (req.headers['x-aegis-api-key'] as string | undefined) ||
+    (req.headers['x-flarebase-api-key'] as string | undefined) ||
     (req.headers['x-api-key'] as string | undefined) ||
     (req.headers['apikey'] as string | undefined) ||
     (req.query?.apiKey as string | undefined) ||
@@ -55,7 +55,7 @@ function extractProjectApiKey(req: Request): string | undefined {
 
 function extractProjectHeaderId(req: Request): string | undefined {
   return (req.headers['x-flare-project-id'] as string | undefined) ||
-    (req.headers['x-aegis-project-id'] as string | undefined) ||
+    (req.headers['x-flarebase-project-id'] as string | undefined) ||
     (req.headers['x-project-id'] as string | undefined);
 }
 
@@ -458,7 +458,7 @@ export async function exportDataController(req: Request, res: Response, next: Ne
     const exportData = await exportDeveloperData(userId);
 
     res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="aegisdb_data_export_${userId.substring(0, 8)}.json"`);
+    res.setHeader('Content-Disposition', `attachment; filename="flarebase_data_export_${userId.substring(0, 8)}.json"`);
     res.status(200).json({
       success: true,
       message: 'Data export generated successfully.',

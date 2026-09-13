@@ -1,6 +1,6 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  src/middleware/ip-access-control.middleware.ts
-//  AegisDB — Network Access Control & IP Whitelist Security Guard
+//  FlareBase — Network Access Control & IP Whitelist Security Guard
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Request, Response, NextFunction } from 'express';
@@ -58,7 +58,7 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <title>AegisDB — ${emergencyCheck.code || 'Service Notice'}</title>
+        <title>FlareBase — ${emergencyCheck.code || 'Service Notice'}</title>
         <style>
           body { background: #030712; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
           .card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 24px; padding: 40px; max-width: 520px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
@@ -109,7 +109,7 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
       <html lang="en">
       <head>
         <meta charset="UTF-8">
-        <title>AegisDB WAF — Threat Blocked</title>
+        <title>FlareBase WAF — Threat Blocked</title>
         <style>
           body { background: #030712; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
           .card { background: rgba(15, 23, 42, 0.8); border: 1px solid rgba(244, 63, 94, 0.3); border-radius: 24px; padding: 40px; max-width: 520px; text-align: center; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
@@ -139,7 +139,7 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
     hostHeader.includes('.loca.lt') ||
     hostHeader.includes('.ngrok')
   );
-  const projectId = (req.headers['x-aegis-project-id'] as string) || (req.headers['x-project-id'] as string) || (req.query?.projectId as string) || null;
+  const projectId = (req.headers['x-flarebase-project-id'] as string) || (req.headers['x-project-id'] as string) || (req.query?.projectId as string) || null;
   const { allowed, reason, code } = networkAccessService.isEndpointAccessAllowed({
     clientIp,
     path: req.path,
@@ -178,7 +178,7 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
     }
 
     if (rateCheck.throttled && rateCheck.delayMs) {
-      res.setHeader('X-Aegis-Throttled', 'true');
+      res.setHeader('X-FlareBase-Throttled', 'true');
       setTimeout(() => {
         next();
       }, rateCheck.delayMs);
@@ -196,7 +196,7 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
     res.status(statusCode).json({
       success: false,
       code: code || 'NETWORK_ACCESS_DENIED',
-      message: '403 Forbidden: Device Access Denied by AegisDB Network Security Policy.',
+      message: '403 Forbidden: Device Access Denied by FlareBase Network Security Policy.',
       clientIp,
       reason,
       timestamp: new Date().toISOString()
@@ -211,7 +211,7 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>403 Access Denied — AegisDB Security</title>
+    <title>403 Access Denied — FlareBase Security</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   </head>
@@ -222,7 +222,7 @@ export function ipAccessControlMiddleware(req: Request, res: Response, next: Nex
       </div>
       <div class="space-y-2">
         <h1 class="text-xl font-bold text-white tracking-tight">403 Access Denied</h1>
-        <p class="text-xs text-slate-400 leading-relaxed">This device is not authorized to access this AegisDB server instance.</p>
+        <p class="text-xs text-slate-400 leading-relaxed">This device is not authorized to access this FlareBase server instance.</p>
       </div>
       <div class="p-4 rounded-2xl bg-black/40 border border-white/5 text-left space-y-2 font-mono text-xs">
         <div class="flex justify-between text-slate-400">

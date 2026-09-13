@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  sdk/src/index.ts
-//  Main Aegis client entry point for @aegis/sdk.
+//  Main FlareBase client entry point for @flarebase/sdk.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { AegisConfig } from './types.js';
+import { FlareBaseConfig } from './types.js';
 import { AuthClient } from './auth.client.js';
 import { ProjectAuthClient } from './project-auth.client.js';
 import { DbClient } from './db.client.js';
@@ -20,22 +20,22 @@ export { HosterClient } from './hoster.client.js';
 export { RealtimeClient } from './realtime.client.js';
 
 /**
- * Unified Aegis Client class.
+ * Unified FlareBase Client class.
  *
  * @example
  * // API Key initialization (Recommended for frontend apps / AI agents)
- * const aegis = new Aegis({ baseUrl: 'http://localhost:3000', apiKey: 'aegis_pk_...' });
+ * const flare = new FlareBase({ baseUrl: 'http://localhost:3000', apiKey: 'flare_pk_...' });
  * 
  * // Project User Authentication with Zero-Bypass security:
- * await aegis.projectAuth.signIn({ email: 'user@example.com', password: 'password123' });
+ * await flare.projectAuth.signIn({ email: 'user@example.com', password: 'password123' });
  * 
- * // Dynamic Google Identity sign-in with Client ID from AegisDB:
- * await aegis.projectAuth.initGoogleAuth({ callback: (user) => console.log('Logged in:', user) });
+ * // Dynamic Google Identity sign-in with Client ID from FlareBase:
+ * await flare.projectAuth.initGoogleAuth({ callback: (user) => console.log('Logged in:', user) });
  * 
  * // Database Collections:
- * const docs = await aegis.db.collection('products').query();
+ * const docs = await flare.db.collection('products').query();
  */
-export class Aegis {
+export class FlareBase {
   public readonly auth: AuthClient;
   public readonly projectAuth: ProjectAuthClient;
   public readonly db: DbClient;
@@ -43,10 +43,10 @@ export class Aegis {
   public readonly hoster: HosterClient;
   public readonly realtime: RealtimeClient;
 
-  constructor(config: AegisConfig = {}) {
+  constructor(config: FlareBaseConfig = {}) {
     const baseUrl = config.baseUrl || 'http://localhost:3000';
     const wsUrl = config.wsUrl || baseUrl.replace(/^http/, 'ws');
-    const apiKey = config.apiKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('aegisApiKey') || '' : '');
+    const apiKey = config.apiKey || (typeof localStorage !== 'undefined' ? (localStorage.getItem('flareApiKey') || localStorage.getItem('flarebaseApiKey')  || '') : '');
 
     this.auth = new AuthClient(baseUrl, config.accessToken, config.refreshToken);
     this.projectAuth = new ProjectAuthClient(baseUrl, apiKey, config.accessToken);
@@ -57,5 +57,5 @@ export class Aegis {
   }
 }
 
-export const AegisDB = Aegis;
-export default Aegis;
+export const FlareBaseClient = FlareBase;
+export default FlareBase;
