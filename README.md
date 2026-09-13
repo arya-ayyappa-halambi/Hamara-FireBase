@@ -30,16 +30,19 @@ FlareBase is a lightweight, zero-configuration, production-grade Firebase-like B
 11. [Document Database & Row-Level Security (RLS)](#11-document-database--row-level-security-rls)
 12. [Project-Isolated Authenticator & OAuth 2.0](#12-project-isolated-authenticator--oauth-20)
 13. [Comprehensive Security Architecture](#13-comprehensive-security-architecture)
-14. [Storage Vault & Asset Management](#14-storage-vault--asset-management)
-15. [Real-Time Change Data Capture (CDC)](#15-real-time-change-data-capture-cdc)
-16. [GDPR Privacy, Right to Erasure & Appeals](#16-gdpr-privacy-right-to-erasure--appeals)
-17. [Disaster Recovery & S3 Backup Engine](#17-disaster-recovery--s3-backup-engine)
-18. [Network & Server Hosting Center, Zero-Downtime Socket Rebinding](#18-network--server-hosting-center-zero-downtime-socket-rebinding)
-19. [Super Admin Console & Telemetry](#19-super-admin-console--telemetry)
-20. [Complete REST API Registry](#20-complete-rest-api-registry)
-21. [Performance Verification & Automated Test Suites](#21-performance-verification--automated-test-suites)
-22. [High-Availability & Production Deployment](#22-high-availability--production-deployment)
-23. [Official SDKs, Browser Drops & AI Agent Integration](#23-official-sdks-browser-drops--ai-agent-integration)
+14. [Auto Threat Detection & Live User Security Intelligence Matrix](#14-auto-threat-detection--live-user-security-intelligence-matrix)
+15. [Multi-Account Anti-Spam & Shared Wi-Fi / NAT Intelligence](#15-multi-account-anti-spam--shared-wi-fi--nat-intelligence)
+16. [Emergency Recovery Portal & High-Availability Gateways](#16-emergency-recovery-portal--high-availability-gateways)
+17. [Storage Vault & Asset Management](#17-storage-vault--asset-management)
+18. [Real-Time Change Data Capture (CDC)](#18-real-time-change-data-capture-cdc)
+19. [GDPR Privacy, Right to Erasure & Appeals](#19-gdpr-privacy-right-to-erasure--appeals)
+20. [Disaster Recovery & S3 Backup Engine](#20-disaster-recovery--s3-backup-engine)
+21. [Network & Server Hosting Center, Zero-Downtime Socket Rebinding](#21-network--server-hosting-center-zero-downtime-socket-rebinding)
+22. [Super Admin Console & Telemetry](#22-super-admin-console--telemetry)
+23. [Complete REST API Registry](#23-complete-rest-api-registry)
+24. [Performance Verification & Automated Test Suites](#24-performance-verification--automated-test-suites)
+25. [High-Availability & Production Deployment](#25-high-availability--production-deployment)
+26. [Official SDKs, Browser Drops & AI Agent Integration](#26-official-sdks-browser-drops--ai-agent-integration)
 
 ---
 
@@ -305,7 +308,109 @@ Every FlareBase project operates as an independent authentication realm:
 
 ---
 
-## 14. Storage Vault & Asset Management
+## 14. Auto Threat Detection & Live User Security Intelligence Matrix
+
+FlareBase introduces a dedicated, real-time **Threat Intelligence & User Security Radar** workspace tab (`#tab-threat-radar`) available across both Super Admin and Developer consoles. Every control, filter, inspector modal, and live stream operates with **zero dead buttons** and sub-millisecond WAF inspection.
+
+```
+   ┌────────────────────────────────────────────────────────────┐
+   │       Live Request Ingress (Zero-Latency WAF < 0.01ms)     │
+   └─────────────────────────────┬──────────────────────────────┘
+                                 │
+           ┌─────────────────────┴─────────────────────┐
+           ▼                                           ▼
+   [Clean Requests]                           [Detected Threats]
+   Processed Instantly                     • SQL / NoSQL Injection
+                                           • XSS Script Injections
+                                           • Path Traversal Escapes
+                                           • Velocity Spikes / Bursts
+                                           • Multi-Account Collisions
+                                                       │
+                                                       ▼
+                                      ┌────────────────────────────────┐
+                                      │ Dynamic Risk Score Heuristic   │
+                                      │ (0 - 100 Composite Calculation)│
+                                      └────────────────┬───────────────┘
+                                                       │
+                           ┌───────────────────────────┴───────────────────────────┐
+                           ▼                                                       ▼
+            [Score >= 70: Auto-Quarantine]                         [WebSocket Live Threat Stream]
+            • Account flagged in SQLite                            • Broadcasts real-time events
+            • JWT tokens revoked                                   • Instant UI console update
+            • Admin notification dispatched                        • Audit trail logged
+```
+
+### Key Capabilities:
+- **5 Live Top-Level KPI Summary Cards**:
+  1. 👥 **Inspected Users**: Total platform and project user accounts continuously analyzed.
+  2. 🚨 **Quarantined Accounts**: Active security isolates currently blocked from platform resources.
+  3. 🛡️ **Threats Blocked**: Aggregate intercepted attack probes across SQLi, XSS, Path Traversal, and DoS bursts.
+  4. 📶 **Shared Wi-Fi Safe**: Verified multi-device NAT environments with zero false-positive penalties.
+  5. ⚡ **WAF Latency**: Ultra-low microsecond inspection benchmark (**0.0011 ms / req**).
+- **Interactive Live Search & Filter Bar**:
+  - Instant substring search across User Email, Display Name, User ID, Hardware Device Fingerprint, and IP Subnet.
+  - Category filters: *All*, *SQL / NoSQL Injection*, *XSS Attacks*, *Path Traversal*, *DoS Bursts*, *Bot Activity*, *Canonical Alias Flood*, *Multi-Account Physical Device*.
+  - Risk Level filter: *Critical Risk (Score $\ge 70$)*, *Moderate Warning (40–69)*, *Clean ($< 40$)*.
+  - Account Status toggle: *Quarantined Only* vs *Active Normal*.
+- **User Security Threat Matrix Table**:
+  - Live composite risk progress bars (🟢 Clean $<40$, 🟡 Warning $40-69$, 🔴 Critical $\ge 70$).
+  - Physical hardware device fingerprints ($D_{\text{hash}}$) with **1-click clipboard copy button** and multi-account device counters.
+  - Verified network indicators (`Multi-Device NAT Safe (100% conf)` vs `Datacenter / VPN`).
+  - Active action controls: **Inspect Details**, **Unflag & Restore**, and **Quarantine**.
+- **Deep Incident Payload Inspector Modal (`#modal-threat-incident-detail`)**:
+  - Formatted JSON payload viewer displaying matched signatures, parameters, client IP, User-Agent, and timestamps.
+  - 1-click status toggle to unflag or quarantine directly inside the inspector.
+- **Direct Manual Quarantine Modal (`#modal-quarantine-user-direct`)**:
+  - Custom admin reason (`malicious_traffic`, `bot_activity`, `spam`, `compromised_account`), severity picker (`critical`, `high`, `medium`), and investigation notes.
+- **Sub-Millisecond Real-Time Threat Event Stream (WebSocket CDC)**:
+  - Live scrolling telemetry broadcasting `SECURITY_ALERT_FLAGGED`, `SECURITY_FLAG_RESOLVED`, `SECURITY_AUDIT_COMPLETED`, `IP_JAILED`, `IP_UNJAILED`, and `DEVICE_ACCESS_REQUESTED`.
+  - Live stream controls: **Pause / Resume Stream** and **Clear Buffer**.
+- **On-Demand Platform & Project Security Audits**:
+  - Instant one-click heuristic scan across all registered platform and project accounts.
+- **Report Export & Purge**:
+  - Export audit logs in formatted JSON or CSV formats, and purge historical resolved incident logs.
+
+---
+
+## 15. Multi-Account Anti-Spam & Shared Wi-Fi / NAT Intelligence
+
+To prevent abusive multi-account creation without penalizing legitimate users in shared network environments (such as university dorms, coffee shops, coworking spaces, and office NATs), FlareBase deploys a multi-signal risk heuristic:
+
+### 1. Hardware Device Fingerprinting ($D_{\text{hash}}$)
+- Cryptographic hash synthesized from canvas rendering, WebGL driver vendor signatures, AudioContext hardware oscillations, CPU hardware concurrency, screen color depth, and browser entropy.
+- Detects the same physical device creating multiple accounts across distinct browser sessions or incognito windows.
+
+### 2. Canonical Email Alias Normalization
+- Normalizes incoming registration emails to detect duplicate alias abuse before database persistence:
+  - **Gmail Dot-Trick Normalization**: `j.o.h.n.doe@gmail.com` $\rightarrow$ `johndoe@gmail.com`.
+  - **Sub-Addressing / Plus-Tag Stripping**: `user+spam1@example.com` $\rightarrow$ `user@example.com`.
+  - **Provider Aliasing**: Normalizes `@googlemail.com` $\rightarrow$ `@gmail.com`.
+
+### 3. Shared Wi-Fi / NAT Confidence Ratio ($R_{\text{unique}}$)
+- When multiple accounts register from the same public IP address, FlareBase calculates the network uniqueness ratio:
+  $$\text{Confidence} = \frac{\text{Distinct Hardware Devices } (D_{\text{distinct}})}{\text{Total Registered Users } (U_{\text{distinct}})}$$
+- If distinct hardware device fingerprints are observed under the same IP, the connection is marked **Shared Wi-Fi Safe (100% confidence)** with **0 risk penalty**.
+- If the *same* hardware device fingerprint is used repeatedly across multiple email aliases from the same IP, the system flags a **Multi-Account Device Collision** and applies an elevated risk score.
+
+---
+
+## 16. Emergency Recovery Portal & High-Availability Gateways
+
+FlareBase provides dedicated disaster recovery and emergency administrative gateways that remain **100% operational even during Emergency Maintenance Mode and Panic Lockdowns**:
+
+- **Super Admin Login Gateway (`/admin-login.html`, `/admin-login`, `/admin/login`)**:
+  - Dedicated out-of-band portal for platform administrators to authenticate, override maintenance settings, and manage platform locks.
+  - Includes a 1-click demo login button for local testing and pre-flight validation.
+- **Bare-Metal System Recovery Portal (`/recovery.html`, `/recovery`, `/system/recovery`)**:
+  - Protected by a client-side and server-side **6-digit Server Passcode lock** (`RECOVERY_PIN`).
+  - Allows bare-metal database snapshot restoration (`.db.gz`, `.sqlite`, `.db`) using the master `ENCRYPTION_KEY`.
+  - Features a 60-second idle auto-lock security timer.
+- **Guaranteed Maintenance & Lockdown Bypass**:
+  - During scheduled maintenance (`503 Service Unavailable`) or panic lockdown levels, the recovery routes (`/recovery.html`, `/api/v1/system/restore`, `/api/v1/system/verify-recovery-pin`, `/admin-login.html`, `/api/v1/auth/login`) are unconditionally whitelisted so administrators are never locked out of their server.
+
+---
+
+## 17. Storage Vault & Asset Management
 
 - **Magic Byte Inspection**: File headers are validated against genuine binary signatures (`image/png`, `application/pdf`, `video/mp4`) to prevent executable masking.
 - **Scoped Quotas & Size Limits**: Configurable per-user and per-project storage caps.
@@ -313,7 +418,7 @@ Every FlareBase project operates as an independent authentication realm:
 
 ---
 
-## 15. Real-Time Change Data Capture (CDC)
+## 18. Real-Time Change Data Capture (CDC)
 
 - **Server-Sent Events (SSE)**: Unidirectional real-time document change feeds (`/api/v1/db/collections/:name/realtime`).
 - **WebSockets (`/ws`)**: High-throughput, bi-directional event bus supporting live channel subscriptions, presence, and terminal streaming.
@@ -321,7 +426,7 @@ Every FlareBase project operates as an independent authentication realm:
 
 ---
 
-## 16. GDPR Privacy, Right to Erasure & Appeals
+## 19. GDPR Privacy, Right to Erasure & Appeals
 
 - **Article 20 Data Portability**: Instant one-click portable JSON export bundles containing all user data.
 - **7-Day Cooling-Off Erasure Window**: Scheduled account deletion with a 7-day cancellation window.
@@ -330,7 +435,7 @@ Every FlareBase project operates as an independent authentication realm:
 
 ---
 
-## 17. Disaster Recovery & S3 Backup Engine
+## 20. Disaster Recovery & S3 Backup Engine
 
 - **Hot Database Snapshots**: Uses SQLite online backup APIs (`VACUUM INTO`) for consistent, non-blocking snapshots.
 - **Automated S3 Replication**: Encrypted uploads to Amazon S3, MinIO, or Cloudflare R2.
@@ -338,7 +443,7 @@ Every FlareBase project operates as an independent authentication realm:
 
 ---
 
-## 18. Network & Server Hosting Center, Zero-Downtime Socket Rebinding
+## 21. Network & Server Hosting Center, Zero-Downtime Socket Rebinding
 
 - **Live Host Binding Modes**: Toggle between **Dual Host (`0.0.0.0`)**, **Localhost (`127.0.0.1`)**, **Wi-Fi LAN IP**, and **Custom Domain**.
 - **Zero-Downtime Socket Rebinding**: Dynamically rebind the HTTP/WebSocket server to new IP addresses and ports without dropping active sessions.
@@ -349,7 +454,7 @@ Every FlareBase project operates as an independent authentication realm:
 
 ---
 
-## 19. Super Admin Console & Telemetry
+## 22. Super Admin Console & Telemetry
 
 - **Live Telemetry Charts**: Real-time visual monitoring of CPU load, V8 heap memory allocation, and query latency via Chart.js.
 - **Dynamic Rate Limit Governance**: Update global rate limits live without server restarts.
@@ -358,7 +463,7 @@ Every FlareBase project operates as an independent authentication realm:
 
 ---
 
-## 20. Complete REST API Registry
+## 23. Complete REST API Registry
 
 ### Public System & Monitoring
 | Method | Endpoint | Description |
@@ -518,53 +623,111 @@ Every FlareBase project operates as an independent authentication realm:
 | `POST` | `/api/v1/admin/account-deletions/:id/cancel` | Retain an account upon user appeal |
 | `POST` | `/api/v1/admin/backups/purge` | Trigger immediate cleanup of expired snapshots |
 
+### Auto Threat Detection & Live User Security Intelligence (`/api/v1/admin/threat-intelligence` & `/api/v1/projects/:id/threat-intelligence`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/threat-intelligence/overview` | Platform-wide threat KPI summary (inspected users, quarantined accounts, threats blocked, shared Wi-Fi safe count, WAF latency) |
+| `GET` | `/api/v1/admin/threat-intelligence/users` | Platform user security threat matrix with composite risk scores, device fingerprints, and query filters |
+| `GET` | `/api/v1/admin/threat-intelligence/incidents/:id` | Deep incident payload viewer and forensic inspection metadata |
+| `POST` | `/api/v1/admin/threat-intelligence/users/:id/quarantine` | Quarantine user account with admin reason, severity, and notes |
+| `POST` | `/api/v1/admin/threat-intelligence/users/:id/unflag` | Unflag/pardon user and clear quarantine isolation |
+| `POST` | `/api/v1/admin/threat-intelligence/audit` | Trigger on-demand security audit scan across all accounts |
+| `GET` | `/api/v1/admin/threat-intelligence/export` | Export threat and security audit logs in JSON or CSV format |
+| `DELETE` | `/api/v1/admin/threat-intelligence/logs` | Purge historical resolved threat logs |
+| `GET` | `/api/v1/projects/:id/threat-intelligence/overview` | Project-scoped threat KPI metrics and health status |
+| `GET` | `/api/v1/projects/:id/threat-intelligence/users` | Project-scoped user security threat matrix |
+| `POST` | `/api/v1/projects/:id/threat-intelligence/users/:userId/quarantine` | Quarantine project end-user account |
+| `POST` | `/api/v1/projects/:id/threat-intelligence/users/:userId/unflag` | Unflag/restore project end-user account |
+| `POST` | `/api/v1/projects/:id/threat-intelligence/audit` | Trigger project-scoped user security scan |
+
+### Bare-Metal System Recovery & High-Availability Gateways (`/api/v1/system`)
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/api/v1/system/verify-recovery-pin` | Verify 6-digit server recovery passcode (`RECOVERY_PIN`) |
+| `POST` | `/api/v1/system/restore` | Bare-metal database snapshot restore using master `ENCRYPTION_KEY` |
+| `GET` | `/admin-login.html` | Super Admin Gateway (guaranteed bypass during maintenance) |
+| `GET` | `/recovery.html` | Bare-Metal Recovery Portal (protected by 6-digit passcode) |
+
 ---
 
-## 21. Performance Verification & Automated Test Suites
+## 24. Performance Verification & Automated Test Suites
 
-FlareBase includes comprehensive integration test suites with over **200 automated verification checks** running with isolated in-memory SQLite instances (`DB_PATH=:memory:`):
+FlareBase includes comprehensive integration test suites with over **365 automated verification checks** running with isolated in-memory SQLite instances (`DB_PATH=:memory:`):
 
 ```bash
-# Run complete test suite (all 11 test suites passing 100%)
+# Run complete test suite (all 22 test suites passing 100%)
 npm test
 
-# 1. Remote One-Time Tokens (OTT) & Zero-Trust Device Approvals (29 checks)
+# 1. Admin RBAC & Route Protection (15 checks)
+npx ts-node tests/admin-rbac.test.ts
+
+# 2. Remote One-Time Tokens (OTT) & Zero-Trust Device Approvals (29 checks)
 npx ts-node tests/remote-ott-access.test.ts
 
-# 2. Global Public Tunneling Manager & Ingress Killswitches (22 checks)
+# 3. Global Public Tunneling Manager & Ingress Killswitches (22 checks)
 npx ts-node tests/tunnel-manager.test.ts
 
-# 3. Real-Time Traffic Topology & Flow Telemetry Matrix (28 checks)
+# 4. Mesh VPN & Peer WireGuard/Tailscale Network Sync (18 checks)
+npx ts-node tests/mesh-vpn.test.ts
+
+# 5. Real-Time Traffic Topology & Flow Telemetry Matrix (28 checks)
 npx ts-node tests/traffic-topology.test.ts
 
-# 4. Global Ingress & Super Admin Device Lock (17 checks)
+# 6. Global Ingress & Super Admin Device Lock (17 checks)
 npx ts-node tests/global-perimeter-lock.test.ts
 
-# 5. FIDO2 Biometric Passkeys & WebAuthn Level 3 (20 checks)
+# 7. FIDO2 Biometric Passkeys & WebAuthn Level 3 (20 checks)
 npx ts-node tests/passkeys.test.ts
 
-# 6. Passwordless Magic Links & 6-Digit Email OTP (10 checks)
+# 8. Passwordless Magic Links & 6-Digit Email OTP (10 checks)
 npx ts-node tests/magic-link.test.ts
 
-# 7. User Active Sessions & Remote Device Logout (13 checks)
+# 9. User Active Sessions & Remote Device Logout (13 checks)
 npx ts-node tests/user-sessions.test.ts
 
-# 8. Personal Access Tokens (PATs) & Fine-Grained Scopes (11 checks)
+# 10. Personal Access Tokens (PATs) & Fine-Grained Scopes (11 checks)
 npx ts-node tests/user-pats.test.ts
 
-# 9. GitHub-Grade Multi-Tenant Organizations & Teams (40 checks)
+# 11. GitHub-Grade Multi-Tenant Organizations & Teams (40 checks)
 npx ts-node tests/organizations.test.ts
 
-# 10. In-App Real-Time Notification Center (9 checks)
+# 12. In-App Real-Time Notification Center (9 checks)
 npx ts-node tests/notifications.test.ts
 
-# 11. User Storage Quotas & Visual Metering (4 checks)
+# 13. User Storage Quotas & Visual Metering (4 checks)
 npx ts-node tests/storage-quota.test.ts
+
+# 14. Multi-Tenant Project User Isolation & Scoping (12 checks)
+npx ts-node tests/project-user-isolation.test.ts
+
+# 15. Cross-Project Boundary & Data Isolation (15 checks)
+npx ts-node tests/cross-project-isolation.test.ts
+
+# 16. Vulnerability Hardening: SQLi, XSS, Path Traversal & ReDoS (25 checks)
+npx ts-node tests/vulnerability-hardening.test.ts
+
+# 17. Project Auth Policy & Registration Hardening (14 checks)
+npx ts-node tests/project-auth-settings-hardening.test.ts
+
+# 18. Anti-Spam & Threat Detection Heuristics (18 checks)
+npx ts-node tests/anti-spam-threat-detection.test.ts
+
+# 19. Multi-Account Physical Device Collision Scoring & Shared Wi-Fi / NAT Intelligence (16 checks)
+npx ts-node tests/multi-account-device-scoring.test.ts
+
+# 20. Real-Time Threat Detection & WebSocket CDC Stream (15 checks)
+npx ts-node tests/realtime-threat-detection.test.ts
+
+# 21. Threat Intelligence Radar & User Security Matrix (20 checks)
+npx ts-node tests/threat-intelligence-matrix.test.ts
+
+# 22. Load Concurrency & Performance Benchmarks (20 checks)
+npx ts-node tests/load-concurrency-performance.test.ts
 ```
 
 ---
 
-## 22. High-Availability & Production Deployment
+## 25. High-Availability & Production Deployment
 
 ### Option 1: Reverse Proxy with Nginx (Recommended)
 ```nginx
@@ -611,7 +774,7 @@ pm2 reload flarebase
 
 ---
 
-## 23. Official SDKs, Browser Drops & AI Agent Integration
+## 26. Official SDKs, Browser Drops & AI Agent Integration
 
 ### Drop-In Browser Script (`/aegis.js`)
 
