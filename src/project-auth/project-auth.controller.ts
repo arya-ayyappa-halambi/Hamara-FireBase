@@ -251,26 +251,45 @@ export async function getPublicProjectAuthConfig(req: Request, res: Response, ne
     const projectId = getResolvedProjectId(req);
     const db = require('../db/sqlite.connection').getDb();
     const proj = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId);
-    let authConfig = proj?.authConfig ? JSON.parse(proj.authConfig) : { email: { enabled: true }, google: { enabled: false } };
-    
+    let authConfig = proj?.authConfig ? (typeof proj.authConfig === 'string' ? JSON.parse(proj.authConfig) : proj.authConfig) : {};
+
+    const isEmailEnabled = projectAuthService.isProviderEnabled(authConfig, 'email');
+    const isGoogleEnabled = projectAuthService.isProviderEnabled(authConfig, 'google');
+    const isGithubEnabled = projectAuthService.isProviderEnabled(authConfig, 'github');
+    const isAppleEnabled = projectAuthService.isProviderEnabled(authConfig, 'apple');
+    const isMagicLinkEnabled = projectAuthService.isProviderEnabled(authConfig, 'magiclink');
+    const isPasskeysEnabled = projectAuthService.isProviderEnabled(authConfig, 'passkeys');
+    const isAnonymousEnabled = projectAuthService.isProviderEnabled(authConfig, 'anonymous');
+
+    let googleId = (authConfig.google?.clientId || '').trim();
+    if (!googleId && process.env.GOOGLE_CLIENT_ID) googleId = process.env.GOOGLE_CLIENT_ID.trim();
+
+    let appleId = (authConfig.apple?.clientId || '').trim();
+    if (!appleId && process.env.APPLE_CLIENT_ID) appleId = process.env.APPLE_CLIENT_ID.trim();
+
+    let githubId = (authConfig.github?.clientId || '').trim();
+    if (!githubId && process.env.GITHUB_CLIENT_ID) githubId = process.env.GITHUB_CLIENT_ID.trim();
+
     // Sanitize to only expose public client IDs and registration policy
     const publicConfig: Record<string, any> = {
-      allowPublicRegistration: authConfig.allowPublicRegistration !== false
+      allowPublicRegistration: authConfig.allowPublicRegistration !== false,
+      email: { enabled: isEmailEnabled },
+      google: { enabled: isGoogleEnabled, clientId: googleId },
+      apple: { enabled: isAppleEnabled, clientId: appleId },
+      github: { enabled: isGithubEnabled, clientId: githubId },
+      magicLink: { enabled: isMagicLinkEnabled },
+      passkeys: { enabled: isPasskeysEnabled },
+      anonymous: { enabled: isAnonymousEnabled },
+      enabledProviders: [
+        ...(isEmailEnabled ? ['email', 'password'] : []),
+        ...(isGoogleEnabled ? ['google'] : []),
+        ...(isGithubEnabled ? ['github'] : []),
+        ...(isAppleEnabled ? ['apple'] : []),
+        ...(isMagicLinkEnabled ? ['magicLink'] : []),
+        ...(isPasskeysEnabled ? ['passkeys'] : []),
+        ...(isAnonymousEnabled ? ['anonymous'] : [])
+      ]
     };
-    if (authConfig.email) publicConfig.email = { enabled: authConfig.email.enabled !== false };
-    
-    const googleId = (authConfig.google?.clientId || '').trim();
-    publicConfig.google = { enabled: !!authConfig.google?.enabled && googleId.length > 0, clientId: googleId };
-
-    const appleId = (authConfig.apple?.clientId || '').trim();
-    publicConfig.apple = { enabled: !!authConfig.apple?.enabled && appleId.length > 0, clientId: appleId };
-
-    const githubId = (authConfig.github?.clientId || '').trim();
-    publicConfig.github = { enabled: !!authConfig.github?.enabled && githubId.length > 0, clientId: githubId };
-
-    publicConfig.magicLink = { enabled: !!authConfig.magicLink?.enabled };
-    publicConfig.passkeys = { enabled: !!authConfig.passkeys?.enabled };
-    publicConfig.anonymous = { enabled: !!authConfig.anonymous?.enabled };
 
     res.status(200).json({ success: true, data: publicConfig });
   } catch (err) { next(err); }

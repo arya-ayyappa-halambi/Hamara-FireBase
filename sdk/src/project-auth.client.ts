@@ -110,7 +110,7 @@ export class ProjectAuthClient {
     const cfg = await this.getConfig(true); // always verify fresh
 
     if (norm === 'email' || norm === 'password') {
-      if (cfg.email && cfg.email.enabled === false) {
+      if ((cfg.email as any) === false || (cfg.email && cfg.email.enabled === false) || (Array.isArray(cfg.enabledProviders) && !cfg.enabledProviders.includes('email'))) {
         throw new Error('FlareBase Security Violation: Email & Password authentication is disabled for this project.');
       }
       return cfg;
@@ -118,10 +118,10 @@ export class ProjectAuthClient {
 
     if (['google', 'github', 'apple'].includes(norm)) {
       const pCfg = (cfg as any)[norm];
-      if (!pCfg || pCfg.enabled === false) {
+      if (pCfg === false || (pCfg && pCfg.enabled === false) || (Array.isArray(cfg.enabledProviders) && !cfg.enabledProviders.includes(norm))) {
         throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled for this project.`);
       }
-      if (!pCfg.clientId || !pCfg.clientId.trim()) {
+      if (!pCfg || !pCfg.clientId || !pCfg.clientId.trim()) {
         throw new Error(`FlareBase Configuration Error: ${norm.toUpperCase()} Client ID is not configured in FlareBase dashboard.`);
       }
       return cfg;
