@@ -10,9 +10,11 @@ import { Request, Response, NextFunction } from 'express';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { projectService } from '../project/project.service';
+import { projectAuthService } from '../project-auth/project-auth.service';
 import { authenticateJwt, extractBearerToken } from './auth.middleware';
 import { AppError } from '../types/auth.types';
 import { auditLogService } from '../services/audit-log.service';
+import { getDb } from '../db/sqlite.connection';
 
 function isBrowserContext(req: Request): boolean {
   const origin = req.headers['origin'];
@@ -92,11 +94,50 @@ export function authenticateApiKeyOrJwt(req: Request, res: Response, next: NextF
       }
       try {
         const decoded = jwt.verify(token, secret) as any;
+        const userId = decoded.sub || decoded.id || decoded.userId;
+        if (!userId) {
+          return next(new AppError('Invalid token payload. User ID missing.', 401));
+        }
         if (decoded.projectId && decoded.projectId !== project.id) {
           return next(new AppError('Forbidden: Project token does not match the specified API key project.', 403));
         }
-        req.projectUser = decoded;
+
+        // Verify project user in database (fails closed on forged/hardcoded IDs or deleted accounts)
+        const db = getDb();
+        const projectUser = db.prepare('SELECT id, email, provider, role, customClaims, status, isFlagged FROM project_users WHERE id = ? AND projectId = ?').get(userId, project.id) as any;
+        
+        if (!projectUser) {
+          return next(new AppError('Authentication failed: Project user does not exist or user ID is invalid.', 401));
+        }
+
+        if (projectUser.status === 'suspended' || projectUser.isFlagged === 1) {
+          return next(new AppError('Access denied: User account is suspended or quarantined.', 403));
+        }
+
+        const provider = projectUser.provider || 'email';
+        if (!projectAuthService.isProviderEnabled(project.authConfig, provider)) {
+          return next(new AppError(`Access denied: Authentication provider "${provider}" is disabled for this project.`, 403));
+        }
+
+        let customClaims = {};
+        if (projectUser.customClaims) {
+          try {
+            customClaims = JSON.parse(projectUser.customClaims);
+          } catch (_) {}
+        }
+
+        req.projectUser = {
+          ...decoded,
+          sub: projectUser.id,
+          id: projectUser.id,
+          role: projectUser.role || decoded.role || 'viewer',
+          provider: projectUser.provider,
+          ...customClaims,
+        };
       } catch (err: any) {
+        if (err instanceof AppError) {
+          return next(err);
+        }
         return next(new AppError('Invalid or expired Bearer token provided with API key.', 401));
       }
     }

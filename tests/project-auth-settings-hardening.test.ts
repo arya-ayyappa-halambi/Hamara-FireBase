@@ -14,6 +14,8 @@ import { projectService } from '../src/project/project.service';
 import { registerUser } from '../src/auth/auth.service';
 import { userStore } from '../src/store/user.store';
 import { AppError } from '../src/types/auth.types';
+import { authenticateApiKeyOrJwt } from '../src/middleware/apikey.middleware';
+import { authenticateJwt } from '../src/middleware/auth.middleware';
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
@@ -235,6 +237,228 @@ async function runProjectAuthHardeningTests(): Promise<void> {
 
   const projectUsers = db.prepare('SELECT * FROM project_users WHERE projectId = ?').all(projectId);
   assert(projectUsers.length >= 1, 'Project end-user properly resides in project_users table');
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  TEST 9: Forged / Hardcoded Auth ID Rejection
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 9. Forged / Hardcoded Auth ID Rejection ---');
+
+  // Sign a JWT with valid secret and project ID, but a non-existent / forged sub
+  const fakeToken = jwt.sign({
+    sub: 'forged_fake_user_id_99999',
+    projectId: projectId,
+    email: 'fake_demo@example.com',
+    isProjectUser: true,
+    role: 'admin'
+  }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+
+  let fakeTokenRejectedApiKey = false;
+  const mockReq1 = {
+    headers: {
+      'x-flarebase-api-key': rawApiKey,
+      authorization: `Bearer ${fakeToken}`
+    },
+    query: {},
+    method: 'GET',
+    originalUrl: '/api/v1/db/collections/users/documents',
+    ip: '127.0.0.1',
+  } as any;
+
+  authenticateApiKeyOrJwt(mockReq1, {} as any, (err?: any) => {
+    if (err instanceof AppError && err.statusCode === 401 && err.message.includes('Project user does not exist')) {
+      fakeTokenRejectedApiKey = true;
+    }
+  });
+  assert(fakeTokenRejectedApiKey, 'Forged / hardcoded user ID with API key is strictly rejected with HTTP 401');
+
+  let fakeTokenRejectedDirectJwt = false;
+  const mockReq2 = {
+    headers: {
+      authorization: `Bearer ${fakeToken}`
+    },
+    query: {},
+    method: 'GET',
+    originalUrl: '/api/v1/db/collections/users/documents',
+    ip: '127.0.0.1',
+  } as any;
+
+  authenticateJwt(mockReq2, {} as any, (err?: any) => {
+    if (err instanceof AppError && err.statusCode === 401) {
+      fakeTokenRejectedDirectJwt = true;
+    }
+  });
+  assert(fakeTokenRejectedDirectJwt, 'Forged / hardcoded user ID without API key is strictly rejected with HTTP 401');
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  TEST 10: Real-Time Data Access Lockout When Provider is Disabled
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 10. Real-Time Data Access Lockout on Disabled Provider ---');
+
+  // Enable email auth first and get valid token
+  projectService.updateAuthConfig(projectId, devUser!.id, {
+    allowPublicRegistration: true,
+    email: { enabled: true }
+  }, false);
+
+  const activeEmailUser = await projectAuthService.registerUser(projectId, `active_email_${Date.now()}@example.com`, 'SecurePass123!');
+  assert(!!activeEmailUser.token, 'Legitimate email user token created');
+
+  // Verify access is allowed when provider is enabled
+  let allowedWhenEnabled = false;
+  const mockReqAllowed = {
+    headers: {
+      'x-flarebase-api-key': rawApiKey,
+      authorization: `Bearer ${activeEmailUser.token}`
+    },
+    query: {},
+    method: 'GET',
+    originalUrl: '/api/v1/db/collections/test/documents',
+    ip: '127.0.0.1',
+  } as any;
+  authenticateApiKeyOrJwt(mockReqAllowed, {} as any, (err?: any) => {
+    if (!err && mockReqAllowed.projectUser?.sub === activeEmailUser.user.id) {
+      allowedWhenEnabled = true;
+    }
+  });
+  assert(allowedWhenEnabled, 'Active email user token permitted access when email provider is enabled');
+
+  // Now DISABLE email auth in project settings
+  projectService.updateAuthConfig(projectId, devUser!.id, {
+    allowPublicRegistration: true,
+    email: { enabled: false }
+  }, false);
+
+  // Attempt data access with previously issued token
+  let blockedWhenDisabled = false;
+  const mockReqBlocked = {
+    headers: {
+      'x-flarebase-api-key': rawApiKey,
+      authorization: `Bearer ${activeEmailUser.token}`
+    },
+    query: {},
+    method: 'GET',
+    originalUrl: '/api/v1/db/collections/test/documents',
+    ip: '127.0.0.1',
+  } as any;
+  authenticateApiKeyOrJwt(mockReqBlocked, {} as any, (err?: any) => {
+    if (err instanceof AppError && err.statusCode === 403 && err.message.includes('Authentication provider "email" is disabled')) {
+      blockedWhenDisabled = true;
+    }
+  });
+  assert(blockedWhenDisabled, 'Data endpoint strictly rejects email user token with HTTP 403 when email auth is disabled');
+
+  // Test token refresh also blocked
+  let refreshBlockedOnDisabled = false;
+  try {
+    await projectAuthService.rotateRefreshToken(projectId, activeEmailUser.refreshToken);
+  } catch (err: any) {
+    if (err instanceof AppError && err.statusCode === 403 && err.message.includes('Authentication provider "email" is disabled')) {
+      refreshBlockedOnDisabled = true;
+    }
+  }
+  assert(refreshBlockedOnDisabled, 'Refresh token rotation strictly rejects with HTTP 403 when provider is disabled');
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  TEST 11: Suspended / Quarantined Account Rejection on Data Access
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 11. Suspended / Quarantined Account Rejection on Data Endpoints ---');
+
+  // Re-enable email auth
+  projectService.updateAuthConfig(projectId, devUser!.id, {
+    allowPublicRegistration: true,
+    email: { enabled: true }
+  }, false);
+
+  // Suspend the user
+  db.prepare('UPDATE project_users SET status = ? WHERE id = ?').run('suspended', activeEmailUser.user.id);
+
+  let suspendedUserBlocked = false;
+  const mockReqSuspended = {
+    headers: {
+      'x-flarebase-api-key': rawApiKey,
+      authorization: `Bearer ${activeEmailUser.token}`
+    },
+    query: {},
+    method: 'GET',
+    originalUrl: '/api/v1/db/collections/test/documents',
+    ip: '127.0.0.1',
+  } as any;
+  authenticateApiKeyOrJwt(mockReqSuspended, {} as any, (err?: any) => {
+    if (err instanceof AppError && err.statusCode === 403 && err.message.includes('suspended or quarantined')) {
+      suspendedUserBlocked = true;
+    }
+  });
+  assert(suspendedUserBlocked, 'Suspended user data access is strictly blocked with HTTP 403');
+
+  // ───────────────────────────────────────────────────────────────────────────
+  //  TEST 12: OAuth / Google Provider Real-Time Lockout
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 12. OAuth / Google Provider Real-Time Data Access Lockout ---');
+
+  // Enable Google Auth and register user with provider 'google'
+  projectService.updateAuthConfig(projectId, devUser!.id, {
+    allowPublicRegistration: true,
+    google: { enabled: true, clientId: 'test-google-id' }
+  }, false);
+
+  const googleUserId = `google_user_${Date.now()}`;
+  const now = new Date().toISOString();
+  db.prepare(`
+    INSERT INTO project_users (id, projectId, email, emailHash, provider, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, 'google', ?, ?)
+  `).run(googleUserId, projectId, JSON.stringify({ ciphertext: 'fake', iv: 'fake', tag: 'fake' }), 'fake_google_hash', now, now);
+
+  const googleUserToken = jwt.sign({
+    sub: googleUserId,
+    projectId: projectId,
+    email: 'google_user@gmail.com',
+    isProjectUser: true,
+    role: 'viewer'
+  }, process.env.JWT_SECRET!, { expiresIn: '1h' });
+
+  // Verify access succeeds when Google is enabled
+  let googleAllowedWhenEnabled = false;
+  const mockReqGoogleAllowed = {
+    headers: {
+      'x-flarebase-api-key': rawApiKey,
+      authorization: `Bearer ${googleUserToken}`
+    },
+    query: {},
+    method: 'GET',
+    originalUrl: '/api/v1/db/collections/test/documents',
+    ip: '127.0.0.1',
+  } as any;
+  authenticateApiKeyOrJwt(mockReqGoogleAllowed, {} as any, (err?: any) => {
+    if (!err && mockReqGoogleAllowed.projectUser?.sub === googleUserId) {
+      googleAllowedWhenEnabled = true;
+    }
+  });
+  assert(googleAllowedWhenEnabled, 'Google OAuth user permitted data access when Google auth is enabled');
+
+  // Disable Google Auth in project settings
+  projectService.updateAuthConfig(projectId, devUser!.id, {
+    allowPublicRegistration: true,
+    google: { enabled: false }
+  }, false);
+
+  // Verify immediate lockout for Google user on data endpoint
+  let googleBlockedWhenDisabled = false;
+  const mockReqGoogleBlocked = {
+    headers: {
+      'x-flarebase-api-key': rawApiKey,
+      authorization: `Bearer ${googleUserToken}`
+    },
+    query: {},
+    method: 'GET',
+    originalUrl: '/api/v1/db/collections/test/documents',
+    ip: '127.0.0.1',
+  } as any;
+  authenticateApiKeyOrJwt(mockReqGoogleBlocked, {} as any, (err?: any) => {
+    if (err instanceof AppError && err.statusCode === 403 && err.message.includes('Authentication provider "google" is disabled')) {
+      googleBlockedWhenDisabled = true;
+    }
+  });
+  assert(googleBlockedWhenDisabled, 'Google OAuth user strictly blocked with HTTP 403 on data endpoints when Google auth is toggled off');
 
   console.log('\n================================================================');
   console.log(`📊 Project Auth Hardening Results: ${passed} Passed, ${failed} Failed`);

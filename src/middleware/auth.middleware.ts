@@ -93,18 +93,60 @@ export function authenticateJwt(req: Request, _res: Response, next: NextFunction
 
     // Verify user actually exists in DB (protects against ghost tokens after DB resets)
     const db = getDb();
-    const userExists = db.prepare('SELECT id FROM users WHERE id = ?').get(userId)
-      || db.prepare('SELECT id FROM project_users WHERE id = ?').get(userId);
-    if (!userExists) {
-      return next(new AppError('User not found or session expired. Please log in again.', 401));
-    }
+    if (decoded.isProjectUser || decoded.projectId) {
+      const projectId = decoded.projectId;
+      const project = db.prepare('SELECT id, authConfig FROM projects WHERE id = ?').get(projectId) as any;
+      if (!project) {
+        return next(new AppError('Project not found or session expired.', 401));
+      }
 
-    if (!decoded.sub) {
-      decoded.sub = userId;
-    }
+      const projectUser = db.prepare('SELECT id, email, provider, role, customClaims, status, isFlagged FROM project_users WHERE id = ? AND projectId = ?').get(userId, projectId) as any;
+      if (!projectUser) {
+        return next(new AppError('User not found or session expired. Please log in again.', 401));
+      }
 
-    req.user = decoded;
-    next();
+      if (projectUser.status === 'suspended' || projectUser.isFlagged === 1) {
+        return next(new AppError('Account is suspended or quarantined.', 403));
+      }
+
+      const { projectAuthService } = require('../project-auth/project-auth.service');
+      const provider = projectUser.provider || 'email';
+      if (!projectAuthService.isProviderEnabled(project.authConfig, provider)) {
+        return next(new AppError(`Access denied: Authentication provider "${provider}" is disabled for this project.`, 403));
+      }
+
+      let customClaims = {};
+      if (projectUser.customClaims) {
+        try {
+          customClaims = JSON.parse(projectUser.customClaims);
+        } catch (_) {}
+      }
+
+      const userPayload = {
+        ...decoded,
+        sub: projectUser.id,
+        id: projectUser.id,
+        role: projectUser.role || decoded.role || 'viewer',
+        provider: projectUser.provider,
+        ...customClaims,
+      };
+
+      req.user = userPayload;
+      req.projectUser = userPayload;
+      return next();
+    } else {
+      const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+      if (!user) {
+        return next(new AppError('User not found or session expired. Please log in again.', 401));
+      }
+
+      if (!decoded.sub) {
+        decoded.sub = userId;
+      }
+
+      req.user = decoded;
+      return next();
+    }
   } catch (error) {
     // Re-throw JWT-specific errors so globalErrorHandler can map them correctly
     next(error);

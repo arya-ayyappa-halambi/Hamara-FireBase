@@ -15,6 +15,8 @@ import jwt from 'jsonwebtoken';
 import { URL } from 'url';
 import { JwtPayload } from '../types/auth.types';
 import { metricsService } from '../services/metrics.service';
+import { getDb } from '../db/sqlite.connection';
+import { projectAuthService } from '../project-auth/project-auth.service';
 
 export type ChangeEventType = 'document:inserted' | 'document:updated' | 'document:deleted';
 
@@ -114,6 +116,46 @@ class WebSocketService {
 
     try {
       const decoded = jwt.verify(token, secret) as JwtPayload;
+      const db = getDb();
+      const userId = decoded.sub || (decoded as any).id || (decoded as any).userId;
+
+      if ((decoded as any).isProjectUser || (decoded as any).projectId) {
+        const projectId = (decoded as any).projectId;
+        const project = db.prepare('SELECT id, authConfig FROM projects WHERE id = ?').get(projectId) as any;
+        if (!project) {
+          ws.send(JSON.stringify({ event: 'auth:error', message: 'Project not found.' }));
+          ws.close(4004, 'Project not found.');
+          return false;
+        }
+
+        const projectUser = db.prepare('SELECT id, provider, status, isFlagged FROM project_users WHERE id = ? AND projectId = ?').get(userId, projectId) as any;
+        if (!projectUser) {
+          ws.send(JSON.stringify({ event: 'auth:error', message: 'Project user not found or invalid.' }));
+          ws.close(4001, 'User not found.');
+          return false;
+        }
+
+        if (projectUser.status === 'suspended' || projectUser.isFlagged === 1) {
+          ws.send(JSON.stringify({ event: 'auth:error', message: 'Account is suspended or quarantined.' }));
+          ws.close(4003, 'Account suspended.');
+          return false;
+        }
+
+        const provider = projectUser.provider || 'email';
+        if (!projectAuthService.isProviderEnabled(project.authConfig, provider)) {
+          ws.send(JSON.stringify({ event: 'auth:error', message: `Authentication provider "${provider}" is disabled for this project.` }));
+          ws.close(4003, 'Provider disabled.');
+          return false;
+        }
+      } else {
+        const user = db.prepare('SELECT id FROM users WHERE id = ?').get(userId);
+        if (!user) {
+          ws.send(JSON.stringify({ event: 'auth:error', message: 'User not found or invalid session.' }));
+          ws.close(4001, 'User not found.');
+          return false;
+        }
+      }
+
       ws.user = decoded;
       ws.send(JSON.stringify({
         event: 'auth:success',

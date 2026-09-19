@@ -307,7 +307,7 @@
      * Throws an error immediately if disabled, preventing any frontend bypass or hardcoded execution.
      */
     async verifyProviderEnabled(provider) {
-      const norm = (provider || '').toLowerCase().trim();
+      const norm = (provider || 'email').toLowerCase().trim();
       const configRes = await this.getConfig();
       const cfg = configRes.data || configRes;
       if (!cfg) {
@@ -315,10 +315,13 @@
       }
 
       if (norm === 'email' || norm === 'password' || norm === 'email_password') {
+        if (cfg.email === false) {
+          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
+        }
         if (cfg.email && typeof cfg.email === 'object' && cfg.email.enabled === false) {
           throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
         }
-        if (cfg.emailAuth === false || cfg.emailPassword === false || cfg.allowEmailAuth === false || cfg.emailPasswordEnabled === false) {
+        if (cfg.emailAuth === false || cfg.emailPassword === false || cfg.allowEmailAuth === false || cfg.emailPasswordEnabled === false || cfg.emailEnabled === false) {
           throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
         }
         if (Array.isArray(cfg.enabledProviders) && !cfg.enabledProviders.some(p => ['email', 'password', 'email_password'].includes(String(p).toLowerCase()))) {
@@ -329,20 +332,34 @@
 
       if (['google', 'github', 'apple'].includes(norm)) {
         const pCfg = cfg[norm];
+        if (pCfg === false) {
+          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
+        }
         if (pCfg && typeof pCfg === 'object' && pCfg.enabled === false) {
           throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
         }
-        if (pCfg && typeof pCfg === 'object' && pCfg.enabled !== true && !cfg.enabledProviders?.includes(norm)) {
+        if (cfg[`${norm}Auth`] === false || cfg[`${norm}Enabled`] === false || cfg[`allow${norm.charAt(0).toUpperCase() + norm.slice(1)}`] === false) {
           throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
         }
-        if (cfg.oauth && typeof cfg.oauth === 'object' && cfg.oauth[norm] === false) {
+        if (cfg.oauth && typeof cfg.oauth === 'object' && (cfg.oauth[norm] === false || cfg.oauth[norm]?.enabled === false)) {
           throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
         }
-        if (Array.isArray(cfg.enabledProviders) && !cfg.enabledProviders.includes(norm)) {
-          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
+        if (pCfg === true || (pCfg && typeof pCfg === 'object' && pCfg.enabled === true) || (Array.isArray(cfg.enabledProviders) && cfg.enabledProviders.map(p => String(p).toLowerCase()).includes(norm))) {
+          return true;
         }
-        return true;
+        throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
       }
+
+      if (norm === 'anonymous') {
+        if (cfg.anonymous === false || cfg.allowAnonymous === false || (cfg.anonymous && typeof cfg.anonymous === 'object' && cfg.anonymous.enabled === false)) {
+          throw new Error('FlareBase Security Violation: Anonymous authentication is disabled on the FlareBase server for this project.');
+        }
+        if (cfg.anonymous === true || cfg.allowAnonymous === true || (cfg.anonymous && typeof cfg.anonymous === 'object' && cfg.anonymous.enabled === true) || (Array.isArray(cfg.enabledProviders) && cfg.enabledProviders.includes('anonymous'))) {
+          return true;
+        }
+        throw new Error('FlareBase Security Violation: Anonymous authentication is disabled on the FlareBase server for this project.');
+      }
+
       return true;
     }
 

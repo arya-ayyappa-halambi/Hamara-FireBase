@@ -26,10 +26,93 @@ export class ProjectAuthService {
     return secret;
   }
 
+  /**
+   * Helper to determine whether an authentication provider is enabled for a project.
+   */
+  public isProviderEnabled(authConfigInput: any, provider: string = 'email'): boolean {
+    let authConfig = authConfigInput;
+    if (typeof authConfig === 'string') {
+      try {
+        authConfig = JSON.parse(authConfig);
+      } catch (_) {
+        authConfig = {};
+      }
+    }
+    if (!authConfig || typeof authConfig !== 'object') {
+      authConfig = {};
+    }
+
+    const norm = (provider || 'email').toLowerCase().trim();
+
+    if (norm === 'email' || norm === 'password' || norm === 'email_password') {
+      // Check all false signals
+      if (authConfig.email === false) return false;
+      if (authConfig.email && typeof authConfig.email === 'object' && authConfig.email.enabled === false) return false;
+      if (authConfig.emailAuth === false || authConfig.emailPassword === false || authConfig.allowEmailAuth === false || authConfig.emailPasswordEnabled === false) return false;
+      if (Array.isArray(authConfig.enabledProviders) && !authConfig.enabledProviders.some((p: any) => ['email', 'password', 'email_password'].includes(String(p).toLowerCase()))) return false;
+      
+      // Default to true if not explicitly disabled
+      return true;
+    }
+
+    if (['google', 'github', 'apple'].includes(norm)) {
+      const pCfg = authConfig[norm];
+      if (pCfg === false) return false;
+      if (pCfg === true) return true;
+      if (pCfg && typeof pCfg === 'object') {
+        if (pCfg.enabled === false) return false;
+        if (pCfg.enabled === true) return true;
+      }
+      if (authConfig[`${norm}Auth`] === false || authConfig[`${norm}Enabled`] === false || authConfig[`allow${norm.charAt(0).toUpperCase() + norm.slice(1)}`] === false) return false;
+      if (authConfig[`${norm}Auth`] === true || authConfig[`${norm}Enabled`] === true || authConfig[`allow${norm.charAt(0).toUpperCase() + norm.slice(1)}`] === true) return true;
+      if (authConfig.oauth && typeof authConfig.oauth === 'object') {
+        if (authConfig.oauth[norm] === false) return false;
+        if (authConfig.oauth[norm] === true) return true;
+        if (authConfig.oauth[norm]?.enabled === false) return false;
+        if (authConfig.oauth[norm]?.enabled === true) return true;
+      }
+      if (Array.isArray(authConfig.enabledProviders)) {
+        return authConfig.enabledProviders.map((p: any) => String(p).toLowerCase()).includes(norm);
+      }
+      return false;
+    }
+
+    if (norm === 'anonymous') {
+      if (authConfig.anonymous === false) return false;
+      if (authConfig.anonymous === true) return true;
+      if (authConfig.anonymous && typeof authConfig.anonymous === 'object' && authConfig.anonymous.enabled === true) return true;
+      if (authConfig.anonymous && typeof authConfig.anonymous === 'object' && authConfig.anonymous.enabled === false) return false;
+      if (authConfig.allowAnonymous === true) return true;
+      if (authConfig.allowAnonymous === false) return false;
+      if (Array.isArray(authConfig.enabledProviders) && authConfig.enabledProviders.map((p: any) => String(p).toLowerCase()).includes('anonymous')) return true;
+      return false;
+    }
+
+    if (norm === 'magiclink' || norm === 'magic_link') {
+      if (authConfig.magicLink === false) return false;
+      if (authConfig.magicLink === true) return true;
+      if (authConfig.magicLink && typeof authConfig.magicLink === 'object' && authConfig.magicLink.enabled === true) return true;
+      if (authConfig.magicLink && typeof authConfig.magicLink === 'object' && authConfig.magicLink.enabled === false) return false;
+      if (authConfig.allowMagicLink === true) return true;
+      if (authConfig.allowMagicLink === false) return false;
+      return false;
+    }
+
+    if (norm === 'passkey' || norm === 'passkeys') {
+      if (authConfig.passkeys === false) return false;
+      if (authConfig.passkeys === true) return true;
+      if (authConfig.passkeys && typeof authConfig.passkeys === 'object' && authConfig.passkeys.enabled === true) return true;
+      if (authConfig.passkeys && typeof authConfig.passkeys === 'object' && authConfig.passkeys.enabled === false) return false;
+      return false;
+    }
+
+    return false;
+  }
+
   async registerUser(projectId: string, email: string, passwordText: string, provider: string = 'email', clientIp?: string, deviceFingerprint?: string) {
     // 1. Verify Project exists
     const db = getDb();
-    const projectRow = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId) as any;
+    const projectRow = db.prepare('SELECT id, authConfig FROM projects WHERE id = ?').get(projectId) as any;
     
     if (!projectRow) {
       throw new AppError('Project not found.', 404);
@@ -42,8 +125,8 @@ export class ProjectAuthService {
       throw new AppError('Public user registration is disabled for this project. Accounts must be created by an administrator.', 403);
     }
 
-    if (provider === 'email' && (authConfig.email === false || (authConfig.email && authConfig.email.enabled === false))) {
-      throw new AppError('Email registration is disabled for this project.', 403);
+    if (!this.isProviderEnabled(projectRow.authConfig, provider)) {
+      throw new AppError(`${provider === 'email' ? 'Email registration' : provider + ' registration'} is disabled for this project.`, 403);
     }
 
     if (!email || !email.includes('@')) {
@@ -100,9 +183,12 @@ export class ProjectAuthService {
 
   async loginUser(projectId: string, email: string, passwordText: string) {
     const db = getDb();
-    const projectRow = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId) as any;
-    let authConfig = projectRow?.authConfig ? JSON.parse(projectRow.authConfig) : {};
-    if (authConfig.email === false || (authConfig.email && authConfig.email.enabled === false)) {
+    const projectRow = db.prepare('SELECT id, authConfig FROM projects WHERE id = ?').get(projectId) as any;
+    if (!projectRow) {
+      throw new AppError('Project not found.', 404);
+    }
+
+    if (!this.isProviderEnabled(projectRow.authConfig, 'email')) {
       throw new AppError('Email authentication is disabled for this project.', 403);
     }
 
@@ -113,6 +199,10 @@ export class ProjectAuthService {
 
     if (!user) {
       throw new AppError('Invalid credentials.', 401);
+    }
+
+    if (user.status === 'suspended' || user.isFlagged === 1) {
+      throw new AppError('Account is suspended or quarantined.', 403);
     }
 
     if (user.passwordHash) {
@@ -221,6 +311,20 @@ export class ProjectAuthService {
       throw new AppError('Project user not found or does not belong to this project.', 401);
     }
 
+    const projectRow = db.prepare('SELECT id, authConfig FROM projects WHERE id = ?').get(projectId) as any;
+    if (!projectRow) {
+      throw new AppError('Project not found.', 404);
+    }
+
+    if (user.status === 'suspended' || user.isFlagged === 1) {
+      throw new AppError('Account is suspended or quarantined.', 403);
+    }
+
+    const provider = user.provider || 'email';
+    if (!this.isProviderEnabled(projectRow.authConfig, provider)) {
+      throw new AppError(`Authentication provider "${provider}" is disabled for this project.`, 403);
+    }
+
     let email = user.email;
     if (typeof email === 'string' && email.startsWith('{')) {
       email = envelopeEncryptionService.decryptField(JSON.parse(email), projectId) || email;
@@ -246,13 +350,13 @@ export class ProjectAuthService {
     const projectRow = db.prepare('SELECT authConfig FROM projects WHERE id = ?').get(projectId) as any;
     if (!projectRow) throw new AppError('Project not found.', 404);
     
-    let authConfig = projectRow.authConfig ? JSON.parse(projectRow.authConfig) : {};
+    let authConfig = projectRow.authConfig ? (typeof projectRow.authConfig === 'string' ? JSON.parse(projectRow.authConfig) : projectRow.authConfig) : {};
     
-    const providerConfig = authConfig[provider];
-    if (!providerConfig || !providerConfig.enabled) {
+    if (!this.isProviderEnabled(projectRow.authConfig, provider)) {
       throw new AppError(`${provider} authentication is disabled for this project.`, 403);
     }
 
+    const providerConfig = authConfig[provider] || {};
     let clientId = (providerConfig.clientId || '').trim();
     if (!clientId) {
       if (provider === 'google' && process.env.GOOGLE_CLIENT_ID) clientId = process.env.GOOGLE_CLIENT_ID.trim();
