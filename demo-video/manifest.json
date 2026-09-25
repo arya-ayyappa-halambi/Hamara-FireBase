@@ -1,0 +1,101 @@
+{
+  "project": "FlareBase",
+  "version": "0.1.0",
+  "timestamp": "2026-09-20T12:20:28.257Z",
+  "commitHash": "6cdfb33535b7e5b1de785c918f2c305057da4d9a",
+  "startCommand": "PORT=3850 node dist/server.js",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "framerate": 30
+  },
+  "durationSeconds": 80,
+  "totalFrames": 2400,
+  "outputFiles": {
+    "timestamped": "demo-video/final/flarebase-demo-20260920-175014.mp4",
+    "latest": "demo-video/final/flarebase-demo-latest.mp4"
+  },
+  "storyboard": [
+    {
+      "part": "A: Super Admin Security Controls & Infrastructure",
+      "scenes": [
+        {
+          "scene": 1,
+          "timeRange": "0:00 - 0:07",
+          "title": "Super Admin Security Gateway & 1-Click Login",
+          "details": "Emergency maintenance gateway, 1-click admin demo login (admin@flarebase.dev), and RS256 token validation."
+        },
+        {
+          "scene": 2,
+          "timeRange": "0:07 - 0:14",
+          "title": "Telemetry & Rate Limits Governance",
+          "details": "Real-time CPU/RAM telemetry, active query latency charts, dynamic token bucket rate limits, and DDoS defense."
+        },
+        {
+          "scene": 3,
+          "timeRange": "0:14 - 0:21",
+          "title": "Network Access Center & CIDR Rules",
+          "details": "Subnet access control, real-time client device roster, bandwidth metering, and 1-click IP toggle blocking."
+        },
+        {
+          "scene": 4,
+          "timeRange": "0:21 - 0:29",
+          "title": "Auto Threat Detection & User Security Radar",
+          "details": "5 KPI summary cards, composite risk scores (0-100), D_hash hardware device fingerprints, and live security audit scans."
+        },
+        {
+          "scene": 5,
+          "timeRange": "0:29 - 0:37",
+          "title": "Universal Server Hosting & Bare-Metal Recovery",
+          "details": "Dual Local/LAN IP discovery, Cloudflare edge tunnel integration, and 6-digit RECOVERY_PIN emergency console."
+        }
+      ]
+    },
+    {
+      "part": "B: Developer & User Workspace Dashboard",
+      "scenes": [
+        {
+          "scene": 6,
+          "timeRange": "0:37 - 0:44",
+          "title": "Developer Metrics & Project Management",
+          "details": "Developer metrics dashboard, scoped API keys, workspace isolation, and repository synchronization."
+        },
+        {
+          "scene": 7,
+          "timeRange": "0:44 - 0:52",
+          "title": "GitHub-Grade Organizations & Functional Teams",
+          "details": "Multi-tenant workspace switcher, member rosters, functional groups (@org/team), and granular project access grants."
+        },
+        {
+          "scene": 8,
+          "timeRange": "0:52 - 1:00",
+          "title": "NoSQL Document Database & Row-Level Security",
+          "details": "Schemaless JSON collections, document editor with _rules evaluation, and reactive search filtering."
+        },
+        {
+          "scene": 9,
+          "timeRange": "1:00 - 1:07",
+          "title": "Storage Vault & Visual 500MB Quotas",
+          "details": "Binary magic byte header inspection, real-time visual byte quota metering bar, and temporary signed URLs."
+        },
+        {
+          "scene": 10,
+          "timeRange": "1:07 - 1:14",
+          "title": "User Security Console: Passkeys, Sessions & PATs",
+          "details": "FIDO2 WebAuthn Passkeys, active sessions with remote device killswitch, scoped PATs, and GDPR Art. 20 export."
+        }
+      ]
+    },
+    {
+      "part": "C: Outro & Platform Architecture Summary",
+      "scenes": [
+        {
+          "scene": 11,
+          "timeRange": "1:14 - 1:20",
+          "title": "Unified Platform Architecture Showcase",
+          "details": "Outro summary card showcasing both Super Admin Security Controls and Developer BaaS Primitives."
+        }
+      ]
+    }
+  ]
+}

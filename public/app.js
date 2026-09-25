@@ -1797,7 +1797,26 @@ function renderUsersTable(users) {
       } catch {}
     }
 
-    const initial = (u.name || u.email || 'U').charAt(0).toUpperCase();
+    const sanitizeId = (val, fb) => {
+      if (!val) return fb || '';
+      if (typeof val === 'object') return val._encrypted ? (fb || 'Encrypted') : JSON.stringify(val);
+      const s = String(val).trim();
+      if (s.startsWith('{') && (s.includes('_encrypted') || s.includes('"v"'))) {
+        try {
+          const p = JSON.parse(s);
+          if (p && p._encrypted) return fb || 'Encrypted';
+        } catch (_) {}
+      }
+      return s;
+    };
+
+    const displayEmail = sanitizeId(u.email, 'developer@flarebase.local');
+    let displayName = sanitizeId(u.name, '');
+    if (!displayName || displayName === 'Anonymous User' || displayName === 'Developer') {
+      displayName = displayEmail ? displayEmail.split('@')[0] : 'Developer';
+    }
+
+    const initial = (displayName || displayEmail || 'U').charAt(0).toUpperCase();
     const formatCount = (n) => (n >= 1000 ? `${Math.round(n / 1000)}k` : n);
     const rLimit = formatCount(u.readLimit || 50000);
     const wLimit = formatCount(u.writeLimit || 20000);
@@ -1811,7 +1830,7 @@ function renderUsersTable(users) {
             </div>
             <div class="min-w-0">
               <div class="font-semibold text-white truncate text-xs">
-                ${escapeHTML(u.name || 'Developer')}
+                ${escapeHTML(displayName)}
               </div>
               <div class="flex items-center gap-1 mt-0.5">
                 ${u.isFlagged ? `<span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30"><i class="fa-solid fa-flag text-[8px] mr-0.5"></i>Flagged (${u.riskScore || 85})</span>` : ''}
@@ -1821,7 +1840,7 @@ function renderUsersTable(users) {
             </div>
           </div>
         </td>
-        <td class="p-4 text-slate-300 text-xs font-mono">${escapeHTML(u.email)}</td>
+        <td class="p-4 text-slate-300 text-xs font-mono">${escapeHTML(displayEmail)}</td>
         <td class="p-4">
           ${u.isSuperAdmin
             ? `<div>
@@ -13628,10 +13647,33 @@ window.renderThreatMatrixTable = function(users) {
     return;
   }
 
+  function sanitizeUserIdentity(val, fallback) {
+    if (!val) return fallback || '';
+    if (typeof val === 'object') {
+      if (val._encrypted) return fallback || 'Encrypted User';
+      return JSON.stringify(val);
+    }
+    const str = String(val).trim();
+    if (str.startsWith('{') && (str.includes('_encrypted') || str.includes('"v"'))) {
+      try {
+        const parsed = JSON.parse(str);
+        if (parsed && parsed._encrypted) return fallback || 'Encrypted User';
+      } catch (_) {}
+    }
+    return str;
+  }
+
   tbody.innerHTML = users.map(u => {
     const isQuarantined = Boolean(u.isFlagged || (u.activeFlags && u.activeFlags.length > 0));
     const score = Number(u.riskScore) || 0;
     
+    const displayEmail = sanitizeUserIdentity(u.email, 'user@flarebase.local');
+    let displayName = sanitizeUserIdentity(u.name, '');
+    if (!displayName || displayName === 'Anonymous User' || displayName === 'Developer') {
+      displayName = displayEmail ? displayEmail.split('@')[0] : 'User';
+    }
+    const avatarInitial = (displayName || displayEmail || 'U').charAt(0).toUpperCase();
+
     // Risk Score Gauge & Badge
     let riskBadgeClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
     let riskGaugeClass = 'bg-emerald-500';
@@ -13701,14 +13743,14 @@ window.renderThreatMatrixTable = function(users) {
         <td class="p-3">
           <div class="flex items-center space-x-2.5">
             <div class="w-8 h-8 rounded-xl ${isQuarantined ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-slate-800 text-indigo-400 border border-white/10'} flex items-center justify-center font-bold text-xs shrink-0">
-              ${escapeHTML((u.name || u.email || 'U').charAt(0).toUpperCase())}
+              ${escapeHTML(avatarInitial)}
             </div>
             <div class="min-w-0 max-w-[180px]">
               <div class="text-xs font-semibold text-white truncate flex items-center space-x-1.5">
-                <span class="truncate">${escapeHTML(u.name || 'Anonymous User')}</span>
+                <span class="truncate">${escapeHTML(displayName)}</span>
                 ${roleBadge}
               </div>
-              <div class="text-[11px] text-slate-400 font-mono truncate" title="${escapeHTML(u.email)}">${escapeHTML(u.email)}</div>
+              <div class="text-[11px] text-slate-400 font-mono truncate" title="${escapeHTML(displayEmail)}">${escapeHTML(displayEmail)}</div>
               <div class="text-[9px] text-slate-500 font-mono">ID: ${escapeHTML(u.id.substring(0, 10))}…</div>
             </div>
           </div>

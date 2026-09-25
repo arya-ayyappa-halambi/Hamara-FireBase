@@ -47,3 +47,10 @@ keys/*.pem
 # Scratch & Temporary Test Scripts
 scratch/
 
+# Downloaded Binaries
+bin/cloudflared
+bin/cloudflared.exe
+
+# Video Generation Work Directory
+demo-video/work/
+

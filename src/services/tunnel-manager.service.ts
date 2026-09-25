@@ -217,64 +217,56 @@ export class TunnelManagerService {
 
     try {
       let publicUrl: string = '';
+      let usedProvider: TunnelProvider = provider;
 
       if (provider === 'cloudflare') {
-        // ── Provider 1: Cloudflare Quick Tunnel (Rock-Solid, Zero-Config, trycloudflare.com) ──
-        const untun = await import('untun');
-        const tunnelInstance = await untun.startTunnel({
-          port: targetPort,
-          hostname: '127.0.0.1',
-          acceptCloudflareNotice: true
-        });
-        if (!tunnelInstance) {
-          throw new Error('Could not establish Cloudflare quick tunnel instance');
+        try {
+          const cfResult = await this.startCloudflaredProcess(targetPort);
+          this.activeTunnel = cfResult.child;
+          publicUrl = cfResult.publicUrl;
+        } catch (cfErr: any) {
+          console.warn(`[TunnelManager] Cloudflare quick tunnel failed (${cfErr.message}). Automatically falling back to Localtunnel...`);
+          try {
+            const ltResult = await this.startLocaltunnel(targetPort, customDomain);
+            this.activeTunnel = ltResult.tunnelInstance;
+            publicUrl = ltResult.publicUrl;
+            usedProvider = 'localtunnel';
+          } catch (ltErr: any) {
+            throw new Error(`Cloudflare failed (${cfErr.message}) and Localtunnel fallback failed (${ltErr.message})`);
+          }
         }
-        this.activeTunnel = tunnelInstance;
-        publicUrl = (await tunnelInstance.getURL()) || '';
       } else if (provider === 'ngrok') {
-        // ── Provider 2: Ngrok (High Speed, Enterprise-grade) ──
-        const ngrok = await import('@ngrok/ngrok');
-        const connectOptions: any = {
-          addr: targetPort
-        };
-        if (authToken) {
-          connectOptions.authtoken = authToken;
+        try {
+          const ngResult = await this.startNgrok(targetPort, authToken, customDomain);
+          this.activeTunnel = ngResult.listener;
+          publicUrl = ngResult.publicUrl;
+        } catch (ngErr: any) {
+          console.warn(`[TunnelManager] Ngrok tunnel failed (${ngErr.message}). Automatically falling back to Localtunnel...`);
+          try {
+            const ltResult = await this.startLocaltunnel(targetPort, customDomain);
+            this.activeTunnel = ltResult.tunnelInstance;
+            publicUrl = ltResult.publicUrl;
+            usedProvider = 'localtunnel';
+          } catch (ltErr: any) {
+            throw new Error(`Ngrok failed (${ngErr.message}) and Localtunnel fallback failed (${ltErr.message})`);
+          }
         }
-        if (customDomain) {
-          connectOptions.domain = customDomain;
-        }
-
-        const listener = await ngrok.forward(connectOptions);
-        this.activeTunnel = listener;
-        publicUrl = listener.url() || '';
       } else {
-        // ── Provider 3: Localtunnel (Community Fallback) ──
-        const localtunnelModule = await import('localtunnel');
-        const localtunnel = (localtunnelModule as any).default || localtunnelModule;
-        const ltOptions: any = {
-          port: targetPort,
-          local_host: '127.0.0.1',
-          host: 'https://localtunnel.me'
-        };
-        if (customDomain) {
-          ltOptions.subdomain = customDomain.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+        try {
+          const ltResult = await this.startLocaltunnel(targetPort, customDomain);
+          this.activeTunnel = ltResult.tunnelInstance;
+          publicUrl = ltResult.publicUrl;
+        } catch (ltErr: any) {
+          console.warn(`[TunnelManager] Localtunnel failed (${ltErr.message}). Automatically falling back to Cloudflare...`);
+          const cfResult = await this.startCloudflaredProcess(targetPort);
+          this.activeTunnel = cfResult.child;
+          publicUrl = cfResult.publicUrl;
+          usedProvider = 'cloudflare';
         }
-
-        const tunnelInstance = await (localtunnel as any)(ltOptions);
-        this.activeTunnel = tunnelInstance;
-        publicUrl = tunnelInstance.url;
-
-        tunnelInstance.on('close', () => {
-          this.handleTunnelClosed();
-        });
-
-        tunnelInstance.on('error', (err: any) => {
-          this.lastErrorMessage = err?.message || 'Localtunnel connection error';
-          this.handleTunnelClosed();
-        });
       }
 
       this.currentStatus = 'online';
+      this.currentProvider = usedProvider;
       this.currentPublicUrl = publicUrl;
       this.startedAtTime = new Date();
 
@@ -303,7 +295,7 @@ export class TunnelManagerService {
             tunnelAutoCloseMinutes = ?
         WHERE id = 'default'
       `).run(
-        provider,
+        usedProvider,
         authToken,
         customDomain,
         publicUrl,
@@ -321,6 +313,190 @@ export class TunnelManagerService {
       this.broadcastStatus();
       throw new Error(`Tunnel start failed: ${this.lastErrorMessage}`);
     }
+  }
+
+  /**
+   * Helper to ensure valid, native architecture cloudflared binary is available.
+   */
+  private async ensureCloudflaredBinary(): Promise<string> {
+    const fs = await import('fs');
+    const path = await import('path');
+    const os = await import('os');
+    const { execSync } = await import('child_process');
+
+    const candidates = [
+      path.join(process.cwd(), 'bin', process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared'),
+      '/tmp/cloudflared',
+      '/opt/homebrew/bin/cloudflared',
+      '/usr/local/bin/cloudflared',
+      'cloudflared'
+    ];
+
+    for (const cand of candidates) {
+      if (cand === 'cloudflared' || fs.existsSync(cand)) {
+        try {
+          execSync(`"${cand}" --version`, { stdio: 'ignore' });
+          return cand;
+        } catch (_) {}
+      }
+    }
+
+    // Download matching platform & arch binary
+    const targetDir = path.join(process.cwd(), 'bin');
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true });
+    }
+    const targetBin = path.join(targetDir, process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared');
+
+    const platform = process.platform;
+    const arch = process.arch;
+    let downloadFileName = '';
+    let isArchive = false;
+
+    if (platform === 'darwin') {
+      downloadFileName = arch === 'arm64' ? 'cloudflared-darwin-arm64.tgz' : 'cloudflared-darwin-amd64.tgz';
+      isArchive = true;
+    } else if (platform === 'linux') {
+      downloadFileName = arch === 'arm64' ? 'cloudflared-linux-arm64' : (arch === 'arm' ? 'cloudflared-linux-arm' : 'cloudflared-linux-amd64');
+    } else if (platform === 'win32') {
+      downloadFileName = arch === 'x64' ? 'cloudflared-windows-amd64.exe' : 'cloudflared-windows-386.exe';
+    } else {
+      throw new Error(`Unsupported platform: ${platform} (${arch})`);
+    }
+
+    const downloadUrl = `https://github.com/cloudflare/cloudflared/releases/latest/download/${downloadFileName}`;
+    const tmpDest = path.join(os.tmpdir(), downloadFileName);
+
+    const axiosInstance = (await import('axios')).default;
+    const response = await axiosInstance.get(downloadUrl, { responseType: 'arraybuffer', timeout: 30000 });
+    fs.writeFileSync(tmpDest, Buffer.from(response.data));
+
+    if (isArchive) {
+      execSync(`tar -xzf "${tmpDest}" -C "${targetDir}"`);
+      try { fs.unlinkSync(tmpDest); } catch (_) {}
+    } else {
+      fs.copyFileSync(tmpDest, targetBin);
+      try { fs.unlinkSync(tmpDest); } catch (_) {}
+    }
+
+    if (platform !== 'win32') {
+      fs.chmodSync(targetBin, 0o755);
+    }
+
+    return targetBin;
+  }
+
+  /**
+   * Spawn native cloudflared process and resolve generated trycloudflare.com URL.
+   */
+  private async startCloudflaredProcess(targetPort: number): Promise<{ child: any; publicUrl: string }> {
+    const { spawn } = await import('child_process');
+    const binary = await this.ensureCloudflaredBinary();
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const child = spawn(binary, ['tunnel', '--url', `http://127.0.0.1:${targetPort}`, '--no-autoupdate'], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+
+      const urlRegex = /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g;
+      let buffer = '';
+
+      const timeoutTimer = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          try { child.kill('SIGTERM'); } catch (_) {}
+          reject(new Error('Cloudflare quick tunnel timed out waiting for public URL (25s)'));
+        }
+      }, 25000);
+
+      const onData = (data: Buffer) => {
+        const text = data.toString();
+        buffer += text;
+        const matches = buffer.match(urlRegex);
+        if (matches && matches.length > 0 && !settled) {
+          settled = true;
+          clearTimeout(timeoutTimer);
+          resolve({ child, publicUrl: matches[0] });
+        }
+      };
+
+      child.stdout?.on('data', onData);
+      child.stderr?.on('data', onData);
+
+      child.on('error', (err) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeoutTimer);
+          reject(err);
+        }
+      });
+
+      child.on('exit', (code) => {
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeoutTimer);
+          reject(new Error(`cloudflared process exited unexpectedly with code ${code}`));
+        } else {
+          this.handleTunnelClosed();
+        }
+      });
+    });
+  }
+
+  /**
+   * Establish Localtunnel connection.
+   */
+  private async startLocaltunnel(targetPort: number, customDomain?: string): Promise<{ tunnelInstance: any; publicUrl: string }> {
+    const localtunnelModule = await import('localtunnel');
+    const localtunnel = (localtunnelModule as any).default || localtunnelModule;
+    const ltOptions: any = {
+      port: targetPort,
+      local_host: '127.0.0.1',
+      host: 'https://localtunnel.me'
+    };
+    if (customDomain) {
+      ltOptions.subdomain = customDomain.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
+    }
+
+    const tunnelInstance = await (localtunnel as any)(ltOptions);
+    if (!tunnelInstance || !tunnelInstance.url) {
+      throw new Error('Localtunnel returned empty public URL');
+    }
+
+    tunnelInstance.on('close', () => {
+      this.handleTunnelClosed();
+    });
+
+    tunnelInstance.on('error', (err: any) => {
+      this.lastErrorMessage = err?.message || 'Localtunnel connection error';
+      this.handleTunnelClosed();
+    });
+
+    return { tunnelInstance, publicUrl: tunnelInstance.url };
+  }
+
+  /**
+   * Establish Ngrok connection.
+   */
+  private async startNgrok(targetPort: number, authToken?: string, customDomain?: string): Promise<{ listener: any; publicUrl: string }> {
+    const ngrok = await import('@ngrok/ngrok');
+    const connectOptions: any = {
+      addr: targetPort
+    };
+    if (authToken) {
+      connectOptions.authtoken = authToken;
+    }
+    if (customDomain) {
+      connectOptions.domain = customDomain;
+    }
+
+    const listener = await ngrok.forward(connectOptions);
+    const url = listener.url() || '';
+    if (!url) {
+      throw new Error('Ngrok forward returned empty public URL');
+    }
+    return { listener, publicUrl: url };
   }
 
   /**
@@ -342,6 +518,8 @@ export class TunnelManagerService {
           await this.activeTunnel.close();
         } else if (typeof this.activeTunnel.disconnect === 'function') {
           await this.activeTunnel.disconnect();
+        } else if (typeof this.activeTunnel.kill === 'function') {
+          this.activeTunnel.kill('SIGTERM');
         }
       } catch (_) {}
       this.activeTunnel = null;

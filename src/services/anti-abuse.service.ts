@@ -174,8 +174,37 @@ class AntiAbuseService {
    * Canonicalize email by stripping sub-addressing (+tags) and removing dots
    * for major email providers (Gmail, Googlemail, ProtonMail, Fastmail, etc.).
    */
-  public canonicalizeEmail(email: string): CanonicalEmailResult {
-    const raw = (email || '').trim();
+  public canonicalizeEmail(email: any): CanonicalEmailResult {
+    let raw = '';
+    if (typeof email === 'string') {
+      raw = email.trim();
+    } else if (email && typeof email === 'object') {
+      try {
+        const { envelopeEncryptionService } = require('./envelope-encryption.service');
+        const decrypted = envelopeEncryptionService.decryptField(email, 'SYSTEM');
+        if (typeof decrypted === 'string') {
+          raw = decrypted.trim();
+        } else {
+          raw = '';
+        }
+      } catch (_) {
+        raw = '';
+      }
+    } else if (email !== undefined && email !== null) {
+      raw = String(email).trim();
+    }
+
+    if (raw.startsWith('{') && (raw.includes('_encrypted') || raw.includes('dekEncrypted') || raw.includes('"v"'))) {
+      try {
+        const parsed = JSON.parse(raw);
+        const { envelopeEncryptionService } = require('./envelope-encryption.service');
+        const decrypted = envelopeEncryptionService.decryptField(parsed, 'SYSTEM');
+        if (typeof decrypted === 'string') {
+          raw = decrypted.trim();
+        }
+      } catch (_) {}
+    }
+
     const normalized = raw.toLowerCase();
     const parts = normalized.split('@');
 
@@ -251,8 +280,9 @@ class AntiAbuseService {
   /**
    * Check if an email domain is in the disposable/burner blacklist.
    */
-  public isDisposableDomain(domain: string): boolean {
-    const cleanDomain = (domain || '').toLowerCase().trim();
+  public isDisposableDomain(domain: any): boolean {
+    const cleanDomain = typeof domain === 'string' ? domain.toLowerCase().trim() : '';
+    if (!cleanDomain) return false;
     if (DISPOSABLE_EMAIL_DOMAINS.has(cleanDomain)) {
       return true;
     }
@@ -267,7 +297,15 @@ class AntiAbuseService {
   /**
    * Check if an email address uses a disposable domain.
    */
-  public isDisposableEmail(email: string): boolean {
+  public isDisposableEmail(email: any): boolean {
+    if (typeof email !== 'string') {
+      try {
+        const canonical = this.canonicalizeEmail(email);
+        return canonical.isDisposable;
+      } catch (_) {
+        return false;
+      }
+    }
     const domain = (email || '').split('@')[1]?.toLowerCase().trim();
     return domain ? this.isDisposableDomain(domain) : false;
   }

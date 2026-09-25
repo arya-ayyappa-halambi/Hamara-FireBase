@@ -176,6 +176,51 @@ async function runThreatIntelligenceMatrixTests(): Promise<void> {
   assert(purgeRes.purgedCount >= 1, `Successfully purged resolved incident records (${purgeRes.purgedCount})`);
 
   // ───────────────────────────────────────────────────────────────────────────
+  //  TEST 9: Envelope-Encrypted User Decryption & Anti-Abuse Defensiveness
+  // ───────────────────────────────────────────────────────────────────────────
+  console.log('\n--- 9. Envelope-Encrypted Identity Decryption in Threat Matrix ---');
+
+  const { envelopeEncryptionService } = await import('../src/services/envelope-encryption.service');
+  const encEmailObj = envelopeEncryptionService.encryptField('encrypted_hero@domain.com', 'SYSTEM');
+  const encNameObj = envelopeEncryptionService.encryptField('Encrypted Hero', 'SYSTEM');
+
+  const encUserId = `enc_user_${Date.now()}`;
+  db.prepare(`
+    INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, isFlagged, riskScore, createdAt, updatedAt)
+    VALUES (?, ?, ?, ?, ?, 0, 0, 10, datetime('now'), datetime('now'))
+  `).run(
+    encUserId,
+    JSON.stringify(encEmailObj),
+    envelopeEncryptionService.hashBlindIndex('encrypted_hero@domain.com'),
+    JSON.stringify(encNameObj),
+    'dummy_hash'
+  );
+
+  const decryptedMatrix = threatDetectionService.getUserSecurityMatrix();
+  const foundEncryptedUser = decryptedMatrix.users.find(u => u.id === encUserId);
+  assert(!!foundEncryptedUser, 'Encrypted user found in threat matrix');
+  assert(foundEncryptedUser?.email === 'encrypted_hero@domain.com', `Decrypted user email is clean (${foundEncryptedUser?.email})`);
+  assert(foundEncryptedUser?.name === 'Encrypted Hero', `Decrypted user name is clean (${foundEncryptedUser?.name})`);
+  assert(!foundEncryptedUser?.email.includes('_encrypted'), 'Email does not contain raw _encrypted payload');
+  assert(!foundEncryptedUser?.name.includes('_encrypted'), 'Name does not contain raw _encrypted payload');
+
+  // Verify anti-abuse canonicalization and scan with weird input objects
+  const canonObj = antiAbuseService.canonicalizeEmail(encEmailObj as any);
+  assert(canonObj.canonicalEmail === 'encrypted_hero@domain.com', 'canonicalizeEmail safely decrypts encrypted object');
+
+  const canonJsonStr = antiAbuseService.canonicalizeEmail(JSON.stringify(encEmailObj));
+  assert(canonJsonStr.canonicalEmail === 'encrypted_hero@domain.com', 'canonicalizeEmail safely handles stringified encrypted payload');
+
+  const canonNull = antiAbuseService.canonicalizeEmail(null);
+  assert(canonNull.canonicalEmail === '', 'canonicalizeEmail safely handles null');
+
+  const canonUndefined = antiAbuseService.canonicalizeEmail(undefined);
+  assert(canonUndefined.canonicalEmail === '', 'canonicalizeEmail safely handles undefined');
+
+  const encAudit = threatDetectionService.runPlatformSecurityAudit('admin_super', 'admin@flarebase.dev');
+  assert(encAudit.scannedCount >= 3, `Security audit successfully completed across ${encAudit.scannedCount} users without error`);
+
+  // ───────────────────────────────────────────────────────────────────────────
   //  SUMMARY
   // ───────────────────────────────────────────────────────────────────────────
   console.log('\n================================================================');

@@ -1155,9 +1155,6 @@ export function initSqlite(): void {
   // Seed Super Admin Account if absent
   seedSuperAdminSync(db);
 
-  // Clear demo accounts (preserving two Super Admins and aryaayyappahalambi@gmail.com)
-  cleanupDemoAccounts(db);
-
   console.log(`🗄️  SQLite database initialised at ${DB_PATH}`);
 }
 
@@ -1196,9 +1193,13 @@ export function cleanupDemoAccounts(db: Database.Database): void {
   }
 }
 
-function seedSuperAdminSync(db: Database.Database): void {
+export function seedSuperAdminSync(db: Database.Database): void {
   const seedAccounts = [
-    { email: 'admin@flarebase.dev', pass: 'Admin@123' },
+    {
+      email: 'admin@flarebase.dev',
+      pass: 'Admin@123',
+      hash: '$argon2id$v=19$m=65536,t=3,p=4$g1kG9Px+z38UC1XP24sY8A$bOBjiO4MgUEPjTspstH2LwiN8E5kayW8MiIeROz/shI'
+    },
   ];
 
   const { envelopeEncryptionService } = require('../services/envelope-encryption.service');
@@ -1207,36 +1208,34 @@ function seedSuperAdminSync(db: Database.Database): void {
     const emailHash = envelopeEncryptionService.hashBlindIndex(acc.email);
     const existing = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash) as any;
     
-    argon2.hash(acc.pass).then((hash) => {
-      const encEmail = JSON.stringify(envelopeEncryptionService.encryptField(acc.email, 'SYSTEM'));
-      const encName = JSON.stringify(envelopeEncryptionService.encryptField('Super Admin', 'SYSTEM'));
-      const now = new Date().toISOString();
+    const encEmail = JSON.stringify(envelopeEncryptionService.encryptField(acc.email, 'SYSTEM'));
+    const encName = JSON.stringify(envelopeEncryptionService.encryptField('Super Admin', 'SYSTEM'));
+    const now = new Date().toISOString();
 
-      if (existing) {
-        db.prepare(`
-          UPDATE users 
-          SET passwordHash = ?, isSuperAdmin = 1, email = ?, emailHash = ?, name = ?, updatedAt = ?
-          WHERE id = ?
-        `).run(hash, encEmail, emailHash, encName, now, existing.id);
-      } else {
-        const adminId = uuidv4();
-        db.prepare(`
-          INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
-          VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-        `).run(adminId, encEmail, emailHash, encName, hash, now, now);
+    if (existing) {
+      db.prepare(`
+        UPDATE users 
+        SET passwordHash = ?, isSuperAdmin = 1, email = ?, emailHash = ?, name = ?, updatedAt = ?
+        WHERE id = ?
+      `).run(acc.hash, encEmail, emailHash, encName, now, existing.id);
+    } else {
+      const adminId = uuidv4();
+      db.prepare(`
+        INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+      `).run(adminId, encEmail, emailHash, encName, acc.hash, now, now);
 
-        // Auto-create Default Project for Super Admin
-        const keys = generateProjectKeys();
-        const projId = uuidv4();
-        db.prepare(`
-          INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
-          VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?, ?)
-        `).run(projId, adminId, keys.anonKeyHash, keys.serviceKeyHash, now, now);
+      // Auto-create Default Project for Super Admin
+      const keys = generateProjectKeys();
+      const projId = uuidv4();
+      db.prepare(`
+        INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
+        VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?, ?)
+      `).run(projId, adminId, keys.anonKeyHash, keys.serviceKeyHash, now, now);
 
-        console.log(`👑 Super Admin account seeded: ${acc.email}`);
-        console.log(`🔑 Anon Key: ${keys.anonKey}`);
-        console.log(`🔑 Service Key: ${keys.serviceKey}`);
-      }
-    }).catch(() => { /* silent */ });
+      console.log(`👑 Super Admin account seeded: ${acc.email}`);
+      console.log(`🔑 Anon Key: ${keys.anonKey}`);
+      console.log(`🔑 Service Key: ${keys.serviceKey}`);
+    }
   }
 }

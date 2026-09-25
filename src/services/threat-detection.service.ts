@@ -10,6 +10,7 @@ import { AccountSecurityFlag } from '../types/auth.types';
 import { wsService } from '../realtime/websocket.service';
 import { auditLogService } from './audit-log.service';
 import { antiAbuseService } from './anti-abuse.service';
+import { decryptUserField } from '../utils/encryption.helper';
 import { v4 as uuidv4 } from 'uuid';
 
 export type ThreatCategory = 
@@ -337,10 +338,14 @@ export class ThreatDetectionService {
       ORDER BY riskScore DESC, flaggedAt DESC
     `).all() as any[];
 
-    return rows.map(r => ({
-      ...r,
-      triggerEvidence: r.triggerEvidence ? JSON.parse(r.triggerEvidence) : {}
-    }));
+    return rows.map(r => {
+      const email = decryptUserField(r.userEmail, 'SYSTEM') || r.userEmail;
+      return {
+        ...r,
+        userEmail: email,
+        triggerEvidence: r.triggerEvidence ? (typeof r.triggerEvidence === 'string' ? JSON.parse(r.triggerEvidence) : r.triggerEvidence) : {}
+      };
+    });
   }
 
   /**
@@ -365,18 +370,20 @@ export class ThreatDetectionService {
       db.prepare('UPDATE project_users SET isFlagged = 0, riskScore = 0 WHERE id = ?').run(flag.userId);
     }
 
+    const plainEmail = decryptUserField(flag.userEmail, 'SYSTEM') || flag.userEmail;
+
     auditLogService.logAction({
       actorId: adminId,
       actorEmail: adminEmail,
       actionType: 'super_admin_operation',
       status: 'success',
-      details: `Dismissed security flag ID "${flagId}" for user "${flag.userEmail}".`
+      details: `Dismissed security flag ID "${flagId}" for user "${plainEmail}".`
     });
 
     wsService.broadcast('SECURITY_FLAG_RESOLVED', {
       flagId,
       userId: flag.userId,
-      userEmail: flag.userEmail,
+      userEmail: plainEmail,
       resolvedBy: adminEmail,
       timestamp: now
     });
@@ -389,12 +396,14 @@ export class ThreatDetectionService {
     const db = getDb();
     const now = new Date().toISOString();
 
-    const user = (db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId) ||
-                  db.prepare('SELECT id, email FROM project_users WHERE id = ?').get(userId)) as any;
+    const user = (db.prepare('SELECT id, email, NULL as projectId FROM users WHERE id = ?').get(userId) ||
+                  db.prepare('SELECT id, email, projectId FROM project_users WHERE id = ?').get(userId)) as any;
 
     if (!user) {
       throw new Error(`User with ID ${userId} not found.`);
     }
+
+    const plainEmail = decryptUserField(user.email, user.projectId || 'SYSTEM') || user.email;
 
     // Resolve all active flags for this user
     db.prepare(`
@@ -412,17 +421,17 @@ export class ThreatDetectionService {
       actorEmail: adminEmail,
       actionType: 'super_admin_operation',
       status: 'success',
-      details: `Super Admin unflagged and restored account "${user.email}" (ID: ${userId}).`
+      details: `Super Admin unflagged and restored account "${plainEmail}" (ID: ${userId}).`
     });
 
     wsService.broadcast('SECURITY_FLAG_RESOLVED', {
       userId,
-      userEmail: user.email,
+      userEmail: plainEmail,
       resolvedBy: adminEmail,
       timestamp: now
     });
 
-    return { success: true, userEmail: user.email };
+    return { success: true, userEmail: plainEmail };
   }
 
   /**
@@ -437,14 +446,16 @@ export class ThreatDetectionService {
     notes?: string
   ): AccountSecurityFlag {
     const db = getDb();
-    const user = (db.prepare('SELECT id, email FROM users WHERE id = ?').get(userId) ||
-                  db.prepare('SELECT id, email FROM project_users WHERE id = ?').get(userId)) as any;
+    const user = (db.prepare('SELECT id, email, NULL as projectId FROM users WHERE id = ?').get(userId) ||
+                  db.prepare('SELECT id, email, projectId FROM project_users WHERE id = ?').get(userId)) as any;
 
     if (!user) {
       throw new Error(`User with ID ${userId} not found.`);
     }
 
-    return this.manualFlag(adminId, adminEmail, userId, user.email, reason, severity, notes);
+    const plainEmail = decryptUserField(user.email, user.projectId || 'SYSTEM') || user.email;
+
+    return this.manualFlag(adminId, adminEmail, userId, plainEmail, reason, severity, notes);
   }
 
   /**
@@ -522,6 +533,13 @@ export class ThreatDetectionService {
     } catch (_) {}
 
     const enriched = rows.map(u => {
+      const projId = u.projectId || 'SYSTEM';
+      const plainEmail = decryptUserField(u.email, projId) || (typeof u.email === 'string' ? u.email : '');
+      let plainName = decryptUserField(u.name, projId);
+      if (!plainName || plainName === 'Anonymous User' || plainName === 'Developer') {
+        plainName = plainEmail ? plainEmail.split('@')[0] : 'User';
+      }
+
       const userFlags = flagsByUserId.get(u.id) || [];
       const activeFlags = userFlags.filter(f => f.status === 'active');
       const highestFlagRisk = activeFlags.reduce((max, f) => Math.max(max, f.riskScore || 0), 0);
@@ -545,8 +563,9 @@ export class ThreatDetectionService {
 
       return {
         id: u.id,
-        email: u.email,
-        name: u.name || 'Anonymous User',
+        projectId: u.projectId || undefined,
+        email: plainEmail,
+        name: plainName,
         role: u.role || (u.isSuperAdmin ? 'Super Admin' : 'User'),
         isSuperAdmin: Boolean(u.isSuperAdmin),
         isFlagged: Boolean(u.isFlagged || activeFlags.length > 0),
@@ -585,11 +604,11 @@ export class ThreatDetectionService {
     if (filter?.search) {
       const q = filter.search.toLowerCase().trim();
       filtered = filtered.filter(u =>
-        u.email.toLowerCase().includes(q) ||
-        u.name.toLowerCase().includes(q) ||
-        u.id.toLowerCase().includes(q) ||
-        u.deviceFingerprint.toLowerCase().includes(q) ||
-        u.lastRegistrationIp.toLowerCase().includes(q)
+        (u.email && u.email.toLowerCase().includes(q)) ||
+        (u.name && u.name.toLowerCase().includes(q)) ||
+        (u.id && u.id.toLowerCase().includes(q)) ||
+        (u.deviceFingerprint && u.deviceFingerprint.toLowerCase().includes(q)) ||
+        (u.lastRegistrationIp && u.lastRegistrationIp.toLowerCase().includes(q))
       );
     }
 
@@ -681,6 +700,24 @@ export class ThreatDetectionService {
       }
     } catch (_) {}
 
+    const threatFeed = flags.map(f => {
+      const email = decryptUserField(f.userEmail, 'SYSTEM') || f.userEmail;
+      return {
+        id: f.id,
+        userId: f.userId,
+        userEmail: email,
+        reason: f.reason,
+        category: f.reason,
+        severity: f.severity,
+        riskScore: f.riskScore,
+        summary: `Threat flagged for ${email} (${f.reason})`,
+        timestamp: f.flaggedAt,
+        triggerEvidence: f.triggerEvidence ? (typeof f.triggerEvidence === 'string' ? JSON.parse(f.triggerEvidence) : f.triggerEvidence) : {},
+        flaggedAt: f.flaggedAt,
+        status: f.status
+      };
+    });
+
     return {
       totalUsers: matrix.summary.total,
       quarantinedUsers: matrix.summary.flagged,
@@ -693,34 +730,8 @@ export class ThreatDetectionService {
       sharedNetworksCount: sharedCount,
       wafAvgLatencyMs: 0.0011,
       avgInspectionLatencyMs: 0.0011, // Sub-microsecond WAF benchmark
-      recentThreatEvents: flags.map(f => ({
-        id: f.id,
-        userId: f.userId,
-        userEmail: f.userEmail,
-        reason: f.reason,
-        category: f.reason,
-        severity: f.severity,
-        riskScore: f.riskScore,
-        summary: `Threat flagged for ${f.userEmail} (${f.reason})`,
-        timestamp: f.flaggedAt,
-        triggerEvidence: f.triggerEvidence ? (typeof f.triggerEvidence === 'string' ? JSON.parse(f.triggerEvidence) : f.triggerEvidence) : {},
-        flaggedAt: f.flaggedAt,
-        status: f.status
-      })),
-      recentThreatFeed: flags.map(f => ({
-        id: f.id,
-        userId: f.userId,
-        userEmail: f.userEmail,
-        reason: f.reason,
-        category: f.reason,
-        severity: f.severity,
-        riskScore: f.riskScore,
-        summary: `Threat flagged for ${f.userEmail} (${f.reason})`,
-        timestamp: f.flaggedAt,
-        triggerEvidence: f.triggerEvidence ? (typeof f.triggerEvidence === 'string' ? JSON.parse(f.triggerEvidence) : f.triggerEvidence) : {},
-        flaggedAt: f.flaggedAt,
-        status: f.status
-      }))
+      recentThreatEvents: threatFeed,
+      recentThreatFeed: threatFeed
     };
   }
 
@@ -758,13 +769,7 @@ export class ThreatDetectionService {
     const now = new Date().toISOString();
 
     for (const u of users) {
-      let plainEmail = u.email || '';
-      if (typeof plainEmail === 'string' && plainEmail.startsWith('{')) {
-        try {
-          const { envelopeEncryptionService } = require('./envelope-encryption.service');
-          plainEmail = envelopeEncryptionService.decryptField(JSON.parse(plainEmail), u.projectId || 'SYSTEM') || plainEmail;
-        } catch (_) {}
-      }
+      const plainEmail = decryptUserField(u.email, u.projectId || 'SYSTEM') || (typeof u.email === 'string' ? u.email : '');
 
       const evalResult = antiAbuseService.evaluateRegistrationRisk({
         email: plainEmail,
