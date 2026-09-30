@@ -221,7 +221,7 @@ export class TunnelManagerService {
 
       if (provider === 'cloudflare') {
         try {
-          const cfResult = await this.startCloudflaredProcess(targetPort);
+          const cfResult = await this.startCloudflaredProcess(targetPort, authToken);
           this.activeTunnel = cfResult.child;
           publicUrl = cfResult.publicUrl;
         } catch (cfErr: any) {
@@ -258,7 +258,7 @@ export class TunnelManagerService {
           publicUrl = ltResult.publicUrl;
         } catch (ltErr: any) {
           console.warn(`[TunnelManager] Localtunnel failed (${ltErr.message}). Automatically falling back to Cloudflare...`);
-          const cfResult = await this.startCloudflaredProcess(targetPort);
+          const cfResult = await this.startCloudflaredProcess(targetPort, authToken);
           this.activeTunnel = cfResult.child;
           publicUrl = cfResult.publicUrl;
           usedProvider = 'cloudflare';
@@ -389,35 +389,67 @@ export class TunnelManagerService {
   /**
    * Spawn native cloudflared process and resolve generated trycloudflare.com URL.
    */
-  private async startCloudflaredProcess(targetPort: number): Promise<{ child: any; publicUrl: string }> {
+  private async startCloudflaredProcess(targetPort: number, authToken?: string): Promise<{ child: any; publicUrl: string }> {
     const { spawn } = await import('child_process');
     const binary = await this.ensureCloudflaredBinary();
 
     return new Promise((resolve, reject) => {
       let settled = false;
-      const child = spawn(binary, ['tunnel', '--url', `http://127.0.0.1:${targetPort}`, '--no-autoupdate'], {
+      const isNamedTunnel = Boolean(authToken && authToken.trim().length > 20);
+      const args = isNamedTunnel
+        ? ['tunnel', 'run', '--token', authToken!.trim()]
+        : ['tunnel', '--url', `http://127.0.0.1:${targetPort}`, '--protocol', 'http2', '--no-autoupdate'];
+
+      const child = spawn(binary, args, {
         stdio: ['ignore', 'pipe', 'pipe']
       });
 
       const urlRegex = /https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/g;
       let buffer = '';
+      let detectedUrl: string | null = null;
 
       const timeoutTimer = setTimeout(() => {
         if (!settled) {
           settled = true;
-          try { child.kill('SIGTERM'); } catch (_) {}
-          reject(new Error('Cloudflare quick tunnel timed out waiting for public URL (25s)'));
+          if (detectedUrl) {
+            resolve({ child, publicUrl: detectedUrl });
+          } else {
+            try { child.kill('SIGTERM'); } catch (_) {}
+            reject(new Error('Cloudflare quick tunnel timed out waiting for public URL (20s)'));
+          }
         }
-      }, 25000);
+      }, 20000);
 
       const onData = (data: Buffer) => {
         const text = data.toString();
         buffer += text;
-        const matches = buffer.match(urlRegex);
-        if (matches && matches.length > 0 && !settled) {
-          settled = true;
-          clearTimeout(timeoutTimer);
-          resolve({ child, publicUrl: matches[0] });
+
+        if (!detectedUrl) {
+          const matches = buffer.match(urlRegex);
+          if (matches && matches.length > 0) {
+            detectedUrl = matches[0];
+          }
+        }
+
+        const hasRegistered = buffer.includes('Registered tunnel connection') ||
+                              buffer.includes('Your quick Tunnel has been created') ||
+                              buffer.includes('Connection ') ||
+                              buffer.includes('route:');
+
+        const hasUnauthorizedError = buffer.includes('Unauthorized: Tunnel not found') ||
+                                     buffer.includes('Register tunnel error from server side');
+
+        if (detectedUrl && !settled) {
+          if (hasRegistered) {
+            settled = true;
+            clearTimeout(timeoutTimer);
+            resolve({ child, publicUrl: detectedUrl });
+          } else if (hasUnauthorizedError) {
+            settled = true;
+            clearTimeout(timeoutTimer);
+            try { child.kill('SIGTERM'); } catch (_) {}
+            reject(new Error('Cloudflare rejected quick tunnel creation (Unauthorized / Rate-limited). Try Ngrok or Localtunnel.'));
+          }
         }
       };
 
@@ -459,7 +491,10 @@ export class TunnelManagerService {
       ltOptions.subdomain = customDomain.replace(/[^a-zA-Z0-9-]/g, '').toLowerCase();
     }
 
-    const tunnelInstance = await (localtunnel as any)(ltOptions);
+    const ltPromise = (localtunnel as any)(ltOptions);
+    const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Localtunnel connection timed out (15s)')), 15000));
+
+    const tunnelInstance: any = await Promise.race([ltPromise, timeoutPromise]);
     if (!tunnelInstance || !tunnelInstance.url) {
       throw new Error('Localtunnel returned empty public URL');
     }
