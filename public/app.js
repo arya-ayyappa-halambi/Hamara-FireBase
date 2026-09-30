@@ -3,16 +3,16 @@
 //  FlareBase High-End Enterprise Dashboard Controller.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Global error handler - catches ALL uncaught JS errors
+// Global error logging for diagnostics
 window.onerror = function(message, source, lineno, colno, error) {
-  console.error('🚨 JS Error:', message, 'at', source, 'line', lineno);
-  const toast = document.createElement('div');
-  toast.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99999;background:#ff0000;color:#fff;padding:12px 24px;border-radius:8px;font-size:13px;max-width:80vw;word-break:break-all;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
-  toast.textContent = '❌ JS ERROR: ' + message + ' (line ' + lineno + ')';
-  document.body?.appendChild(toast);
-  setTimeout(() => toast?.remove(), 15000);
+  if (message === 'Script error.' && !lineno) {
+    // Cross-origin script notice from CDN/extensions
+    console.debug('Cross-origin script notice:', message);
+    return true;
+  }
+  console.error('🚨 JS Error:', message, 'at', source, 'line', lineno, error);
 };
-console.log('✅ app.js v17 loaded successfully');
+console.log('✅ app.js loaded successfully');
 
 function escapeHTML(str) {
   if (!str) return '';
