@@ -132,3 +132,8 @@ export interface SignedUrlResponse {
   assetId?: string;
   filename?: string;
 }
+
+// Convenient Type Aliases
+export type FlareBaseDocument<T = Record<string, any>> = DocumentRecord<T>;
+export type FlareBaseChangeEvent<T = Record<string, any>> = SnapshotChange<T>;
+export type ProjectUser = AuthUser;
