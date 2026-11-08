@@ -48,6 +48,15 @@ FlareBase is a lightweight, zero-configuration, production-grade Firebase-like B
 
 ---
 
+### 📚 Modular Documentation & Deep-Dive Guides
+- 🚀 **[Quickstart & 1-Click Launchers](docs/quickstart.md)**: Native macOS/Windows/Linux setup, manual Node.js, Docker, and Super Admin first-boot.
+- 🔑 **[Authentication & WebAuthn](docs/authentication-and-webauthn.md)**: FIDO2 passkeys, OAuth 2.0 (Google/GitHub/Apple), magic links, and PATs.
+- 🛡️ **[Declarative Row-Level Security (RLS)](docs/row-level-security.md)**: Sandboxed rule syntax, RBAC, tenant isolation, and client usage.
+- 🔒 **[Envelope Encryption & GDPR Sovereignty](docs/encryption-and-gdpr.md)**: Two-tier AES-256-GCM, cryptographic shredding, and HMAC blind indexing.
+- 🌐 **[Production Reverse-Proxy Deployment](docs/reverse-proxy-deployment.md)**: Ready-to-use production templates for [Caddy](deploy/caddy/Caddyfile), [Traefik](deploy/traefik/docker-compose.yml), and [Nginx](deploy/nginx/flarebase.conf).
+
+---
+
 ## 1. About FlareBase, Vision & Core Value Proposition
 
 ### What is FlareBase?
@@ -742,6 +751,11 @@ npx ts-node tests/load-concurrency-performance.test.ts
 
 ## 25. High-Availability & Production Deployment
 
+For complete reverse-proxy architecture guides and tuning recommendations, see **[Production Reverse-Proxy Deployment Guide](docs/reverse-proxy-deployment.md)**. Ready-to-use production configuration templates are provided in the repository:
+- **Caddy (Automatic HTTPS & HTTP/3)**: [`deploy/caddy/Caddyfile`](deploy/caddy/Caddyfile)
+- **Traefik (Container Routing & Let's Encrypt)**: [`deploy/traefik/docker-compose.yml`](deploy/traefik/docker-compose.yml)
+- **Nginx (Virtual Host with SSE / WebSocket Tuning)**: [`deploy/nginx/flarebase.conf`](deploy/nginx/flarebase.conf)
+
 ### Option 1: Reverse Proxy with Nginx (Recommended)
 ```nginx
 upstream flarebase_nodes {
@@ -788,6 +802,11 @@ pm2 reload flarebase
 ---
 
 ## 26. Official SDKs, Browser Drops & AI Agent Integration
+
+FlareBase provides official client SDK packages for modern JavaScript/TypeScript and React ecosystems:
+
+- 📦 **[`@flarebase/client`](packages/client/)**: Standalone, zero-runtime-dependency TypeScript client SDK supporting Node.js 18+, Edge environments, and browsers (ESM, CJS, and IIFE). Includes typed collections, auth, storage, and real-time SSE change data capture.
+- ⚛️ **[`@flarebase/react`](packages/react/)**: Reactive React and Next.js hooks package providing `<FlareBaseProvider>`, `useCollection<T>()` with live SSE synchronization and optimistic UI updates, `useDocument<T>()`, `useAuth()`, and `useStorage()`.
 
 ### Drop-In Browser Script (`/flarebase.js`)
 
