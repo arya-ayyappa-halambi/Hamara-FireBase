@@ -24,7 +24,10 @@
     "build:react": "cd packages/react && npx tsup src/index.ts --format cjs,esm --dts --clean --external react",
     "build": "npm run build:client && npm run build:react && tsc --project tsconfig.json",
     "test": "DB_PATH=:memory: ts-node tests/admin-rbac.test.ts && DB_PATH=:memory: ts-node tests/remote-ott-access.test.ts && DB_PATH=:memory: ts-node tests/tunnel-manager.test.ts && DB_PATH=:memory: ts-node tests/mesh-vpn.test.ts && DB_PATH=:memory: ts-node tests/traffic-topology.test.ts && DB_PATH=:memory: ts-node tests/global-perimeter-lock.test.ts && DB_PATH=:memory: ts-node tests/passkeys.test.ts && DB_PATH=:memory: ts-node tests/magic-link.test.ts && DB_PATH=:memory: ts-node tests/user-sessions.test.ts && DB_PATH=:memory: ts-node tests/user-pats.test.ts && DB_PATH=:memory: ts-node tests/organizations.test.ts && DB_PATH=:memory: ts-node tests/notifications.test.ts && DB_PATH=:memory: ts-node tests/storage-quota.test.ts && DB_PATH=:memory: ts-node tests/project-user-isolation.test.ts && DB_PATH=:memory: ts-node tests/cross-project-isolation.test.ts && DB_PATH=:memory: ts-node tests/vulnerability-hardening.test.ts && DB_PATH=:memory: ts-node tests/project-auth-settings-hardening.test.ts && DB_PATH=:memory: ts-node tests/anti-spam-threat-detection.test.ts && DB_PATH=:memory: ts-node tests/multi-account-device-scoring.test.ts && DB_PATH=:memory: ts-node tests/realtime-threat-detection.test.ts && DB_PATH=:memory: ts-node tests/threat-intelligence-matrix.test.ts && DB_PATH=:memory: ts-node tests/load-concurrency-performance.test.ts && DB_PATH=:memory: ts-node tests/client-sdk.test.ts && ts-node tests/rls-adversarial.test.ts && ts-node tests/react-hooks.test.ts",
-    "reset-admin": "ts-node src/scripts/reset-admin.ts"
+    "reset-admin": "ts-node src/scripts/reset-admin.ts",
+    "test:react:hydration": "ts-node tests/react-nextjs-hydration.test.ts",
+    "test:react:types": "tsc --noEmit -p tests/tsconfig.react-types.json",
+    "test:react": "npm run test:react:hydration && npm run test:react:types && ts-node tests/react-hooks.test.ts"
   },
   "keywords": [
     "flarebase",
@@ -80,6 +83,7 @@
     "@types/dockerode": "^4.0.1",
     "@types/express": "^4.17.21",
     "@types/hpp": "^0.2.7",
+    "@types/jsdom": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.6",
     "@types/localtunnel": "^2.0.4",
     "@types/multer": "^1.4.13",
@@ -91,6 +95,7 @@
     "@types/uuid": "^11.0.0",
     "@types/ws": "^8.18.1",
     "autocannon": "^8.0.0",
+    "jsdom": "^31.0.0",
     "nodemon": "^3.1.4",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

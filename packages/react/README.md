@@ -32,7 +32,8 @@ pnpm add @flarebase/client @flarebase/react
 Wrap your application in `FlareBaseProvider`:
 
 ```tsx
-// app/providers.tsx or index.tsx
+// app/providers.tsx
+"use client";
 import React from 'react';
 import { createClient } from '@flarebase/client';
 import { FlareBaseProvider } from '@flarebase/react';
@@ -85,10 +86,10 @@ export function TaskList() {
       <ul>
         {tasks.map((task) => (
           <li key={task.id}>
-            <span style={{ textDecoration: task.completed ? 'line-through' : 'none' }}>
-              {task.title}
+            <span style={{ textDecoration: task.data.completed ? 'line-through' : 'none' }}>
+              {task.data.title}
             </span>
-            <button onClick={() => update(task.id, { completed: !task.completed })}>
+            <button onClick={() => update(task.id, { completed: !task.data.completed })}>
               Toggle
             </button>
             <button onClick={() => remove(task.id)}>Delete</button>
@@ -119,8 +120,8 @@ export function UserProfile({ userId }: { userId: string }) {
 
   return (
     <div>
-      <h2>{profile.displayName}</h2>
-      <p>{profile.bio}</p>
+      <h2>{profile.data.displayName}</h2>
+      <p>{profile.data.bio}</p>
       <button onClick={() => update({ bio: 'Updated bio!' })}>Update Bio</button>
     </div>
   );
@@ -179,15 +180,15 @@ export function FileUploader() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const res = await upload(file, { isPublic: false });
-    const signedUrl = await getSignedUrl(res.fileKey, 3600);
-    console.log('Secure asset URL:', signedUrl);
+    const res = await upload(file, 'file');
+    const signedUrl = await getSignedUrl(res.filename, 'read', 3600);
+    console.log('Secure asset URL:', signedUrl.url);
   };
 
   return (
     <div>
       <input type="file" onChange={handleUpload} disabled={uploading} />
-      {uploading && <p>Uploading encrypted file...</p>}
+      {uploading && <p>Uploading file...</p>}
     </div>
   );
 }
