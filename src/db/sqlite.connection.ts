@@ -1226,7 +1226,7 @@ export function seedSuperAdminSync(db: Database.Database): void {
 
   for (const acc of seedAccounts) {
     const emailHash = envelopeEncryptionService.hashBlindIndex(acc.email);
-    const existing = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash) as any;
+    const existing = db.prepare('SELECT id FROM users WHERE emailHash = ? OR isSuperAdmin = 1 LIMIT 1').get(emailHash) as any;
 
     if (existing) {
       // Super Admin already provisioned; preserve existing credentials across server restarts

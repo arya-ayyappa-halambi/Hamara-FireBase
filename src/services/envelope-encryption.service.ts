@@ -36,7 +36,21 @@ export class EnvelopeEncryptionService {
     
     if (projectId === 'SYSTEM') {
       const row = db.prepare('SELECT dekEncrypted, dekIv, dekTag FROM system_keys WHERE id = ?').get('SYSTEM') as any;
-      if (row) return this.decryptDek(row.dekEncrypted, row.dekIv, row.dekTag);
+      if (row) {
+        try {
+          return this.decryptDek(row.dekEncrypted, row.dekIv, row.dekTag);
+        } catch {
+          console.warn(`[EnvelopeEncryption] Warning: Unable to decrypt SYSTEM DEK with current Master Key (ENCRYPTION_KEY was rotated). Re-encrypting fresh SYSTEM DEK.`);
+          const newDek = crypto.randomBytes(32);
+          const { encryptedDek, iv, tag } = this.encryptDek(newDek);
+          const now = new Date().toISOString();
+          db.prepare(`
+            UPDATE system_keys SET dekEncrypted = ?, dekIv = ?, dekTag = ?, updatedAt = ?
+            WHERE id = ?
+          `).run(encryptedDek, iv, tag, now, 'SYSTEM');
+          return newDek;
+        }
+      }
 
       const newDek = crypto.randomBytes(32);
       const { encryptedDek, iv, tag } = this.encryptDek(newDek);
@@ -51,7 +65,19 @@ export class EnvelopeEncryptionService {
     const row = db.prepare('SELECT dekEncrypted, dekIv, dekTag FROM project_keys WHERE projectId = ?').get(projectId) as any;
 
     if (row) {
-      return this.decryptDek(row.dekEncrypted, row.dekIv, row.dekTag);
+      try {
+        return this.decryptDek(row.dekEncrypted, row.dekIv, row.dekTag);
+      } catch {
+        console.warn(`[EnvelopeEncryption] Warning: Unable to decrypt Project DEK for "${projectId}" with current Master Key (ENCRYPTION_KEY was rotated). Re-encrypting fresh Project DEK.`);
+        const newDek = crypto.randomBytes(32);
+        const { encryptedDek, iv, tag } = this.encryptDek(newDek);
+        const now = new Date().toISOString();
+        db.prepare(`
+          UPDATE project_keys SET dekEncrypted = ?, dekIv = ?, dekTag = ?, updatedAt = ?
+          WHERE projectId = ?
+        `).run(encryptedDek, iv, tag, now, projectId);
+        return newDek;
+      }
     }
 
     // Generate new 256-bit DEK
@@ -92,12 +118,16 @@ export class EnvelopeEncryptionService {
       return encryptedObj;
     }
 
-    const dek = this.getOrCreateProjectDek(projectId);
-    const decipher = crypto.createDecipheriv('aes-256-gcm', dek, Buffer.from(encryptedObj.iv, 'hex'));
-    decipher.setAuthTag(Buffer.from(encryptedObj.tag, 'hex'));
+    try {
+      const dek = this.getOrCreateProjectDek(projectId);
+      const decipher = crypto.createDecipheriv('aes-256-gcm', dek, Buffer.from(encryptedObj.iv, 'hex'));
+      decipher.setAuthTag(Buffer.from(encryptedObj.tag, 'hex'));
 
-    const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedObj.v, 'hex')), decipher.final()]);
-    return JSON.parse(decrypted.toString('utf8'));
+      const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedObj.v, 'hex')), decipher.final()]);
+      return JSON.parse(decrypted.toString('utf8'));
+    } catch {
+      return encryptedObj;
+    }
   }
   
   // Deterministic Blind Index for lookups (e.g. Email)
