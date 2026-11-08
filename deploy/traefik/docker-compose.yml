@@ -1,0 +1,55 @@
+version: '3.8'
+
+# FlareBase Production Traefik Stack with Automatic Let's Encrypt TLS
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Global HTTP to HTTPS redirection
+      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
+      # Let's Encrypt ACME Configuration
+      - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+      - "--certificatesresolvers.myresolver.acme.email=admin@yourdomain.com"
+      - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "traefik_certificates:/letsencrypt"
+    restart: unless-stopped
+
+  flarebase:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../..:/app
+      - flarebase_data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_PATH=/app/data/flarebase.db
+      - JWT_SECRET=${JWT_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+    command: sh -c "npm ci && npm run build && npm start"
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Routers
+      - "traefik.http.routers.flarebase.rule=Host(`api.yourdomain.com`)"
+      - "traefik.http.routers.flarebase.entrypoints=websecure"
+      - "traefik.http.routers.flarebase.tls.certresolver=myresolver"
+      # Service definition
+      - "traefik.http.services.flarebase.loadbalancer.server.port=3000"
+      # Response Buffering (Disabled for SSE / WebSockets)
+      - "traefik.http.middlewares.flarebase-headers.headers.customresponseheaders.X-Accel-Buffering=no"
+      - "traefik.http.routers.flarebase.middlewares=flarebase-headers"
+
+volumes:
+  traefik_certificates:
+  flarebase_data:
