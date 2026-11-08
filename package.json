@@ -20,8 +20,9 @@
     "setup": "node scripts/setup.js",
     "stop": "node scripts/stop.js",
     "kill": "node scripts/stop.js",
-    "build": "tsc --project tsconfig.json",
-    "test": "DB_PATH=:memory: ts-node tests/admin-rbac.test.ts && DB_PATH=:memory: ts-node tests/remote-ott-access.test.ts && DB_PATH=:memory: ts-node tests/tunnel-manager.test.ts && DB_PATH=:memory: ts-node tests/mesh-vpn.test.ts && DB_PATH=:memory: ts-node tests/traffic-topology.test.ts && DB_PATH=:memory: ts-node tests/global-perimeter-lock.test.ts && DB_PATH=:memory: ts-node tests/passkeys.test.ts && DB_PATH=:memory: ts-node tests/magic-link.test.ts && DB_PATH=:memory: ts-node tests/user-sessions.test.ts && DB_PATH=:memory: ts-node tests/user-pats.test.ts && DB_PATH=:memory: ts-node tests/organizations.test.ts && DB_PATH=:memory: ts-node tests/notifications.test.ts && DB_PATH=:memory: ts-node tests/storage-quota.test.ts && DB_PATH=:memory: ts-node tests/project-user-isolation.test.ts && DB_PATH=:memory: ts-node tests/cross-project-isolation.test.ts && DB_PATH=:memory: ts-node tests/vulnerability-hardening.test.ts && DB_PATH=:memory: ts-node tests/project-auth-settings-hardening.test.ts && DB_PATH=:memory: ts-node tests/anti-spam-threat-detection.test.ts && DB_PATH=:memory: ts-node tests/multi-account-device-scoring.test.ts && DB_PATH=:memory: ts-node tests/realtime-threat-detection.test.ts && DB_PATH=:memory: ts-node tests/threat-intelligence-matrix.test.ts && DB_PATH=:memory: ts-node tests/load-concurrency-performance.test.ts",
+    "build:client": "cd packages/client && npx tsup src/index.ts --format cjs,esm,iife --dts --global-name FlareBase --clean && cp dist/index.global.js ../../public/flarebase.js",
+    "build": "npm run build:client && tsc --project tsconfig.json",
+    "test": "DB_PATH=:memory: ts-node tests/admin-rbac.test.ts && DB_PATH=:memory: ts-node tests/remote-ott-access.test.ts && DB_PATH=:memory: ts-node tests/tunnel-manager.test.ts && DB_PATH=:memory: ts-node tests/mesh-vpn.test.ts && DB_PATH=:memory: ts-node tests/traffic-topology.test.ts && DB_PATH=:memory: ts-node tests/global-perimeter-lock.test.ts && DB_PATH=:memory: ts-node tests/passkeys.test.ts && DB_PATH=:memory: ts-node tests/magic-link.test.ts && DB_PATH=:memory: ts-node tests/user-sessions.test.ts && DB_PATH=:memory: ts-node tests/user-pats.test.ts && DB_PATH=:memory: ts-node tests/organizations.test.ts && DB_PATH=:memory: ts-node tests/notifications.test.ts && DB_PATH=:memory: ts-node tests/storage-quota.test.ts && DB_PATH=:memory: ts-node tests/project-user-isolation.test.ts && DB_PATH=:memory: ts-node tests/cross-project-isolation.test.ts && DB_PATH=:memory: ts-node tests/vulnerability-hardening.test.ts && DB_PATH=:memory: ts-node tests/project-auth-settings-hardening.test.ts && DB_PATH=:memory: ts-node tests/anti-spam-threat-detection.test.ts && DB_PATH=:memory: ts-node tests/multi-account-device-scoring.test.ts && DB_PATH=:memory: ts-node tests/realtime-threat-detection.test.ts && DB_PATH=:memory: ts-node tests/threat-intelligence-matrix.test.ts && DB_PATH=:memory: ts-node tests/load-concurrency-performance.test.ts && DB_PATH=:memory: ts-node tests/client-sdk.test.ts",
     "reset-admin": "ts-node src/scripts/reset-admin.ts"
   },
   "keywords": [
@@ -89,6 +90,7 @@
     "autocannon": "^8.0.0",
     "nodemon": "^3.1.4",
     "ts-node": "^10.9.2",
+    "tsup": "^9.0.0",
     "typescript": "^5.5.3"
   },
   "directories": {

@@ -15,6 +15,7 @@ import 'dotenv/config'; // must be first — loads .env before anything else rea
 
 import express, { Application, Request, Response } from 'express';
 import * as path from 'path';
+import * as fs from 'fs';
 import * as os from 'os';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -181,8 +182,24 @@ function createApp(): Application {
   // ── Network Access Control & Device Tracking Middleware ─────────────────
   app.use(ipAccessControlMiddleware);
 
-  // ── Static Files (Web Dashboard) ───────────────────────────────────────────
+  // ── Serve Compiled FlareBase Browser SDK Bundle ───────────────────────────
   const publicDir = path.resolve(__dirname, '../public');
+  app.get(['/flarebase.js', '/assets/flarebase.js'], (_req, res, next) => {
+    const clientBundle = path.resolve(__dirname, '../packages/client/dist/index.global.js');
+    if (fs.existsSync(clientBundle)) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      return res.sendFile(clientBundle);
+    }
+    const fallback = path.resolve(publicDir, 'flarebase.js');
+    if (fs.existsSync(fallback)) {
+      res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+      return res.sendFile(fallback);
+    }
+    next();
+  });
+
+  // ── Static Files (Web Dashboard) ───────────────────────────────────────────
   app.use(express.static(publicDir, {
     etag: false,
     lastModified: false,

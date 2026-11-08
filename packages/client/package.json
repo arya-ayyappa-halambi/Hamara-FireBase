@@ -1,0 +1,45 @@
+{
+  "name": "@flarebase/client",
+  "version": "1.0.0",
+  "description": "Official TypeScript Client SDK for FlareBase Backend-as-a-Service",
+  "author": "H R Arya Ayyappa Halambi",
+  "license": "MIT",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/index.global.js",
+  "jsdelivr": "./dist/index.global.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs,esm,iife --dts --global-name FlareBase --clean",
+    "build:min": "tsup src/index.ts --format cjs,esm,iife --dts --global-name FlareBase --clean --minify"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "flarebase",
+    "firebase-alternative",
+    "baas",
+    "client",
+    "sdk",
+    "typescript",
+    "realtime",
+    "sqlite",
+    "auth",
+    "storage"
+  ],
+  "dependencies": {}
+}

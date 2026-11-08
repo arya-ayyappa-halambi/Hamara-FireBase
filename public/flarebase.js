@@ -1,262 +1,730 @@
-/**
- * =========================================================
- * FlareBase JavaScript Client SDK (v1.0.0)
- * Lightweight, self-hosted BaaS Client
- * Supports: Auth, Collections CRUD, Row-Level Security Rules,
- * Real-Time SSE sync, File/Biometric Storage, and Error Interceptors.
- * =========================================================
- */
-
-(function (global) {
-  'use strict';
-
-  class FlareBaseClient {
-    constructor(options = {}) {
-      const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
-      this.baseUrl = (options.baseUrl || localStorage.getItem('flarebaseBaseUrl') || defaultOrigin).replace(/\/+$/, '');
-      this.apiKey = options.apiKey || localStorage.getItem('flarebaseApiKey') || 'flarebase_pk_a85e45e984ca9724ca01019954cf2f17';
-      this._token = localStorage.getItem('flarebaseToken') || null;
-      this._user = this._loadStoredUser();
-      this._eventSources = new Map();
-      this._listeners = new Map();
-
-      // Submodules
-      this.auth = new FlareBaseAuthModule(this);
-      this.db = new FlareBaseDatabaseModule(this);
-      this.storage = new FlareBaseStorageModule(this);
+"use strict";
+var FlareBase = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
     }
+    return to;
+  };
+  var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-    _loadStoredUser() {
-      try {
-        const raw = localStorage.getItem('flarebaseUser');
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) {
-        return null;
+  // src/index.ts
+  var index_exports = {};
+  __export(index_exports, {
+    FlareBase: () => FlareBase,
+    FlareBaseAuth: () => FlareBaseAuth,
+    FlareBaseClient: () => FlareBaseClient,
+    FlareBaseCollection: () => FlareBaseCollection,
+    FlareBaseError: () => FlareBaseError,
+    FlareBaseStorage: () => FlareBaseStorage,
+    createClient: () => createClient,
+    default: () => index_default
+  });
+
+  // src/errors.ts
+  var FlareBaseError = class _FlareBaseError extends Error {
+    status;
+    code;
+    data;
+    originalError;
+    isFlareBaseError = true;
+    constructor(message, options = {}) {
+      super(message);
+      this.name = "FlareBaseError";
+      this.status = options.status ?? 0;
+      this.code = options.code ?? (this.status === 0 ? "NETWORK_ERROR" : `HTTP_${this.status}`);
+      this.data = options.data ?? null;
+      this.originalError = options.originalError;
+      if (Error.captureStackTrace) {
+        Error.captureStackTrace(this, _FlareBaseError);
       }
     }
-
-    getBaseUrl() {
-      return this.baseUrl;
+    static fromResponse(status, payload) {
+      const message = payload?.message || payload?.error || `Request failed with HTTP status ${status}`;
+      const code = payload?.code || (status === 401 ? "UNAUTHORIZED" : status === 403 ? "FORBIDDEN" : status === 404 ? "NOT_FOUND" : `HTTP_${status}`);
+      return new _FlareBaseError(message, {
+        status,
+        code,
+        data: payload?.data ?? payload
+      });
     }
-
-    setBaseUrl(url) {
-      const defaultOrigin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : 'http://localhost:3000';
-      this.baseUrl = (url || defaultOrigin).replace(/\/+$/, '');
-      localStorage.setItem('flarebaseBaseUrl', this.baseUrl);
-      this._emit('configChange', { baseUrl: this.baseUrl, apiKey: this.apiKey });
+    static network(originalError, baseUrl) {
+      return new _FlareBaseError(
+        `Network error or FlareBase server unreachable at ${baseUrl}. Please verify host connectivity and server status.`,
+        {
+          status: 0,
+          code: "NETWORK_ERROR",
+          originalError
+        }
+      );
     }
+  };
 
-    getApiKey() {
-      return this.apiKey || localStorage.getItem('flarebaseApiKey') || 'flarebase_pk_a85e45e984ca9724ca01019954cf2f17';
+  // src/auth.ts
+  var FlareBaseAuth = class {
+    client;
+    constructor(client) {
+      this.client = client;
     }
-
-    setApiKey(key) {
-      this.apiKey = (key || '').trim();
-      localStorage.setItem('flarebaseApiKey', this.apiKey);
-      this._emit('configChange', { baseUrl: this.baseUrl, apiKey: this.apiKey });
+    /**
+     * Discover active project authentication configuration and enabled providers.
+     */
+    async getConfig() {
+      return await this.client.request(`/api/v1/project-auth/config?_t=${Date.now()}`, {
+        method: "GET",
+        includeAuth: false
+      });
     }
+    /**
+     * Register a new project end-user.
+     *
+     * @example
+     * const auth = await flare.auth.register({
+     *   email: 'alice@company.com',
+     *   password: 'StrongPassword123!',
+     *   name: 'Alice Cooper'
+     * });
+     */
+    async register(params) {
+      const res = await this.client.request("/api/v1/project-auth/register", {
+        method: "POST",
+        includeAuth: false,
+        body: JSON.stringify(params)
+      });
+      if (res?.token) {
+        this.client.setToken(res.token);
+        if (res.user) this.client.setUser(res.user);
+      }
+      return res;
+    }
+    /**
+     * Sign in an existing project user with email and password.
+     */
+    async login(credentials) {
+      const res = await this.client.request("/api/v1/project-auth/login", {
+        method: "POST",
+        includeAuth: false,
+        body: JSON.stringify(credentials)
+      });
+      if (res?.token) {
+        this.client.setToken(res.token);
+        if (res.user) this.client.setUser(res.user);
+      }
+      return res;
+    }
+    /**
+     * Authenticate with a social OAuth token (Google, Apple, GitHub).
+     */
+    async oauth(provider, token) {
+      const res = await this.client.request(`/api/v1/project-auth/oauth/${encodeURIComponent(provider)}`, {
+        method: "POST",
+        includeAuth: false,
+        body: JSON.stringify({ token })
+      });
+      if (res?.token) {
+        this.client.setToken(res.token);
+        if (res.user) this.client.setUser(res.user);
+      }
+      return res;
+    }
+    /**
+     * Fetch the currently authenticated user's profile and permissions.
+     */
+    async me() {
+      const res = await this.client.request("/api/v1/auth/me", {
+        method: "GET"
+      });
+      const user = res?.user || res;
+      this.client.setUser(user);
+      return user;
+    }
+    /**
+     * Refresh current user session token.
+     */
+    async refresh(refreshToken) {
+      const res = await this.client.request("/api/v1/project-auth/refresh", {
+        method: "POST",
+        includeAuth: false,
+        body: JSON.stringify({ refreshToken })
+      });
+      if (res?.token) {
+        this.client.setToken(res.token);
+      }
+      return res;
+    }
+    /**
+     * Sign out the active user and clear session storage.
+     */
+    async logout() {
+      try {
+        await this.client.request("/api/v1/project-auth/logout", {
+          method: "POST"
+        });
+      } catch (_) {
+      } finally {
+        this.client.clearAuth();
+      }
+      return { success: true };
+    }
+    /**
+     * Request a 6-digit OTP or passwordless magic link email.
+     */
+    async requestMagicLink(email) {
+      return await this.client.request("/api/v1/auth/magic-link/request", {
+        method: "POST",
+        includeAuth: false,
+        body: JSON.stringify({ email })
+      });
+    }
+    /**
+     * Verify a magic link token or 6-digit email OTP.
+     */
+    async verifyMagicLink(tokenOrOtp, email) {
+      const res = await this.client.request("/api/v1/auth/magic-link/verify", {
+        method: "POST",
+        includeAuth: false,
+        body: JSON.stringify({ token: tokenOrOtp, email })
+      });
+      if (res?.token) {
+        this.client.setToken(res.token);
+        if (res.user) this.client.setUser(res.user);
+      }
+      return res;
+    }
+    /**
+     * Export user account data under GDPR / DPDP Right to Data Portability (Article 20).
+     */
+    async exportData() {
+      return await this.client.request("/api/v1/project-auth/export-data", {
+        method: "GET"
+      });
+    }
+    /**
+     * Request account deletion (initiates cryptographic shredding & cooling-off window).
+     */
+    async deleteAccount() {
+      const res = await this.client.request("/api/v1/project-auth/account", {
+        method: "DELETE"
+      });
+      this.client.clearAuth();
+      return res;
+    }
+    /**
+     * Convenience helpers
+     */
+    getUser() {
+      return this.client.getUser();
+    }
+    isAuthenticated() {
+      return !!this.client.getToken();
+    }
+  };
 
+  // src/storage.ts
+  var FlareBaseStorage = class {
+    client;
+    constructor(client) {
+      this.client = client;
+    }
+    /**
+     * Upload a file, blob, or asset to the project storage vault.
+     *
+     * @param fileOrBlob File or Blob object (e.g. from <input type="file"> or buffer).
+     * @param fieldName Form field name (default: 'file').
+     * @param customFilename Optional custom filename override.
+     */
+    async upload(fileOrBlob, fieldName = "file", customFilename) {
+      if (typeof FormData === "undefined") {
+        throw new Error("FlareBase: FormData is not available in this environment.");
+      }
+      const formData = new FormData();
+      if (customFilename && typeof Blob !== "undefined" && fileOrBlob instanceof Blob && !(fileOrBlob instanceof File)) {
+        formData.append(fieldName, fileOrBlob, customFilename);
+      } else {
+        formData.append(fieldName, fileOrBlob, customFilename);
+      }
+      return await this.client.request("/api/v1/storage/upload", {
+        method: "POST",
+        body: formData
+      });
+    }
+    /**
+     * Generate a time-limited cryptographically signed upload or download URL.
+     *
+     * @param filename Target file name.
+     * @param operation 'read' | 'write'
+     * @param expiresIn Expiration TTL in seconds (default 3600).
+     */
+    async getSignedUrl(filename, operation = "read", expiresIn = 3600) {
+      return await this.client.request("/api/v1/storage/signed-url", {
+        method: "POST",
+        body: JSON.stringify({ filename, operation, expiresIn })
+      });
+    }
+    /**
+     * Retrieve active storage usage metrics and quota ceiling.
+     */
+    async getQuota() {
+      return await this.client.request("/api/v1/storage/quota", {
+        method: "GET"
+      });
+    }
+    /**
+     * List assets in the project storage vault.
+     */
+    async list() {
+      const res = await this.client.request("/api/v1/storage/assets", {
+        method: "GET"
+      });
+      if (Array.isArray(res)) return res;
+      if (res && Array.isArray(res.assets)) return res.assets;
+      return res?.data || [];
+    }
+    /**
+     * Delete an asset by ID from the storage vault.
+     */
+    async delete(id) {
+      return await this.client.request(`/api/v1/storage/assets/${encodeURIComponent(id)}`, {
+        method: "DELETE"
+      });
+    }
+    /**
+     * Build a permanent or direct asset stream URL.
+     */
+    getAssetUrl(idOrFilename) {
+      if (!idOrFilename) return "";
+      if (idOrFilename.startsWith("http://") || idOrFilename.startsWith("https://")) {
+        return idOrFilename;
+      }
+      const clean = idOrFilename.replace(/^\/+/, "");
+      return `${this.client.baseUrl}/api/v1/storage/assets/${encodeURIComponent(clean)}/file`;
+    }
+  };
+
+  // src/collection.ts
+  function normalizeDoc(raw) {
+    if (!raw || typeof raw !== "object") return raw;
+    const id = String(raw.id || raw._id || "");
+    const { _id, _ownerId, _projectId, _createdAt, _updatedAt, _rules, ...fields } = raw;
+    const data = raw.data && typeof raw.data === "object" ? raw.data : fields;
+    return {
+      id,
+      _id: id,
+      data,
+      _createdAt,
+      _updatedAt,
+      _rules,
+      ...fields
+    };
+  }
+  var FlareBaseCollection = class {
+    name;
+    client;
+    constructor(client, name) {
+      this.client = client;
+      this.name = name;
+    }
+    /**
+     * Insert a new document with optional declarative Row-Level Security rules.
+     *
+     * @example
+     * await todos.insert(
+     *   { title: 'Write tests', completed: false },
+     *   { read: 'auth.uid == resource.userId', write: 'auth.uid == resource.userId' }
+     * );
+     */
+    async insert(data, rules) {
+      const docPayload = { ...data || {} };
+      if (rules && typeof rules === "object") {
+        docPayload._rules = rules;
+      }
+      const endpoint = `/api/v1/db/collections/${encodeURIComponent(this.name)}/documents`;
+      const res = await this.client.request(endpoint, {
+        method: "POST",
+        body: JSON.stringify({ data: docPayload })
+      });
+      return normalizeDoc(res);
+    }
+    /**
+     * Fetch a single document by ID.
+     */
+    async get(id) {
+      if (!id) throw new Error("FlareBase: Document ID is required.");
+      const endpoint = `/api/v1/db/collections/${encodeURIComponent(this.name)}/documents/${encodeURIComponent(id)}`;
+      const res = await this.client.request(endpoint, {
+        method: "GET"
+      });
+      return normalizeDoc(res);
+    }
+    /**
+     * Query documents in this collection with filtering, sorting, and pagination.
+     */
+    async query(options = {}) {
+      const params = new URLSearchParams();
+      if (options.limit !== void 0) params.set("limit", String(options.limit));
+      if (options.offset !== void 0) params.set("offset", String(options.offset));
+      if (options.sortBy) params.set("sortBy", options.sortBy);
+      if (options.sortOrder) params.set("sortOrder", options.sortOrder);
+      if (options.filter) {
+        params.set("filter", typeof options.filter === "string" ? options.filter : JSON.stringify(options.filter));
+      }
+      if (options.where) {
+        params.set("where", JSON.stringify(options.where));
+      }
+      const queryStr = params.toString() ? `?${params.toString()}` : "";
+      const endpoint = `/api/v1/db/collections/${encodeURIComponent(this.name)}/documents${queryStr}`;
+      const res = await this.client.request(endpoint, {
+        method: "GET"
+      });
+      let rawItems = [];
+      let total;
+      if (Array.isArray(res)) {
+        rawItems = res;
+        total = res.length;
+      } else if (res && Array.isArray(res.items)) {
+        rawItems = res.items;
+        total = res.total;
+      } else if (res && Array.isArray(res.documents)) {
+        rawItems = res.documents;
+        total = res.total || res.documents.length;
+      } else if (res && Array.isArray(res.data)) {
+        rawItems = res.data;
+        total = res.total || res.data.length;
+      }
+      return {
+        items: rawItems.map((item) => normalizeDoc(item)),
+        total: total ?? rawItems.length,
+        limit: options.limit,
+        offset: options.offset
+      };
+    }
+    /**
+     * Alias for query()
+     */
+    async list(options = {}) {
+      return this.query(options);
+    }
+    /**
+     * Update fields on an existing document.
+     */
+    async update(id, fields) {
+      if (!id) throw new Error("FlareBase: Document ID is required for update.");
+      const endpoint = `/api/v1/db/collections/${encodeURIComponent(this.name)}/documents/${encodeURIComponent(id)}`;
+      const res = await this.client.request(endpoint, {
+        method: "PATCH",
+        body: JSON.stringify({ data: fields })
+      });
+      return normalizeDoc(res);
+    }
+    /**
+     * Delete a document by ID.
+     */
+    async delete(id) {
+      if (!id) throw new Error("FlareBase: Document ID is required for deletion.");
+      const endpoint = `/api/v1/db/collections/${encodeURIComponent(this.name)}/documents/${encodeURIComponent(id)}`;
+      await this.client.request(endpoint, {
+        method: "DELETE"
+      });
+      return { success: true, id };
+    }
+    /**
+     * Subscribe to real-time Change Data Capture (CDC) events via Server-Sent Events (SSE).
+     * Supports both browser EventSource and Node.js ReadableStream fetch readers natively.
+     *
+     * @param callback Handler receiving INSERT, UPDATE, and DELETE events in real-time.
+     * @param errorCallback Optional error or disconnect callback.
+     * @returns Unsubscribe function to terminate the stream.
+     */
+    onSnapshot(callback, errorCallback) {
+      const apiKey = this.client.apiKey;
+      const token = this.client.getToken();
+      const query = new URLSearchParams();
+      if (apiKey) query.set("apiKey", apiKey);
+      if (token) query.set("token", token);
+      const sseUrl = `${this.client.baseUrl}/api/v1/db/collections/${encodeURIComponent(this.name)}/realtime?${query.toString()}`;
+      if (typeof globalThis.EventSource !== "undefined") {
+        const EventSourceClass = globalThis.EventSource;
+        const es = new EventSourceClass(sseUrl);
+        es.onmessage = (event) => {
+          try {
+            const payload = JSON.parse(event.data);
+            if (payload && payload.document) {
+              payload.document = normalizeDoc(payload.document);
+            }
+            callback(payload);
+          } catch (e) {
+            if (errorCallback) errorCallback(e);
+          }
+        };
+        es.onerror = (err) => {
+          if (errorCallback) errorCallback(err);
+        };
+        return () => {
+          es.close();
+        };
+      }
+      const abortController = new AbortController();
+      let isTerminated = false;
+      (async () => {
+        try {
+          const headers = {
+            "Accept": "text/event-stream",
+            "Cache-Control": "no-cache"
+          };
+          if (apiKey) headers["x-flarebase-api-key"] = apiKey;
+          if (token) headers["Authorization"] = `Bearer ${token}`;
+          const res = await fetch(sseUrl, {
+            headers,
+            signal: abortController.signal
+          });
+          if (!res.ok || !res.body) {
+            throw new Error(`SSE stream connection failed with HTTP ${res.status}`);
+          }
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          while (!isTerminated) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const blocks = buffer.split("\n\n");
+            buffer = blocks.pop() || "";
+            for (const block of blocks) {
+              const lines = block.split("\n");
+              let dataLine = "";
+              for (const line of lines) {
+                if (line.startsWith("data: ")) {
+                  dataLine = line.slice(6).trim();
+                }
+              }
+              if (dataLine) {
+                try {
+                  const parsed = JSON.parse(dataLine);
+                  if (parsed && parsed.document) {
+                    parsed.document = normalizeDoc(parsed.document);
+                  }
+                  callback(parsed);
+                } catch (e) {
+                }
+              }
+            }
+          }
+        } catch (err) {
+          if (!isTerminated && errorCallback && err.name !== "AbortError") {
+            errorCallback(err);
+          }
+        }
+      })();
+      return () => {
+        isTerminated = true;
+        try {
+          abortController.abort();
+        } catch (_) {
+        }
+      };
+    }
+  };
+
+  // src/client.ts
+  var FlareBaseClient = class {
+    baseUrl;
+    apiKey;
+    projectId;
+    pat;
+    _token = null;
+    _user = null;
+    _prefix;
+    _listeners = /* @__PURE__ */ new Map();
+    _onAuthChangeCallback;
+    _onErrorCallback;
+    auth;
+    storage;
+    constructor(options = {}) {
+      const isBrowser = typeof window !== "undefined" && typeof window.location !== "undefined";
+      const defaultOrigin = isBrowser && window.location.origin ? window.location.origin : "http://localhost:3000";
+      this._prefix = options.storageKeyPrefix || "flarebase_";
+      this.baseUrl = (options.baseUrl || this._getStoredItem("baseUrl") || defaultOrigin).replace(/\/+$/, "");
+      this.apiKey = (options.apiKey || this._getStoredItem("apiKey") || "").trim();
+      this.projectId = options.projectId || this._getStoredItem("projectId") || null;
+      this.pat = options.pat || this._getStoredItem("pat") || null;
+      this._onAuthChangeCallback = options.onAuthChange;
+      this._onErrorCallback = options.onError;
+      this._token = options.token || this._getStoredItem("token") || null;
+      this._user = this._loadStoredUser();
+      this.auth = new FlareBaseAuth(this);
+      this.storage = new FlareBaseStorage(this);
+    }
+    // ── Database Collection Accessor ───────────────────────────────────────────
+    /**
+     * Access a typed document collection
+     * @example
+     * const todos = flare.collection<Todo>('todos');
+     * const list = await todos.query({ limit: 10 });
+     */
+    collection(name) {
+      return new FlareBaseCollection(this, name);
+    }
+    // ── Token & Session Management ─────────────────────────────────────────────
     getToken() {
-      return this._token || localStorage.getItem('flarebaseToken') || null;
+      return this._token;
     }
-
     setToken(token) {
       this._token = token;
       if (token) {
-        localStorage.setItem('flarebaseToken', token);
+        this._setStoredItem("token", token);
       } else {
-        localStorage.removeItem('flarebaseToken');
+        this._removeStoredItem("token");
       }
-      this._emit('authChange', { token: this._token, user: this._user });
+      this._notifyAuthChange();
     }
-
     getUser() {
-      return this._user || this._loadStoredUser();
+      return this._user;
     }
-
     setUser(user) {
       this._user = user;
       if (user) {
-        localStorage.setItem('flarebaseUser', JSON.stringify(user));
+        this._setStoredItem("user", JSON.stringify(user));
       } else {
-        localStorage.removeItem('flarebaseUser');
+        this._removeStoredItem("user");
       }
-      this._emit('authChange', { token: this._token, user: this._user });
+      this._notifyAuthChange();
     }
-
     clearAuth() {
       this._token = null;
       this._user = null;
-      localStorage.removeItem('flarebaseToken');
-      localStorage.removeItem('flarebaseUser');
-      this._emit('authChange', { token: null, user: null });
+      this._removeStoredItem("token");
+      this._removeStoredItem("user");
+      this._notifyAuthChange();
     }
-
-    /**
-     * Helper to prepare standard headers for FlareBase API calls
-     */
-    /**
-     * Compute stable, client-side hardware & canvas device fingerprint
-     */
+    setApiKey(apiKey) {
+      this.apiKey = apiKey.trim();
+      this._setStoredItem("apiKey", this.apiKey);
+    }
+    setPat(pat) {
+      this.pat = pat ? pat.trim() : null;
+      if (this.pat) {
+        this._setStoredItem("pat", this.pat);
+      } else {
+        this._removeStoredItem("pat");
+      }
+    }
+    // ── Hardware / Device Fingerprinting ───────────────────────────────────────
     getDeviceFingerprint() {
-      if (typeof window === 'undefined') return 'server_or_node_client';
+      if (typeof window === "undefined") return "server_or_node_client";
       try {
         const parts = [
-          navigator.userAgent || '',
-          (window.screen ? window.screen.width + 'x' + window.screen.height + 'x' + (window.screen.colorDepth || 24) : 'unknown_screen'),
+          navigator.userAgent || "",
+          window.screen ? `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth || 24}` : "screen",
           navigator.hardwareConcurrency || 4,
-          navigator.language || 'en',
-          new Date().getTimezoneOffset()
+          navigator.language || "en",
+          (/* @__PURE__ */ new Date()).getTimezoneOffset()
         ];
-
-        // Canvas fingerprint
         try {
-          const canvas = document.createElement('canvas');
+          const canvas = document.createElement("canvas");
           canvas.width = 200;
           canvas.height = 50;
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.getContext("2d");
           if (ctx) {
-            ctx.textBaseline = 'top';
-            ctx.font = '14px Arial';
-            ctx.fillStyle = '#f60';
+            ctx.textBaseline = "top";
+            ctx.font = "14px Arial";
+            ctx.fillStyle = "#f60";
             ctx.fillRect(125, 1, 62, 20);
-            ctx.fillStyle = '#069';
-            ctx.fillText('FlareBase,did:1.0', 2, 15);
-            ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
-            ctx.fillText('FlareBase,did:1.0', 4, 17);
-            parts.push(canvas.toDataURL().slice(-50));
+            ctx.fillStyle = "#069";
+            ctx.fillText("FlareBase,did:1.0", 2, 15);
+            parts.push(canvas.toDataURL().slice(-40));
           }
-        } catch (_) {}
-
+        } catch (_) {
+        }
         let hash = 0;
-        const str = parts.join('|||');
+        const str = parts.join("|||");
         for (let i = 0; i < str.length; i++) {
-          const char = str.charCodeAt(i);
-          hash = ((hash << 5) - hash) + char;
+          hash = (hash << 5) - hash + str.charCodeAt(i);
           hash |= 0;
         }
-        return 'dfp_' + Math.abs(hash).toString(16) + '_' + (navigator.hardwareConcurrency || 4);
-      } catch (e) {
-        return 'dfp_fallback_' + Date.now();
+        return `dfp_${Math.abs(hash).toString(16)}_${navigator.hardwareConcurrency || 4}`;
+      } catch (_) {
+        return `dfp_fallback_${Date.now()}`;
       }
     }
-
-    /**
-     * Helper to prepare standard headers for FlareBase API calls
-     */
-    getHeaders(customHeaders = {}, includeAuth = true) {
-      const headers = {
-        'Accept': 'application/json',
-        ...customHeaders
-      };
-
-      const apiKey = this.getApiKey();
-      if (apiKey) {
-        headers['x-flare-api-key'] = apiKey;
-        headers['x-flarebase-api-key'] = apiKey;
-      }
-
-      const deviceFp = this.getDeviceFingerprint();
-      if (deviceFp) {
-        headers['x-device-fingerprint'] = deviceFp;
-      }
-
-      if (includeAuth) {
-        const token = this.getToken();
-        if (token) {
-          headers['Authorization'] = `Bearer ${token}`;
-        }
-      }
-
-      return headers;
-    }
-
-    /**
-     * Standardized HTTP Request wrapper with FlareBase response parsing & error handling
-     */
+    // ── Unified Request Dispatcher ─────────────────────────────────────────────
     async request(endpoint, options = {}) {
-      const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
-      const method = options.method || 'GET';
-      const isFormData = options.body instanceof FormData;
-      
-      const defaultHeaders = isFormData ? {} : { 'Content-Type': 'application/json' };
-      const headers = this.getHeaders({ ...defaultHeaders, ...options.headers }, options.includeAuth !== false);
-
-      const fetchOptions = {
-        method,
-        headers,
-        ...options
+      const url = endpoint.startsWith("http") ? endpoint : `${this.baseUrl}${endpoint.startsWith("/") ? "" : "/"}${endpoint}`;
+      const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+      const headers = {
+        "Accept": "application/json",
+        ...options.headers || {}
       };
-
-      if (options.body && !isFormData && typeof options.body === 'object') {
-        fetchOptions.body = JSON.stringify(options.body);
+      if (!isFormData && !headers["Content-Type"]) {
+        headers["Content-Type"] = "application/json";
       }
-
+      if (this.apiKey) {
+        headers["x-flarebase-api-key"] = this.apiKey;
+        headers["x-flare-api-key"] = this.apiKey;
+      }
+      if (this.projectId) {
+        headers["x-flarebase-project-id"] = this.projectId;
+        headers["x-flare-project-id"] = this.projectId;
+      }
+      if (this.pat) {
+        headers["x-flarebase-pat"] = this.pat;
+      }
+      const dfp = this.getDeviceFingerprint();
+      if (dfp) {
+        headers["x-device-fingerprint"] = dfp;
+      }
+      if (options.includeAuth !== false && this._token) {
+        headers["Authorization"] = `Bearer ${this._token}`;
+      }
+      const fetchOptions = {
+        ...options,
+        headers
+      };
       let response;
       try {
         response = await fetch(url, fetchOptions);
-      } catch (networkError) {
-        console.warn(`[FlareBase Network Error] ${method} ${url}:`, networkError);
-        const errObj = {
-          success: false,
-          status: 0,
-          message: `Network error or FlareBase server unreachable at ${this.baseUrl}. Please check server status.`,
-          isNetworkError: true,
-          originalError: networkError
-        };
-        this._notifyError(errObj);
-        throw errObj;
+      } catch (networkErr) {
+        const error = FlareBaseError.network(networkErr, this.baseUrl);
+        this._emit("error", error);
+        if (this._onErrorCallback) this._onErrorCallback(error);
+        throw error;
       }
-
-      let responseData = null;
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
+      let payload = null;
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
         try {
-          responseData = await response.json();
-        } catch (e) {
-          responseData = null;
+          payload = await response.json();
+        } catch (_) {
+          payload = null;
         }
       } else {
         const text = await response.text();
-        responseData = { success: response.ok, message: text, data: text };
+        payload = { success: response.ok, message: text, data: text };
       }
-
       if (!response.ok) {
-        const errorMessage = responseData?.message || responseData?.error || `HTTP ${response.status}: ${response.statusText}`;
-        const errorObj = {
-          success: false,
-          status: response.status,
-          message: errorMessage,
-          data: responseData?.data || null,
-          response: responseData
-        };
-
-        if (response.status === 401) {
-          console.warn('[FlareBase] Unauthorized (401). Session may have expired.');
-          this._emit('unauthorized', errorObj);
-        } else if (response.status === 403) {
-          console.warn('[FlareBase] Forbidden (403). Insufficient row or role permissions.');
-          this._emit('forbidden', errorObj);
-        }
-
-        this._notifyError(errorObj);
-        throw errorObj;
+        const error = FlareBaseError.fromResponse(response.status, payload);
+        this._emit("error", error);
+        if (this._onErrorCallback) this._onErrorCallback(error);
+        if (response.status === 401) this._emit("unauthorized", error);
+        if (response.status === 403) this._emit("forbidden", error);
+        throw error;
       }
-
-      return responseData || { success: true, data: null };
-    }
-
-    _notifyError(err) {
-      if (typeof window !== 'undefined' && window.CampusUtils && typeof window.CampusUtils.showToast === 'function') {
-        const msg = err.message || 'An error occurred connecting to FlareBase';
-        // Avoid spamming duplicate connection warnings
-        if (!window._lastFlareBaseToast || Date.now() - window._lastFlareBaseToast > 3000) {
-          window._lastFlareBaseToast = Date.now();
-          window.CampusUtils.showToast(msg, err.status === 401 || err.status === 403 ? 'warning' : 'error');
-        }
+      const apiResponse = payload;
+      if (apiResponse && typeof apiResponse === "object" && "data" in apiResponse) {
+        return apiResponse.data;
       }
+      return payload;
     }
-
+    // ── Event Bus ──────────────────────────────────────────────────────────────
     on(event, callback) {
       if (!this._listeners.has(event)) {
         this._listeners.set(event, []);
@@ -264,637 +732,77 @@
       this._listeners.get(event).push(callback);
       return () => this.off(event, callback);
     }
-
     off(event, callback) {
-      if (!this._listeners.has(event)) return;
-      const list = this._listeners.get(event).filter(cb => cb !== callback);
-      this._listeners.set(event, list);
+      const list = this._listeners.get(event);
+      if (!list) return;
+      this._listeners.set(event, list.filter((cb) => cb !== callback));
     }
-
     _emit(event, payload) {
-      if (this._listeners.has(event)) {
-        this._listeners.get(event).forEach(cb => {
-          try { cb(payload); } catch (e) { console.error(`Error in FlareBase event listener [${event}]:`, e); }
-        });
-      }
-    }
-  }
-
-  /**
-   * =========================================================
-   * 1. FlareBase Auth Module (Project Auth)
-   * =========================================================
-   */
-  class FlareBaseAuthModule {
-    constructor(client) {
-      this.client = client;
-    }
-
-    /**
-     * Discover Auth Configuration (OAuth providers, registration mode)
-     * GET /api/v1/project-auth/config
-     */
-    async getConfig() {
-      return await this.client.request(`/api/v1/project-auth/config?_t=${Date.now()}`, {
-        method: 'GET',
-        includeAuth: false
-      });
-    }
-
-    /**
-     * Strict Provider Security Guard:
-     * Verifies that the requested authentication provider is actively enabled on FlareBase.
-     * Throws an error immediately if disabled, preventing any frontend bypass or hardcoded execution.
-     */
-    async verifyProviderEnabled(provider) {
-      const norm = (provider || 'email').toLowerCase().trim();
-      const configRes = await this.getConfig();
-      const cfg = configRes.data || configRes;
-      if (!cfg) {
-        throw new Error('FlareBase project authentication policies could not be loaded.');
-      }
-
-      if (norm === 'email' || norm === 'password' || norm === 'email_password') {
-        if (cfg.email === false) {
-          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
-        }
-        if (cfg.email && typeof cfg.email === 'object' && cfg.email.enabled === false) {
-          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
-        }
-        if (cfg.emailAuth === false || cfg.emailPassword === false || cfg.allowEmailAuth === false || cfg.emailPasswordEnabled === false || cfg.emailEnabled === false) {
-          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
-        }
-        if (Array.isArray(cfg.enabledProviders) && !cfg.enabledProviders.some(p => ['email', 'password', 'email_password'].includes(String(p).toLowerCase()))) {
-          throw new Error('FlareBase Security Violation: Email & Password authentication is disabled on the FlareBase server for this project.');
-        }
-        return true;
-      }
-
-      if (['google', 'github', 'apple'].includes(norm)) {
-        const pCfg = cfg[norm];
-        if (pCfg === false) {
-          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
-        }
-        if (pCfg && typeof pCfg === 'object' && pCfg.enabled === false) {
-          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
-        }
-        if (cfg[`${norm}Auth`] === false || cfg[`${norm}Enabled`] === false || cfg[`allow${norm.charAt(0).toUpperCase() + norm.slice(1)}`] === false) {
-          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
-        }
-        if (cfg.oauth && typeof cfg.oauth === 'object' && (cfg.oauth[norm] === false || cfg.oauth[norm]?.enabled === false)) {
-          throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
-        }
-        if (pCfg === true || (pCfg && typeof pCfg === 'object' && pCfg.enabled === true) || (Array.isArray(cfg.enabledProviders) && cfg.enabledProviders.map(p => String(p).toLowerCase()).includes(norm))) {
-          return true;
-        }
-        throw new Error(`FlareBase Security Violation: ${norm.toUpperCase()} authentication is disabled on the FlareBase server for this project.`);
-      }
-
-      if (norm === 'anonymous') {
-        if (cfg.anonymous === false || cfg.allowAnonymous === false || (cfg.anonymous && typeof cfg.anonymous === 'object' && cfg.anonymous.enabled === false)) {
-          throw new Error('FlareBase Security Violation: Anonymous authentication is disabled on the FlareBase server for this project.');
-        }
-        if (cfg.anonymous === true || cfg.allowAnonymous === true || (cfg.anonymous && typeof cfg.anonymous === 'object' && cfg.anonymous.enabled === true) || (Array.isArray(cfg.enabledProviders) && cfg.enabledProviders.includes('anonymous'))) {
-          return true;
-        }
-        throw new Error('FlareBase Security Violation: Anonymous authentication is disabled on the FlareBase server for this project.');
-      }
-
-      return true;
-    }
-
-    /**
-     * User Sign-Up
-     * POST /api/v1/project-auth/register
-     */
-    async signUp({ email, password, name, role = 'user' }) {
-      await this.verifyProviderEnabled('email');
-
-      const res = await this.client.request('/api/v1/project-auth/register', {
-        method: 'POST',
-        includeAuth: false,
-        body: { email, password, name, role }
-      });
-
-      if (res && res.data && res.data.token) {
-        this.client.setToken(res.data.token);
-        if (res.data.user) this.client.setUser(res.data.user);
-      }
-      return res;
-    }
-
-    /**
-     * User Sign-In (Password)
-     * POST /api/v1/project-auth/login
-     */
-    async signIn({ email, password }) {
-      await this.verifyProviderEnabled('email');
-
-      const res = await this.client.request('/api/v1/project-auth/login', {
-        method: 'POST',
-        includeAuth: false,
-        body: { email, password }
-      });
-
-      const payload = res.data || res;
-      if (payload && payload.token) {
-        this.client.setToken(payload.token);
-        if (payload.user) {
-          this.client.setUser(payload.user);
-        }
-      }
-      return res;
-    }
-
-    /**
-     * OAuth Sign-In (Google, Apple, GitHub)
-     * POST /api/v1/project-auth/oauth/<provider>
-     */
-    async signInWithOAuth(provider, tokenOrPayload) {
-      await this.verifyProviderEnabled(provider);
-
-      const token = typeof tokenOrPayload === 'string' ? tokenOrPayload : tokenOrPayload.token;
-      const res = await this.client.request(`/api/v1/project-auth/oauth/${provider}`, {
-        method: 'POST',
-        includeAuth: false,
-        body: { token }
-      });
-
-      const payload = res.data || res;
-      if (payload && payload.token) {
-        this.client.setToken(payload.token);
-        if (payload.user) {
-          this.client.setUser(payload.user);
-        }
-      }
-      return res;
-    }
-
-    /**
-     * Sign out current user
-     */
-    signOut() {
-      this.client.clearAuth();
-      return { success: true };
-    }
-
-    getCurrentUser() {
-      return this.client.getUser();
-    }
-
-    isAuthenticated() {
-      return !!this.client.getToken();
-    }
-  }
-
-  /**
-   * =========================================================
-   * 2 & 3. FlareBase Database Module (Collections, CRUD, RLS & SSE)
-   * =========================================================
-   */
-  class FlareBaseDatabaseModule {
-    constructor(client) {
-      this.client = client;
-    }
-
-    collection(collectionName) {
-      return new FlareBaseCollectionReference(this.client, collectionName);
-    }
-  }
-
-  class FlareBaseCollectionReference {
-    constructor(client, collectionName) {
-      this.client = client;
-      this.name = collectionName;
-    }
-
-    /**
-     * Insert Document with optional Row-Level Security Rules
-     * POST /api/v1/db/collections/<collection_name>/documents
-     * Body: { data: { ...fields, _rules: { read: "...", write: "..." } } }
-     */
-    async insert(data, rules = null) {
-      const docPayload = { ...(data || {}) };
-      if (rules && typeof rules === 'object') {
-        docPayload._rules = rules;
-      }
-
-      const res = await this.client.request(`/api/v1/db/collections/${encodeURIComponent(this.name)}/documents`, {
-        method: 'POST',
-        body: { data: docPayload }
-      });
-      return res;
-    }
-
-    /**
-     * Query Documents with pagination and sorting
-     * GET /api/v1/db/collections/<collection_name>/documents?limit=50&offset=0&sortBy=_createdAt&sortOrder=desc
-     */
-    async list(options = {}) {
-      const params = new URLSearchParams();
-      if (options.limit !== undefined) params.set('limit', options.limit);
-      if (options.offset !== undefined) params.set('offset', options.offset);
-      if (options.sortBy) params.set('sortBy', options.sortBy);
-      if (options.sortOrder) params.set('sortOrder', options.sortOrder);
-      if (options.filter) params.set('filter', typeof options.filter === 'string' ? options.filter : JSON.stringify(options.filter));
-
-      const queryStr = params.toString() ? `?${params.toString()}` : '';
-      const res = await this.client.request(`/api/v1/db/collections/${encodeURIComponent(this.name)}/documents${queryStr}`, {
-        method: 'GET'
-      });
-      return res;
-    }
-
-    /**
-     * Fetch Single Document
-     * GET /api/v1/db/collections/<collection_name>/documents/<id>
-     */
-    async get(id) {
-      if (!id) throw new Error('Document ID is required');
-      const res = await this.client.request(`/api/v1/db/collections/${encodeURIComponent(this.name)}/documents/${encodeURIComponent(id)}`, {
-        method: 'GET'
-      });
-      return res;
-    }
-
-    /**
-     * Update Document
-     * PATCH /api/v1/db/collections/<collection_name>/documents/<id>
-     * Body: { data: { ...fieldsToUpdate } }
-     */
-    async update(id, fieldsToUpdate) {
-      if (!id) throw new Error('Document ID is required');
-      const res = await this.client.request(`/api/v1/db/collections/${encodeURIComponent(this.name)}/documents/${encodeURIComponent(id)}`, {
-        method: 'PATCH',
-        body: { data: fieldsToUpdate }
-      });
-      return res;
-    }
-
-    /**
-     * Delete Document
-     * DELETE /api/v1/db/collections/<collection_name>/documents/<id>
-     */
-    async delete(id) {
-      if (!id) throw new Error('Document ID is required');
-      const res = await this.client.request(`/api/v1/db/collections/${encodeURIComponent(this.name)}/documents/${encodeURIComponent(id)}`, {
-        method: 'DELETE'
-      });
-      return res;
-    }
-
-    /**
-     * Real-Time Data Sync via Server-Sent Events (SSE)
-     * GET /api/v1/db/collections/<collection_name>/realtime?apiKey=<apiKey>
-     */
-    subscribe(onMessageCallback, onErrorCallback) {
-      const apiKey = this.client.getApiKey();
-      const sseUrl = `${this.client.baseUrl}/api/v1/db/collections/${encodeURIComponent(this.name)}/realtime?apiKey=${encodeURIComponent(apiKey)}`;
-
-      try {
-        const sse = new EventSource(sseUrl);
-
-        sse.onopen = () => {
-          console.log(`[FlareBase SSE] Connected to collection: ${this.name}`);
-        };
-
-        sse.onmessage = (event) => {
+      const list = this._listeners.get(event);
+      if (list) {
+        for (const cb of list) {
           try {
-            const change = JSON.parse(event.data);
-            // change: { type: 'INSERT' | 'UPDATE' | 'DELETE', document: {...} }
-            if (typeof onMessageCallback === 'function') {
-              onMessageCallback(change);
-            }
-          } catch (err) {
-            console.error(`[FlareBase SSE] Error parsing realtime event for ${this.name}:`, err);
+            cb(payload);
+          } catch (e) {
+            console.error(`[FlareBaseClient] Listener error on [${event}]:`, e);
           }
-        };
-
-        sse.onerror = (err) => {
-          console.warn(`[FlareBase SSE] Realtime connection warning for ${this.name}:`, err);
-          if (typeof onErrorCallback === 'function') {
-            onErrorCallback(err);
-          }
-        };
-
-        // Return unsubscribe function
-        return () => {
-          sse.close();
-          console.log(`[FlareBase SSE] Closed connection to collection: ${this.name}`);
-        };
-      } catch (err) {
-        console.error(`[FlareBase SSE] Failed to initialize EventSource for ${this.name}:`, err);
-        return () => {};
+        }
       }
     }
-  }
-
-  /**
-   * =========================================================
-   * 4. FlareBase File & Biometric Storage Module
-   * =========================================================
-   */
-  class FlareBaseStorageModule {
-    constructor(client) {
-      this.client = client;
-    }
-
-    /**
-     * Upload File or Biometric Data
-     * POST /api/v1/storage/upload
-     * Body: FormData with field 'file' or 'biometric'
-     */
-    async upload(fileOrBlob, fieldName = 'file', customFilename = null) {
-      const formData = new FormData();
-      if (customFilename && fileOrBlob instanceof Blob && !(fileOrBlob instanceof File)) {
-        formData.append(fieldName, fileOrBlob, customFilename);
-      } else {
-        formData.append(fieldName, fileOrBlob);
+    _notifyAuthChange() {
+      const state = { token: this._token, user: this._user };
+      this._emit("authChange", state);
+      if (this._onAuthChangeCallback) {
+        try {
+          this._onAuthChangeCallback(state);
+        } catch (e) {
+          console.error("[FlareBaseClient] onAuthChange error:", e);
+        }
       }
-
-      const res = await this.client.request('/api/v1/storage/upload', {
-        method: 'POST',
-        body: formData
-      });
-      return res;
     }
-
-    /**
-     * Get Asset Download / Stream URL
-     * GET /api/v1/storage/assets/<filename>
-     */
-    getAssetUrl(filename) {
-      if (!filename) return '';
-      if (filename.startsWith('http')) return filename;
-      const cleanName = filename.replace(/^\/+/, '');
-      return `${this.client.baseUrl}/api/v1/storage/assets/${encodeURIComponent(cleanName)}`;
-    }
-  }
-
-  // Create singleton instance
-  const FlareBase = new FlareBaseClient();
-
-  // Export to global / window scope and module.exports
-  if (typeof globalThis !== 'undefined') {
-    globalThis.FlareBaseClient = FlareBaseClient;
-    globalThis.FlareBase = FlareBase;
-  }
-  if (typeof global !== 'undefined') {
-    global.FlareBaseClient = FlareBaseClient;
-    global.FlareBase = FlareBase;
-  }
-  if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { FlareBaseClient, FlareBase };
-  }
-
-  // ─── Floating FlareBase Status & Settings Widget ─────────────────
-  function initFlareBaseWidget() {
-    if (typeof document === 'undefined' || document.getElementById('flarebase-status-widget')) return;
-
-    const widget = document.createElement('div');
-    widget.id = 'flarebase-status-widget';
-    widget.innerHTML = `
-      <style>
-        #flarebase-status-widget {
-          position: fixed;
-          bottom: 16px;
-          right: 16px;
-          z-index: 9999;
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-        }
-        .flarebase-badge {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          background: #0f172a;
-          color: #f8fafc;
-          padding: 8px 14px;
-          border-radius: 9999px;
-          box-shadow: 0 4px 14px rgba(0,0,0,0.25);
-          border: 1px solid #334155;
-          cursor: pointer;
-          font-size: 12px;
-          font-weight: 500;
-          transition: all 0.2s ease;
-          user-select: none;
-        }
-        .flarebase-badge:hover {
-          background: #1e293b;
-          transform: translateY(-2px);
-          box-shadow: 0 6px 20px rgba(0,0,0,0.35);
-        }
-        .flarebase-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #10b981;
-          box-shadow: 0 0 8px #10b981;
-          display: inline-block;
-        }
-        .flarebase-dot.offline {
-          background: #ef4444;
-          box-shadow: 0 0 8px #ef4444;
-        }
-        .flarebase-dot.warning {
-          background: #f59e0b;
-          box-shadow: 0 0 8px #f59e0b;
-        }
-        .flarebase-modal {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.6);
-          backdrop-filter: blur(4px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 10000;
-        }
-        .flarebase-modal.hidden { display: none; }
-        .flarebase-card {
-          background: #0f172a;
-          color: #f8fafc;
-          border: 1px solid #334155;
-          border-radius: 14px;
-          padding: 24px;
-          width: 100%;
-          max-width: 440px;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.5);
-        }
-        .flarebase-card h3 {
-          margin: 0 0 8px 0;
-          font-size: 18px;
-          font-weight: 600;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          color: #38bdf8;
-        }
-        .flarebase-card p {
-          margin: 0 0 16px 0;
-          font-size: 13px;
-          color: #94a3b8;
-          line-height: 1.4;
-        }
-        .flarebase-form-group {
-          margin-bottom: 14px;
-        }
-        .flarebase-form-group label {
-          display: block;
-          font-size: 12px;
-          font-weight: 500;
-          color: #cbd5e1;
-          margin-bottom: 6px;
-        }
-        .flarebase-input {
-          width: 100%;
-          box-sizing: border-box;
-          padding: 9px 12px;
-          border-radius: 8px;
-          background: #1e293b;
-          border: 1px solid #475569;
-          color: #fff;
-          font-size: 13px;
-          outline: none;
-        }
-        .flarebase-input:focus {
-          border-color: #38bdf8;
-        }
-        .flarebase-actions {
-          display: flex;
-          justify-content: flex-end;
-          gap: 10px;
-          margin-top: 20px;
-        }
-        .flarebase-btn {
-          padding: 8px 16px;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 500;
-          cursor: pointer;
-          border: none;
-          transition: 0.2s;
-        }
-        .flarebase-btn-primary {
-          background: #0284c7;
-          color: white;
-        }
-        .flarebase-btn-primary:hover {
-          background: #0369a1;
-        }
-        .flarebase-btn-secondary {
-          background: #334155;
-          color: #cbd5e1;
-        }
-        .flarebase-btn-secondary:hover {
-          background: #475569;
-        }
-      </style>
-      <div class="flarebase-badge" id="flarebase-toggle-badge" title="Click to configure FlareBase Connection">
-        <span class="flarebase-dot" id="flarebase-status-dot"></span>
-        <span id="flarebase-badge-text">FlareBase: Ready</span>
-      </div>
-      <div class="flarebase-modal hidden" id="flarebase-settings-modal">
-        <div class="flarebase-card">
-          <h3>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            FlareBase BaaS Settings
-          </h3>
-          <p>Configure self-hosted FlareBase host URL and project API key.</p>
-          <div class="flarebase-form-group">
-            <label>Server Base URL</label>
-            <input type="text" class="flarebase-input" id="flarebase-cfg-url" value="${FlareBase.getBaseUrl()}" placeholder="http://localhost:3000">
-          </div>
-          <div class="flarebase-form-group">
-            <label>Project API Key (x-flarebase-api-key)</label>
-            <input type="text" class="flarebase-input" id="flarebase-cfg-key" value="${FlareBase.getApiKey()}" placeholder="Enter FlareBase Project API Key">
-          </div>
-          <div class="flarebase-form-group">
-            <label>Current User JWT Session</label>
-            <div style="font-size: 11px; color:#94a3b8; word-break:break-all; max-height:60px; overflow-y:auto; background:#1e293b; padding:8px; border-radius:6px;">
-              ${FlareBase.getToken() ? `Authenticated (${FlareBase.getUser()?.email || 'Active User'})` : 'No active session (Guest)'}
-            </div>
-          </div>
-          <div class="flarebase-actions">
-            <button class="flarebase-btn flarebase-btn-secondary" id="flarebase-cfg-test">Test Connection</button>
-            <button class="flarebase-btn flarebase-btn-secondary" id="flarebase-cfg-close">Cancel</button>
-            <button class="flarebase-btn flarebase-btn-primary" id="flarebase-cfg-save">Save Settings</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(widget);
-
-    const badge = document.getElementById('flarebase-toggle-badge');
-    const modal = document.getElementById('flarebase-settings-modal');
-    const closeBtn = document.getElementById('flarebase-cfg-close');
-    const saveBtn = document.getElementById('flarebase-cfg-save');
-    const testBtn = document.getElementById('flarebase-cfg-test');
-    const dot = document.getElementById('flarebase-status-dot');
-    const badgeText = document.getElementById('flarebase-badge-text');
-
-    badge.addEventListener('click', () => {
-      document.getElementById('flarebase-cfg-url').value = FlareBase.getBaseUrl();
-      document.getElementById('flarebase-cfg-key').value = FlareBase.getApiKey();
-      modal.classList.remove('hidden');
-    });
-
-    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) modal.classList.add('hidden');
-    });
-
-    saveBtn.addEventListener('click', () => {
-      const newUrl = document.getElementById('flarebase-cfg-url').value;
-      const newKey = document.getElementById('flarebase-cfg-key').value;
-      FlareBase.setBaseUrl(newUrl);
-      FlareBase.setApiKey(newKey);
-      modal.classList.add('hidden');
-      if (window.CampusUtils && window.CampusUtils.showToast) {
-        window.CampusUtils.showToast('FlareBase settings saved!', 'success');
-      }
-      checkStatus();
-    });
-
-    async function checkStatus() {
+    // ── Storage Helpers ────────────────────────────────────────────────────────
+    _getStoredItem(key) {
+      if (typeof localStorage === "undefined") return null;
       try {
-        const config = await FlareBase.auth.getConfig();
-        dot.className = 'flarebase-dot';
-        badgeText.textContent = 'FlareBase: Online';
-        return true;
-      } catch (err) {
-        if (!FlareBase.getApiKey()) {
-          dot.className = 'flarebase-dot warning';
-          badgeText.textContent = 'FlareBase: Set API Key';
-        } else {
-          dot.className = 'flarebase-dot offline';
-          badgeText.textContent = 'FlareBase: Offline';
-        }
-        return false;
+        return localStorage.getItem(`${this._prefix}${key}`);
+      } catch (_) {
+        return null;
       }
     }
-
-    testBtn.addEventListener('click', async () => {
-      testBtn.disabled = true;
-      testBtn.textContent = 'Testing...';
-      const ok = await checkStatus();
-      testBtn.disabled = false;
-      testBtn.textContent = 'Test Connection';
-      if (window.CampusUtils && window.CampusUtils.showToast) {
-        window.CampusUtils.showToast(ok ? 'Connected to FlareBase successfully!' : 'Could not reach FlareBase. Ensure server is running on configured host.', ok ? 'success' : 'error');
+    _setStoredItem(key, value) {
+      if (typeof localStorage === "undefined") return;
+      try {
+        localStorage.setItem(`${this._prefix}${key}`, value);
+      } catch (_) {
       }
-    });
-
-    // Check status periodically
-    setTimeout(checkStatus, 500);
-  }
-
-  if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initFlareBaseWidget);
-    } else {
-      initFlareBaseWidget();
     }
-  }
+    _removeStoredItem(key) {
+      if (typeof localStorage === "undefined") return;
+      try {
+        localStorage.removeItem(`${this._prefix}${key}`);
+      } catch (_) {
+      }
+    }
+    _loadStoredUser() {
+      const raw = this._getStoredItem("user");
+      if (!raw) return null;
+      try {
+        return JSON.parse(raw);
+      } catch (_) {
+        return null;
+      }
+    }
+  };
 
-})(typeof window !== 'undefined' ? window : this);
+  // src/index.ts
+  function createClient(options = {}) {
+    return new FlareBaseClient(options);
+  }
+  var FlareBase = FlareBaseClient;
+  var index_default = FlareBaseClient;
+  if (typeof globalThis !== "undefined") {
+    globalThis.FlareBaseClient = FlareBaseClient;
+    globalThis.createFlareBaseClient = createClient;
+  }
+  return __toCommonJS(index_exports);
+})();
