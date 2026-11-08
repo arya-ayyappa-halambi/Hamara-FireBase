@@ -6,8 +6,9 @@ dist/
 
 # Environment secrets
 .env
-.env.local
-.env.*.local
+.env.*
+!.env.example
+test.env
 
 # Editor
 .vscode/
@@ -23,22 +24,17 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Phase 2 — biometric uploads (runtime artefacts, not source)
-uploads/biometrics/
+# Runtime data and uploads
+data/
+uploads/
+workspaces/
+backups/
 
-# Phase 3 — hoster runtime directories
-workspaces/        # extracted project files for hosted deployments
-uploads/projects/  # temporary zip files (deleted after extraction)
-
-# Phase 4 — SQLite database files
+# SQLite database files
 *.db
 *.db*
 *.sqlite
 *.sqlite*
-test.env
-
-# Local Backups
-backups/
 
 # RSA / Signing Keys
 keys/

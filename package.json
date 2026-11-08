@@ -32,8 +32,8 @@
     "auth",
     "typescript"
   ],
-  "private": true,
-  "license": "UNLICENSED",
+  "private": false,
+  "license": "MIT",
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1108.0",
     "@ngrok/ngrok": "^1.7.0",

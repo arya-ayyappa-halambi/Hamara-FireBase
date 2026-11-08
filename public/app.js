@@ -3815,7 +3815,7 @@ async function initGoogleAuth() {
     // 1-Click Demo Admin Login Visibility
     const demoContainer = document.getElementById('container-demo-admin-login');
     if (demoContainer) {
-      if (data && data.demoLoginEnabled === false) {
+      if (!data || data.demoLoginEnabled === false) {
         demoContainer.classList.add('hidden');
         demoContainer.style.display = 'none';
       } else {

@@ -12,7 +12,7 @@ FlareBase is a lightweight, zero-configuration, production-grade Firebase-like B
 ![OAuth 2.0](https://img.shields.io/badge/OAuth_2.0-Google_|_Apple_|_GitHub-2496ed?style=flat-square&logo=google&logoColor=white)
 ![Security Rules](https://img.shields.io/badge/Security-Row_Level_&_Collection-10b981?style=flat-square&logo=auth0&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-macOS_|_Windows_|_Linux-informational?style=flat-square)
-![License](https://img.shields.io/badge/License-Proprietary-red?style=flat-square)
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg?style=flat-square)
 
 ---
 
@@ -43,6 +43,8 @@ FlareBase is a lightweight, zero-configuration, production-grade Firebase-like B
 24. [Performance Verification & Automated Test Suites](#24-performance-verification--automated-test-suites)
 25. [High-Availability & Production Deployment](#25-high-availability--production-deployment)
 26. [Official SDKs, Browser Drops & AI Agent Integration](#26-official-sdks-browser-drops--ai-agent-integration)
+27. [Contributing](#contributing)
+28. [License](#license)
 
 ---
 
@@ -125,11 +127,17 @@ To stop the server, terminate all background processes, and release all network 
 - **Linux & POSIX**: Run `./stop.sh` or `npm run stop` / `npm run kill`.
 - **Developer Console**: Open **Server Hosting & Network Center** (`/#tab-server-hosting`) and click **"Stop Server"**.
 
-### Pre-Seeded Super Admin & 1-Click Demo Login
+### Super Admin Provisioning & Environment Security
 
-FlareBase enforces strict administrative isolation out of the box. Rather than promoting the first arbitrary registering user to Super Admin, FlareBase automatically provisions a dedicated, pre-seeded **Super Admin account** during initial database setup:
-- **Default Super Admin**: `admin@flarebase.dev` (Password: `Admin@123`) or `admin@flarebase.dev` (Password: `AdminPass123!`).
-- **1-Click Demo Access**: Click the amber **Demo Login (`admin@flarebase.dev`)** quick-fill button on the main login screen (`/`) or the dedicated Super Admin Portal (`/admin-login.html`) for instant administrative access.
+FlareBase enforces strict administrative isolation out of the box. Rather than promoting the first arbitrary registering user to Super Admin, FlareBase provisions a dedicated administrative root during initial setup:
+
+- **Development Mode (`NODE_ENV === 'development'`)**:
+  - **Default Super Admin**: `admin@flarebase.dev` (Password: `Admin@123`).
+  - **1-Click Demo Access**: Amber **1-Click Admin Login (Demo)** quick-fill buttons appear on the login screen (`/`) and Super Admin Portal (`/admin-login.html`) for fast local developer onboarding.
+- **Production Mode (`NODE_ENV === 'production'`)**:
+  - **Zero-Trust Lockdown**: 1-click demo login UI and predictable fallback passwords are automatically disabled.
+  - **Cryptographic First-Boot**: If no `ADMIN_PASSWORD` (or `INITIAL_ADMIN_PASSWORD`) is provided in `.env`, FlareBase generates a secure, cryptographically random 32-character initial password on first startup, hashes it using Argon2id, logs it once to the startup console, and appends it to `.env` (`INITIAL_ADMIN_PASSWORD`).
+  - **Persistence**: Subsequent restarts preserve the configured administrator password and never overwrite existing database credentials.
 - **Role Isolation**: User registration via `/api/v1/auth/register` provisions standard developer accounts with zero privilege escalation risk.
 
 ---
@@ -818,8 +826,19 @@ pm2 reload flarebase
 
 ---
 
+## Contributing
+
+We welcome contributions from developers, security researchers, and teams worldwide!
+
+To report issues, propose enhancements, or submit pull requests:
+1. Review our [Contributing Guide](CONTRIBUTING.md) for code standards and workflow instructions.
+2. Ensure all automated test suites pass cleanly (`npm test`).
+3. Submit a pull request or open an issue on GitHub.
+
+For sensitive security reports, please use private GitHub Security Advisories.
+
+---
+
 ## License
 
-Proprietary & Confidential. All rights reserved.
-
-Unauthorized copying, modification, distribution, public hosting, or commercial use of this codebase is strictly prohibited.
+This project is licensed under the [MIT License](LICENSE) — Copyright (c) 2026 H R Arya Ayyappa Halambi.

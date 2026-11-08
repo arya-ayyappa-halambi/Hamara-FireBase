@@ -212,7 +212,7 @@
           labelStatus.textContent = 'System Operational — Super Admin Portal';
         }
 
-        if (configRes.data && configRes.data.demoLoginEnabled === false && btnFillDemo) {
+        if ((!configRes.data || configRes.data.demoLoginEnabled === false) && btnFillDemo) {
           btnFillDemo.style.display = 'none';
         }
       } catch (_) {

@@ -38,13 +38,24 @@ export function globalErrorHandler(
   _next: NextFunction,
 ): void {
   const hostHeader = (req?.headers?.host || '').toLowerCase();
+  const forwardedHost = ((req?.headers?.['x-forwarded-host'] as string) || '').toLowerCase();
+  const effectiveHost = forwardedHost || hostHeader;
+  const cleanHost = effectiveHost.replace(/:\d+$/, '');
+  const isPrivateOrLocal =
+    cleanHost === 'localhost' ||
+    cleanHost === '127.0.0.1' ||
+    cleanHost === '::1' ||
+    cleanHost.endsWith('.local') ||
+    cleanHost.endsWith('.localhost') ||
+    /^10\./.test(cleanHost) ||
+    /^192\.168\./.test(cleanHost) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(cleanHost);
   const isTunnel = Boolean(
     req?.headers?.['cf-connecting-ip'] ||
-    req?.headers?.['x-forwarded-proto'] ||
-    req?.headers?.['x-forwarded-host'] ||
-    hostHeader.includes('.trycloudflare.com') ||
-    hostHeader.includes('.loca.lt') ||
-    hostHeader.includes('.ngrok')
+    cleanHost.includes('.trycloudflare.com') ||
+    cleanHost.includes('.loca.lt') ||
+    cleanHost.includes('.ngrok') ||
+    (req?.headers?.['x-forwarded-proto'] && !isPrivateOrLocal)
   );
   const isDev = process.env.NODE_ENV === 'development' && !isTunnel;
 

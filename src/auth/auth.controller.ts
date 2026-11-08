@@ -51,7 +51,7 @@ export async function getConfig(req: Request, res: Response, next: NextFunction)
       data: {
         googleAuthEnabled: isGoogleActive,
         googleClientId,
-        demoLoginEnabled: settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true,
+        demoLoginEnabled: (process.env.NODE_ENV === 'development') && (settings ? (settings.demoLoginEnabled === 1 || settings.demoLoginEnabled === true) : true),
         magicLinkAuthEnabled: settings ? (settings.magicLinkAuthEnabled === 1 || settings.magicLinkAuthEnabled === true) : false,
         passkeyAuthEnabled: settings ? (settings.passkeyAuthEnabled === 1 || settings.passkeyAuthEnabled === true) : false
       }

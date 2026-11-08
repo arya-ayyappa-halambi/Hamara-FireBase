@@ -1194,11 +1194,31 @@ export function cleanupDemoAccounts(db: Database.Database): void {
 }
 
 export function seedSuperAdminSync(db: Database.Database): void {
+  const isProd = process.env.NODE_ENV === 'production';
+  let adminPassword = 'Admin@123';
+  let adminHash = '$argon2id$v=19$m=65536,t=3,p=4$g1kG9Px+z38UC1XP24sY8A$bOBjiO4MgUEPjTspstH2LwiN8E5kayW8MiIeROz/shI';
+  let isGeneratedPassword = false;
+
+  if (isProd) {
+    if (process.env.ADMIN_PASSWORD || process.env.INITIAL_ADMIN_PASSWORD) {
+      adminPassword = (process.env.ADMIN_PASSWORD || process.env.INITIAL_ADMIN_PASSWORD)!.trim();
+    } else {
+      adminPassword = crypto.randomBytes(16).toString('hex');
+      isGeneratedPassword = true;
+    }
+    const { execFileSync } = require('child_process');
+    try {
+      adminHash = execFileSync(process.execPath, ['-e', `require('argon2').hash(${JSON.stringify(adminPassword)}).then(h => process.stdout.write(h))`], { encoding: 'utf8' }).trim();
+    } catch (e: any) {
+      console.error('Failed to hash admin password synchronously in production:', e.message);
+    }
+  }
+
   const seedAccounts = [
     {
       email: 'admin@flarebase.dev',
-      pass: 'Admin@123',
-      hash: '$argon2id$v=19$m=65536,t=3,p=4$g1kG9Px+z38UC1XP24sY8A$bOBjiO4MgUEPjTspstH2LwiN8E5kayW8MiIeROz/shI'
+      pass: adminPassword,
+      hash: adminHash
     },
   ];
 
@@ -1207,32 +1227,56 @@ export function seedSuperAdminSync(db: Database.Database): void {
   for (const acc of seedAccounts) {
     const emailHash = envelopeEncryptionService.hashBlindIndex(acc.email);
     const existing = db.prepare('SELECT id FROM users WHERE emailHash = ?').get(emailHash) as any;
-    
+
+    if (existing) {
+      // Super Admin already provisioned; preserve existing credentials across server restarts
+      return;
+    }
+
     const encEmail = JSON.stringify(envelopeEncryptionService.encryptField(acc.email, 'SYSTEM'));
     const encName = JSON.stringify(envelopeEncryptionService.encryptField('Super Admin', 'SYSTEM'));
     const now = new Date().toISOString();
 
-    if (existing) {
-      db.prepare(`
-        UPDATE users 
-        SET passwordHash = ?, isSuperAdmin = 1, email = ?, emailHash = ?, name = ?, updatedAt = ?
-        WHERE id = ?
-      `).run(acc.hash, encEmail, emailHash, encName, now, existing.id);
+    const adminId = uuidv4();
+    db.prepare(`
+      INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?)
+    `).run(adminId, encEmail, emailHash, encName, acc.hash, now, now);
+
+    // Auto-create Default Project for Super Admin
+    const keys = generateProjectKeys();
+    const projId = uuidv4();
+    db.prepare(`
+      INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
+      VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?, ?)
+    `).run(projId, adminId, keys.anonKeyHash, keys.serviceKeyHash, now, now);
+
+    if (isProd) {
+      if (isGeneratedPassword) {
+        try {
+          const envPath = path.resolve(process.cwd(), '.env');
+          if (fs.existsSync(envPath)) {
+            let envContent = fs.readFileSync(envPath, 'utf8');
+            if (!envContent.includes('INITIAL_ADMIN_PASSWORD=')) {
+              envContent += `\n# Generated Super Admin Password for First Boot\nINITIAL_ADMIN_PASSWORD=${acc.pass}\n`;
+              fs.writeFileSync(envPath, envContent, 'utf8');
+            }
+          }
+        } catch (_) {}
+      }
+
+      console.log('================================================================');
+      console.log('👑 FLAREBASE PRODUCTION FIRST-BOOT: SUPER ADMIN PROVISIONED');
+      console.log(`👤 Admin Email:    ${acc.email}`);
+      console.log(`🔐 Admin Password: ${acc.pass}`);
+      if (isGeneratedPassword) {
+        console.log('📝 Stored in:      .env (INITIAL_ADMIN_PASSWORD)');
+      }
+      console.log('⚠️  Store these credentials securely and update them after initial login!');
+      console.log(`🔑 Anon Key:       ${keys.anonKey}`);
+      console.log(`🔑 Service Key:    ${keys.serviceKey}`);
+      console.log('================================================================');
     } else {
-      const adminId = uuidv4();
-      db.prepare(`
-        INSERT INTO users (id, email, emailHash, name, passwordHash, isSuperAdmin, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, 1, ?, ?)
-      `).run(adminId, encEmail, emailHash, encName, acc.hash, now, now);
-
-      // Auto-create Default Project for Super Admin
-      const keys = generateProjectKeys();
-      const projId = uuidv4();
-      db.prepare(`
-        INSERT INTO projects (id, ownerId, name, apiKeyHash, serviceKeyHash, createdAt, updatedAt)
-        VALUES (?, ?, 'Super Admin Default Project', ?, ?, ?, ?)
-      `).run(projId, adminId, keys.anonKeyHash, keys.serviceKeyHash, now, now);
-
       console.log(`👑 Super Admin account seeded: ${acc.email}`);
       console.log(`🔑 Anon Key: ${keys.anonKey}`);
       console.log(`🔑 Service Key: ${keys.serviceKey}`);
